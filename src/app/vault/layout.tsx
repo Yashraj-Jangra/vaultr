@@ -40,7 +40,7 @@ function VaultShell({ children }: { children: React.ReactNode }) {
           onSearchOpen={() => setPaletteOpen(true)}
           onGeneratorOpen={() => {
             // Will navigate to generator panel — handled by page
-            window.location.href = "/generator";
+          window.location.href = "/vault/generator";
           }}
         />
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">

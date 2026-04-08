@@ -77,21 +77,22 @@
 
 ---
 
-## Sprint 3 — Advanced Password Generator
+## Sprint 3 — Advanced Password Generator ✅
 
-- [ ] Redesigned dedicated generator view (`/vault?panel=generator` or `/generator`)
-- [ ] **Generator modes (tabs)**:
-  - [ ] **Random** — charset-based (current, enhanced)
-  - [ ] **Passphrase** — EFF word list, configurable count (3–6 words), separator (- . _ space)
-  - [ ] **PIN** — numeric only, 4–12 digits
-  - [ ] **Pattern** — custom format string (`LL-ddd-SS` where L=letter, d=digit, S=symbol)
-- [ ] **Pronounceable** toggle — alternates vowel/consonant for readability
-- [ ] **Strength meter bar** — zxcvbn-style: Weak · Fair · Strong · Very Strong
-- [ ] **Estimated crack time** display (e.g. "centuries at 10B guesses/sec")
-- [ ] **Session history carousel** — last 5 generated passwords (memory only, never saved)
-- [ ] **"Use in new entry"** shortcut button
-- [ ] Character exclusion list (e.g. exclude `0`, `O`, `l`, `1` for readability)
-- [ ] Min-count guarantees (at least 2 uppercase, 1 symbol, etc.)
+- [x] Dedicated generator view at `/generator`
+- [x] **Generator modes (tabs)**:
+  - [x] **Random** — charset-based with full controls
+  - [x] **Passphrase** — EFF word list (200 words), configurable count (3–8 words), separator (- . _ space none)
+  - [x] **PIN** — numeric only, 4–12 digits
+  - [x] **Pattern** — custom format string (`L`=lower, `U`=upper, `d`=digit, `S`=symbol, `*`=any, literal otherwise)
+- [x] **Pronounceable** toggle — alternates vowel/consonant for readability
+- [x] **Strength meter bar** — 4-level: Weak · Fair · Strong · Very Strong
+- [x] **Estimated crack time** display (@ 10B guesses/sec, entropy-based)
+- [x] **Session history** — last 5 generated passwords (memory only, never saved or stored)
+- [x] Character exclusion list (e.g. exclude `0`, `O`, `l`, `1` for readability)
+- [x] Min-count guarantees (at least N uppercase, digits, symbols)
+- [x] Generator linked in sidebar nav (Wand icon)
+- [x] Auto-regenerates live on any option change
 
 ---
 

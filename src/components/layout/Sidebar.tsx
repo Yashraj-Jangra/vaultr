@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Shield, KeyRound, Folder, Star, Heart, Settings,
   ChevronLeft, ChevronRight, Plus, Fingerprint,
-  LayoutDashboard, Inbox
+  LayoutDashboard, Inbox, Wand2
 } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useVault } from "@/context/VaultContext";
@@ -18,11 +18,13 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/vault",             label: "All Items",     icon: <LayoutDashboard className="w-4 h-4" /> },
-  { href: "/vault/favorites",   label: "Favorites",     icon: <Star className="w-4 h-4" /> },
+  { href: "/vault",               label: "All Items",     icon: <LayoutDashboard className="w-4 h-4" /> },
+  { href: "/vault/favorites",     label: "Favorites",     icon: <Star className="w-4 h-4" /> },
   { href: "/vault/authenticator", label: "Authenticator", icon: <Fingerprint className="w-4 h-4" /> },
-  { href: "/health",            label: "Health",        icon: <Heart className="w-4 h-4" /> },
+  { href: "/vault/generator",     label: "Generator",     icon: <Wand2 className="w-4 h-4" /> },
+  { href: "/health",              label: "Health",        icon: <Heart className="w-4 h-4" /> },
 ];
+
 
 interface SidebarProps {
   onNewEntry?: () => void;
