@@ -1,0 +1,14 @@
+
+> skillbox-coder@0.1.0 lint
+> eslint
+
+
+C:\Users\jangr\Desktop\skillbox-coder\src\components\VaultEntryForm.tsx
+  7:64  warning  'ChevronDown' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\jangr\Desktop\skillbox-coder\src\hooks\useWeb3Auth.ts
+  10:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+Ô£û 2 problems (0 errors, 2 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

@@ -1,56 +1,90 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-  User 
+  sendPasswordResetEmail,
+  User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
 
+const FRIENDLY: Record<string, string> = {
+  'auth/invalid-credential':     'Incorrect email or password.',
+  'auth/user-not-found':         'No account with that email.',
+  'auth/wrong-password':         'Incorrect password.',
+  'auth/email-already-in-use':   'An account with this email already exists.',
+  'auth/weak-password':          'Password must be at least 6 characters.',
+  'auth/invalid-email':          'Please enter a valid email address.',
+  'auth/popup-closed-by-user':   'Sign-in cancelled.',
+  'auth/network-request-failed': 'Network error — check your connection.',
+};
+
+function friendly(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in err) {
+    return FRIENDLY[(err as { code: string }).code] ?? 'Something went wrong. Try again.';
+  }
+  return 'Something went wrong. Try again.';
+}
+
 export const useFirebaseAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user,             setUser]             = useState<User | null>(null);
+  const [isAuthLoading,    setIsAuthLoading]    = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error,            setError]            = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      setIsAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   const login = async (email: string, pass: string) => {
-    setIsAuthenticating(true);
-    setError(null);
+    setIsAuthenticating(true); setError(null);
     try {
       await signInWithEmailAndPassword(auth, email, pass);
-    } catch (err: unknown) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to login');
-    } finally {
-      setIsAuthenticating(false);
-    }
+    } catch (err) {
+      setError(friendly(err));
+    } finally { setIsAuthenticating(false); }
   };
 
   const register = async (email: string, pass: string) => {
-    setIsAuthenticating(true);
-    setError(null);
+    setIsAuthenticating(true); setError(null);
     try {
       await createUserWithEmailAndPassword(auth, email, pass);
-    } catch (err: unknown) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to register');
-    } finally {
-      setIsAuthenticating(false);
+    } catch (err) {
+      setError(friendly(err));
+    } finally { setIsAuthenticating(false); }
+  };
+
+  const googleLogin = async () => {
+    setIsAuthenticating(true); setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      setError(friendly(err));
+    } finally { setIsAuthenticating(false); }
+  };
+
+  const resetPassword = async (email: string): Promise<boolean> => {
+    setError(null);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (err) {
+      setError(friendly(err));
+      return false;
     }
   };
 
-  const logout = async () => {
-    await signOut(auth);
-  };
+  const logout = async () => { await signOut(auth); };
 
-  return { user, isAuthenticating, error, login, register, logout };
+  return { user, isAuthLoading, isAuthenticating, error, login, register, googleLogin, resetPassword, logout };
 };

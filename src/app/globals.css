@@ -36,3 +36,55 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+
+@keyframes shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+@keyframes slide-in-from-bottom-2 {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.animate-in { animation-fill-mode: both; }
+.slide-in-from-bottom-2 { animation-name: slide-in-from-bottom-2; }
+.fade-in { animation-name: fade-in; }
+.duration-200 { animation-duration: 200ms; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Unlock screen */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-6px); }
+  30%       { transform: translateX(5px); }
+  45%       { transform: translateX(-4px); }
+  60%       { transform: translateX(3px); }
+  75%       { transform: translateX(-2px); }
+}
+
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.06); }
+  70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+
+@keyframes unlock-open {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  40%  { transform: translateY(-4px) scale(1.05); opacity: 0.8; }
+  100% { transform: translateY(-20px) scale(0.9); opacity: 0; }
+}
+
+.animate-fade-up   { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-shake     { animation: shake 0.45s ease both; }
+.animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+.animate-unlock-open { animation: unlock-open 0.5s cubic-bezier(0.4,0,0.2,1) forwards; }
