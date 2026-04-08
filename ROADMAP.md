@@ -1,4 +1,4 @@
-# SecureVault — Feature Roadmap & Progress
+#  — Feature Roadmap & Progress
 
 > Legend: `[ ]` Todo · `[/]` In Progress · `[x]` Done · `[-]` Deferred
 
@@ -32,7 +32,7 @@
   - [ ] Search query state + fuzzy filter
 - [ ] **`src/app/vault/layout.tsx`** — vault shell (wraps sidebar + topbar)
 - [ ] **`Sidebar.tsx`** — persistent left nav (desktop)
-  - [ ] Logo + "SecureVault" wordmark
+  - [ ] Logo + "" wordmark
   - [ ] Nav links: All Items, Favorites, Authenticator, Health, Generator
   - [ ] Dynamic folder list with item counts and expand toggle
   - [ ] Collapse to icon-only mode (64px wide)
@@ -264,7 +264,7 @@
 - [ ] Active sessions view (educational / informational)
 
 ### `/settings/data`
-- [ ] **Export vault** — download `securevault-export-YYYY-MM-DD.json`
+- [ ] **Export vault** — download `-export-YYYY-MM-DD.json`
   - [ ] Option to protect export with separate passphrase
   - [ ] Blobs stay encrypted in export file
 - [ ] **Import vault** — re-upload export file, re-encrypt under current key

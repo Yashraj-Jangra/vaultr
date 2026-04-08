@@ -2,7 +2,7 @@
 // Admin can update these values from the admin panel
 
 export interface SiteConfig {
-  name: string;          // "SecureVault"
+  name: string;          // "_vaultr"
   tagline: string;       // "Zero-knowledge password manager"
   logoUrl?: string;      // optional custom logo URL
   supportEmail?: string;
@@ -12,7 +12,7 @@ export interface SiteConfig {
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
-  name: "SecureVault",
+  name: "_vaultr",
   tagline: "Zero-knowledge password manager",
   maintenanceMode: false,
 };

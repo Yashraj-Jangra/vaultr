@@ -30,8 +30,8 @@ export const useWeb3Auth = () => {
       const userAddress = await signer.getAddress();
 
       // Standard SIWE Message format
-      const message = `Sign in to SecureVault.\n\nAddress: ${userAddress}\nNonce: ${Date.now()}`;
-      
+      const message = `Sign in to _vaultr.\n\nAddress: ${userAddress}\nNonce: ${Date.now()}`;
+
       // Request signature from the wallet
       const signature = await signer.signMessage(message);
 
@@ -50,13 +50,13 @@ export const useWeb3Auth = () => {
       }
 
       const { token } = data;
-      
+
       if (!token) throw new Error("Authentication backend returned an invalid token.");
 
       // Log into Firebase utilizing the returned token
       await signInWithCustomToken(auth, token);
       setAddress(userAddress);
-      
+
     } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Failed to authenticate");

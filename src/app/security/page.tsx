@@ -4,21 +4,21 @@ import { Shield, ChevronLeft } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Security — SecureVault",
-  description: "How SecureVault encrypts and protects your data.",
+  title: "Security — _vaultr",
+  description: "How _vaultr encrypts and protects your data.",
 };
 
 const SPEC = [
-  { label: "Encryption algorithm",  value: "AES-256-GCM" },
-  { label: "Key derivation",        value: "PBKDF2-SHA-256" },
-  { label: "PBKDF2 iterations",     value: "100,000" },
-  { label: "Salt",                  value: "Firebase UID (user-unique)" },
-  { label: "IV / nonce",            value: "12 bytes, crypto.getRandomValues()" },
-  { label: "Authentication tag",    value: "128 bits (GCM standard)" },
-  { label: "Key length",            value: "256 bits" },
+  { label: "Encryption algorithm", value: "AES-256-GCM" },
+  { label: "Key derivation", value: "PBKDF2-SHA-256" },
+  { label: "PBKDF2 iterations", value: "100,000" },
+  { label: "Salt", value: "Firebase UID (user-unique)" },
+  { label: "IV / nonce", value: "12 bytes, crypto.getRandomValues()" },
+  { label: "Authentication tag", value: "128 bits (GCM standard)" },
+  { label: "Key length", value: "256 bits" },
   { label: "Stored master password", value: "Never — zero-knowledge" },
-  { label: "Data at rest",          value: "Encrypted ciphertext only" },
-  { label: "Encryption location",   value: "Browser (WebCrypto API)" },
+  { label: "Data at rest", value: "Encrypted ciphertext only" },
+  { label: "Encryption location", value: "Browser (WebCrypto API)" },
 ];
 
 export default function SecurityPage() {
@@ -31,7 +31,7 @@ export default function SecurityPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-neutral-500" />
-            <span className="text-[13px] text-neutral-500">SecureVault</span>
+            <span className="text-[13px] text-neutral-500">_vaultr</span>
           </div>
         </div>
       </nav>
@@ -41,7 +41,7 @@ export default function SecurityPage() {
           <p className="text-[11px] text-neutral-600 uppercase tracking-widest">Under the hood</p>
           <h1 className="text-3xl font-semibold text-neutral-100">Security Architecture</h1>
           <p className="text-[14px] text-neutral-500 leading-relaxed max-w-xl">
-            How SecureVault keeps your credentials private — even from us.
+            How _vaultr keeps your credentials private — even from us.
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export default function SecurityPage() {
         <div className="pt-4 border-t border-[var(--border)]">
           <div className="flex gap-6 text-[12px] text-neutral-600">
             <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy Policy</Link>
-            <Link href="/terms"   className="hover:text-neutral-400 transition-colors">Terms of Service</Link>
+            <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms of Service</Link>
           </div>
         </div>
       </main>

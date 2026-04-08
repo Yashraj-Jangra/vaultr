@@ -4,8 +4,8 @@ import { Shield, ChevronLeft } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — SecureVault",
-  description: "How SecureVault handles your data.",
+  title: "Privacy Policy — _vaultr",
+  description: "How _vaultr handles your data.",
 };
 
 export default function PrivacyPage() {
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-neutral-500" />
-            <span className="text-[13px] text-neutral-500">SecureVault</span>
+            <span className="text-[13px] text-neutral-500">_vaultr</span>
           </div>
         </div>
       </nav>
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         </div>
 
         <LegalSection title="Summary">
-          <p>SecureVault is a zero-knowledge password manager. We cannot read your passwords, credentials, or any data stored in your vault. Your master password is never transmitted to our servers.</p>
+          <p>_vaultr is a zero-knowledge password manager. We cannot read your passwords, credentials, or any data stored in your vault. Your master password is never transmitted to our servers.</p>
         </LegalSection>
 
         <LegalSection title="Data We Collect">
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
 
         <div className="pt-4 border-t border-[var(--border)]">
           <div className="flex gap-6 text-[12px] text-neutral-600">
-            <Link href="/terms"    className="hover:text-neutral-400 transition-colors">Terms of Service</Link>
+            <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms of Service</Link>
             <Link href="/security" className="hover:text-neutral-400 transition-colors">Security</Link>
           </div>
         </div>

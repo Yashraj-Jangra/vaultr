@@ -17,10 +17,10 @@ import { SiteConfigProvider } from "@/context/SiteConfigContext";
 
 export const metadata: Metadata = {
   title: {
-    default: "SecureVault — Zero-Knowledge Password Manager",
-    template: "%s — SecureVault",
+    default: "_vaultr — Zero-Knowledge Password Manager",
+    template: "%s — _vaultr",
   },
-  description: "SecureVault is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
+  description: " is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
   keywords: ["password manager", "zero knowledge", "AES-256", "encrypted", "secure"],
 };
 
@@ -35,8 +35,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-          <SiteConfigProvider>{children}</SiteConfigProvider>
-        </body>
+        <SiteConfigProvider>{children}</SiteConfigProvider>
+      </body>
     </html>
   );
 }

@@ -75,8 +75,8 @@ function generatePassword(len: number, upper: boolean, lower: boolean, nums: boo
   let pool = "";
   if (upper) pool += U;
   if (lower) pool += L;
-  if (nums)  pool += N;
-  if (syms)  pool += S;
+  if (nums) pool += N;
+  if (syms) pool += S;
   if (!pool) return "";
   const arr = new Uint32Array(len);
   window.crypto.getRandomValues(arr);
@@ -92,11 +92,11 @@ function extractDomain(url: string): string {
 }
 
 const TEMPLATE_META: Record<Template, { label: string; icon: React.ReactNode }> = {
-  login:   { label: "Login",        icon: <Lock    className="w-3.5 h-3.5" /> },
-  card:    { label: "Credit Card",  icon: <CreditCard className="w-3.5 h-3.5" /> },
-  address: { label: "Address",      icon: <FileText className="w-3.5 h-3.5" /> },
-  profile: { label: "Profile",      icon: <User    className="w-3.5 h-3.5" /> },
-  note:    { label: "Secure Note",  icon: <FileText className="w-3.5 h-3.5" /> },
+  login: { label: "Login", icon: <Lock className="w-3.5 h-3.5" /> },
+  card: { label: "Credit Card", icon: <CreditCard className="w-3.5 h-3.5" /> },
+  address: { label: "Address", icon: <FileText className="w-3.5 h-3.5" /> },
+  profile: { label: "Profile", icon: <User className="w-3.5 h-3.5" /> },
+  note: { label: "Secure Note", icon: <FileText className="w-3.5 h-3.5" /> },
 };
 
 // ─── Small components ─────────────────────────────────────────────────────────
@@ -155,12 +155,12 @@ function SiteIcon({ domain, name }: { domain?: string; name: string }) {
 // ─── Password Generator widget ────────────────────────────────────────────────
 
 function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void; compact?: boolean }) {
-  const [len, setLen]     = useState(20);
+  const [len, setLen] = useState(20);
   const [upper, setUpper] = useState(true);
   const [lower, setLower] = useState(true);
-  const [nums,  setNums]  = useState(true);
-  const [syms,  setSyms]  = useState(false);
-  const [seed,  setSeed]  = useState(0); // increment to trigger regen
+  const [nums, setNums] = useState(true);
+  const [syms, setSyms] = useState(false);
+  const [seed, setSeed] = useState(0); // increment to trigger regen
   const [copied, setCopied] = useState(false);
 
   // Derive password purely — regenerates whenever any config or seed changes
@@ -171,7 +171,7 @@ function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void;
   );
 
   const regen = () => setSeed(s => s + 1);
-  const copy  = () => { navigator.clipboard.writeText(pw); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  const copy = () => { navigator.clipboard.writeText(pw); setCopied(true); setTimeout(() => setCopied(false), 1500); };
 
 
   return (
@@ -226,39 +226,39 @@ interface NewEntryFormProps {
 }
 
 function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
-  const [template, setTemplate]   = useState<Template>("login");
-  const [name,     setName]       = useState("");
-  const [folder,   setFolder]     = useState("");
+  const [template, setTemplate] = useState<Template>("login");
+  const [name, setName] = useState("");
+  const [folder, setFolder] = useState("");
   const [newFolder, setNewFolder] = useState("");
-  const [saving,   setSaving]     = useState(false);
-  const [showGen,  setShowGen]    = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showGen, setShowGen] = useState(false);
 
   // Login
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [url,      setUrl]      = useState("");
+  const [url, setUrl] = useState("");
 
   // Card
-  const [cardName,   setCardName]   = useState("");
+  const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
-  const [expiry,     setExpiry]     = useState("");
-  const [cvv,        setCvv]        = useState("");
-  const [pin,        setPin]        = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [pin, setPin] = useState("");
 
   // Address
-  const [line1,   setLine1]   = useState("");
-  const [line2,   setLine2]   = useState("");
-  const [city,    setCity]    = useState("");
-  const [state,   setState_]  = useState("");
-  const [zip,     setZip]     = useState("");
+  const [line1, setLine1] = useState("");
+  const [line2, setLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState_] = useState("");
+  const [zip, setZip] = useState("");
   const [country, setCountry] = useState("");
 
   // Profile
-  const [fullName,  setFullName]  = useState("");
-  const [dob,       setDob]       = useState("");
-  const [idNumber,  setIdNumber]  = useState("");
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [idNumber, setIdNumber] = useState("");
   const [profEmail, setProfEmail] = useState("");
-  const [phone,     setPhone]     = useState("");
+  const [phone, setPhone] = useState("");
 
   // Note
   const [note, setNote] = useState("");
@@ -277,11 +277,11 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
       _folder: activeFolder || undefined,
       customFields: customFields.map(f => ({ key: f.key, value: f.value })),
     };
-    if (template === "login")   Object.assign(payload, { username, password, url });
-    if (template === "card")    Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
+    if (template === "login") Object.assign(payload, { username, password, url });
+    if (template === "card") Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
     if (template === "address") Object.assign(payload, { line1, line2, city, state: state, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
-    if (template === "note")    Object.assign(payload, { note });
+    if (template === "note") Object.assign(payload, { note });
     await onSave(name.trim(), template, activeFolder, payload);
     setSaving(false);
   };
@@ -335,11 +335,11 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
         value={name}
         onChange={e => setName(e.target.value)}
         placeholder={
-          template === "login"   ? "Name — e.g. Gmail, GitHub" :
-          template === "card"    ? "Card label — e.g. Visa Personal" :
-          template === "address" ? "Label — e.g. Home, Office" :
-          template === "profile" ? "Profile label — e.g. Personal ID" :
-                                   "Note title"
+          template === "login" ? "Name — e.g. Gmail, GitHub" :
+            template === "card" ? "Card label — e.g. Visa Personal" :
+              template === "address" ? "Label — e.g. Home, Office" :
+                template === "profile" ? "Profile label — e.g. Personal ID" :
+                  "Note title"
         }
       />
 
@@ -364,11 +364,10 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
                 type="button"
                 onClick={() => setShowGen(v => !v)}
                 title="Generate password"
-                className={`shrink-0 px-2 border rounded-md transition-colors cursor-pointer ${
-                  showGen
+                className={`shrink-0 px-2 border rounded-md transition-colors cursor-pointer ${showGen
                     ? "border-neutral-600 text-neutral-200"
                     : "border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600"
-                }`}
+                  }`}
               >
                 <Wand2 className="w-3.5 h-3.5" />
               </button>
@@ -389,23 +388,23 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
           <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Cardholder name" />
           <Input value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="Card number" className="font-mono" />
           <div className="grid grid-cols-3 gap-2">
-            <Input value={expiry}  onChange={e => setExpiry(e.target.value)}  placeholder="MM / YY" />
-            <Input value={cvv}     onChange={e => setCvv(e.target.value)}     placeholder="CVV"  type="password" />
-            <Input value={pin}     onChange={e => setPin(e.target.value)}     placeholder="PIN"  type="password" />
+            <Input value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" />
+            <Input value={cvv} onChange={e => setCvv(e.target.value)} placeholder="CVV" type="password" />
+            <Input value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN" type="password" />
           </div>
         </div>
       )}
 
       {template === "address" && (
         <div className="space-y-3">
-          <Input value={line1}   onChange={e => setLine1(e.target.value)}   placeholder="Address line 1" />
-          <Input value={line2}   onChange={e => setLine2(e.target.value)}   placeholder="Address line 2 (apt, suite…)" />
+          <Input value={line1} onChange={e => setLine1(e.target.value)} placeholder="Address line 1" />
+          <Input value={line2} onChange={e => setLine2(e.target.value)} placeholder="Address line 2 (apt, suite…)" />
           <div className="grid grid-cols-2 gap-2">
-            <Input value={city}    onChange={e => setCity(e.target.value)}    placeholder="City" />
-            <Input value={state}   onChange={e => setState_(e.target.value)}  placeholder="State / Province" />
+            <Input value={city} onChange={e => setCity(e.target.value)} placeholder="City" />
+            <Input value={state} onChange={e => setState_(e.target.value)} placeholder="State / Province" />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Input value={zip}     onChange={e => setZip(e.target.value)}     placeholder="ZIP / Postal code" />
+            <Input value={zip} onChange={e => setZip(e.target.value)} placeholder="ZIP / Postal code" />
             <Input value={country} onChange={e => setCountry(e.target.value)} placeholder="Country" />
           </div>
         </div>
@@ -413,13 +412,13 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
 
       {template === "profile" && (
         <div className="space-y-3">
-          <Input value={fullName}  onChange={e => setFullName(e.target.value)}  placeholder="Full name" />
+          <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" />
           <div className="grid grid-cols-2 gap-2">
             <Input value={profEmail} onChange={e => setProfEmail(e.target.value)} placeholder="Email" type="email" />
-            <Input value={phone}     onChange={e => setPhone(e.target.value)}     placeholder="Phone" />
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Input value={dob}      onChange={e => setDob(e.target.value)}      placeholder="Date of birth" />
+            <Input value={dob} onChange={e => setDob(e.target.value)} placeholder="Date of birth" />
             <Input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="ID / Passport no." />
           </div>
         </div>
@@ -491,23 +490,23 @@ function DetailRow({ label, value, masked = false, isUrl = false }: {
       <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
       <div className="flex-1 min-w-0">
         {masked ? <MaskedValue value={value} /> :
-         isUrl ? (
-           <div className="flex items-center gap-1">
-             <a
-               href={value.startsWith("http") ? value : `https://${value}`}
-               target="_blank" rel="noopener noreferrer"
-               className="text-[13px] text-neutral-400 hover:text-neutral-200 break-all transition-colors"
-             >
-               {value}
-             </a>
-             <CopyBtn value={value} />
-           </div>
-         ) : (
-           <div className="flex items-center gap-1">
-             <span className="text-[13px] text-neutral-200 break-all">{value}</span>
-             <CopyBtn value={value} />
-           </div>
-         )
+          isUrl ? (
+            <div className="flex items-center gap-1">
+              <a
+                href={value.startsWith("http") ? value : `https://${value}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-[13px] text-neutral-400 hover:text-neutral-200 break-all transition-colors"
+              >
+                {value}
+              </a>
+              <CopyBtn value={value} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] text-neutral-200 break-all">{value}</span>
+              <CopyBtn value={value} />
+            </div>
+          )
         }
       </div>
     </div>
@@ -519,33 +518,33 @@ function ExpandedDetails({ data }: { data: DecryptedPayload }) {
   return (
     <div className="px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)]">
       {t === "login" && <>
-        <DetailRow label="User"     value={data.username || ""} />
+        <DetailRow label="User" value={data.username || ""} />
         <DetailRow label="Password" value={data.password || ""} masked />
-        <DetailRow label="URL"      value={data.url     || ""} isUrl />
+        <DetailRow label="URL" value={data.url || ""} isUrl />
       </>}
 
       {t === "card" && <>
-        <DetailRow label="Name"     value={data.cardName   || ""} />
-        <DetailRow label="Number"   value={data.cardNumber || ""} masked />
-        <DetailRow label="Expiry"   value={data.expiry     || ""} />
-        <DetailRow label="CVV"      value={data.cvv        || ""} masked />
-        <DetailRow label="PIN"      value={data.pin        || ""} masked />
+        <DetailRow label="Name" value={data.cardName || ""} />
+        <DetailRow label="Number" value={data.cardNumber || ""} masked />
+        <DetailRow label="Expiry" value={data.expiry || ""} />
+        <DetailRow label="CVV" value={data.cvv || ""} masked />
+        <DetailRow label="PIN" value={data.pin || ""} masked />
       </>}
 
       {t === "address" && <>
-        <DetailRow label="Line 1"   value={data.line1   || ""} />
-        <DetailRow label="Line 2"   value={data.line2   || ""} />
-        <DetailRow label="City"     value={data.city    || ""} />
-        <DetailRow label="State"    value={data.state   || ""} />
-        <DetailRow label="ZIP"      value={data.zip     || ""} />
-        <DetailRow label="Country"  value={data.country || ""} />
+        <DetailRow label="Line 1" value={data.line1 || ""} />
+        <DetailRow label="Line 2" value={data.line2 || ""} />
+        <DetailRow label="City" value={data.city || ""} />
+        <DetailRow label="State" value={data.state || ""} />
+        <DetailRow label="ZIP" value={data.zip || ""} />
+        <DetailRow label="Country" value={data.country || ""} />
       </>}
 
       {t === "profile" && <>
-        <DetailRow label="Name"     value={data.fullName || ""} />
-        <DetailRow label="Email"    value={data.email    || ""} />
-        <DetailRow label="Phone"    value={data.phone    || ""} />
-        <DetailRow label="DOB"      value={data.dob      || ""} />
+        <DetailRow label="Name" value={data.fullName || ""} />
+        <DetailRow label="Email" value={data.email || ""} />
+        <DetailRow label="Phone" value={data.phone || ""} />
+        <DetailRow label="DOB" value={data.dob || ""} />
         <DetailRow label="ID / No." value={data.idNumber || ""} masked />
       </>}
 
@@ -578,18 +577,18 @@ export default function VaultPage() {
   const router = useRouter();
 
   const [masterPassword, setMasterPassword] = useState("");
-  const [cryptoKey,      setCryptoKey]      = useState<CryptoKey | null>(null);
-  const [items,          setItems]          = useState<VaultItem[]>([]);
-  const [showForm,       setShowForm]       = useState(false);
-  const [unlockError,    setUnlockError]    = useState("");
-  const [unlocking,      setUnlocking]      = useState(false);
-  const [shakeKey,       setShakeKey]       = useState(0);
+  const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
+  const [items, setItems] = useState<VaultItem[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
   const searchParams = useSearchParams();
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
 
-  const [revealedId,    setRevealedId]    = useState<string | null>(null);
-  const [revealedData,  setRevealedData]  = useState<DecryptedPayload | null>(null);
+  const [revealedId, setRevealedId] = useState<string | null>(null);
+  const [revealedData, setRevealedData] = useState<DecryptedPayload | null>(null);
 
   const { encrypt, decrypt } = useCrypto();
 
@@ -632,8 +631,8 @@ export default function VaultPage() {
       template,
       createdAt: new Date().toISOString(),
     };
-    if (folder)  doc_.folder = folder;
-    if (domain)  doc_.domain = domain;
+    if (folder) doc_.folder = folder;
+    if (domain) doc_.domain = domain;
     await addDoc(collection(db, "users", user.uid, "vaultItems"), doc_);
     setShowForm(false);
   };
@@ -667,7 +666,7 @@ export default function VaultPage() {
 
   const visibleItems = useMemo(() => {
     if (activeFolder === null) return items;
-    if (activeFolder === "")   return items.filter(i => !i.folder);
+    if (activeFolder === "") return items.filter(i => !i.folder);
     return items.filter(i => i.folder === activeFolder);
   }, [items, activeFolder]);
 
@@ -704,9 +703,8 @@ export default function VaultPage() {
         style={{ background: "radial-gradient(ellipse 50% 55% at 50% 45%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 40%, transparent 70%)" }}
       />
 
-      <div className={`relative w-full max-w-[320px] space-y-7 ${
-        unlocking ? "animate-unlock-open" : "animate-fade-up"
-      }`}>
+      <div className={`relative w-full max-w-[320px] space-y-7 ${unlocking ? "animate-unlock-open" : "animate-fade-up"
+        }`}>
 
         {/* Lock icon with halo + branding */}
         <div className="flex flex-col items-center gap-5">
@@ -717,19 +715,17 @@ export default function VaultPage() {
               style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
             />
             <div
-              className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 ${
-                unlocking
+              className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 ${unlocking
                   ? "bg-neutral-800 border-neutral-600 scale-105"
                   : "bg-neutral-900 border-neutral-800"
-              }`}
+                }`}
             >
               <svg
                 width="24" height="24" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" strokeWidth="1.5"
                 strokeLinecap="round" strokeLinejoin="round"
-                className={`transition-all duration-300 ${
-                  unlocking ? "text-neutral-200" : "text-neutral-400"
-                }`}
+                className={`transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-400"
+                  }`}
               >
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d={unlocking
@@ -745,7 +741,7 @@ export default function VaultPage() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
-              <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">SecureVault</span>
+              <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">_vaultr</span>
             </div>
             <h1 className="text-[17px] font-semibold text-neutral-100 tracking-tight">
               {unlocking ? "Unlocking…" : "Unlock your vault"}
@@ -865,9 +861,8 @@ export default function VaultPage() {
           )}
           <button
             onClick={() => toggleReveal(item.id, item.encryptedBlob)}
-            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors ${
-              revealedId === item.id ? "text-neutral-300 bg-neutral-800" : "text-neutral-600 hover:text-neutral-400"
-            }`}
+            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors ${revealedId === item.id ? "text-neutral-300 bg-neutral-800" : "text-neutral-600 hover:text-neutral-400"
+              }`}
           >
             {revealedId === item.id ? "Hide" : "Reveal"}
           </button>
@@ -905,7 +900,7 @@ export default function VaultPage() {
           >
             {collapsed
               ? <FolderOpen className="w-3.5 h-3.5" />
-              : <Folder     className="w-3.5 h-3.5" />
+              : <Folder className="w-3.5 h-3.5" />
             }
             {f}
             <span className="text-neutral-700 ml-auto normal-case">{grpItems.length}</span>

@@ -4,8 +4,8 @@ import { Shield, ChevronLeft } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — SecureVault",
-  description: "SecureVault terms of service.",
+  title: "Terms of Service — _vaultr",
+  description: "_vaultr terms of service.",
 };
 
 export default function TermsPage() {
@@ -18,7 +18,7 @@ export default function TermsPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-neutral-500" />
-            <span className="text-[13px] text-neutral-500">SecureVault</span>
+            <span className="text-[13px] text-neutral-500">_vaultr</span>
           </div>
         </div>
       </nav>
@@ -31,7 +31,7 @@ export default function TermsPage() {
         </div>
 
         <LegalSection title="Acceptance">
-          <p>By accessing or using SecureVault, you agree to these Terms. If you do not agree, do not use the service.</p>
+          <p>By accessing or using _vaultr, you agree to these Terms. If you do not agree, do not use the service.</p>
         </LegalSection>
 
         <LegalSection title="Your Responsibilities">
@@ -43,11 +43,11 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="Master Password & Data Loss">
-          <p>SecureVault uses a zero-knowledge architecture. <strong>If you lose your master password, your vault data is permanently and irreversibly inaccessible.</strong> We have no ability to recover it. You are solely responsible for keeping your master password safe.</p>
+          <p>_vaultr uses a zero-knowledge architecture. <strong>If you lose your master password, your vault data is permanently and irreversibly inaccessible.</strong> We have no ability to recover it. You are solely responsible for keeping your master password safe.</p>
         </LegalSection>
 
         <LegalSection title="Service Availability">
-          <p>We strive for high availability but make no guarantees. SecureVault is provided &quot;as is&quot; without warranties of any kind. We are not liable for any data loss, damages, or service interruption.</p>
+          <p>We strive for high availability but make no guarantees. _vaultr is provided &quot;as is&quot; without warranties of any kind. We are not liable for any data loss, damages, or service interruption.</p>
         </LegalSection>
 
         <LegalSection title="Prohibited Uses">
@@ -63,7 +63,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="Limitation of Liability">
-          <p>To the maximum extent permitted by law, SecureVault and its operators shall not be liable for any indirect, incidental, or consequential damages arising from use of the service, including data loss.</p>
+          <p>To the maximum extent permitted by law, _vaultr and its operators shall not be liable for any indirect, incidental, or consequential damages arising from use of the service, including data loss.</p>
         </LegalSection>
 
         <LegalSection title="Changes">
@@ -72,7 +72,7 @@ export default function TermsPage() {
 
         <div className="pt-4 border-t border-[var(--border)]">
           <div className="flex gap-6 text-[12px] text-neutral-600">
-            <Link href="/privacy"  className="hover:text-neutral-400 transition-colors">Privacy Policy</Link>
+            <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy Policy</Link>
             <Link href="/security" className="hover:text-neutral-400 transition-colors">Security</Link>
           </div>
         </div>
