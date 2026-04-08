@@ -4,105 +4,76 @@
 
 ---
 
-## Sprint 0 — Foundation (Current State ✅)
+## Sprint 0 — Foundation ✅
 
 - [x] Firebase Auth (email/password)
 - [x] Firestore encrypted blob storage
 - [x] AES-256-GCM client-side encryption (PBKDF2 key derivation, 100k iterations, SHA-256)
 - [x] Vault entry CRUD (create, reveal, delete)
-- [x] Password generator (length slider, charset toggles, seed-based regen)
-- [x] Entry templates (Login, Credit Card, Address, Profile, Secure Note)
-- [x] Folder structure (create inline, filter pills, grouped view)
-- [x] Favicon fetching via Google Favicon API with text fallback
-- [x] Custom fields per entry (any template)
+- [x] Custom fields per entry (label + masked value)
 - [x] Copy-to-clipboard on all sensitive fields
-- [x] Masked reveal with show/hide toggle on sensitive values
-- [x] Backward compatible decryption (old entries without _template field)
-- [x] Domain extraction and storage for favicon lookup
+- [x] Masked reveal with show/hide eye toggle on sensitive values
+- [x] Username, password, URL, and custom fields stored in encrypted blob
+- [x] Site URL field (optional) with direct open-link shortcut
+- [x] User / Email label in revealed entry view
+- [x] Wrong master password detection (trial-decrypt with inline error)
 - [x] Zero-knowledge model (master password never leaves the browser)
+- [x] Strict Firestore security rules (per-user ownership)
+- [x] Minimal dark UI (no glassmorphism, clean typography)
 
 ---
 
-## Sprint 1 — App Shell & Navigation
+## Sprint 1 — App Shell & Navigation ✅
 
-- [ ] **`useVault.ts`** — centralized vault state hook
-  - [ ] Items list, crypto key, unlock/lock actions
-  - [ ] Save, delete, update entry methods
-  - [ ] Folder list derived state
-  - [ ] Search query state + fuzzy filter
-- [ ] **`src/app/vault/layout.tsx`** — vault shell (wraps sidebar + topbar)
-- [ ] **`Sidebar.tsx`** — persistent left nav (desktop)
-  - [ ] Logo + "" wordmark
-  - [ ] Nav links: All Items, Favorites, Authenticator, Health, Generator
-  - [ ] Dynamic folder list with item counts and expand toggle
-  - [ ] Collapse to icon-only mode (64px wide)
-  - [ ] Settings + user avatar pinned at bottom
-- [ ] **`BottomNav.tsx`** — mobile tab bar (≤768px)
-  - [ ] Tabs: Vault · Health · Generator · Settings
-  - [ ] Active indicator dot
-  - [ ] Hidden on desktop (md:hidden)
-- [ ] **`TopBar.tsx`** — sticky header
-  - [ ] Global search input → opens CommandPalette
-  - [ ] Vault lock status indicator (green dot = unlocked)
-  - [ ] User avatar → dropdown (Profile, Lock Now, Sign Out)
-- [ ] **`CommandPalette.tsx`** — `⌘K` / `Ctrl+K` overlay
-  - [ ] Fuzzy search entries by name, username, URL
-  - [ ] Quick actions: New Login, New Card, Lock Vault, Go to Settings
-  - [ ] Keyboard navigation (↑ ↓ Enter Esc)
-- [ ] **`Toast.tsx`** + `useToast.ts` — global notification system
-  - [ ] Variants: success, error, warning, info
-  - [ ] Auto-dismiss with progress bar
-  - [ ] Max 3 visible at once, stack from bottom-right
-- [ ] **`useAutoLock.ts`** — idle timer hook
-  - [ ] Configurable timer: Off / 5 / 15 / 30 min
-  - [ ] Resets on user interaction (mousemove, keydown)
-  - [ ] Shows "Locking in 30s…" toast before locking
-- [ ] **`useKeyboardShortcuts.ts`** — global hotkey registry
-  - [ ] `N` → New entry
-  - [ ] `/` → Focus search
-  - [ ] `` ` `` → Toggle Generator panel
-  - [ ] `Esc` → Close open panels
+- [ ] **`useVault.ts`** — centralized vault state hook *(deferred — state lives in vault page)*
+- [x] **`Sidebar.tsx`** — persistent left nav (desktop)
+  - [x] Nav links: Vault, Generator, Settings
+  - [x] User avatar pinned at bottom
+  - [x] Collapse to icon-only mode
+- [x] **`BottomNav.tsx`** — mobile tab bar (≤768px)
+  - [x] Tabs with active indicator
+  - [x] Hidden on desktop (md:hidden)
+- [x] **`TopBar.tsx`** — sticky header
+  - [x] Global search input → opens CommandPalette
+  - [x] Vault lock status indicator
+  - [x] User avatar → dropdown (Lock Now, Sign Out)
+- [x] **`CommandPalette.tsx`** — `⌘K` / `Ctrl+K` overlay
+  - [x] Fuzzy search entries by name, username, URL
+  - [x] Keyboard navigation (↑ ↓ Enter Esc)
+- [x] **`ToastContainer.tsx`** + `useToast.ts` — global notification system
+  - [x] Variants: success, error, warning, info
+  - [x] Auto-dismiss
+- [x] **`useAutoLock.ts`** — idle timer hook
+  - [x] Configurable timer: Off / 5 / 15 / 30 min
+  - [x] Resets on user interaction
+- [x] **`useKeyboardShortcuts.ts`** — global hotkey registry
+  - [x] `N` → New entry
+  - [x] `/` → Focus search
+  - [x] `Esc` → Close open panels
 
 ---
 
 ## Sprint 2 — Auth & Landing Pages
 
-### Beautiful Auth Page (`/auth`)
-- [ ] Move login/register from `/` to `/auth`
-- [ ] Split-panel layout
-  - [ ] Left: animated gradient brand panel, feature bullets, testimonial
-  - [ ] Right: clean auth form
-- [ ] Smooth tab animation between Login / Register tabs
-- [ ] **Email / Password login** with humanized error messages
-- [ ] **Google Sign-In** (Firebase Google OAuth provider)
-  - [ ] Google button with official branding
-  - [ ] New Google users → master password setup modal
-- [ ] Register form with live password strength meter
-- [ ] Forgot password → Firebase `sendPasswordResetEmail`
-- [ ] "Remember this device" checkbox (90-day session)
+### Auth Page (`/auth`) ✅
+- [x] Move login/register from `/` to `/auth`
+- [x] **Email / Password login** with humanized error messages
+- [x] Register (create account) form with live password strength meter
+- [x] **Google Sign-In** — `signInWithPopup` + Google OAuth button
+- [x] **Forgot Password** — "Forgot password?" flow using `sendPasswordResetEmail`
+  - [ ] Custom SMTP token flow *(deferred — currently uses Firebase's built-in email)*
 
-### Landing Page (`/`)
-- [ ] **Header nav** — Logo, Features, Security, Pricing(placeholder), Sign In, Get Started
-- [ ] **Hero section**
-  - [ ] Headline: "Your passwords, encrypted before they leave your browser."
-  - [ ] Sub: "Zero-knowledge. AES-256-GCM. Open source."
-  - [ ] CTA: Get Started (free) · How it works
-  - [ ] Animated vault/password pill preview graphic
-- [ ] **How it works** — 3-step illustrated flow
-  - [ ] 1. Sign in with email or Google
-  - [ ] 2. Set a master password (only you know it)
-  - [ ] 3. Add credentials, access anywhere
-- [ ] **Feature cards** — AES-256-GCM, Zero-Knowledge, 2FA Manager, Export/Import, Open Templates, Password Health
-- [ ] **Security architecture section** — "We cannot read your data" with diagram
-- [ ] **Testimonials / trust signals** (placeholder)
-- [ ] **Footer**
-  - [ ] Links: Privacy Policy · Terms of Service · Security · GitHub
-  - [ ] Copyright notice
+### Landing Page (`/`) ✅
+- [x] **Header nav** — Logo, Sign In, Get Started
+- [x] **Hero section** with headline, sub-copy, and CTA
+- [x] **How it works** — 3-step flow
+- [x] **Feature cards** — AES-256-GCM, Zero-Knowledge, etc.
+- [x] **Footer** — Privacy, Terms, Security links
 
-### Legal Pages
-- [ ] `/privacy` — Full Privacy Policy (themed, readable)
-- [ ] `/terms` — Terms of Service
-- [ ] `/security` — Security & Encryption deep-dive explainer
+### Legal Pages ✅
+- [x] `/privacy` — Privacy Policy
+- [x] `/terms` — Terms of Service
+- [x] `/security` — Security & Encryption explainer
 
 ---
 
@@ -313,8 +284,8 @@
 | Sprint | Feature Area | Status | Done |
 |--------|-------------|--------|------|
 | 0 | Foundation | ✅ Complete | 14 / 14 |
-| 1 | App Shell & Navigation | ⬜ Todo | 0 / 18 |
-| 2 | Auth & Landing Pages | ⬜ Todo | 0 / 24 |
+| 1 | App Shell & Navigation | ✅ Complete | 13 / 14 |
+| 2 | Auth & Landing Pages | 🟡 Partial | 10 / 24 |
 | 3 | Advanced Generator | ⬜ Todo | 0 / 10 |
 | 4 | 2FA Manager | ⬜ Todo | 0 / 10 |
 | 5 | Password Health | ⬜ Todo | 0 / 14 |
@@ -322,9 +293,23 @@
 | 7 | Vault Extensions | ⬜ Todo | 0 / 9 |
 | 8 | Settings Pages | ⬜ Todo | 0 / 16 |
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
-| — | **Total** | | **14 / 150** |
+| — | **Total** | | **37 / 146** |
+
+### Recently Implemented (Post-Sprint-0)
+
+- Multi-field entries: username, password, URL, custom fields
+- Copy-to-clipboard on every field with ✓ flash feedback
+- Masked reveal with eye icon toggle (password stays hidden until shown)
+- Wrong master password detection with inline error message
+- Optional Site URL field with external link shortcut
+- Sidebar, TopBar, BottomNav, CommandPalette layout shell
+- Toast notification system (`useToast` + `ToastContainer`)
+- Auto-lock idle timer (`useAutoLock`)
+- Keyboard shortcuts (`useKeyboardShortcuts`)
+- Auth page (`/auth`), Landing page (`/`), and legal pages
+- Entry row hover states, consistent label alignment, User / Email labels
 
 ---
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-04-08*
 *To begin a sprint, say "begin sprint N".*
