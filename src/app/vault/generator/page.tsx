@@ -303,7 +303,9 @@ export default function GeneratorPage() {
 
   const firstRun = useRef(true);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (firstRun.current) { firstRun.current = false; generate(); return; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     generate();
   }, [mode, randOpts, ppOpts, pinOpts, patOpts]); // eslint-disable-line react-hooks/exhaustive-deps
 

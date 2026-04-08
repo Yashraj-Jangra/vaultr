@@ -20,6 +20,7 @@ export interface VaultItem {
   createdAt?: string;
   lastAccessedAt?: string;
   favorite?: boolean;
+  hasTotp?: boolean;
 }
 
 export interface VaultContextValue {

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { useCrypto, deriveKey } from "@/hooks/useCrypto";
 import { collection, onSnapshot, query, addDoc, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
+import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
@@ -21,7 +22,7 @@ type Template = "login" | "card" | "address" | "profile" | "note";
 
 interface CustomField { id: string; key: string; value: string; }
 
-interface DecryptedPayload {
+export interface DecryptedPayload {
   _template?: Template;
   _folder?: string;
   // login
@@ -51,6 +52,7 @@ interface DecryptedPayload {
   note?: string;
   // shared
   customFields?: { key: string; value: string }[];
+  totpSecret?: string;
   // legacy
   payload?: string;
 }
@@ -63,6 +65,7 @@ export interface VaultItem {
   folder?: string;
   template?: Template;
   createdAt?: string;
+  hasTotp?: boolean;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -237,6 +240,8 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [url, setUrl] = useState("");
+  const [totpSecret, setTotpSecret] = useState("");
+  const [showTotpField, setShowTotpField] = useState(false);
 
   // Card
   const [cardName, setCardName] = useState("");
@@ -277,7 +282,7 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
       _folder: activeFolder || undefined,
       customFields: customFields.map(f => ({ key: f.key, value: f.value })),
     };
-    if (template === "login") Object.assign(payload, { username, password, url });
+    if (template === "login") Object.assign(payload, { username, password, url, totpSecret: totpSecret.trim() });
     if (template === "card") Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
     if (template === "address") Object.assign(payload, { line1, line2, city, state: state, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
@@ -378,8 +383,31 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
               </div>
             )}
           </div>
-
           <Input value={url} onChange={e => setUrl(e.target.value)} placeholder="URL (optional)" />
+
+          {!showTotpField ? (
+            <button 
+              type="button" 
+              onClick={() => setShowTotpField(true)}
+              className="text-[11px] text-neutral-500 hover:text-neutral-300 w-fit flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add 2FA Secret
+            </button>
+          ) : (
+            <div className="relative">
+              <Input 
+                value={totpSecret} 
+                onChange={e => setTotpSecret(e.target.value)} 
+                type="password"
+                placeholder="TOTP Setup Key (Base32)" 
+                className="font-mono pr-12"
+              />
+              <div className="absolute top-[9px] right-3 text-[10px] uppercase font-semibold tracking-wider text-neutral-600 select-none bg-neutral-900 px-1 py-0.5 rounded">
+                TOTP
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -513,6 +541,46 @@ function DetailRow({ label, value, masked = false, isUrl = false }: {
   );
 }
 
+function TotpDisplay({ secret }: { secret: string }) {
+  const [code, setCode] = useState("------");
+  const [percent, setPercent] = useState(100);
+
+  useEffect(() => {
+    let mounted = true;
+    const update = async () => {
+      try {
+        const _code = await generateTOTP(secret);
+        if (mounted) {
+          setCode(_code);
+          setPercent(getTotpPercentage());
+        }
+      } catch {
+        if (mounted) setCode("ERROR");
+      }
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [secret]);
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative w-4 h-4 flex items-center justify-center">
+        <svg className="w-4 h-4 -rotate-90 transform" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="text-neutral-800" />
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"
+            className="text-sky-400 transition-all duration-1000 ease-linear"
+            strokeDasharray="62.8"
+            strokeDashoffset={62.8 * (1 - percent / 100)}
+          />
+        </svg>
+      </div>
+      <span className="font-mono text-[13px] text-sky-400 font-bold tracking-widest">{code.slice(0,3)} {code.slice(3,6)}</span>
+      <CopyBtn value={code} />
+    </div>
+  );
+}
+
 function ExpandedDetails({ data }: { data: DecryptedPayload }) {
   const t = data._template ?? "login";
   return (
@@ -521,6 +589,14 @@ function ExpandedDetails({ data }: { data: DecryptedPayload }) {
         <DetailRow label="User" value={data.username || ""} />
         <DetailRow label="Password" value={data.password || ""} masked />
         <DetailRow label="URL" value={data.url || ""} isUrl />
+        {data.totpSecret && (
+          <div className="flex items-start gap-4">
+            <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">2FA Code</span>
+            <div className="flex-1 min-w-0">
+              <TotpDisplay secret={data.totpSecret} />
+            </div>
+          </div>
+        )}
       </>}
 
       {t === "card" && <>
@@ -630,6 +706,7 @@ export default function VaultPage() {
       encryptedBlob: blob,
       template,
       createdAt: new Date().toISOString(),
+      hasTotp: !!payload.totpSecret,
     };
     if (folder) doc_.folder = folder;
     if (domain) doc_.domain = domain;
@@ -682,7 +759,8 @@ export default function VaultPage() {
   const toggleFolderCollapse = (f: string) => {
     setCollapsedFolders(prev => {
       const next = new Set(prev);
-      next.has(f) ? next.delete(f) : next.add(f);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
       return next;
     });
   };

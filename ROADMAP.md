@@ -19,7 +19,9 @@
 - [x] Wrong master password detection (trial-decrypt with inline error)
 - [x] Zero-knowledge model (master password never leaves the browser)
 - [x] Strict Firestore security rules (per-user ownership)
-- [x] Minimal dark UI (no glassmorphism, clean typography)
+- [x] **Design Philosophy**: Strict Minimal Dark UI. 
+  - Sleek, compact, functional-focused. 
+  - NO AI-like excessive gradients, NO heavy glassmorphism or blur effects, NO decorative neon glowing shadows. Keep aesthetics consistent with a purely robust utilitarian tool.
 
 ---
 
@@ -287,14 +289,14 @@
 | 0 | Foundation | ✅ Complete | 14 / 14 |
 | 1 | App Shell & Navigation | ✅ Complete | 13 / 14 |
 | 2 | Auth & Landing Pages | 🟡 Partial | 10 / 24 |
-| 3 | Advanced Generator | ⬜ Todo | 0 / 10 |
-| 4 | 2FA Manager | ⬜ Todo | 0 / 10 |
+| 3 | Advanced Generator | ✅ Complete | 10 / 10 |
+| 4 | 2FA Manager | ✅ Complete | 10 / 10 |
 | 5 | Password Health | ⬜ Todo | 0 / 14 |
 | 6 | Admin Panel | ⬜ Todo | 0 / 22 |
 | 7 | Vault Extensions | ⬜ Todo | 0 / 9 |
 | 8 | Settings Pages | ⬜ Todo | 0 / 16 |
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
-| — | **Total** | | **37 / 146** |
+| — | **Total** | | **47 / 146** |
 
 ### Recently Implemented (Post-Sprint-0)
 

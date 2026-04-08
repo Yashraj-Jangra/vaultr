@@ -98,7 +98,13 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
             }`}
           >
             {item.icon}
-            {!collapsed && <span>{item.label}</span>}
+            {!collapsed && <span className="flex-1">{item.label}</span>}
+            {!collapsed && item.href === "/vault/authenticator" && items.filter(i => i.hasTotp).length > 0 && (
+              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.hasTotp).length}</span>
+            )}
+            {!collapsed && item.href === "/vault/favorites" && items.filter(i => i.favorite).length > 0 && (
+              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.favorite).length}</span>
+            )}
           </Link>
         ))}
 
