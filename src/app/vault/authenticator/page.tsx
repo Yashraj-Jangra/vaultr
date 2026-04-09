@@ -6,6 +6,7 @@ import { useCrypto, deriveKey } from "@/hooks/useCrypto";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Fingerprint, Copy, Check } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
@@ -186,6 +187,16 @@ export default function AuthenticatorPage() {
         <div className="absolute inset-0 pointer-events-none"
              style={{ background: "radial-gradient(ellipse 50% 55% at 50% 45%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 40%, transparent 70%)" }}
         />
+        {/* Authenticator illustration — faint background */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+          <Image
+            src="/illustrations/two-factor-authentication_ofho.svg"
+            alt=""
+            width={380}
+            height={380}
+            className="object-contain opacity-[0.05]"
+          />
+        </div>
         <div className={`relative w-full max-w-[320px] space-y-7 ${unlocking ? "animate-unlock-open" : "animate-fade-up"}`}>
           <div className="flex flex-col items-center gap-5">
             <div className="relative flex items-center justify-center">
@@ -257,10 +268,20 @@ export default function AuthenticatorPage() {
 
       <div className="space-y-4">
         {items.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-xl bg-neutral-900/20">
-             <Fingerprint className="w-8 h-8 text-neutral-700 mx-auto mb-3" />
-             <h3 className="text-sm font-medium text-neutral-300">No 2FA Codes</h3>
-             <p className="text-[12px] text-neutral-500 mt-1 max-w-[260px] mx-auto">Add a TOTP setup key to any of your entries to manage them from this dashboard.</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+            <div className="w-32 h-32 sm:w-40 sm:h-40 opacity-60">
+              <Image
+                src="/illustrations/two-factor-authentication_ofho.svg"
+                alt=""
+                width={160}
+                height={160}
+                className="object-contain w-full h-full"
+              />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-neutral-300">No 2FA Codes</h3>
+              <p className="text-[12px] text-neutral-500 max-w-[260px] mx-auto leading-relaxed">Add a TOTP setup key to any of your entries to manage them from this dashboard.</p>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

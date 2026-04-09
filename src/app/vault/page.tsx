@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import Image from "next/image";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -13,7 +14,7 @@ import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
-  CreditCard, User, FileText, Lock, Plus, X, Wand2, Inbox
+  CreditCard, User, FileText, Lock, Plus, X, Wand2, Inbox, Shield
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -659,6 +660,23 @@ export default function VaultPage() {
   const [unlockError, setUnlockError] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
+  const [unlockOverlay, setUnlockOverlay] = useState<"main" | "forgot" | "why">("main");
+  const [animKey, setAnimKey] = useState(0);
+  const [randomSvgs, setRandomSvgs] = useState<[string, string]>(["/illustrations/vault_tyfh.svg", "/illustrations/safe_0mei.svg"]);
+
+  useEffect(() => {
+    const svgs = [
+      "/illustrations/vault_tyfh.svg",
+      "/illustrations/safe_0mei.svg",
+      "/illustrations/security_0ubl.svg",
+      "/illustrations/firewall_cfej.svg",
+      "/illustrations/private-files_m2bw.svg",
+      "/illustrations/two-factor-authentication_ofho.svg",
+      "/illustrations/mobile-encryption_flk2.svg"
+    ];
+    const shuffled = [...svgs].sort(() => 0.5 - Math.random());
+    setRandomSvgs([shuffled[0], shuffled[1]]);
+  }, []);
   const searchParams = useSearchParams();
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -774,120 +792,227 @@ export default function VaultPage() {
 
   // ── Locked — advanced unlock screen
   if (!cryptoKey) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg)]">
-      {/* Ambient glow — stronger radial */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 50% 55% at 50% 45%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 40%, transparent 70%)" }}
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg)] text-[var(--fg)] overflow-hidden">
+      
+      {/* ══════════════════════ DECORATIVE BACKGROUND ══════════════════════ */}
+      
+      {/* Grid pattern */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{
+        backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
+        backgroundSize: "40px 40px",
+      }} />
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,255,255,0.015) 0%, transparent 70%)" }} />
 
-      <div className={`relative w-full max-w-[320px] space-y-7 ${unlocking ? "animate-unlock-open" : "animate-fade-up"
-        }`}>
+      {/* Left side illustration */}
+      <div key={`left-${randomSvgs[0]}`} className="absolute top-1/2 -translate-y-1/2 -left-16 hidden md:block w-[400px] h-[400px] pointer-events-none select-none opacity-[0.04]">
+        <Image src={randomSvgs[0]} alt="" width={400} height={400} className="object-contain" priority />
+      </div>
 
-        {/* Lock icon with halo + branding */}
-        <div className="flex flex-col items-center gap-5">
-          {/* Outer halo ring */}
-          <div className="relative flex items-center justify-center">
-            <div
-              className="absolute w-24 h-24 rounded-full opacity-20 animate-pulse-ring"
-              style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
-            />
-            <div
-              className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 ${unlocking
-                  ? "bg-neutral-800 border-neutral-600 scale-105"
-                  : "bg-neutral-900 border-neutral-800"
-                }`}
-            >
-              <svg
-                width="24" height="24" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" strokeWidth="1.5"
-                strokeLinecap="round" strokeLinejoin="round"
-                className={`transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-400"
+      {/* Bottom right illustration */}
+      <div key={`right-${randomSvgs[1]}`} className="absolute -bottom-16 -right-16 hidden md:block w-[450px] h-[450px] pointer-events-none select-none opacity-[0.04]">
+        <Image src={randomSvgs[1]} alt="" width={450} height={450} className="object-contain" priority />
+      </div>
+
+      {/* Mobile background illustration (fall back) */}
+      <div key={`mob-${randomSvgs[0]}`} className="absolute bottom-10 right-0 w-48 h-48 pointer-events-none select-none md:hidden opacity-[0.03]">
+        <Image src={randomSvgs[0]} alt="" width={192} height={192} className="object-contain" />
+      </div>
+
+      {/* ══════════════════════ CENTER FORM ══════════════════════ */}
+      <div className="w-full max-w-[340px] relative z-10">
+        
+        {/* ✨ Main Unlock View ✨ */}
+        <div 
+           className="w-full transition-all duration-500"
+           style={{
+              opacity: unlockOverlay === "main" ? 1 : 0,
+              transform: unlockOverlay === "main" ? "translateY(0)" : "translateY(20px)",
+              pointerEvents: unlockOverlay === "main" ? "auto" : "none",
+              position: unlockOverlay === "main" ? "relative" : "absolute",
+              top: 0, left: 0
+           }}
+        >
+          {/* Lock icon halo */}
+          <div className="flex flex-col items-center gap-5 animate-auth-panel-in">
+            <div className="relative flex items-center justify-center mb-2">
+              <div
+                className="absolute w-24 h-24 rounded-full opacity-20 animate-pulse-ring"
+                style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
+              />
+              <div
+                className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 relative z-10 ${unlocking
+                    ? "bg-neutral-800 border-neutral-600 scale-105"
+                    : "bg-[#0d0d0d] border-[var(--border)]"
                   }`}
               >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d={unlocking
-                  ? "M7 11V6a5 5 0 0 1 10 0"
-                  : "M7 11V7a5 5 0 0 1 10 0v4"
-                } />
-              </svg>
+                <Lock className={`w-6 h-6 transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-500"}`} />
+              </div>
+            </div>
+
+            <div className="text-center space-y-1.5 mb-2">
+              <div className="flex items-center justify-center gap-1.5 opacity-40">
+                <Lock className="w-3 h-3" />
+                <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">SecureVault</span>
+              </div>
+              <h1 className="text-[18px] font-semibold text-neutral-100 tracking-tight">
+                {unlocking ? "Decrypting vault…" : "Unlock your vault"}
+              </h1>
+              <p className="text-[12px] text-neutral-500 font-mono truncate max-w-[260px]">
+                {user.email}
+              </p>
             </div>
           </div>
 
-          <div className="text-center space-y-1.5">
-            <div className="flex items-center justify-center gap-1.5 mb-2 opacity-40">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">_vaultr</span>
-            </div>
-            <h1 className="text-[17px] font-semibold text-neutral-100 tracking-tight">
-              {unlocking ? "Unlocking…" : "Unlock your vault"}
-            </h1>
-            <p className="text-[12px] text-neutral-600 font-mono truncate max-w-[260px]">
-              {user.email}
-            </p>
-          </div>
-        </div>
+          <div key={shakeKey} className={`space-y-4 mt-6 ${unlockError && shakeKey > 0 ? "animate-shake" : ""}`}>
+            {unlockError && (
+              <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border border-red-900/40 bg-red-950/25 animate-auth-form-in">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1" />
+                <p className="text-[12px] text-red-400">{unlockError}</p>
+              </div>
+            )}
 
-        {/* Form */}
-        <div
-          key={shakeKey}
-          className={`space-y-3 ${unlockError && shakeKey > 0 ? "animate-shake" : ""}`}
-        >
-          {unlockError && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-900/40 bg-red-950/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-              <p className="text-[12px] text-red-400">{unlockError}</p>
+            <div className="relative">
+              <input
+                type="password"
+                value={masterPassword}
+                onChange={e => setMasterPassword(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleUnlock()}
+                placeholder="Master password"
+                autoFocus
+                disabled={unlocking}
+                className="w-full bg-[#0d0d0d] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-neutral-200 placeholder-neutral-700 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-white/5 transition-all duration-200 pr-12 disabled:opacity-40 shadow-[0_4px_24px_rgba(0,0,0,0.2)]"
+              />
+              <Lock className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-700 pointer-events-none" />
             </div>
-          )}
 
-          <div className="relative">
-            <input
-              type="password"
-              value={masterPassword}
-              onChange={e => setMasterPassword(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleUnlock()}
-              placeholder="Master password"
-              autoFocus
-              disabled={unlocking}
-              className="w-full bg-neutral-950 border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-neutral-200 placeholder-neutral-700 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600/30 transition-all pr-12 disabled:opacity-40"
-            />
-            {/* Decorative key icon inside input */}
-            <svg
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-700 pointer-events-none"
-              width="14" height="14" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="1.5"
-              strokeLinecap="round" strokeLinejoin="round"
+            <button
+              onClick={handleUnlock}
+              disabled={!masterPassword || unlocking}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 shadow-[0_4px_16px_rgba(255,255,255,0.05)]"
             >
-              <circle cx="7.5" cy="15.5" r="5.5" />
-              <path d="M21 2l-9.6 9.6M15.5 7.5l3 3" />
-            </svg>
+              {unlocking
+                ? <span className="w-4 h-4 border-2 border-neutral-600 border-t-neutral-900 rounded-full animate-spin" />
+                : <><Lock className="w-3.5 h-3.5" /> Unlock vault</>}
+            </button>
           </div>
 
-          <button
-            onClick={handleUnlock}
-            disabled={!masterPassword || unlocking}
-            className="w-full py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {unlocking
-              ? <span className="w-4 h-4 border-2 border-neutral-600 border-t-neutral-900 rounded-full animate-spin" />
-              : "Unlock vault"}
-          </button>
+          <div className="flex items-center justify-between mt-6 text-[12px]">
+            <button 
+               onClick={() => { setUnlockOverlay("forgot"); setAnimKey(k=>k+1); }}
+               className="text-neutral-600 hover:text-neutral-300 transition-colors"
+            >
+               Forgot password?
+            </button>
+            <button 
+               onClick={() => { setUnlockOverlay("why"); setAnimKey(k=>k+1); }}
+               className="flex items-center gap-1.5 text-neutral-600 hover:text-neutral-300 transition-colors"
+            >
+               <Shield className="w-3.5 h-3.5" /> Why is this needed?
+            </button>
+          </div>
+          
+          <div className="mt-8 text-center">
+             <button
+                onClick={async () => { await logout(); router.push("/"); }}
+                className="text-[11px] text-neutral-700 hover:text-neutral-500 transition-colors cursor-pointer"
+             >
+                Sign out instead
+             </button>
+          </div>
         </div>
 
-        {/* Divider + sign out */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-[var(--border)]" />
-          <button
-            onClick={async () => { await logout(); router.push("/"); }}
-            className="text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors cursor-pointer"
-          >
-            Sign out
-          </button>
-          <div className="flex-1 h-px bg-[var(--border)]" />
+        {/* ✨ Forgot Password View ✨ */}
+        <div 
+           className="w-full transition-all duration-500"
+           style={{
+              opacity: unlockOverlay === "forgot" ? 1 : 0,
+              transform: unlockOverlay === "forgot" ? "translateY(0)" : "translateY(20px)",
+              pointerEvents: unlockOverlay === "forgot" ? "auto" : "none",
+              position: unlockOverlay === "forgot" ? "relative" : "absolute",
+              top: 0, left: 0
+           }}
+        >
+           <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-red-950/20 border border-red-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(220,38,38,0.1)]">
+                 <Lock className="w-6 h-6 text-red-500" />
+              </div>
+              <h2 className="text-[18px] font-semibold text-neutral-100">Unrecoverable Password</h2>
+           </div>
+           
+           <div className="space-y-4">
+              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+                 SecureVault uses strict <strong>Zero-Knowledge Encryption</strong>. Your master password is never sent to our servers. It is strictly used locally to derive your AES-256-GCM decryption keys.
+              </p>
+              <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-900/40 bg-red-950/10">
+                 <Shield className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                 <p className="text-[12px] text-red-200/80 leading-relaxed">
+                    This means if you forget your master password, <strong>your data cannot be recovered by anyone, including us.</strong>
+                 </p>
+              </div>
+           </div>
+
+           <div className="mt-8 space-y-3">
+              <button
+                 onClick={() => { setUnlockOverlay("main"); setAnimKey(k=>k+1); }}
+                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
+              >
+                 Try another password
+              </button>
+              <button
+                 onClick={async () => { await logout(); router.push("/"); }}
+                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] text-neutral-400 hover:text-neutral-200 hover:border-neutral-600 transition-all active:scale-[0.98] bg-transparent"
+              >
+                 Sign out
+              </button>
+           </div>
         </div>
 
+        {/* ✨ Why Is This Needed View ✨ */}
+        <div 
+           className="w-full transition-all duration-500"
+           style={{
+              opacity: unlockOverlay === "why" ? 1 : 0,
+              transform: unlockOverlay === "why" ? "translateY(0)" : "translateY(20px)",
+              pointerEvents: unlockOverlay === "why" ? "auto" : "none",
+              position: unlockOverlay === "why" ? "relative" : "absolute",
+              top: 0, left: 0
+           }}
+        >
+           <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-950/20 border border-indigo-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(99,102,241,0.1)]">
+                 <Shield className="w-6 h-6 text-indigo-400" />
+              </div>
+              <h2 className="text-[18px] font-semibold text-neutral-100">Local Decryption</h2>
+           </div>
+           
+           <div className="space-y-4">
+              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+                 When you log in, we only authenticate your identity, which pulls down the encrypted blobs from the server.
+              </p>
+              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+                 Your <strong>Master Password</strong> is mathematically hashed (PBKDF2) locally inside your browser to derive a cryptographic key.
+              </p>
+              <div className="flex justify-center py-2">
+                 <div className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[#0d0d0d] font-mono text-[11px] text-neutral-500">
+                    AES-256-GCM
+                 </div>
+              </div>
+              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+                 This key then decrypts your vault data locally. Without it, your data remains secure cipher text.
+              </p>
+           </div>
+
+           <div className="mt-8">
+              <button
+                 onClick={() => { setUnlockOverlay("main"); setAnimKey(k=>k+1); }}
+                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
+              >
+                 ← Back to unlock
+              </button>
+           </div>
+        </div>
+        
       </div>
     </div>
   );
@@ -1072,7 +1197,20 @@ export default function VaultPage() {
 
           {/* Empty state */}
           {items.length === 0 && (
-            <p className="text-sm text-neutral-600 py-6">No entries yet.</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center relative">
+              {/* Illustration */}
+              <div className="w-28 h-28 sm:w-36 sm:h-36 opacity-60 mb-5">
+                <Image
+                  src="/illustrations/private-files_m2bw.svg"
+                  alt=""
+                  width={144}
+                  height={144}
+                  className="object-contain w-full h-full"
+                />
+              </div>
+              <p className="text-[14px] font-medium text-neutral-400 mb-1">Your vault is empty</p>
+              <p className="text-[12px] text-neutral-600 max-w-[220px] leading-relaxed">Add your first entry using the button above. Everything is encrypted locally.</p>
+            </div>
           )}
 
           {/* Grouped (all folders view) */}
@@ -1090,7 +1228,18 @@ export default function VaultPage() {
           )}
 
           {!grouped && visibleItems.length === 0 && items.length > 0 && (
-            <p className="text-sm text-neutral-600 py-6">No entries in this folder.</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-20 h-20 opacity-50 mb-4">
+                <Image
+                  src="/illustrations/computer-files_7dj6.svg"
+                  alt=""
+                  width={80}
+                  height={80}
+                  className="object-contain w-full h-full"
+                />
+              </div>
+              <p className="text-[13px] text-neutral-500">No entries in this folder.</p>
+            </div>
           )}
         </div>
       </main>

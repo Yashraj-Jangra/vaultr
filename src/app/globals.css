@@ -88,3 +88,42 @@ body {
 .animate-shake     { animation: shake 0.45s ease both; }
 .animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
 .animate-unlock-open { animation: unlock-open 0.5s cubic-bezier(0.4,0,0.2,1) forwards; }
+
+/* Auth page */
+@keyframes auth-panel-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+@keyframes auth-left-enter {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0px); }
+}
+@keyframes auth-form-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes auth-success-pop {
+  0%   { transform: scale(0.8); opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.animate-auth-panel-in  { animation: auth-panel-in  0.5s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-auth-left-in   { animation: auth-left-enter 0.55s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-auth-form-in   { animation: auth-form-enter 0.3s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-auth-success   { animation: auth-success-pop 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* Morphing grid wrapper */
+.expand-grid {
+  display: grid;
+  transition: grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.expand-grid > div {
+  overflow: hidden;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.expand-closed { grid-template-rows: 0fr; }
+.expand-open   { grid-template-rows: 1fr; }
+.expand-closed > div { opacity: 0; transform: translateY(-4px); pointer-events: none; }
+.expand-open > div { opacity: 1; transform: translateY(0); }
+

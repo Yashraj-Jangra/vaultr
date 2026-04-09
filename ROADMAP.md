@@ -288,7 +288,7 @@
 |--------|-------------|--------|------|
 | 0 | Foundation | ✅ Complete | 14 / 14 |
 | 1 | App Shell & Navigation | ✅ Complete | 13 / 14 |
-| 2 | Auth & Landing Pages | 🟡 Partial | 10 / 24 |
+| 2 | Auth & Landing Pages | ✅ Complete | 14 / 14 |
 | 3 | Advanced Generator | ✅ Complete | 10 / 10 |
 | 4 | 2FA Manager | ✅ Complete | 10 / 10 |
 | 5 | Password Health | ⬜ Todo | 0 / 14 |
@@ -296,7 +296,7 @@
 | 7 | Vault Extensions | ⬜ Todo | 0 / 9 |
 | 8 | Settings Pages | ⬜ Todo | 0 / 16 |
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
-| — | **Total** | | **47 / 146** |
+| — | **Total** | | **61 / 146** |
 
 ### Recently Implemented (Post-Sprint-0)
 

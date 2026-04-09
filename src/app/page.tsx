@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useRouter } from "next/navigation";
 import { useSiteConfig } from "@/context/SiteConfigContext";
@@ -24,38 +25,59 @@ const FEATURES = [
     icon: <Lock className="w-5 h-5" />,
     title: "AES-256-GCM Encryption",
     desc: "Every field encrypted client-side before touching the network. Your master password never leaves your device.",
+    illustration: "/illustrations/secure-login_m11a.svg",
   },
   {
     icon: <Shield className="w-5 h-5" />,
     title: "Zero-Knowledge Model",
     desc: "We store only encrypted ciphertext. No secret key, no backdoor — mathematically impossible to read your data.",
+    illustration: "/illustrations/security_0ubl.svg",
   },
   {
     icon: <Fingerprint className="w-5 h-5" />,
     title: "2FA Manager",
     desc: "Store TOTP secrets alongside passwords. Live countdown codes with auto-copy, powered by WebCrypto.",
+    illustration: "/illustrations/two-factor-authentication_ofho.svg",
   },
   {
     icon: <Key className="w-5 h-5" />,
     title: "Advanced Generator",
     desc: "Random, passphrase, PIN, and custom-pattern modes. Strength scoring with estimated crack-time estimates.",
+    illustration: "/illustrations/secure-password_9qv4.svg",
   },
   {
     icon: <RefreshCw className="w-5 h-5" />,
     title: "Password Health",
     desc: "Automatic scanning for weak, reused, and outdated passwords. HaveIBeenPwned checks with k-anonymity.",
+    illustration: "/illustrations/fingerprint_kdwq.svg",
   },
   {
     icon: <Globe className="w-5 h-5" />,
     title: "Multi-Template Vault",
     desc: "Store logins, credit cards, addresses, secure notes, and profiles — all encrypted with the same key.",
+    illustration: "/illustrations/personal-notebook_blje.svg",
   },
 ];
 
 const STEPS = [
-  { n: "01", title: "Create an account", desc: "Sign up with your email or Google — takes under 30 seconds." },
-  { n: "02", title: "Set a master password", desc: "This is the only password you need to remember. It never leaves your device." },
-  { n: "03", title: "Add your credentials", desc: "Import from CSV or add entries manually. Access them securely, from anywhere." },
+  {
+    n: "01",
+    title: "Create an account",
+    desc: "Sign up with your email or Google — takes under 30 seconds.",
+    illustration: "/illustrations/user-account_fvqa.svg",
+  },
+  {
+    n: "02",
+    title: "Set a master password",
+    desc: "This is the only password you need to remember. It never leaves your device.",
+    illustration: "/illustrations/enter-password_1kl4.svg",
+  },
+  {
+    n: "03",
+    title: "Add your credentials",
+    desc: "Import from CSV or add entries manually. Access them securely, from anywhere.",
+    illustration: "/illustrations/all-the-data_ijgn.svg",
+  },
 ];
 
 // ── Landing page ──────────────────────────────────────────────────────────────
@@ -64,7 +86,6 @@ export default function LandingPage() {
   const { config } = useSiteConfig();
   const router = useRouter();
 
-  // Logged-in users go straight to vault
   useEffect(() => {
     if (!isAuthLoading && user) router.replace("/vault");
   }, [user, isAuthLoading, router]);
@@ -87,8 +108,8 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden sm:flex items-center gap-6 text-[13px] text-neutral-500">
-            <a href="#features"  className="hover:text-neutral-200 transition-colors">Features</a>
-            <a href="#security"  className="hover:text-neutral-200 transition-colors">Security</a>
+            <a href="#features"   className="hover:text-neutral-200 transition-colors">Features</a>
+            <a href="#security"   className="hover:text-neutral-200 transition-colors">Security</a>
             <a href="#howitworks" className="hover:text-neutral-200 transition-colors">How it works</a>
           </div>
 
@@ -113,6 +134,28 @@ export default function LandingPage() {
         {/* Radial fade overlay */}
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,255,255,0.04) 0%, transparent 60%)" }} />
+
+        {/* Vault illustration — background on mobile, side panel on lg */}
+        <div className="absolute right-0 top-0 h-full w-1/2 pointer-events-none select-none hidden lg:flex items-center justify-end pr-8 opacity-[0.07]">
+          <Image
+            src="/illustrations/vault_tyfh.svg"
+            alt=""
+            width={480}
+            height={480}
+            className="object-contain"
+            priority
+          />
+        </div>
+        {/* Mobile: faint background vault illustration */}
+        <div className="absolute inset-0 pointer-events-none select-none flex items-center justify-center lg:hidden opacity-[0.04]">
+          <Image
+            src="/illustrations/vault_tyfh.svg"
+            alt=""
+            width={320}
+            height={320}
+            className="object-contain"
+          />
+        </div>
 
         <div className="relative max-w-5xl mx-auto px-5 pt-24 pb-20 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-neutral-950 text-[11px] text-neutral-500 mb-8">
@@ -183,10 +226,20 @@ export default function LandingPage() {
           <p className="text-[11px] text-neutral-600 uppercase tracking-widest mb-3">Simple process</p>
           <h2 className="text-3xl font-semibold text-neutral-100">Up and running in minutes</h2>
         </div>
-        <div className="grid sm:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-3 gap-8">
           {STEPS.map((step) => (
-            <div key={step.n} className="space-y-3">
-              <span className="text-[11px] font-mono text-neutral-700">{step.n}</span>
+            <div key={step.n} className="space-y-4 relative">
+              {/* Illustration: visible on all screen sizes, dims on mobile */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 opacity-60 sm:opacity-80 mx-auto sm:mx-0">
+                <Image
+                  src={step.illustration}
+                  alt=""
+                  width={80}
+                  height={80}
+                  className="object-contain w-full h-full"
+                />
+              </div>
+              <span className="text-[11px] font-mono text-neutral-700 block">{step.n}</span>
               <h3 className="text-[15px] font-semibold text-neutral-200">{step.title}</h3>
               <p className="text-[13px] text-neutral-500 leading-relaxed">{step.desc}</p>
             </div>
@@ -203,12 +256,22 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-xl border border-[var(--border)] bg-neutral-950 p-5 space-y-3 hover:border-neutral-800 transition-colors group">
-                <div className="w-9 h-9 rounded-lg bg-neutral-900 border border-[var(--border)] flex items-center justify-center text-neutral-400 group-hover:text-neutral-200 transition-colors">
+              <div key={f.title} className="rounded-xl border border-[var(--border)] bg-neutral-950 p-5 space-y-3 hover:border-neutral-800 transition-colors group relative overflow-hidden">
+                {/* Background illustration — faint, corner-anchored */}
+                <div className="absolute bottom-2 right-2 w-16 h-16 opacity-[0.12] group-hover:opacity-[0.2] transition-opacity pointer-events-none select-none">
+                  <Image
+                    src={f.illustration}
+                    alt=""
+                    width={64}
+                    height={64}
+                    className="object-contain w-full h-full"
+                  />
+                </div>
+                <div className="w-9 h-9 rounded-lg bg-neutral-900 border border-[var(--border)] flex items-center justify-center text-neutral-400 group-hover:text-neutral-200 transition-colors relative z-10">
                   {f.icon}
                 </div>
-                <h3 className="text-[14px] font-semibold text-neutral-200">{f.title}</h3>
-                <p className="text-[12px] text-neutral-500 leading-relaxed">{f.desc}</p>
+                <h3 className="text-[14px] font-semibold text-neutral-200 relative z-10">{f.title}</h3>
+                <p className="text-[12px] text-neutral-500 leading-relaxed relative z-10">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -225,20 +288,42 @@ export default function LandingPage() {
               <p className="text-[14px] text-neutral-500 leading-relaxed">
                 Your master password is used to derive an AES-256-GCM key via PBKDF2 (100,000 iterations, SHA-256). All encryption and decryption happens in your browser. Only ciphertext ever reaches our servers.
               </p>
-              <Link href="/security" className="inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 transition-colors">
-                Read the full security spec <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
+              {/* Firewall illustration — visible md+, background on mobile */}
+              <div className="flex items-center gap-5">
+                <div className="hidden md:block w-24 h-24 opacity-60 shrink-0">
+                  <Image
+                    src="/illustrations/firewall_cfej.svg"
+                    alt=""
+                    width={96}
+                    height={96}
+                    className="object-contain w-full h-full"
+                  />
+                </div>
+                <Link href="/security" className="inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 transition-colors">
+                  Read the full security spec <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-6 space-y-4 font-mono text-[12px]">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-6 space-y-4 font-mono text-[12px] relative overflow-hidden">
+              {/* Subtle background illustration in the specs card */}
+              <div className="absolute -bottom-4 -right-4 w-28 h-28 opacity-[0.06] pointer-events-none select-none">
+                <Image
+                  src="/illustrations/secure-server_lz9x.svg"
+                  alt=""
+                  width={112}
+                  height={112}
+                  className="object-contain w-full h-full"
+                />
+              </div>
               {[
-                { label: "Algorithm",     value: "AES-256-GCM",          color: "text-emerald-500" },
-                { label: "Key derivation", value: "PBKDF2 / SHA-256",    color: "text-blue-400" },
-                { label: "Iterations",    value: "100,000",              color: "text-purple-400" },
-                { label: "IV size",       value: "12 bytes (random)",    color: "text-amber-400" },
-                { label: "Auth tag",      value: "128 bits",             color: "text-emerald-500" },
-                { label: "Stored secret", value: "none — zero-knowledge", color: "text-neutral-600" },
+                { label: "Algorithm",      value: "AES-256-GCM",           color: "text-emerald-500" },
+                { label: "Key derivation", value: "PBKDF2 / SHA-256",     color: "text-blue-400" },
+                { label: "Iterations",     value: "100,000",               color: "text-purple-400" },
+                { label: "IV size",        value: "12 bytes (random)",     color: "text-amber-400" },
+                { label: "Auth tag",       value: "128 bits",              color: "text-emerald-500" },
+                { label: "Stored secret",  value: "none — zero-knowledge", color: "text-neutral-600" },
               ].map((row) => (
-                <div key={row.label} className="flex justify-between items-center border-b border-[var(--border)] pb-3 last:border-0 last:pb-0">
+                <div key={row.label} className="flex justify-between items-center border-b border-[var(--border)] pb-3 last:border-0 last:pb-0 relative z-10">
                   <span className="text-neutral-600">{row.label}</span>
                   <span className={row.color}>{row.value}</span>
                 </div>
@@ -250,10 +335,30 @@ export default function LandingPage() {
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
       <section className="border-t border-[var(--border)]">
-        <div className="max-w-5xl mx-auto px-5 py-20 text-center">
-          <h2 className="text-3xl font-semibold text-neutral-100 mb-4">Start protecting your passwords today.</h2>
-          <p className="text-neutral-500 text-[14px] mb-8">Free. No credit card. No tracking. No compromise.</p>
-          <Link href="/auth" className="inline-flex items-center gap-2 px-8 py-3.5 bg-neutral-100 hover:bg-white text-neutral-900 text-[14px] font-medium rounded-xl transition-colors">
+        <div className="max-w-5xl mx-auto px-5 py-20 text-center relative overflow-hidden">
+          {/* Background completed illustration */}
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 w-32 h-32 opacity-[0.08] hidden md:block pointer-events-none select-none">
+            <Image
+              src="/illustrations/completed_vjc6.svg"
+              alt=""
+              width={128}
+              height={128}
+              className="object-contain w-full h-full"
+            />
+          </div>
+          {/* Mobile: faint bg */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none md:hidden opacity-[0.04]">
+            <Image
+              src="/illustrations/completed_vjc6.svg"
+              alt=""
+              width={200}
+              height={200}
+              className="object-contain"
+            />
+          </div>
+          <h2 className="text-3xl font-semibold text-neutral-100 mb-4 relative z-10">Start protecting your passwords today.</h2>
+          <p className="text-neutral-500 text-[14px] mb-8 relative z-10">Free. No credit card. No tracking. No compromise.</p>
+          <Link href="/auth" className="inline-flex items-center gap-2 px-8 py-3.5 bg-neutral-100 hover:bg-white text-neutral-900 text-[14px] font-medium rounded-xl transition-colors relative z-10">
             Get started free <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

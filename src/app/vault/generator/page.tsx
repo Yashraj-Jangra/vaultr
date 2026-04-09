@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import Image from "next/image";
 import { Copy, Check, RefreshCw, Zap } from "lucide-react";
 import {
   generateRandom,
@@ -625,14 +626,22 @@ export default function GeneratorPage() {
         {/* History list */}
         <div className="flex-1 overflow-y-auto">
           {history.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center px-8 opacity-40">
-              <div className="w-10 h-10 rounded-full border border-[var(--border)] flex items-center justify-center mb-3">
-                <Zap className="w-4 h-4 text-neutral-600" />
+            <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-4 opacity-60">
+              <div className="w-24 h-24 sm:w-28 sm:h-28">
+                <Image
+                  src="/illustrations/secure-password_9qv4.svg"
+                  alt=""
+                  width={112}
+                  height={112}
+                  className="object-contain w-full h-full"
+                />
               </div>
-              <p className="text-[12px] text-neutral-600">No passwords generated yet.</p>
-              <p className="text-[11px] text-neutral-700 mt-1">
-                Click Generate and your passwords will appear here.
-              </p>
+              <div>
+                <p className="text-[12px] text-neutral-500 font-medium">No passwords generated yet.</p>
+                <p className="text-[11px] text-neutral-700 mt-1">
+                  Click Generate and your passwords will appear here.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="border-b border-[var(--border)]">

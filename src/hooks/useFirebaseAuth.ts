@@ -54,10 +54,15 @@ export const useFirebaseAuth = () => {
     } finally { setIsAuthenticating(false); }
   };
 
-  const register = async (email: string, pass: string) => {
+  const register = async (email: string, pass: string, firstName?: string, username?: string) => {
     setIsAuthenticating(true); setError(null);
     try {
-      await createUserWithEmailAndPassword(auth, email, pass);
+      const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+      if (firstName || username) {
+        const { updateProfile } = await import('firebase/auth');
+        const displayName = [firstName, username].filter(Boolean).join(' ');
+        await updateProfile(user, { displayName });
+      }
     } catch (err) {
       setError(friendly(err));
     } finally { setIsAuthenticating(false); }

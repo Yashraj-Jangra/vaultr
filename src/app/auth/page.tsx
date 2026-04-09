@@ -1,47 +1,52 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useSiteConfig } from "@/context/SiteConfigContext";
-import { Shield, Eye, EyeOff, ArrowRight, Lock, Zap, Globe } from "lucide-react";
+import {
+  Shield, Eye, EyeOff, ArrowRight, Lock, Zap, Globe,
+  Mail, CheckCircle2, KeyRound, UserPlus, LogIn, User
+} from "lucide-react";
 
-// ── Password strength meter ────────────────────────────────────────────────────
+// ── Strength meter ─────────────────────────────────────────────────────────────
 function strengthScore(pw: string): number {
-  let score = 0;
-  if (pw.length >= 8)  score++;
-  if (pw.length >= 12) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  return score; // 0-5
+  let s = 0;
+  if (pw.length >= 8)  s++;
+  if (pw.length >= 12) s++;
+  if (/[A-Z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  return s;
 }
 
-const STRENGTH_LABEL = ["", "Very weak", "Weak", "Fair", "Strong", "Very strong"];
-const STRENGTH_COLOR = ["", "#ef4444", "#f97316", "#eab308", "#22c55e", "#10b981"];
+const S_LABEL = ["", "Very weak", "Weak", "Fair", "Strong", "Very strong"];
+const S_COLOR = ["", "#ef4444", "#f97316", "#eab308", "#22c55e", "#10b981"];
 
-function StrengthMeter({ password }: { password: string }) {
-  if (!password) return null;
-  const score = strengthScore(password);
+function StrengthMeter({ pw }: { pw: string }) {
+  if (!pw) return null;
+  const s = strengthScore(pw);
   return (
-    <div className="space-y-1.5 mt-1">
+    <div className="space-y-1.5 pt-1.5 pb-0.5">
       <div className="flex gap-1">
         {[1,2,3,4,5].map((i) => (
           <div
             key={i}
-            className="h-0.5 flex-1 rounded-full transition-all duration-300"
-            style={{ background: i <= score ? STRENGTH_COLOR[score] : "#1a1a1a" }}
+            className="h-[3px] flex-1 rounded-full transition-all duration-500"
+            style={{ background: i <= s ? S_COLOR[s] : "#1f1f1f" }}
           />
         ))}
       </div>
-      <p className="text-[11px]" style={{ color: score > 0 ? STRENGTH_COLOR[score] : "#666" }}>
-        {STRENGTH_LABEL[score]}
+      <p className="text-[11px] transition-colors duration-300" style={{ color: s > 0 ? S_COLOR[s] : "#555" }}>
+        {s > 0 ? S_LABEL[s] : ""}
       </p>
     </div>
   );
 }
 
-// ── Google G SVG ──────────────────────────────────────────────────────────────
+// ── Google icon ───────────────────────────────────────────────────────────────
 function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24">
@@ -53,279 +58,449 @@ function GoogleIcon() {
   );
 }
 
-// ── Main auth page ─────────────────────────────────────────────────────────────
-type Tab = "signin" | "signup";
+// ── Shared Input ──────────────────────────────────────────────────────────────
+function AuthInput({
+  type, placeholder, value, onChange, required, autoFocus, disabled, children,
+}: {
+  type: string; placeholder: string; value: string;
+  onChange: (v: string) => void; required?: boolean;
+  autoFocus?: boolean; disabled?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="relative w-full">
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        autoFocus={autoFocus}
+        disabled={disabled}
+        className="w-full bg-[#0d0d0d] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-neutral-200 placeholder-neutral-700 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-white/5 transition-all duration-200 disabled:opacity-50 pr-10"
+      />
+      {children}
+    </div>
+  );
+}
+
+// ── Divider ───────────────────────────────────────────────────────────────────
+function Divider() {
+  return (
+    <div className="flex items-center gap-4 py-2">
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border)] to-[var(--border)]" />
+      <span className="text-[11px] font-medium text-neutral-600 uppercase tracking-widest">or</span>
+      <div className="flex-1 h-px bg-gradient-to-l from-transparent via-[var(--border)] to-[var(--border)]" />
+    </div>
+  );
+}
+
+// ── Primary Button ────────────────────────────────────────────────────────────
+function AuthBtn({
+  type = "button", children, loading, disabled, onClick, variant = "primary",
+}: {
+  type?: "button" | "submit"; children: React.ReactNode;
+  loading?: boolean; disabled?: boolean; onClick?: () => void;
+  variant?: "primary" | "ghost";
+}) {
+  const base = "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[13px] font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+  const styles = variant === "primary"
+    ? "bg-neutral-100 hover:bg-white active:scale-[0.98] text-neutral-900 shadow-sm"
+    : "border border-[var(--border)] hover:border-neutral-700 text-neutral-400 hover:text-neutral-200 bg-transparent";
+  return (
+    <button type={type} onClick={onClick} disabled={disabled || loading} className={`${base} ${styles}`}>
+      {loading
+        ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
+        : children}
+    </button>
+  );
+}
+
+// ── Error Banner ──────────────────────────────────────────────────────────────
+function ErrorBanner({ msg }: { msg: string }) {
+  return (
+    <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border border-red-900/40 bg-red-950/25 animate-auth-form-in">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1" />
+      <p className="text-[12px] text-red-400">{msg}</p>
+    </div>
+  );
+}
+
+// ── Left-panel dynamic content ────────────────────────────────────────────────
+type LeftView = "signin" | "signup" | "forgot";
+
+const LEFT = {
+  signin: {
+    badge: "Welcome back",
+    headline: "Unlock your\nencrypted vault.",
+    sub: "Your passwords are waiting — secured with AES-256-GCM and decrypted only by you.",
+    illustration: "/illustrations/unlock_m0yr.svg",
+    formIcon: "/illustrations/secure-login_m11a.svg",
+    bullets: [
+      { icon: <Lock className="w-3.5 h-3.5" />,  title: "AES-256-GCM",         desc: "Industry-standard encryption" },
+      { icon: <Zap  className="w-3.5 h-3.5" />,  title: "Zero-knowledge",       desc: "We can't read your data. Ever." },
+      { icon: <Globe className="w-3.5 h-3.5" />, title: "Access from anywhere", desc: "Synced via Firebase" },
+    ],
+  },
+  signup: {
+    badge: "Get started free",
+    headline: "Zero-knowledge\nsecurity, day one.",
+    sub: "Your vault is encrypted before it leaves your browser. Not even we can see inside.",
+    illustration: "/illustrations/authentication_1evl.svg",
+    formIcon: "/illustrations/user-account_fvqa.svg",
+    bullets: [
+      { icon: <UserPlus className="w-3.5 h-3.5" />, title: "30-second setup",    desc: "No credit card required" },
+      { icon: <Lock className="w-3.5 h-3.5" />,     title: "Master password",    desc: "Only you know it — ever" },
+      { icon: <Globe className="w-3.5 h-3.5" />,    title: "All your devices",   desc: "Sync across everything you use" },
+    ],
+  },
+  forgot: {
+    badge: "Account recovery",
+    headline: "Forgot your\npassword?",
+    sub: "Enter your email and we'll send a secure reset link. Your encrypted data stays safe.",
+    illustration: "/illustrations/forgot-password_nttj.svg",
+    formIcon: "/illustrations/forgot-password_nttj.svg",
+    bullets: [
+      { icon: <Mail className="w-3.5 h-3.5" />, title: "Check your inbox",  desc: "Reset link expires in 1 hour" },
+      { icon: <KeyRound className="w-3.5 h-3.5" />, title: "Set new password", desc: "Your vault data is preserved" },
+    ],
+  },
+};
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+type Tab   = "signin" | "signup";
+type View  = "main" | "forgot" | "sent";
 
 export default function AuthPage() {
   const { user, isAuthLoading, login, register, googleLogin, resetPassword, isAuthenticating, error } = useFirebaseAuth();
   const { config } = useSiteConfig();
   const router = useRouter();
 
+  // ─ state
   const [tab,        setTab]        = useState<Tab>("signin");
+  const [view,       setView]       = useState<View>("main");
+  
+  // ─ form fields
+  const [firstName,  setFirstName]  = useState("");
+  const [username,   setUsername]   = useState("");
   const [email,      setEmail]      = useState("");
   const [password,   setPassword]   = useState("");
   const [showPass,   setShowPass]   = useState(false);
-  const [forgotMode, setForgotMode] = useState(false);
-  const [resetSent,  setResetSent]  = useState(false);
 
+  // ─ forgot overlay & crossfades
+  const [forgotMounted,  setForgotMounted]  = useState(false);
+  const [forgotVisible,  setForgotVisible]  = useState(false);
+  const [leftView,   setLeftView]   = useState<LeftView>("signin");
+  const [animKey,    setAnimKey]    = useState(0); 
+
+  // ─ redirect if already logged in
   useEffect(() => {
     if (!isAuthLoading && user) router.replace("/vault");
   }, [user, isAuthLoading, router]);
 
-  if (isAuthLoading) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-neutral-600">Loading…</p></div>;
-  }
+  const triggerAnim = useCallback((lv: LeftView) => {
+    setLeftView(lv);
+    setAnimKey((k) => k + 1);
+  }, []);
+
+  const switchTab = useCallback((t: Tab) => {
+    setTab(t);
+    triggerAnim(t);
+  }, [triggerAnim]);
+
+  const openForgot = useCallback(() => {
+    setForgotMounted(true);
+    triggerAnim("forgot");
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setForgotVisible(true);
+        setView("forgot");
+      })
+    );
+  }, [triggerAnim]);
+
+  const closeForgot = useCallback(() => {
+    setForgotVisible(false);
+    triggerAnim(tab);
+    setTimeout(() => {
+      setForgotMounted(false);
+      setView("main");
+    }, 380);
+  }, [tab, triggerAnim]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tab === "signin") { await login(email, password); }
-    else                  { await register(email, password); }
+    if (tab === "signin") await login(email, password);
+    else                  await register(email, password, firstName, username);
   };
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await resetPassword(email);
-    if (ok) setResetSent(true);
+    if (ok) setView("sent");
   };
 
-  const handleGoogle = async () => { await googleLogin(); };
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
+        <span className="w-5 h-5 border-2 border-neutral-700 border-t-neutral-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  const switchTab = (t: Tab) => { setTab(t); setForgotMode(false); setResetSent(false); };
+  const lc = LEFT[leftView];
+  const isSignUp = tab === "signup";
 
   return (
-    <div className="min-h-screen flex">
-      {/* ── Left brand panel ─────────────────────────────────────────────── */}
-      <div className="hidden lg:flex w-[46%] flex-col justify-between p-12 relative overflow-hidden bg-neutral-950">
-        {/* Gradient orb */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/[0.02] blur-3xl" />
-          <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full bg-white/[0.02] blur-2xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-white/[0.03]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-white/[0.04]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] rounded-full border border-white/[0.06]" />
+    <div className="min-h-screen flex bg-[var(--bg)] text-[var(--fg)]">
+
+      {/* ══════════════════════ LEFT BRAND PANEL ══════════════════════ */}
+      <div className="hidden lg:flex w-[46%] flex-col justify-between p-12 relative overflow-hidden bg-[#080808] border-r border-[var(--border)]">
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{
+          backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
+          backgroundSize: "40px 40px",
+        }} />
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse 70% 60% at 30% 40%, rgba(255,255,255,0.025) 0%, transparent 70%)" }} />
+
+        {/* Illustration — crossfades when animKey changes */}
+        <div key={`img-${animKey}`} className="absolute inset-0 flex items-center justify-center pointer-events-none select-none animate-auth-left-in">
+          <Image
+            src={lc.illustration}
+            alt=""
+            width={340}
+            height={340}
+            className="object-contain opacity-[0.1]"
+            priority
+          />
         </div>
 
-        {/* Logo */}
+        {/* ── Logo */}
         <div className="flex items-center gap-2.5 relative z-10">
-          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/10">
+          <div className="w-8 h-8 rounded-lg bg-white/8 border border-white/10 flex items-center justify-center">
             <Shield className="w-4 h-4 text-white" />
           </div>
-          <span className="text-[15px] font-semibold text-white">{config.name}</span>
+          <span className="text-[15px] font-semibold text-white tracking-tight">{config.name}</span>
         </div>
 
-        {/* Center content */}
-        <div className="relative z-10 space-y-8">
+        {/* ── Center content — crossfades */}
+        <div key={`content-${animKey}`} className="relative z-10 space-y-8 animate-auth-left-in">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] text-[11px] text-neutral-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            {lc.badge}
+          </div>
+
           <div className="space-y-3">
-            <p className="text-[11px] text-neutral-500 uppercase tracking-widest font-medium">Zero-knowledge security</p>
-            <h2 className="text-3xl font-semibold text-white leading-snug">
-              Your passwords,<br />
-              <span className="text-neutral-400">encrypted before</span><br />
-              they leave your browser.
+            <h2 className="text-[28px] font-semibold text-white leading-tight tracking-tight whitespace-pre-line">
+              {lc.headline}
             </h2>
+            <p className="text-[13px] text-neutral-500 leading-relaxed max-w-xs">
+              {lc.sub}
+            </p>
           </div>
 
           <div className="space-y-4">
-            {[
-              { icon: <Lock className="w-4 h-4" />,  title: "AES-256-GCM encryption",    desc: "Military-grade, client-side only" },
-              { icon: <Zap  className="w-4 h-4" />,  title: "Zero-knowledge model",       desc: "We cannot read your data. Ever." },
-              { icon: <Globe className="w-4 h-4" />, title: "Access from anywhere",       desc: "Synced securely via Firebase" },
-            ].map((f) => (
-              <div key={f.title} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-md bg-white/5 border border-white/5 flex items-center justify-center text-neutral-400 shrink-0 mt-0.5">
-                  {f.icon}
+            {lc.bullets.map((b) => (
+              <div key={b.title} className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-md bg-white/5 border border-white/[0.06] flex items-center justify-center text-neutral-500 shrink-0 mt-0.5">
+                  {b.icon}
                 </div>
                 <div>
-                  <p className="text-[13px] text-neutral-200 font-medium">{f.title}</p>
-                  <p className="text-[12px] text-neutral-500">{f.desc}</p>
+                  <p className="text-[13px] text-neutral-300 font-medium">{b.title}</p>
+                  <p className="text-[11px] text-neutral-600 mt-0.5">{b.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bottom */}
+        {/* ── Bottom */}
         <div className="relative z-10">
-          <p className="text-[11px] text-neutral-700">© {new Date().getFullYear()} {config.name}. All rights reserved.</p>
+          <p className="text-[11px] text-neutral-800">
+            © {new Date().getFullYear()} {config.name}. Zero-knowledge. Always.
+          </p>
         </div>
       </div>
 
-      {/* ── Right form panel ─────────────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-sm space-y-7">
+      {/* ══════════════════════ RIGHT FORM PANEL ══════════════════════ */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 relative overflow-hidden">
 
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <Shield className="w-5 h-5 text-neutral-400" />
-            <span className="text-[14px] font-semibold text-neutral-200">{config.name}</span>
+        <div className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none select-none lg:hidden opacity-[0.04]">
+          <Image src={lc.illustration} alt="" width={192} height={192} className="object-contain" />
+        </div>
+
+        <div className="w-full max-w-[360px] animate-auth-panel-in relative z-10">
+
+          <div className="flex items-center justify-between mb-8 lg:hidden">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-neutral-500" />
+              <span className="text-[14px] font-semibold text-neutral-300">{config.name}</span>
+            </div>
+            <Link href="/" className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors">← Home</Link>
           </div>
 
-          {/* Forgot password flow */}
-          {forgotMode ? (
-            <div className="space-y-5">
-              <div>
-                <h1 className="text-[20px] font-semibold text-neutral-100">Reset password</h1>
-                <p className="text-[13px] text-neutral-500 mt-1">Enter your email and we&apos;ll send a reset link.</p>
-              </div>
-              {resetSent ? (
-                <div className="rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-4 py-3">
-                  <p className="text-[13px] text-emerald-400">Check your inbox — reset link sent.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleForgot} className="space-y-4">
-                  {error && <p className="text-[12px] text-red-400">{error}</p>}
-                  <AuthInput type="email" placeholder="Email address" value={email} onChange={setEmail} required />
-                  <AuthButton type="submit" loading={isAuthenticating}>
-                    Send reset link <ArrowRight className="w-3.5 h-3.5" />
-                  </AuthButton>
-                </form>
-              )}
-              <button onClick={() => setForgotMode(false)} className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer">
-                ← Back to sign in
+          {/* ── Tab switcher ── */}
+          <div className="flex rounded-xl border border-[var(--border)] p-0.5 bg-[#0d0d0d] mb-6">
+            {(["signin", "signup"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => { if (view !== "main") closeForgot(); switchTab(t); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] font-medium rounded-lg transition-all duration-200 cursor-pointer
+                  ${tab === t && view === "main" ? "bg-neutral-800 text-neutral-100 shadow-sm" : "text-neutral-600 hover:text-neutral-400"}`}
+              >
+                {t === "signin" ? <><LogIn className="w-3.5 h-3.5" /> Sign in</> : <><UserPlus className="w-3.5 h-3.5" /> Sign up</>}
               </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Header */}
-              <div>
-                <h1 className="text-[20px] font-semibold text-neutral-100">
-                  {tab === "signin" ? "Welcome back" : "Create account"}
+            ))}
+          </div>
+
+          {/* ── Unified Morphing Form ── */}
+          <div className="relative overflow-hidden">
+
+            {/* Static Google Button & Title */}
+            <div className="space-y-4">
+              
+              {/* Contextual Illustration (fades on tab switch) */}
+              <div key={`icon-${animKey}`} className="flex justify-center mb-6 animate-auth-form-in">
+                <Image src={lc.formIcon} priority alt="" width={64} height={64} className="opacity-80" />
+              </div>
+
+              <div key={`title-${animKey}`} className="mb-2 text-center animate-auth-form-in">
+                <h1 className="text-[18px] font-semibold text-neutral-100">
+                  {isSignUp ? "Create an account" : "Welcome back"}
                 </h1>
-                <p className="text-[13px] text-neutral-500 mt-1">
-                  {tab === "signin"
-                    ? "Sign in to access your encrypted vault."
-                    : "Set up your zero-knowledge vault."}
+                <p className="text-[12px] text-neutral-600 mt-0.5">
+                  {isSignUp ? "Set up your zero-knowledge vault." : "Sign in to access your encrypted vault."}
                 </p>
               </div>
 
-              {/* Tab switcher */}
-              <div className="flex rounded-lg border border-[var(--border)] p-0.5 bg-neutral-950">
-                {(["signin", "signup"] as Tab[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => switchTab(t)}
-                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-all duration-150 cursor-pointer ${
-                      tab === t
-                        ? "bg-neutral-800 text-neutral-100 shadow-sm"
-                        : "text-neutral-500 hover:text-neutral-300"
-                    }`}
-                  >
-                    {t === "signin" ? "Sign in" : "Sign up"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Google button */}
               <button
-                onClick={handleGoogle}
+                onClick={() => googleLogin()}
                 disabled={isAuthenticating}
-                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg border border-[var(--border)] bg-neutral-950 hover:bg-neutral-900 text-[13px] text-neutral-300 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[#0d0d0d] hover:bg-neutral-900 hover:border-neutral-700 text-[13px] text-neutral-300 transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-[0.98]"
               >
-                <GoogleIcon />
-                Continue with Google
+                <GoogleIcon /> Continue with Google
               </button>
+              <Divider />
 
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-[var(--border)]" />
-                <span className="text-[11px] text-neutral-700">or</span>
-                <div className="flex-1 h-px bg-[var(--border)]" />
-              </div>
-
-              {/* Form */}
+              {/* Form starts here */}
               <form onSubmit={handleSubmit} className="space-y-3">
-                {error && (
-                  <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2.5">
-                    <p className="text-[12px] text-red-400">{error}</p>
-                  </div>
-                )}
-                <AuthInput type="email" placeholder="Email address" value={email} onChange={setEmail} required />
-                <div className="relative">
-                  <AuthInput
-                    type={showPass ? "text" : "password"}
-                    placeholder="Password"
-                    value={password}
-                    onChange={setPassword}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer"
-                    tabIndex={-1}
-                  >
+                {error && <ErrorBanner msg={error} />}
+
+                {/* ── Morphing New Fields (Grid Expansion) ── */}
+                <div className={`expand-grid ${isSignUp ? 'expand-open' : 'expand-closed'}`}>
+                   <div>
+                      <div className="pb-3 flex gap-3">
+                        <AuthInput type="text" placeholder="First name" value={firstName} onChange={setFirstName} required={isSignUp} disabled={!isSignUp}>
+                           <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
+                        </AuthInput>
+                        <AuthInput type="text" placeholder="Username" value={username} onChange={setUsername} required={isSignUp} disabled={!isSignUp}>
+                           <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
+                        </AuthInput>
+                      </div>
+                   </div>
+                </div>
+
+                {/* Static base fields */}
+                <AuthInput type="email" placeholder="Email address" value={email} onChange={setEmail} required>
+                  <Mail className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
+                </AuthInput>
+                
+                <AuthInput type={showPass ? "text" : "password"} placeholder={isSignUp ? "Create a strong password" : "Password"} value={password} onChange={setPassword} required>
+                  <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-400 transition-colors cursor-pointer p-0.5" tabIndex={-1}>
                     {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
+                </AuthInput>
+
+                {/* Morphing strength meter */}
+                <div className={`expand-grid ${isSignUp ? 'expand-open' : 'expand-closed'}`}>
+                  <div>
+                     <StrengthMeter pw={password} />
+                  </div>
                 </div>
 
-                {/* Strength meter on sign-up */}
-                {tab === "signup" && <StrengthMeter password={password} />}
-
-                <AuthButton type="submit" loading={isAuthenticating}>
-                  {tab === "signin" ? "Sign in" : "Create account"}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </AuthButton>
+                {/* Submit button (text swaps via key to trigger fade) */}
+                <div className="pt-1">
+                  <AuthBtn type="submit" loading={isAuthenticating}>
+                    <span key={`btn-${animKey}`} className="flex items-center gap-2 animate-auth-form-in">
+                      {isSignUp ? "Create account" : "Sign in"} <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </AuthBtn>
+                </div>
               </form>
 
-              {/* Forgot password */}
-              {tab === "signin" && (
-                <button
-                  onClick={() => setForgotMode(true)}
-                  className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer w-full text-center"
-                >
-                  Forgot password?
-                </button>
-              )}
+              {/* Morphing Bottom Links */}
+              <div className="relative h-6 mt-2">
+                {/* Forget password (Signin Only) */}
+                <div className={`absolute inset-x-0 transition-opacity duration-300 ${!isSignUp ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none'}`}>
+                  <button onClick={openForgot} type="button" className="w-full text-center text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer">
+                    Forgot password?
+                  </button>
+                </div>
+                {/* Legal text (Signup Only) */}
+                <div className={`absolute inset-x-0 transition-opacity duration-300 ${isSignUp ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none'}`}>
+                  <p className="text-[11px] text-neutral-700 text-center leading-relaxed">
+                    By signing up you agree to our{" "}
+                    <Link href="/terms" className="text-neutral-500 hover:text-neutral-300 underline underline-offset-2">Terms</Link>
+                    {" "}and{" "}
+                    <Link href="/privacy" className="text-neutral-500 hover:text-neutral-300 underline underline-offset-2">Privacy Policy</Link>.
+                  </p>
+                </div>
+              </div>
 
-              {/* Legal */}
-              {tab === "signup" && (
-                <p className="text-[11px] text-neutral-600 text-center leading-relaxed">
-                  By creating an account you agree to our{" "}
-                  <a href="/terms" className="text-neutral-400 hover:text-neutral-200 underline">Terms</a>
-                  {" "}and{" "}
-                  <a href="/privacy" className="text-neutral-400 hover:text-neutral-200 underline">Privacy Policy</a>.
-                </p>
-              )}
             </div>
-          )}
+
+            {/* ── FORGOT PASSWORD overlay ── */}
+            {forgotMounted && (
+              <div
+                className="absolute inset-0 bg-[var(--bg)] z-20 flex flex-col justify-center"
+                style={{
+                  transform: forgotVisible ? "translateY(0)" : "translateY(16px)",
+                  opacity: forgotVisible ? 1 : 0,
+                  transition: "transform 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.38s ease",
+                }}
+              >
+                {view === "sent" ? (
+                  <div className="space-y-4 animate-auth-success">
+                    <div className="flex flex-col items-center text-center gap-3 py-4">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-950/50 border border-emerald-900/40 flex items-center justify-center">
+                        <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-[16px] font-semibold text-neutral-100">Check your inbox</h2>
+                        <p className="text-[12px] text-neutral-500 mt-1 leading-relaxed">
+                          Reset link sent to <br/><span className="text-neutral-300 font-medium">{email}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <AuthBtn onClick={closeForgot} variant="ghost">← Back to sign in</AuthBtn>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-center mb-6">
+                      <Image src={lc.formIcon} alt="" width={64} height={64} className="mx-auto opacity-80 mb-4" />
+                      <h2 className="text-[18px] font-semibold text-neutral-100">Reset password</h2>
+                      <p className="text-[12px] text-neutral-600 mt-1">Enter your email and we&apos;ll send a link.</p>
+                    </div>
+                    {error && <ErrorBanner msg={error} />}
+                    <form onSubmit={handleForgot} className="space-y-3">
+                      <AuthInput type="email" placeholder="Email address" value={email} onChange={setEmail} required autoFocus>
+                        <Mail className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
+                      </AuthInput>
+                      <AuthBtn type="submit" loading={isAuthenticating}>
+                        Send link <ArrowRight className="w-3.5 h-3.5" />
+                      </AuthBtn>
+                    </form>
+                    <button onClick={closeForgot} className="w-full text-center text-[12px] text-neutral-700 hover:text-neutral-400 transition-colors py-1">
+                      ← Back to sign in
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-// ── Shared form atoms ─────────────────────────────────────────────────────────
-function AuthInput({
-  type, placeholder, value, onChange, required,
-}: {
-  type: string; placeholder: string; value: string;
-  onChange: (v: string) => void; required?: boolean;
-}) {
-  return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      required={required}
-      className="w-full bg-neutral-950 border border-[var(--border)] rounded-lg px-3.5 py-2.5 text-[13px] text-neutral-200 placeholder-neutral-700 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600/30 transition-all"
-    />
-  );
-}
-
-function AuthButton({
-  type = "button", children, loading, onClick,
-}: {
-  type?: "button" | "submit"; children: React.ReactNode;
-  loading?: boolean; onClick?: () => void;
-}) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={loading}
-      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-    >
-      {loading ? <span className="w-3.5 h-3.5 border-2 border-neutral-600 border-t-neutral-900 rounded-full animate-spin" /> : children}
-    </button>
   );
 }
