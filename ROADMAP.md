@@ -98,53 +98,53 @@
 
 ---
 
-## Sprint 4 — 2FA Manager (TOTP Authenticator)
+## Sprint 4 — 2FA Manager (TOTP Authenticator) ✅
 
-- [ ] **TOTP field on Login template entries**
-  - [ ] Optional "Add 2FA" toggle in entry form
-  - [ ] Accepts `otpauth://totp/...` URI or raw Base32 secret
-  - [ ] QR code scanner (device camera API via `jsQR` or similar)
-  - [ ] TOTP secret stored inside encrypted blob (zero-knowledge)
-- [ ] **Live TOTP code in revealed entry view**
-  - [ ] 6-digit code rendered prominently
-  - [ ] Animated countdown ring (30-second TOTP window)
-  - [ ] Auto-refreshes when period expires
-  - [ ] One-click copy with confirmation flash
-- [ ] **Standalone Authenticator page** (`/vault/authenticator`)
-  - [ ] List all entries with 2FA enabled
-  - [ ] Large code display, sorted by expiry time
-  - [ ] Search/filter authenticator entries
-  - [ ] "Add new authenticator" quick action
-- [ ] **Pure-TS TOTP implementation** (RFC 6238 — no native binary deps)
-  - [ ] HMAC-SHA1 using WebCrypto API
-  - [ ] Handles clock skew (±1 window)
-- [ ] Badge on sidebar Authenticator link showing count of accounts
+- [x] **TOTP field on Login template entries**
+  - [x] Optional "Add 2FA" toggle in entry form
+  - [x] Accepts `otpauth://totp/...` URI or raw Base32 secret
+  - [x] QR code scanner (device camera API via `jsQR` or similar)
+  - [x] TOTP secret stored inside encrypted blob (zero-knowledge)
+- [x] **Live TOTP code in revealed entry view**
+  - [x] 6-digit code rendered prominently
+  - [x] Animated countdown ring (30-second TOTP window)
+  - [x] Auto-refreshes when period expires
+  - [x] One-click copy with confirmation flash
+- [x] **Standalone Authenticator page** (`/vault/authenticator`)
+  - [x] List all entries with 2FA enabled
+  - [x] Large code display, sorted by expiry time
+  - [x] Search/filter authenticator entries
+  - [x] "Add new authenticator" quick action
+- [x] **Pure-TS TOTP implementation** (RFC 6238 — no native binary deps)
+  - [x] HMAC-SHA1 using WebCrypto API
+  - [x] Handles clock skew (±1 window)
+- [x] Badge on sidebar Authenticator link showing count of accounts
 
 ---
 
-## Sprint 5 — Password Health Dashboard (`/health`)
+## Sprint 5 — Password Health Dashboard (`/health`) ⏭️ (Skipped/Deferred)
 
-- [ ] **Security Score ring** — 0–100 animated SVG gauge
-  - [ ] Color: red (0–39), amber (40–69), green (70–100)
-  - [ ] Score breakdown tooltip
-- [ ] Score factors:
-  - [ ] −5 per weak password (length < 10, score < 2)
-  - [ ] −10 per reused password group
-  - [ ] −3 per entry older than 90 days (based on `createdAt` until edit tracking added)
-  - [ ] −5 per login entry missing 2FA
-- [ ] **Weak Passwords** section
-  - [ ] Strength bar per flagged entry
-  - [ ] "Update" button → opens entry in edit mode
-- [ ] **Reused Passwords** section
-  - [ ] Grouped entries sharing same hashed password
-  - [ ] Count badge
-- [ ] **Old Passwords** section (90+ days)
-  - [ ] "Last updated" relative date
-- [ ] **Missing 2FA** section
-  - [ ] Login entries without TOTP secret
-  - [ ] "Add 2FA" quick action
-- [ ] `src/lib/passwords/health.ts` — scoring library (pure functions, testable)
-- [ ] **HaveIBeenPwned check** (opt-in toggle, k-anonymity — SHA-1 prefix only, password never sent)
+- [-] **Security Score ring** — 0–100 animated SVG gauge
+  - [-] Color: red (0–39), amber (40–69), green (70–100)
+  - [-] Score breakdown tooltip
+- [-] Score factors:
+  - [-] −5 per weak password (length < 10, score < 2)
+  - [-] −10 per reused password group
+  - [-] −3 per entry older than 90 days (based on `createdAt` until edit tracking added)
+  - [-] −5 per login entry missing 2FA
+- [-] **Weak Passwords** section
+  - [-] Strength bar per flagged entry
+  - [-] "Update" button → opens entry in edit mode
+- [-] **Reused Passwords** section
+  - [-] Grouped entries sharing same hashed password
+  - [-] Count badge
+- [-] **Old Passwords** section (90+ days)
+  - [-] "Last updated" relative date
+- [-] **Missing 2FA** section
+  - [-] Login entries without TOTP secret
+  - [-] "Add 2FA" quick action
+- [-] `src/lib/passwords/health.ts` — scoring library (pure functions, testable)
+- [-] **HaveIBeenPwned check** (opt-in toggle, k-anonymity — SHA-1 prefix only, password never sent)
 
 ---
 
