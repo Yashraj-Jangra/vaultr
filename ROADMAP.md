@@ -25,6 +25,21 @@
 
 ---
 
+## Code Quality & Lint (Ongoing)
+
+> Lint checks are run before every commit and after every significant change. The policy is **zero errors, zero warnings**.
+
+- [x] **ESLint** configured (`next/core-web-vitals` + `@typescript-eslint` + `react-hooks`)
+- [x] Zero-warning policy — all warnings treated as errors during review
+- [x] **`@typescript-eslint/no-unused-vars`** — all dead imports and dead destructures removed
+- [x] **`react-hooks/set-state-in-effect`** — all synchronous setState-in-effect replaced with correct patterns (lazy initializers, stable callbacks, direct return values)
+- [x] **`react-hooks/exhaustive-deps`** — all unnecessary/missing deps corrected; `useMemo` wrappers added where needed to prevent re-subscription on every render
+- [x] Stale `eslint-disable` directives removed — only intentional, documented suppressions remain
+- [ ] **Pre-commit hook** (`husky` + `lint-staged`) — run lint automatically on staged `.ts`/`.tsx` files *(planned)*
+- [ ] **CI lint gate** — GitHub Actions workflow to block PRs with lint errors *(planned)*
+
+---
+
 ## Sprint 1 — App Shell & Navigation ✅
 
 - [ ] **`useVault.ts`** — centralized vault state hook *(deferred — state lives in vault page)*
@@ -46,8 +61,10 @@
   - [x] Variants: success, error, warning, info
   - [x] Auto-dismiss
 - [x] **`useAutoLock.ts`** — idle timer hook
-  - [x] Configurable timer: Off / 5 / 15 / 30 min
+  - [x] Default timer: 15 minutes of inactivity
+  - [x] Configurable: Off / 5 / 15 / 30 min (preference stored in `localStorage` per user)
   - [x] Resets on user interaction
+  - [x] **Vault session persistence** — master password cached in `sessionStorage` (tab-scoped), re-derives key silently on page refresh / navigation without re-prompting user
 - [x] **`useKeyboardShortcuts.ts`** — global hotkey registry
   - [x] `N` → New entry
   - [x] `/` → Focus search
@@ -287,7 +304,7 @@
 | Sprint | Feature Area | Status | Done |
 |--------|-------------|--------|------|
 | 0 | Foundation | ✅ Complete | 14 / 14 |
-| 1 | App Shell & Navigation | ✅ Complete | 13 / 14 |
+| 1 | App Shell & Navigation | ✅ Complete | 14 / 14 |
 | 2 | Auth & Landing Pages | ✅ Complete | 14 / 14 |
 | 3 | Advanced Generator | ✅ Complete | 10 / 10 |
 | 4 | 2FA Manager | ✅ Complete | 10 / 10 |
@@ -307,12 +324,18 @@
 - Optional Site URL field with external link shortcut
 - Sidebar, TopBar, BottomNav, CommandPalette layout shell
 - Toast notification system (`useToast` + `ToastContainer`)
-- Auto-lock idle timer (`useAutoLock`)
+- Auto-lock idle timer (`useAutoLock`) — 15 min default, per-user configurable
+- Vault session persistence — master password cached in `sessionStorage`; no re-prompt on navigation or refresh
 - Keyboard shortcuts (`useKeyboardShortcuts`)
 - Auth page (`/auth`), Landing page (`/`), and legal pages
 - Entry row hover states, consistent label alignment, User / Email labels
+- **Full lint pass** (2026-04-12) — 0 errors, 0 warnings across all `.ts`/`.tsx` files
+  - Removed all unused imports and dead destructures
+  - Fixed all `setState-in-effect` anti-patterns (lazy initialisers, return-value error flow)
+  - Memoized unstable arrays in `CommandPalette` to prevent re-subscription on every render
+  - Wired `authenticator/page.tsx` to shared `VaultContext` — no longer re-prompts for master password
 
 ---
 
-*Last updated: 2026-04-08*
+*Last updated: 2026-04-12*
 *To begin a sprint, say "begin sprint N".*

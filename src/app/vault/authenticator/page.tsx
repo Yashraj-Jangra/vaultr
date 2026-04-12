@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
-import { useCrypto, deriveKey } from "@/hooks/useCrypto";
+import React, { useEffect, useState } from "react";
+import { useVault } from "@/context/VaultContext";
+import { useCrypto } from "@/hooks/useCrypto";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Fingerprint, Copy, Check } from "lucide-react";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import { DecryptedPayload, VaultItem } from "../page";
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 
 // ─── Minimal Live TOTP Row ──────────────────────────────────────────────────────
 
@@ -99,10 +100,10 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
 
 export default function AuthenticatorPage() {
   const { user } = useFirebaseAuth();
-  const { encrypt, decrypt } = useCrypto();
+  const { cryptoKey, unlock: ctxUnlock } = useVault();
+  const { decrypt } = useCrypto();
 
   const [items, setItems] = useState<VaultItem[]>([]);
-  const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   
   // Decrypted secrets store: { [itemId]: secret }
   const [secrets, setSecrets] = useState<Record<string, string>>({});
@@ -142,12 +143,8 @@ export default function AuthenticatorPage() {
         try {
           const raw = await decrypt(cryptoKey, item.encryptedBlob);
           const p = JSON.parse(raw) as DecryptedPayload;
-          if (p.totpSecret) {
-            updates[item.id] = p.totpSecret;
-          } else {
-            updates[item.id] = ""; // nullify to prevent loop
-          }
-        } catch (e) {
+          updates[item.id] = p.totpSecret || "";
+        } catch {
           console.error("Failed to decrypt TOTP secret for", item.id);
           updates[item.id] = "";
         }
@@ -163,24 +160,19 @@ export default function AuthenticatorPage() {
 
 
   const handleUnlock = async () => {
-    if (!masterPassword || !user?.uid) return;
+    if (!masterPassword) return;
     setUnlockError("");
-    const key = await deriveKey(masterPassword, user.uid);
-    if (items.length > 0) {
-      try { 
-        await decrypt(key, items[0].encryptedBlob); 
-      }
-      catch {
-        setUnlockError("Wrong master password.");
-        setShakeKey(k => k + 1);
-        return;
-      }
-    }
     setUnlocking(true);
-    setTimeout(() => setCryptoKey(key), 420);
+    const err = await ctxUnlock(masterPassword);
+    if (err) {
+      setUnlockError(err);
+      setShakeKey(k => k + 1);
+    }
+    setUnlocking(false);
   };
 
-  // Locked State
+  // Locked State — uses shared VaultContext key, so if vault page is already
+  // unlocked this screen will also be unlocked automatically (no re-prompt)
   if (!cryptoKey) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden h-full min-h-[500px]">

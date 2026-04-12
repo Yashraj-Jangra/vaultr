@@ -300,15 +300,13 @@ export default function GeneratorPage() {
     setOutput(pw);
     setStrength(str);
     setHistory((prev) => [{ id: ++uidRef.current, value: pw, mode, strength: str }, ...prev.slice(0, 11)]);
-  }, [mode, randOpts, ppOpts, pinOpts, patOpts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, randOpts, ppOpts, pinOpts, patOpts]);
 
-  const firstRun = useRef(true);
+  // Re-generate whenever options change
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (firstRun.current) { firstRun.current = false; generate(); return; }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     generate();
-  }, [mode, randOpts, ppOpts, pinOpts, patOpts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [generate]);
 
   const pro = randOpts.pronounceable;
 

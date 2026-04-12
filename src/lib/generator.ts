@@ -95,9 +95,6 @@ export function generateRandom(opts: RandomOptions): string {
     return generatePronounceable(opts.length, ex);
   }
 
-  const vowels    = applyExclusion("aeiou", ex);
-  const consonants = applyExclusion("bcdfghjklmnpqrstvwxyz", ex);
-
   let charset = "";
   if (opts.useLower)   charset += applyExclusion(LOWER, ex);
   if (opts.useUpper)   charset += applyExclusion(UPPER, ex);

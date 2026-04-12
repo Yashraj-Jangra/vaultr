@@ -85,11 +85,13 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
     ? ACTIONS.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()))
     : ACTIONS;
 
-  const allResults: Action[] = [...entryResults, ...filteredActions];
+  const allResults: Action[] = useMemo(
+    () => [...entryResults, ...filteredActions],
+    [entryResults, filteredActions]
+  );
 
-  // Keyboard navigation
+  // Keyboard navigation (component only mounts when open=true, so no 'open' dep needed)
   useEffect(() => {
-    if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape")      { onClose(); return; }
       if (e.key === "ArrowDown")   { e.preventDefault(); setCursor((c) => Math.min(c + 1, allResults.length - 1)); }
@@ -98,7 +100,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, cursor, allResults, onClose]);
+  }, [cursor, allResults, onClose]);
 
   // Scroll cursor into view
   useEffect(() => {

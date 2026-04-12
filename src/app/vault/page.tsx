@@ -3,12 +3,12 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useVault } from "@/context/VaultContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { useCrypto, deriveKey } from "@/hooks/useCrypto";
-import { collection, onSnapshot, query, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import {
@@ -653,18 +653,24 @@ export default function VaultPage() {
   const { user, logout } = useFirebaseAuth();
   const router = useRouter();
 
+  // ── Pull everything from the shared VaultContext ──────────────────────────
+  const {
+    cryptoKey,
+    items,
+    unlock: ctxUnlock,
+    encryptData,
+    decryptItem,
+    folders: ctxFolders,
+  } = useVault();
+
   const [masterPassword, setMasterPassword] = useState("");
-  const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
-  const [items, setItems] = useState<VaultItem[]>([]);
-  const [showForm, setShowForm] = useState(false);
   const [unlockError, setUnlockError] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
   const [unlockOverlay, setUnlockOverlay] = useState<"main" | "forgot" | "why">("main");
-  const [animKey, setAnimKey] = useState(0);
-  const [randomSvgs, setRandomSvgs] = useState<[string, string]>(["/illustrations/vault_tyfh.svg", "/illustrations/safe_0mei.svg"]);
 
-  useEffect(() => {
+  // Random SVG pair — picked once on mount using lazy initializer (avoids setState-in-effect)
+  const [randomSvgs] = useState<[string, string]>(() => {
     const svgs = [
       "/illustrations/vault_tyfh.svg",
       "/illustrations/safe_0mei.svg",
@@ -675,8 +681,11 @@ export default function VaultPage() {
       "/illustrations/mobile-encryption_flk2.svg"
     ];
     const shuffled = [...svgs].sort(() => 0.5 - Math.random());
-    setRandomSvgs([shuffled[0], shuffled[1]]);
-  }, []);
+    return [shuffled[0], shuffled[1]];
+  });
+
+  const [showForm, setShowForm] = useState(false);
+
   const searchParams = useSearchParams();
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -684,40 +693,25 @@ export default function VaultPage() {
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [revealedData, setRevealedData] = useState<DecryptedPayload | null>(null);
 
-  const { encrypt, decrypt } = useCrypto();
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    const q = query(collection(db, "users", user.uid, "vaultItems"));
-    const unsub = onSnapshot(q, snap => {
-      const list: VaultItem[] = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() } as VaultItem));
-      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      setItems(list);
-    });
-    return () => unsub();
-  }, [user]);
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleUnlock = async () => {
-    if (!masterPassword || !user?.uid) return;
+    if (!masterPassword) return;
     setUnlockError("");
-    const key = await deriveKey(masterPassword, user.uid);
-    if (items.length > 0) {
-      try { await decrypt(key, items[0].encryptedBlob); }
-      catch {
-        setUnlockError("Wrong master password.");
-        setShakeKey(k => k + 1); // re-trigger shake animation
-        return;
-      }
-    }
-    // Animate open, then set key
     setUnlocking(true);
-    setTimeout(() => setCryptoKey(key), 420);
+    // ctxUnlock validates password, saves session, and returns an error string on failure
+    const err = await ctxUnlock(masterPassword);
+    if (err) {
+      setUnlockError(err);
+      setShakeKey(k => k + 1);
+    }
+    setUnlocking(false);
   };
 
   const handleSave = async (name: string, template: Template, folder: string, payload: DecryptedPayload) => {
     if (!cryptoKey || !user?.uid) return;
-    const blob = await encrypt(cryptoKey, JSON.stringify(payload));
+    const blob = await encryptData(JSON.stringify(payload));
     const domain = payload.url ? extractDomain(payload.url) : "";
     const doc_: Partial<VaultItem> = {
       name,
@@ -742,7 +736,7 @@ export default function VaultPage() {
     if (revealedId === id) { setRevealedId(null); setRevealedData(null); return; }
     if (!cryptoKey) return;
     try {
-      const raw = await decrypt(cryptoKey, blob);
+      const raw = await decryptItem(blob);
       let parsed: DecryptedPayload;
       try { parsed = JSON.parse(raw); } catch { parsed = { payload: raw }; }
       // backward compat: old entries didn't have _template
@@ -752,12 +746,8 @@ export default function VaultPage() {
     } catch { alert("Decryption failed."); }
   };
 
-  // Derived
-  const folders = useMemo(() => {
-    const s = new Set<string>();
-    items.forEach(i => { if (i.folder) s.add(i.folder); });
-    return Array.from(s).sort();
-  }, [items]);
+  // Derived — use ctxFolders from context (same data, avoids duplication)
+  const folders = ctxFolders;
 
   const visibleItems = useMemo(() => {
     if (activeFolder === null) return items;
