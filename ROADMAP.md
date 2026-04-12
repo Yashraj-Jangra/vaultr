@@ -219,8 +219,11 @@
 - [ ] **Bulk actions** — checkbox multi-select → bulk delete, move to folder, add tag
 - [ ] **Last accessed tracking** — `lastAccessedAt` timestamp on each `toggleReveal`
 - [ ] **Entry notes** — extra plain-text notes field on all templates (separate from Secure Note)
-- [ ] **Attachments** — store filename reference, encrypted file in Firebase Storage
 - [ ] **Duplicate entry** — clone an entry and open in edit mode
+- [ ] **Favicon Auto-Fetcher** — dynamically load site icon on card headers (Privacy-friendly)
+- [ ] **Password Health Analyzer** — local strength scoring (weak/strong)
+- [ ] **HaveIBeenPwned API (k-anonymity)** — local breach check on demand
+- [ ] **Password History** — keep the last 3 versions of passwords in the encrypted blob
 
 ---
 
@@ -256,8 +259,9 @@
 
 ---
 
-## Sprint 9 — PWA & Polish
+## Sprint 9 — PWA, Attachments & Polish
 
+- [ ] **Attachments** — store filename reference, encrypted file in Firebase Storage
 - [ ] `public/manifest.json` — installable PWA (name, icons, theme color, display)
 - [ ] `public/robots.txt` — crawl rules
 - [ ] `public/sitemap.xml` — public page URLs

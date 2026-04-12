@@ -8,14 +8,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { addDoc, collection, deleteDoc, doc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
-  CreditCard, User, FileText, Lock, Plus, X, Wand2, Inbox, Shield
+  CreditCard, User, FileText, Lock, Plus, X, Wand2, Inbox, Shield, Star, Edit2
 } from "lucide-react";
+import { SiteIcon } from "@/components/vault/SiteIcon";
+import { PasswordHealth } from "@/components/vault/PasswordHealth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,8 @@ export interface DecryptedPayload {
   // shared
   customFields?: { key: string; value: string }[];
   totpSecret?: string;
+  entryNotes?: string;
+  passwordHistory?: string[];
   // legacy
   payload?: string;
 }
@@ -66,7 +70,11 @@ export interface VaultItem {
   folder?: string;
   template?: Template;
   createdAt?: string;
+  lastAccessedAt?: string;
+  favorite?: boolean;
   hasTotp?: boolean;
+  tags?: string[];
+  deletedAt?: string | null;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -131,28 +139,6 @@ function MaskedValue({ value, mono = true }: { value: string; mono?: boolean }) 
       </button>
       <CopyBtn value={value} />
     </div>
-  );
-}
-
-// Favicon with text fallback
-function SiteIcon({ domain, name }: { domain?: string; name: string }) {
-  const [err, setErr] = useState(false);
-  const initials = name.slice(0, 2).toUpperCase();
-  if (!domain || err) {
-    return (
-      <span className="w-7 h-7 rounded bg-neutral-800 border border-[var(--border)] flex items-center justify-center text-[10px] font-medium text-neutral-400 shrink-0 select-none">
-        {initials}
-      </span>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
-      alt=""
-      onError={() => setErr(true)}
-      className="w-7 h-7 shrink-0 rounded object-contain bg-neutral-800 border border-[var(--border)] p-0.5"
-    />
   );
 }
 
@@ -225,53 +211,67 @@ function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void;
 
 interface NewEntryFormProps {
   folders: string[];
-  onSave: (name: string, template: Template, folder: string, payload: DecryptedPayload) => Promise<void>;
+  onSave: (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editId?: string) => Promise<void>;
   onCancel: () => void;
+  initialData?: {
+    id: string;
+    name: string;
+    folder?: string;
+    tags?: string[];
+    template: Template;
+    payload: DecryptedPayload;
+  };
 }
 
-function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
-  const [template, setTemplate] = useState<Template>("login");
-  const [name, setName] = useState("");
-  const [folder, setFolder] = useState("");
+function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormProps) {
+  const [template, setTemplate] = useState<Template>(initialData?.template || "login");
+  const [name, setName] = useState(initialData?.name || "");
+  const [folder, setFolder] = useState(initialData?.folder || "");
   const [newFolder, setNewFolder] = useState("");
+  const [tags, setTags] = useState<string>(initialData?.tags?.join(", ") || "");
   const [saving, setSaving] = useState(false);
   const [showGen, setShowGen] = useState(false);
 
   // Login
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [url, setUrl] = useState("");
-  const [totpSecret, setTotpSecret] = useState("");
-  const [showTotpField, setShowTotpField] = useState(false);
+  const [username, setUsername] = useState(initialData?.payload.username || "");
+  const [password, setPassword] = useState(initialData?.payload.password || "");
+  const [url, setUrl] = useState(initialData?.payload.url || "");
+  const [totpSecret, setTotpSecret] = useState(initialData?.payload.totpSecret || "");
+  const [showTotpField, setShowTotpField] = useState(!!initialData?.payload.totpSecret);
 
   // Card
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvv, setCvv] = useState("");
-  const [pin, setPin] = useState("");
+  const [cardName, setCardName] = useState(initialData?.payload.cardName || "");
+  const [cardNumber, setCardNumber] = useState(initialData?.payload.cardNumber || "");
+  const [expiry, setExpiry] = useState(initialData?.payload.expiry || "");
+  const [cvv, setCvv] = useState(initialData?.payload.cvv || "");
+  const [pin, setPin] = useState(initialData?.payload.pin || "");
 
   // Address
-  const [line1, setLine1] = useState("");
-  const [line2, setLine2] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState_] = useState("");
-  const [zip, setZip] = useState("");
-  const [country, setCountry] = useState("");
+  const [line1, setLine1] = useState(initialData?.payload.line1 || "");
+  const [line2, setLine2] = useState(initialData?.payload.line2 || "");
+  const [city, setCity] = useState(initialData?.payload.city || "");
+  const [state, setState_] = useState(initialData?.payload.state || "");
+  const [zip, setZip] = useState(initialData?.payload.zip || "");
+  const [country, setCountry] = useState(initialData?.payload.country || "");
 
   // Profile
-  const [fullName, setFullName] = useState("");
-  const [dob, setDob] = useState("");
-  const [idNumber, setIdNumber] = useState("");
-  const [profEmail, setProfEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState(initialData?.payload.fullName || "");
+  const [dob, setDob] = useState(initialData?.payload.dob || "");
+  const [idNumber, setIdNumber] = useState(initialData?.payload.idNumber || "");
+  const [profEmail, setProfEmail] = useState(initialData?.payload.email || "");
+  const [phone, setPhone] = useState(initialData?.payload.phone || "");
 
   // Note
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(initialData?.payload.note || "");
 
   // Custom fields
-  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [customFields, setCustomFields] = useState<CustomField[]>(
+    initialData?.payload.customFields?.map(f => ({ id: Math.random().toString(36).slice(2), key: f.key, value: f.value })) || []
+  );
   const addCustom = () => setCustomFields(p => [...p, { id: Math.random().toString(36).slice(2), key: "", value: "" }]);
+
+  // Shared
+  const [entryNotes, setEntryNotes] = useState(initialData?.payload.entryNotes || "");
 
   const activeFolder = folder === "__new__" ? newFolder.trim() : folder;
 
@@ -281,14 +281,25 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
     const payload: DecryptedPayload = {
       _template: template,
       _folder: activeFolder || undefined,
-      customFields: customFields.map(f => ({ key: f.key, value: f.value })),
+      customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key, value: f.value })),
+      entryNotes: entryNotes.trim() ? entryNotes.trim() : undefined,
     };
     if (template === "login") Object.assign(payload, { username, password, url, totpSecret: totpSecret.trim() });
     if (template === "card") Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
     if (template === "address") Object.assign(payload, { line1, line2, city, state: state, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note") Object.assign(payload, { note });
-    await onSave(name.trim(), template, activeFolder, payload);
+
+    const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
+    
+    // Auto-update history if editing and password changed
+    if (initialData?.payload.password && initialData.payload.password !== password) {
+      payload.passwordHistory = [...(initialData.payload.passwordHistory || []), initialData.payload.password].slice(-5); // keep last 5
+    } else if (initialData?.payload.passwordHistory) {
+      payload.passwordHistory = initialData.payload.passwordHistory;
+    }
+
+    await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id);
     setSaving(false);
   };
 
@@ -335,6 +346,8 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
       {folder === "__new__" && (
         <Input value={newFolder} onChange={e => setNewFolder(e.target.value)} placeholder="Folder name" autoFocus />
       )}
+      
+      <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags - comma separated (optional)" />
 
       {/* Entry name */}
       <Input
@@ -463,6 +476,17 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
         />
       )}
 
+      {/* Entry Notes */}
+      {template !== "note" && (
+        <textarea
+          value={entryNotes}
+          onChange={e => setEntryNotes(e.target.value)}
+          placeholder="Private notes…"
+          rows={2}
+          className="w-full bg-transparent border border-[var(--border)] rounded-md px-3 py-2 text-[13px] text-[var(--fg)] placeholder-neutral-600 focus:outline-none focus:border-[var(--border-hover)] transition-colors resize-none mt-2"
+        />
+      )}
+
       {/* Custom fields */}
       {customFields.length > 0 && (
         <div className="space-y-2 pt-1">
@@ -501,7 +525,7 @@ function NewEntryForm({ folders, onSave, onCancel }: NewEntryFormProps) {
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
         <Button onClick={onCancel} variant="ghost">Cancel</Button>
         <Button onClick={handleSave} variant="primary" disabled={!name.trim() || saving}>
-          {saving ? "Saving…" : "Encrypt & Save"}
+          {saving ? "Saving…" : initialData ? "Save Changes" : "Encrypt & Save"}
         </Button>
       </div>
     </Card>
@@ -582,10 +606,10 @@ function TotpDisplay({ secret }: { secret: string }) {
   );
 }
 
-function ExpandedDetails({ data }: { data: DecryptedPayload }) {
+function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void }) {
   const t = data._template ?? "login";
   return (
-    <div className="px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)]">
+    <div className="px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)] text-sm">
       {t === "login" && <>
         <DetailRow label="User" value={data.username || ""} />
         <DetailRow label="Password" value={data.password || ""} masked />
@@ -639,9 +663,52 @@ function ExpandedDetails({ data }: { data: DecryptedPayload }) {
         <DetailRow key={i} label={f.key || "Field"} value={f.value} masked />
       ) : null)}
 
+      {data.entryNotes && (
+        <div className="space-y-1.5 pt-2 border-t border-[var(--border)] mt-2">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Private Notes</span>
+            <CopyBtn value={data.entryNotes} />
+          </div>
+          <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.entryNotes}</p>
+        </div>
+      )}
+
       {/* Legacy blobs */}
       {data.payload && (
         <p className="text-[13px] text-amber-400 font-mono break-all">{data.payload}</p>
+      )}
+
+      {/* Password History */}
+      {data.passwordHistory && data.passwordHistory.length > 0 && (
+        <div className="space-y-1.5 pt-2 border-t border-[var(--border)] mt-2">
+          <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Previous Passwords</span>
+          <div className="flex flex-col gap-1">
+            {data.passwordHistory.map((pw, i) => (
+               <div key={i} className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded text-[11px] font-mono text-neutral-400">
+                  <span>{pw}</span>
+                  <CopyBtn value={pw} />
+               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Health Check */}
+      {t === "login" && data.password && !readOnly && (
+        <PasswordHealth password={data.password} />
+      )}
+
+      {/* Actions */}
+      {!readOnly && onEdit && (
+        <div className="flex justify-end pt-2 border-t border-[var(--border)] mt-2">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            Edit Entry
+          </button>
+        </div>
       )}
     </div>
   );
@@ -661,6 +728,11 @@ export default function VaultPage() {
     encryptData,
     decryptItem,
     folders: ctxFolders,
+    deleteItem,
+    hardDeleteItem,
+    restoreItem,
+    toggleFavorite,
+    updateItem,
   } = useVault();
 
   const [masterPassword, setMasterPassword] = useState("");
@@ -688,10 +760,13 @@ export default function VaultPage() {
 
   const searchParams = useSearchParams();
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
+  const activeFilter = searchParams.get("filter");
+  const activeTag = searchParams.get("tag");
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
 
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [revealedData, setRevealedData] = useState<DecryptedPayload | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -709,31 +784,59 @@ export default function VaultPage() {
     setUnlocking(false);
   };
 
-  const handleSave = async (name: string, template: Template, folder: string, payload: DecryptedPayload) => {
+  const handleSave = async (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editIdParams?: string) => {
     if (!cryptoKey || !user?.uid) return;
     const blob = await encryptData(JSON.stringify(payload));
     const domain = payload.url ? extractDomain(payload.url) : "";
-    const doc_: Partial<VaultItem> = {
-      name,
-      encryptedBlob: blob,
-      template,
-      createdAt: new Date().toISOString(),
-      hasTotp: !!payload.totpSecret,
-    };
-    if (folder) doc_.folder = folder;
-    if (domain) doc_.domain = domain;
-    await addDoc(collection(db, "users", user.uid, "vaultItems"), doc_);
-    setShowForm(false);
+    
+    if (editIdParams) {
+      const docRef = doc(db, "users", user.uid, "vaultItems", editIdParams);
+      const updates: Partial<VaultItem> = {
+        name,
+        encryptedBlob: blob,
+        template,
+        hasTotp: !!payload.totpSecret,
+        tags: tags.length > 0 ? tags : [],
+      };
+      // For folder and domain, empty string replaces existing value
+      await updateDoc(docRef, { ...updates, folder: folder || "", domain: domain || "" });
+      
+      setEditId(null);
+      if (revealedId === editIdParams) {
+        setRevealedData(payload);
+      }
+    } else {
+      const doc_: Partial<VaultItem> = {
+        name,
+        encryptedBlob: blob,
+        template,
+        createdAt: new Date().toISOString(),
+        hasTotp: !!payload.totpSecret,
+        tags: tags.length > 0 ? tags : [],
+      };
+      if (folder) doc_.folder = folder;
+      if (domain) doc_.domain = domain;
+      await addDoc(collection(db, "users", user.uid, "vaultItems"), doc_);
+      setShowForm(false);
+    }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!user?.uid) return;
-    await deleteDoc(doc(db, "users", user.uid, "vaultItems", id));
+  const handleTrashItem = async (id: string) => {
+    await deleteItem(id);
+    if (revealedId === id) { setRevealedId(null); setRevealedData(null); }
+  };
+
+  const handleRestoreItem = async (id: string) => {
+    await restoreItem(id);
+  };
+  
+  const handleHardDelete = async (id: string) => {
+    await hardDeleteItem(id);
     if (revealedId === id) { setRevealedId(null); setRevealedData(null); }
   };
 
   const toggleReveal = async (id: string, blob: string) => {
-    if (revealedId === id) { setRevealedId(null); setRevealedData(null); return; }
+    if (revealedId === id) { setRevealedId(null); setRevealedData(null); setEditId(null); return; }
     if (!cryptoKey) return;
     try {
       const raw = await decryptItem(blob);
@@ -743,6 +846,7 @@ export default function VaultPage() {
       if (!parsed._template && (parsed.username || parsed.password)) parsed._template = "login";
       setRevealedId(id);
       setRevealedData(parsed);
+      setEditId(null);
     } catch { alert("Decryption failed."); }
   };
 
@@ -750,19 +854,40 @@ export default function VaultPage() {
   const folders = ctxFolders;
 
   const visibleItems = useMemo(() => {
-    if (activeFolder === null) return items;
-    if (activeFolder === "") return items.filter(i => !i.folder);
-    return items.filter(i => i.folder === activeFolder);
-  }, [items, activeFolder]);
+    let filtered = items;
+    
+    // Trash vs Not Trash
+    if (activeFilter === "trash") {
+      filtered = filtered.filter(i => !!i.deletedAt);
+    } else {
+      filtered = filtered.filter(i => !i.deletedAt); // Hide garbage normally
+    }
+
+    // Advanced filters
+    if (activeFilter === "favorites") {
+      filtered = filtered.filter(i => !!i.favorite);
+    }
+    
+    if (activeTag) {
+      filtered = filtered.filter(i => i.tags?.includes(activeTag));
+    }
+    
+    if (activeFolder !== null) {
+      if (activeFolder === "") filtered = filtered.filter(i => !i.folder);
+      else filtered = filtered.filter(i => i.folder === activeFolder);
+    }
+
+    return filtered;
+  }, [items, activeFolder, activeFilter, activeTag]);
 
   // Group by folder for "all" view
   const grouped = useMemo(() => {
-    if (activeFolder !== null) return null;
+    if (activeFolder !== null || activeFilter !== null || activeTag !== null) return null;
     const map: Record<string, VaultItem[]> = { "": [] };
     folders.forEach(f => { map[f] = []; });
-    items.forEach(i => { const k = i.folder || ""; if (map[k]) map[k].push(i); });
+    visibleItems.forEach(i => { const k = i.folder || ""; if (map[k]) map[k].push(i); });
     return map;
-  }, [items, folders, activeFolder]);
+  }, [visibleItems, folders, activeFolder, activeFilter, activeTag]);
 
   const toggleFolderCollapse = (f: string) => {
     setCollapsedFolders(prev => {
@@ -1041,37 +1166,74 @@ export default function VaultPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0 opacity-10 md:opacity-100 group-hover:opacity-100 transition-opacity">
+          {(!activeFilter || activeFilter !== "trash") && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
+              className={`hover:text-amber-400 transition-colors p-1.5 cursor-pointer ${item.favorite ? "text-amber-400" : "text-neutral-700"}`}
+              title={item.favorite ? "Remove favorite" : "Add favorite"}
+            >
+              <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
+            </button>
+          )}
+
           {revealedId === item.id && revealedData?.url && (
             <a
               href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
               target="_blank" rel="noopener noreferrer"
               className="text-neutral-600 hover:text-neutral-300 transition-colors p-1.5"
               title="Open URL"
+              onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
+          
           <button
-            onClick={() => toggleReveal(item.id, item.encryptedBlob)}
-            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors ${revealedId === item.id ? "text-neutral-300 bg-neutral-800" : "text-neutral-600 hover:text-neutral-400"
-              }`}
+            onClick={(e) => { e.stopPropagation(); toggleReveal(item.id, item.encryptedBlob); }}
+            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors ${revealedId === item.id ? "text-neutral-300 bg-neutral-800" : "text-neutral-600 hover:text-neutral-400"}`}
           >
             {revealedId === item.id ? "Hide" : "Reveal"}
           </button>
-          <button
-            onClick={() => handleDelete(item.id)}
-            className="text-neutral-700 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
-            title="Delete"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+
+          {activeFilter === "trash" ? (
+             <>
+               <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="text-neutral-600 hover:text-green-400 transition-colors p-1.5 cursor-pointer" title="Restore"><RefreshCw className="w-3.5 h-3.5" /></button>
+               <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item.id); }} className="text-neutral-600 hover:text-red-500 transition-colors p-1.5 cursor-pointer" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
+             </>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
+              className="text-neutral-700 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
+              title="Move to Trash"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Expanded detail */}
       {revealedId === item.id && revealedData && (
-        <ExpandedDetails data={revealedData} />
+        editId === item.id ? (
+          <div className="px-4 pb-4 pt-3 mx-4 mb-1">
+            <NewEntryForm
+              folders={folders}
+              onSave={handleSave}
+              onCancel={() => setEditId(null)}
+              initialData={{
+                id: item.id,
+                name: item.name,
+                folder: item.folder,
+                tags: item.tags,
+                template: item.template || "login",
+                payload: revealedData
+              }}
+            />
+          </div>
+        ) : (
+          <ExpandedDetails data={revealedData} readOnly={activeFilter === "trash"} onEdit={() => setEditId(item.id)} />
+        )
       )}
     </div>
   );

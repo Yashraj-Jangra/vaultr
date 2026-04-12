@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     if (!adminDb) return NextResponse.json({ error: "Firebase Admin DB not initialized" }, { status: 503 });
     const body = await req.json();
     
-    const { to, subject, message } = body;
+    const { fromProfileId, to, subject, message } = body;
     
     if (!to || !subject || !message) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -32,9 +32,28 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Resolve Sender Profile
+    let fromEmail = smtpData.user;
+    let fromName = "Vaultr Admin";
+    
+    if (smtpData.profiles && Array.isArray(smtpData.profiles)) {
+      type SmtpProfile = { id: string, name: string, email: string, isDefault: boolean };
+      const selectedProfile = smtpData.profiles.find((p: SmtpProfile) => p.id === fromProfileId) 
+                              || smtpData.profiles.find((p: SmtpProfile) => p.isDefault) 
+                              || smtpData.profiles[0];
+                              
+      if (selectedProfile) {
+        fromEmail = selectedProfile.email;
+        fromName = selectedProfile.name;
+      }
+    } else {
+      // Legacy fallback
+      fromName = smtpData.fromName || "Vaultr Admin";
+    }
+
     // Send email
     const info = await transporter.sendMail({
-      from: `"${smtpData.fromName || 'Vaultr Admin'}" <${smtpData.user}>`,
+      from: `"${fromName}" <${fromEmail}>`,
       to, // Can be a comma separated list
       subject,
       html: message.replace(/\n/g, "<br>"), // Simple newlines to HTML

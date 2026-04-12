@@ -1,19 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { Send, AlertCircle, Loader2 } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 
 export default function EmailSenderPage() {
   const { user } = useFirebaseAuth();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<{id: string, name: string, email: string, isDefault: boolean}[]>([]);
   const [messageBox, setMessageBox] = useState<{type: 'success' | 'error', text: string} | null>(null);
   
   const [formData, setFormData] = useState({
+    fromProfileId: "default",
     to: "",
     subject: "",
     message: "",
   });
+
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const snap = await getDoc(doc(db, "adminSettings", "smtp"));
+        if (snap.exists() && snap.data().profiles) {
+          const loadedProfiles = snap.data().profiles;
+          setProfiles(loadedProfiles);
+          const defaultProfile = loadedProfiles.find((p: {id: string, name: string, email: string, isDefault: boolean}) => p.isDefault) || loadedProfiles[0];
+          if (defaultProfile) {
+            setFormData(prev => ({ ...prev, fromProfileId: defaultProfile.id }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch SMTP profiles", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProfiles();
+  }, []);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,13 +63,18 @@ export default function EmailSenderPage() {
       }
 
       setMessageBox({ type: 'success', text: "Email dispatched successfully." });
-      setFormData({ to: "", subject: "", message: "" });
+      // Reset only the message and subject, keep profile and to
+      setFormData(prev => ({ ...prev, subject: "", message: "" }));
     } catch (err: unknown) {
       setMessageBox({ type: 'error', text: (err as Error).message || "Failed to send email." });
     } finally {
       setSaving(false);
     }
   };
+
+  if (loading) {
+     return <div className="p-8 pb-20 animate-pulse bg-[var(--surface)] h-screen" />;
+  }
 
   return (
     <div className="p-8 pb-20 max-w-4xl">
@@ -64,6 +95,21 @@ export default function EmailSenderPage() {
       )}
 
       <form onSubmit={handleSend} className="space-y-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
+        <div>
+          <label className="text-sm font-medium text-[var(--fg-muted)] block mb-1">From Profile</label>
+          <select
+            required
+            value={formData.fromProfileId}
+            onChange={(e) => setFormData({ ...formData, fromProfileId: e.target.value })}
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none transition-colors"
+          >
+             {profiles.length === 0 && <option value="default">Default Profile</option>}
+             {profiles.map(p => (
+                <option key={p.id} value={p.id}>{p.name} &lt;{p.email}&gt;</option>
+             ))}
+          </select>
+        </div>
+
         <div>
           <label className="text-sm font-medium text-[var(--fg-muted)] block mb-1">To</label>
           <input

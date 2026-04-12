@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Shield, KeyRound, Folder, Star, Heart, Settings,
   ChevronLeft, ChevronRight, Plus, Fingerprint,
-  LayoutDashboard, Inbox, Wand2
+  LayoutDashboard, Inbox, Wand2, Trash2, Tag
 } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useVault } from "@/context/VaultContext";
@@ -19,7 +19,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/vault",               label: "All Items",     icon: <LayoutDashboard className="w-4 h-4" /> },
-  { href: "/vault/favorites",     label: "Favorites",     icon: <Star className="w-4 h-4" /> },
+  { href: "/vault?filter=favorites", label: "Favorites",  icon: <Star className="w-4 h-4" /> },
+  { href: "/vault?filter=trash",  label: "Trash",         icon: <Trash2 className="w-4 h-4" /> },
   { href: "/vault/authenticator", label: "Authenticator", icon: <Fingerprint className="w-4 h-4" /> },
   { href: "/vault/generator",     label: "Generator",     icon: <Wand2 className="w-4 h-4" /> },
   { href: "/health",              label: "Health",        icon: <Heart className="w-4 h-4" /> },
@@ -37,19 +38,27 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
   const { folders, items } = useVault();
   const [collapsed, setCollapsed] = useState(false);
   const [foldersOpen, setFoldersOpen] = useState(true);
+  const [tagsOpen, setTagsOpen] = useState(true);
 
   const activeFolder = searchParams.get("folder");
+  const activeFilter = searchParams.get("filter");
+  const activeTag = searchParams.get("tag");
 
   const folderCounts = folders.reduce<Record<string, number>>((acc, f) => {
-    acc[f] = items.filter((i) => i.folder === f).length;
+    acc[f] = items.filter((i) => i.folder === f && !i.deletedAt).length;
     return acc;
   }, {});
 
-  const uncategorizedCount = items.filter(i => !i.folder).length;
+  const uncategorizedCount = items.filter(i => !i.folder && !i.deletedAt).length;
+  
+  const tagsList = Array.from(new Set(items.flatMap(i => !i.deletedAt ? (i.tags || []) : []))).sort();
 
   const isActive = (href: string) => {
     if (href === "/vault") {
-      return pathname === "/vault" && activeFolder === null;
+      return pathname === "/vault" && !activeFolder && !activeFilter && !activeTag;
+    }
+    if (href.includes("?filter=")) {
+      return pathname === "/vault" && activeFilter === new URL(href, "http://localhost").searchParams.get("filter");
     }
     return pathname === href;
   };
@@ -99,11 +108,14 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
           >
             {item.icon}
             {!collapsed && <span className="flex-1">{item.label}</span>}
-            {!collapsed && item.href === "/vault/authenticator" && items.filter(i => i.hasTotp).length > 0 && (
-              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.hasTotp).length}</span>
+            {!collapsed && item.href === "/vault/authenticator" && items.filter(i => i.hasTotp && !i.deletedAt).length > 0 && (
+              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.hasTotp && !i.deletedAt).length}</span>
             )}
-            {!collapsed && item.href === "/vault/favorites" && items.filter(i => i.favorite).length > 0 && (
-              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.favorite).length}</span>
+            {!collapsed && item.href.includes("favorites") && items.filter(i => i.favorite && !i.deletedAt).length > 0 && (
+              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.favorite && !i.deletedAt).length}</span>
+            )}
+            {!collapsed && item.href.includes("trash") && items.filter(i => i.deletedAt).length > 0 && (
+              <span className="text-[10px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded-full font-mono">{items.filter(i => i.deletedAt).length}</span>
             )}
           </Link>
         ))}
@@ -155,6 +167,40 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
                       <span className="truncate">{f}</span>
                     </span>
                     <span className="text-neutral-700 text-[11px] shrink-0">{folderCounts[f] ?? 0}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Tags section */}
+        {!collapsed && tagsList.length > 0 && (
+          <div className="pt-3 pb-2">
+            <button
+              onClick={() => setTagsOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-1 text-[11px] text-neutral-600 uppercase tracking-wider hover:text-neutral-400 transition-colors cursor-pointer"
+            >
+              <span>Tags</span>
+              {tagsOpen
+                ? <ChevronLeft className="w-3 h-3 rotate-90" />
+                : <ChevronRight className="w-3 h-3 rotate-90" />
+              }
+            </button>
+            {tagsOpen && (
+              <div className="mt-1 px-3 flex flex-wrap gap-1.5">
+                {tagsList.map(tag => (
+                  <Link
+                    key={tag}
+                    href={`/vault?tag=${encodeURIComponent(tag)}`}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] transition-colors cursor-pointer ${
+                      activeTag === tag
+                        ? "bg-neutral-800 border-neutral-700 text-neutral-200"
+                        : "bg-transparent border-[var(--border)] text-neutral-500 hover:text-neutral-300 hover:border-neutral-700"
+                    }`}
+                  >
+                    <Tag className="w-3 h-3" />
+                    {tag}
                   </Link>
                 ))}
               </div>

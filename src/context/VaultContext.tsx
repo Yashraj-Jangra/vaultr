@@ -8,7 +8,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { collection, onSnapshot, query, addDoc, deleteDoc, doc, setDoc, increment } from "firebase/firestore";
+import { collection, onSnapshot, query, addDoc, deleteDoc, doc, setDoc, increment, deleteField } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useCrypto, deriveKey } from "@/hooks/useCrypto";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
@@ -34,6 +34,8 @@ export interface VaultItem {
   lastAccessedAt?: string;
   favorite?: boolean;
   hasTotp?: boolean;
+  tags?: string[];
+  deletedAt?: string | null;
 }
 
 export interface VaultContextValue {
@@ -51,7 +53,11 @@ export interface VaultContextValue {
   lock: () => void;
   setAutoLockMinutes: (minutes: number) => void;
   saveItem: (item: Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt"> & { encryptedBlob: string }) => Promise<void>;
+  updateItem: (id: string, payload: Partial<VaultItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+  hardDeleteItem: (id: string) => Promise<void>;
+  restoreItem: (id: string) => Promise<void>;
+  toggleFavorite: (id: string, currentStatus: boolean) => Promise<void>;
   decryptItem: (blob: string) => Promise<string>;
   encryptData: (data: string) => Promise<string>;
   setSearchQuery: (q: string) => void;
@@ -118,7 +124,24 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const q = query(collection(db, "users", user!.uid, "vaultItems"));
     const unsub = onSnapshot(q, (snap) => {
       const list: VaultItem[] = [];
-      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as VaultItem));
+      const now = Date.now();
+      
+      snap.forEach((d) => {
+        const data = d.data() as VaultItem;
+        // Passive trash sweep: hard delete if deletedAt > 30 days
+        if (data.deletedAt) {
+          const deletedTime = new Date(data.deletedAt).getTime();
+          const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+          if (now - deletedTime > thirtyDaysMs) {
+            // Delete passively, won't await to avoid UI blocking
+            deleteDoc(doc(db, "users", user!.uid, "vaultItems", d.id));
+            setDoc(doc(db, "config", "stats"), { totalEntries: increment(-1) }, { merge: true }).catch(()=>{});
+            return; // Skip adding to state
+          }
+        }
+        list.push({ id: d.id, ...data });
+      });
+      
       list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       setItems(list);
       setIsLoading(false);
@@ -259,7 +282,18 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  const updateItem = useCallback(async (id: string, payload: Partial<VaultItem>) => {
+    if (!user?.uid) return;
+    await setDoc(doc(db, "users", user.uid, "vaultItems", id), payload, { merge: true });
+  }, [user]);
+
   const deleteItem = useCallback(async (id: string) => {
+    if (!user?.uid) return;
+    // Soft Delete
+    await setDoc(doc(db, "users", user.uid, "vaultItems", id), { deletedAt: new Date().toISOString() }, { merge: true });
+  }, [user]);
+  
+  const hardDeleteItem = useCallback(async (id: string) => {
     if (!user?.uid) return;
     await deleteDoc(doc(db, "users", user.uid, "vaultItems", id));
     
@@ -269,6 +303,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("Failed to decrement stats", err);
     }
+  }, [user]);
+
+  const restoreItem = useCallback(async (id: string) => {
+    if (!user?.uid) return;
+    await setDoc(doc(db, "users", user.uid, "vaultItems", id), { deletedAt: deleteField() }, { merge: true });
+  }, [user]);
+
+  const toggleFavorite = useCallback(async (id: string, favorite: boolean) => {
+    if (!user?.uid) return;
+    await setDoc(doc(db, "users", user.uid, "vaultItems", id), { favorite }, { merge: true });
   }, [user]);
 
   const decryptItem = useCallback(async (blob: string): Promise<string> => {
@@ -311,6 +355,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       setAutoLockMinutes,
       saveItem,
       deleteItem,
+      hardDeleteItem,
+      restoreItem,
+      toggleFavorite,
       decryptItem,
       encryptData,
       setSearchQuery,
