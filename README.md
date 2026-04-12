@@ -130,6 +130,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### 5. Accessing the Admin Panel
+
+The Admin Panel (`/admin`) is strictly protected by Firebase Custom Claims. Normal users are completely blocked via client-side routing (`AdminGuard`) and server-side middleware. 
+
+To bootstrap your *first* admin user, you must manually inject the `admin: true` claim to an existing user's ID token.
+
+We have included a utility script to make this easy. Once you have created your first account through the web UI, run:
+
+```bash
+node scripts/setAdmin.js your.email@example.com
+```
+
+*(Ensure you have `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` populated in `.env.local` for this script to work).*
+
+After running the script, **log out and log back in** to refresh your Firebase ID Token. You can then navigate to [http://localhost:3000/admin](http://localhost:3000/admin) to manage themes, users, and global analytics.
+
 ---
 
 ## Firestore Security Rules
