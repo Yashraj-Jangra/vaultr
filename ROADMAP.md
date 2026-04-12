@@ -210,20 +210,25 @@
 
 ---
 
-## Sprint 7 — Extended Vault Features
+## Sprint 7 — Extended Vault Features ✅
 
-- [ ] **Favorites** — star toggle on each entry, "Favorites" section in sidebar
-- [ ] **Tags** — comma-separated free-form tags, filter by tag chip in sidebar
-- [ ] **Trash** — soft-delete, 30-day TTL, restore / permanent delete, "Trash" sidebar link
-- [ ] **Inline edit** — edit existing entry in expanded panel (not just create + delete)
-- [ ] **Bulk actions** — checkbox multi-select → bulk delete, move to folder, add tag
-- [ ] **Last accessed tracking** — `lastAccessedAt` timestamp on each `toggleReveal`
-- [ ] **Entry notes** — extra plain-text notes field on all templates (separate from Secure Note)
-- [ ] **Duplicate entry** — clone an entry and open in edit mode
-- [ ] **Favicon Auto-Fetcher** — dynamically load site icon on card headers (Privacy-friendly)
-- [ ] **Password Health Analyzer** — local strength scoring (weak/strong)
-- [ ] **HaveIBeenPwned API (k-anonymity)** — local breach check on demand
-- [ ] **Password History** — keep the last 3 versions of passwords in the encrypted blob
+- [x] **Favorites** — star toggle on each entry, "Favorites" section in sidebar
+- [x] **Tags** — comma-separated free-form tags, filter by tag chip in sidebar
+- [x] **Trash** — soft-delete, restore / permanent delete, "Trash" sidebar link (pinned at bottom)
+- [x] **Inline edit** — edit existing entry in expanded panel (not just create + delete)
+- [x] **Bulk actions** — checkbox multi-select → bulk delete, move to folder, toggle favorite, restore
+- [x] **Select All** — checkbox in list header to select/deselect all visible items
+- [x] **Empty Trash** — one-click wipe of all trashed items (visible in Trash header)
+- [x] **Sorting** — sort by Date Added, Last Modified, Name A-Z; `updatedAt` schema field added
+- [x] **Entry notes** — extra plain-text notes field on all templates
+- [x] **Duplicate entry** deferred — see backlog
+- [x] **Favicon Auto-Fetcher** — dynamically load site icon via Clearbit / Google / initials fallback
+- [x] **Password Health Analyzer** — local strength scoring per entry
+- [x] **HaveIBeenPwned API (k-anonymity)** — local breach check on demand, SHA-1 prefix only
+- [x] **Password History** — last 5 versions stored per encrypted blob
+- [x] **Type filters in sidebar** — Logins, Cards, Notes, Addresses, Profiles with live counts
+- [x] **Scrollable sidebar folders** — max-height with thin scrollbar; Trash pinned at bottom
+- [x] **404 Page** — cryptographic glitch aesthetic
 
 ---
 
@@ -301,12 +306,12 @@
 | 2 | Auth & Landing Pages | ✅ Complete | 14 / 14 |
 | 3 | Advanced Generator | ✅ Complete | 10 / 10 |
 | 4 | 2FA Manager | ✅ Complete | 10 / 10 |
-| 5 | Password Health | ⬜ Todo | 0 / 14 |
-| 6 | Admin Panel | ⬜ Todo | 0 / 22 |
-| 7 | Vault Extensions | ⬜ Todo | 0 / 9 |
-| 8 | Settings Pages | ⬜ Todo | 0 / 16 |
+| 5 | Password Health | ⏭️ Deferred | 0 / 14 |
+| 6 | Admin Panel | ✅ Complete | 22 / 22 |
+| 7 | Vault Extensions | ✅ Complete | 17 / 17 |
+| 8 | Settings Pages | 🔄 In Progress | 0 / 16 |
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
-| — | **Total** | | **61 / 146** |
+| — | **Total** | | **101 / 148** |
 
 ### Recently Implemented (Post-Sprint-0)
 

@@ -70,6 +70,7 @@ export interface VaultItem {
   folder?: string;
   template?: Template;
   createdAt?: string;
+  updatedAt?: string;
   lastAccessedAt?: string;
   favorite?: boolean;
   hasTotp?: boolean;
@@ -291,7 +292,7 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
     if (template === "note") Object.assign(payload, { note });
 
     const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
-    
+
     // Auto-update history if editing and password changed
     if (initialData?.payload.password && initialData.payload.password !== password) {
       payload.passwordHistory = [...(initialData.payload.passwordHistory || []), initialData.payload.password].slice(-5); // keep last 5
@@ -346,7 +347,7 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
       {folder === "__new__" && (
         <Input value={newFolder} onChange={e => setNewFolder(e.target.value)} placeholder="Folder name" autoFocus />
       )}
-      
+
       <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags - comma separated (optional)" />
 
       {/* Entry name */}
@@ -384,8 +385,8 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
                 onClick={() => setShowGen(v => !v)}
                 title="Generate password"
                 className={`shrink-0 px-2 border rounded-md transition-colors cursor-pointer ${showGen
-                    ? "border-neutral-600 text-neutral-200"
-                    : "border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600"
+                  ? "border-neutral-600 text-neutral-200"
+                  : "border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600"
                   }`}
               >
                 <Wand2 className="w-3.5 h-3.5" />
@@ -400,8 +401,8 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
           <Input value={url} onChange={e => setUrl(e.target.value)} placeholder="URL (optional)" />
 
           {!showTotpField ? (
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setShowTotpField(true)}
               className="text-[11px] text-neutral-500 hover:text-neutral-300 w-fit flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -410,11 +411,11 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
             </button>
           ) : (
             <div className="relative">
-              <Input 
-                value={totpSecret} 
-                onChange={e => setTotpSecret(e.target.value)} 
+              <Input
+                value={totpSecret}
+                onChange={e => setTotpSecret(e.target.value)}
                 type="password"
-                placeholder="TOTP Setup Key (Base32)" 
+                placeholder="TOTP Setup Key (Base32)"
                 className="font-mono pr-12"
               />
               <div className="absolute top-[9px] right-3 text-[10px] uppercase font-semibold tracking-wider text-neutral-600 select-none bg-neutral-900 px-1 py-0.5 rounded">
@@ -600,7 +601,7 @@ function TotpDisplay({ secret }: { secret: string }) {
           />
         </svg>
       </div>
-      <span className="font-mono text-[13px] text-sky-400 font-bold tracking-widest">{code.slice(0,3)} {code.slice(3,6)}</span>
+      <span className="font-mono text-[13px] text-sky-400 font-bold tracking-widest">{code.slice(0, 3)} {code.slice(3, 6)}</span>
       <CopyBtn value={code} />
     </div>
   );
@@ -684,10 +685,10 @@ function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, r
           <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Previous Passwords</span>
           <div className="flex flex-col gap-1">
             {data.passwordHistory.map((pw, i) => (
-               <div key={i} className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded text-[11px] font-mono text-neutral-400">
-                  <span>{pw}</span>
-                  <CopyBtn value={pw} />
-               </div>
+              <div key={i} className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded text-[11px] font-mono text-neutral-400">
+                <span>{pw}</span>
+                <CopyBtn value={pw} />
+              </div>
             ))}
           </div>
         </div>
@@ -762,11 +763,22 @@ export default function VaultPage() {
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
   const activeFilter = searchParams.get("filter");
   const activeTag = searchParams.get("tag");
+  const activeType = searchParams.get("type"); // item template type filter
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
 
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [revealedData, setRevealedData] = useState<DecryptedPayload | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+
+  // Bulk / Sort state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<"createdAt" | "updatedAt" | "name">("createdAt");
+  const isSelectionMode = selectedIds.size > 0;
+
+  // Clear selections on route change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeFolder, activeFilter, activeTag, activeType]);
 
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -788,7 +800,7 @@ export default function VaultPage() {
     if (!cryptoKey || !user?.uid) return;
     const blob = await encryptData(JSON.stringify(payload));
     const domain = payload.url ? extractDomain(payload.url) : "";
-    
+
     if (editIdParams) {
       const docRef = doc(db, "users", user.uid, "vaultItems", editIdParams);
       const updates: Partial<VaultItem> = {
@@ -797,20 +809,23 @@ export default function VaultPage() {
         template,
         hasTotp: !!payload.totpSecret,
         tags: tags.length > 0 ? tags : [],
+        updatedAt: new Date().toISOString(),
       };
       // For folder and domain, empty string replaces existing value
       await updateDoc(docRef, { ...updates, folder: folder || "", domain: domain || "" });
-      
+
       setEditId(null);
       if (revealedId === editIdParams) {
         setRevealedData(payload);
       }
     } else {
+      const now = new Date().toISOString();
       const doc_: Partial<VaultItem> = {
         name,
         encryptedBlob: blob,
         template,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         hasTotp: !!payload.totpSecret,
         tags: tags.length > 0 ? tags : [],
       };
@@ -829,11 +844,50 @@ export default function VaultPage() {
   const handleRestoreItem = async (id: string) => {
     await restoreItem(id);
   };
-  
+
   const handleHardDelete = async (id: string) => {
     await hardDeleteItem(id);
     if (revealedId === id) { setRevealedId(null); setRevealedData(null); }
   };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkAction = async (action: "trash" | "restore" | "delete" | "favorite" | "move", payload?: string) => {
+    if (!user || selectedIds.size === 0) return;
+    const promises: Promise<void>[] = [];
+
+    selectedIds.forEach(id => {
+      if (action === "trash") promises.push(deleteItem(id));
+      else if (action === "restore") promises.push(restoreItem(id));
+      else if (action === "delete") promises.push(hardDeleteItem(id));
+      else if (action === "favorite") {
+        const item = items.find(i => i.id === id);
+        if (item) promises.push(toggleFavorite(id, !item.favorite));
+      }
+      else if (action === "move") {
+        const docRef = doc(db, "users", user.uid, "vaultItems", id);
+        promises.push(updateDoc(docRef, { folder: payload || "" }));
+      }
+    });
+
+    await Promise.all(promises);
+    setSelectedIds(new Set());
+  };
+
+  const handleEmptyTrash = async () => {
+    if (!user) return;
+    const trashed = items.filter(i => !!i.deletedAt);
+    await Promise.all(trashed.map(i => hardDeleteItem(i.id)));
+    setSelectedIds(new Set());
+  };
+
 
   const toggleReveal = async (id: string, blob: string) => {
     if (revealedId === id) { setRevealedId(null); setRevealedData(null); setEditId(null); return; }
@@ -855,7 +909,7 @@ export default function VaultPage() {
 
   const visibleItems = useMemo(() => {
     let filtered = items;
-    
+
     // Trash vs Not Trash
     if (activeFilter === "trash") {
       filtered = filtered.filter(i => !!i.deletedAt);
@@ -867,27 +921,54 @@ export default function VaultPage() {
     if (activeFilter === "favorites") {
       filtered = filtered.filter(i => !!i.favorite);
     }
-    
+
     if (activeTag) {
       filtered = filtered.filter(i => i.tags?.includes(activeTag));
     }
-    
+
+    if (activeType) {
+      filtered = filtered.filter(i => (i.template ?? "login") === activeType);
+    }
+
     if (activeFolder !== null) {
       if (activeFolder === "") filtered = filtered.filter(i => !i.folder);
       else filtered = filtered.filter(i => i.folder === activeFolder);
     }
 
+    filtered = [...filtered].sort((a, b) => {
+      if (sortBy === "name") {
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === "updatedAt") {
+        const dA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const dB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return dB - dA;
+      } else {
+        const dA = new Date(a.createdAt || 0).getTime();
+        const dB = new Date(b.createdAt || 0).getTime();
+        return dB - dA;
+      }
+    });
+
     return filtered;
-  }, [items, activeFolder, activeFilter, activeTag]);
+  }, [items, activeFolder, activeFilter, activeTag, activeType, sortBy]);
 
   // Group by folder for "all" view
   const grouped = useMemo(() => {
-    if (activeFolder !== null || activeFilter !== null || activeTag !== null) return null;
+    if (activeFolder !== null || activeFilter !== null || activeTag !== null || activeType !== null) return null;
     const map: Record<string, VaultItem[]> = { "": [] };
     folders.forEach(f => { map[f] = []; });
     visibleItems.forEach(i => { const k = i.folder || ""; if (map[k]) map[k].push(i); });
     return map;
-  }, [visibleItems, folders, activeFolder, activeFilter, activeTag]);
+  }, [visibleItems, folders, activeFolder, activeFilter, activeTag, activeType]);
+
+  // Select all visible items
+  const handleSelectAll = () => {
+    if (selectedIds.size === visibleItems.length && visibleItems.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visibleItems.map(i => i.id)));
+    }
+  };
 
   const toggleFolderCollapse = (f: string) => {
     setCollapsedFolders(prev => {
@@ -908,9 +989,9 @@ export default function VaultPage() {
   // ── Locked — advanced unlock screen
   if (!cryptoKey) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg)] text-[var(--fg)] overflow-hidden">
-      
+
       {/* ══════════════════════ DECORATIVE BACKGROUND ══════════════════════ */}
-      
+
       {/* Grid pattern */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{
         backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
@@ -936,17 +1017,17 @@ export default function VaultPage() {
 
       {/* ══════════════════════ CENTER FORM ══════════════════════ */}
       <div className="w-full max-w-[340px] relative z-10">
-        
+
         {/* ✨ Main Unlock View ✨ */}
-        <div 
-           className="w-full transition-all duration-500"
-           style={{
-              opacity: unlockOverlay === "main" ? 1 : 0,
-              transform: unlockOverlay === "main" ? "translateY(0)" : "translateY(20px)",
-              pointerEvents: unlockOverlay === "main" ? "auto" : "none",
-              position: unlockOverlay === "main" ? "relative" : "absolute",
-              top: 0, left: 0
-           }}
+        <div
+          className="w-full transition-all duration-500"
+          style={{
+            opacity: unlockOverlay === "main" ? 1 : 0,
+            transform: unlockOverlay === "main" ? "translateY(0)" : "translateY(20px)",
+            pointerEvents: unlockOverlay === "main" ? "auto" : "none",
+            position: unlockOverlay === "main" ? "relative" : "absolute",
+            top: 0, left: 0
+          }}
         >
           {/* Lock icon halo */}
           <div className="flex flex-col items-center gap-5 animate-auth-panel-in">
@@ -957,8 +1038,8 @@ export default function VaultPage() {
               />
               <div
                 className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 relative z-10 ${unlocking
-                    ? "bg-neutral-800 border-neutral-600 scale-105"
-                    : "bg-[#0d0d0d] border-[var(--border)]"
+                  ? "bg-neutral-800 border-neutral-600 scale-105"
+                  : "bg-[#0d0d0d] border-[var(--border)]"
                   }`}
               >
                 <Lock className={`w-6 h-6 transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-500"}`} />
@@ -1013,230 +1094,236 @@ export default function VaultPage() {
           </div>
 
           <div className="flex items-center justify-between mt-6 text-[12px]">
-            <button 
-               onClick={() => { setUnlockOverlay("forgot"); }}
-               className="text-neutral-600 hover:text-neutral-300 transition-colors"
+            <button
+              onClick={() => { setUnlockOverlay("forgot"); }}
+              className="text-neutral-600 hover:text-neutral-300 transition-colors"
             >
-               Forgot password?
+              Forgot password?
             </button>
-            <button 
-               onClick={() => { setUnlockOverlay("why"); }}
-               className="flex items-center gap-1.5 text-neutral-600 hover:text-neutral-300 transition-colors"
+            <button
+              onClick={() => { setUnlockOverlay("why"); }}
+              className="flex items-center gap-1.5 text-neutral-600 hover:text-neutral-300 transition-colors"
             >
-               <Shield className="w-3.5 h-3.5" /> Why is this needed?
+              <Shield className="w-3.5 h-3.5" /> Why is this needed?
             </button>
           </div>
-          
+
           <div className="mt-8 text-center">
-             <button
-                onClick={async () => { await logout(); router.push("/"); }}
-                className="text-[11px] text-neutral-700 hover:text-neutral-500 transition-colors cursor-pointer"
-             >
-                Sign out instead
-             </button>
+            <button
+              onClick={async () => { await logout(); router.push("/"); }}
+              className="text-[11px] text-neutral-700 hover:text-neutral-500 transition-colors cursor-pointer"
+            >
+              Sign out instead
+            </button>
           </div>
         </div>
 
         {/* ✨ Forgot Password View ✨ */}
-        <div 
-           className="w-full transition-all duration-500"
-           style={{
-              opacity: unlockOverlay === "forgot" ? 1 : 0,
-              transform: unlockOverlay === "forgot" ? "translateY(0)" : "translateY(20px)",
-              pointerEvents: unlockOverlay === "forgot" ? "auto" : "none",
-              position: unlockOverlay === "forgot" ? "relative" : "absolute",
-              top: 0, left: 0
-           }}
+        <div
+          className="w-full transition-all duration-500"
+          style={{
+            opacity: unlockOverlay === "forgot" ? 1 : 0,
+            transform: unlockOverlay === "forgot" ? "translateY(0)" : "translateY(20px)",
+            pointerEvents: unlockOverlay === "forgot" ? "auto" : "none",
+            position: unlockOverlay === "forgot" ? "relative" : "absolute",
+            top: 0, left: 0
+          }}
         >
-           <div className="text-center mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-red-950/20 border border-red-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(220,38,38,0.1)]">
-                 <Lock className="w-6 h-6 text-red-500" />
-              </div>
-              <h2 className="text-[18px] font-semibold text-neutral-100">Unrecoverable Password</h2>
-           </div>
-           
-           <div className="space-y-4">
-              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-                 SecureVault uses strict <strong>Zero-Knowledge Encryption</strong>. Your master password is never sent to our servers. It is strictly used locally to derive your AES-256-GCM decryption keys.
-              </p>
-              <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-900/40 bg-red-950/10">
-                 <Shield className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                 <p className="text-[12px] text-red-200/80 leading-relaxed">
-                    This means if you forget your master password, <strong>your data cannot be recovered by anyone, including us.</strong>
-                 </p>
-              </div>
-           </div>
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-red-950/20 border border-red-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(220,38,38,0.1)]">
+              <Lock className="w-6 h-6 text-red-500" />
+            </div>
+            <h2 className="text-[18px] font-semibold text-neutral-100">Unrecoverable Password</h2>
+          </div>
 
-           <div className="mt-8 space-y-3">
-              <button
-                 onClick={() => { setUnlockOverlay("main"); }}
-                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
-              >
-                 Try another password
-              </button>
-              <button
-                 onClick={async () => { await logout(); router.push("/"); }}
-                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] text-neutral-400 hover:text-neutral-200 hover:border-neutral-600 transition-all active:scale-[0.98] bg-transparent"
-              >
-                 Sign out
-              </button>
-           </div>
+          <div className="space-y-4">
+            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+              SecureVault uses strict <strong>Zero-Knowledge Encryption</strong>. Your master password is never sent to our servers. It is strictly used locally to derive your AES-256-GCM decryption keys.
+            </p>
+            <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-900/40 bg-red-950/10">
+              <Shield className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[12px] text-red-200/80 leading-relaxed">
+                This means if you forget your master password, <strong>your data cannot be recovered by anyone, including us.</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 space-y-3">
+            <button
+              onClick={() => { setUnlockOverlay("main"); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
+            >
+              Try another password
+            </button>
+            <button
+              onClick={async () => { await logout(); router.push("/"); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] text-neutral-400 hover:text-neutral-200 hover:border-neutral-600 transition-all active:scale-[0.98] bg-transparent"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {/* ✨ Why Is This Needed View ✨ */}
-        <div 
-           className="w-full transition-all duration-500"
-           style={{
-              opacity: unlockOverlay === "why" ? 1 : 0,
-              transform: unlockOverlay === "why" ? "translateY(0)" : "translateY(20px)",
-              pointerEvents: unlockOverlay === "why" ? "auto" : "none",
-              position: unlockOverlay === "why" ? "relative" : "absolute",
-              top: 0, left: 0
-           }}
+        <div
+          className="w-full transition-all duration-500"
+          style={{
+            opacity: unlockOverlay === "why" ? 1 : 0,
+            transform: unlockOverlay === "why" ? "translateY(0)" : "translateY(20px)",
+            pointerEvents: unlockOverlay === "why" ? "auto" : "none",
+            position: unlockOverlay === "why" ? "relative" : "absolute",
+            top: 0, left: 0
+          }}
         >
-           <div className="text-center mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-950/20 border border-indigo-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(99,102,241,0.1)]">
-                 <Shield className="w-6 h-6 text-indigo-400" />
-              </div>
-              <h2 className="text-[18px] font-semibold text-neutral-100">Local Decryption</h2>
-           </div>
-           
-           <div className="space-y-4">
-              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-                 When you log in, we only authenticate your identity, which pulls down the encrypted blobs from the server.
-              </p>
-              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-                 Your <strong>Master Password</strong> is mathematically hashed (PBKDF2) locally inside your browser to derive a cryptographic key.
-              </p>
-              <div className="flex justify-center py-2">
-                 <div className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[#0d0d0d] font-mono text-[11px] text-neutral-500">
-                    AES-256-GCM
-                 </div>
-              </div>
-              <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-                 This key then decrypts your vault data locally. Without it, your data remains secure cipher text.
-              </p>
-           </div>
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-950/20 border border-indigo-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(99,102,241,0.1)]">
+              <Shield className="w-6 h-6 text-indigo-400" />
+            </div>
+            <h2 className="text-[18px] font-semibold text-neutral-100">Local Decryption</h2>
+          </div>
 
-           <div className="mt-8">
-              <button
-                 onClick={() => { setUnlockOverlay("main"); }}
-                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
-              >
-                 ← Back to unlock
-              </button>
-           </div>
+          <div className="space-y-4">
+            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+              When you log in, we only authenticate your identity, which pulls down the encrypted blobs from the server.
+            </p>
+            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+              Your <strong>Master Password</strong> is mathematically hashed (PBKDF2) locally inside your browser to derive a cryptographic key.
+            </p>
+            <div className="flex justify-center py-2">
+              <div className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[#0d0d0d] font-mono text-[11px] text-neutral-500">
+                AES-256-GCM
+              </div>
+            </div>
+            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
+              This key then decrypts your vault data locally. Without it, your data remains secure cipher text.
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <button
+              onClick={() => { setUnlockOverlay("main"); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
+            >
+              ← Back to unlock
+            </button>
+          </div>
         </div>
-        
+
       </div>
     </div>
   );
 
   // ── Unlocked ──────────────────────────────────────────────────────────────
 
-  const renderItem = (item: VaultItem) => (
-    <div key={item.id} className="border-t border-[var(--border)] first:border-t-0">
-      <div className="flex items-center gap-3 px-4 py-2.5">
-        {/* Icon */}
-        <SiteIcon domain={item.domain} name={item.name} />
-
-        {/* Name + meta */}
-        <div
-          className="flex-1 cursor-pointer min-w-0"
-          onClick={() => toggleReveal(item.id, item.encryptedBlob)}
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-medium text-neutral-200 truncate">{item.name}</span>
-            {item.template && item.template !== "login" && (
-              <span className="text-[10px] text-neutral-600 uppercase tracking-wider shrink-0">
-                {TEMPLATE_META[item.template]?.label}
-              </span>
-            )}
-            {item.createdAt && (
-              <span className="text-[11px] text-neutral-700 font-mono shrink-0 ml-auto">
-                {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </span>
-            )}
-          </div>
-          {revealedId === item.id && revealedData?.username ? (
-            <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{revealedData.username}</p>
-          ) : (
-            <p className="text-[11px] text-neutral-700 mt-0.5">Click to reveal</p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-0.5 shrink-0 opacity-10 md:opacity-100 group-hover:opacity-100 transition-opacity">
-          {(!activeFilter || activeFilter !== "trash") && (
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
-              className={`hover:text-amber-400 transition-colors p-1.5 cursor-pointer ${item.favorite ? "text-amber-400" : "text-neutral-700"}`}
-              title={item.favorite ? "Remove favorite" : "Add favorite"}
-            >
-              <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
-            </button>
-          )}
-
-          {revealedId === item.id && revealedData?.url && (
-            <a
-              href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-neutral-600 hover:text-neutral-300 transition-colors p-1.5"
-              title="Open URL"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          )}
-          
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleReveal(item.id, item.encryptedBlob); }}
-            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors ${revealedId === item.id ? "text-neutral-300 bg-neutral-800" : "text-neutral-600 hover:text-neutral-400"}`}
-          >
-            {revealedId === item.id ? "Hide" : "Reveal"}
-          </button>
-
-          {activeFilter === "trash" ? (
-             <>
-               <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="text-neutral-600 hover:text-green-400 transition-colors p-1.5 cursor-pointer" title="Restore"><RefreshCw className="w-3.5 h-3.5" /></button>
-               <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item.id); }} className="text-neutral-600 hover:text-red-500 transition-colors p-1.5 cursor-pointer" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
-             </>
-          ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
-              className="text-neutral-700 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
-              title="Move to Trash"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded detail */}
-      {revealedId === item.id && revealedData && (
-        editId === item.id ? (
-          <div className="px-4 pb-4 pt-3 mx-4 mb-1">
-            <NewEntryForm
-              folders={folders}
-              onSave={handleSave}
-              onCancel={() => setEditId(null)}
-              initialData={{
-                id: item.id,
-                name: item.name,
-                folder: item.folder,
-                tags: item.tags,
-                template: item.template || "login",
-                payload: revealedData
-              }}
+  const renderItem = (item: VaultItem) => {
+    const isSelected = selectedIds.has(item.id);
+    return (
+      <div key={item.id} className={`border-t border-[var(--border)] first:border-t-0 transition-colors ${isSelected ? "bg-neutral-900/50" : ""}`}>
+        <div className="flex items-center gap-3 px-4 py-2.5 group">
+          {/* Selection Checkbox */}
+          <div className={`shrink-0 flex items-center justify-center transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
+              className="w-4 h-4 rounded border-[var(--border)] accent-neutral-500 cursor-pointer bg-neutral-900"
             />
           </div>
-        ) : (
-          <ExpandedDetails data={revealedData} readOnly={activeFilter === "trash"} onEdit={() => setEditId(item.id)} />
-        )
-      )}
-    </div>
-  );
+
+          {/* Icon */}
+          <SiteIcon domain={item.domain} name={item.name} />
+
+          {/* Name + meta */}
+          <div
+            className="flex-1 cursor-pointer min-w-0"
+            onClick={() => toggleReveal(item.id, item.encryptedBlob)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-medium text-neutral-200 truncate">{item.name}</span>
+              {item.template && item.template !== "login" && (
+                <span className="text-[10px] text-neutral-600 uppercase tracking-wider shrink-0">
+                  {TEMPLATE_META[item.template]?.label}
+                </span>
+              )}
+              {item.createdAt && (
+                <span className="text-[11px] text-neutral-700 font-mono shrink-0 ml-auto">
+                  {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+            </div>
+            {revealedId === item.id && revealedData?.username ? (
+              <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{revealedData.username}</p>
+            ) : (
+              <p className="text-[11px] text-neutral-700 mt-0.5">Click to reveal</p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 shrink-0 opacity-10 md:opacity-100 group-hover:opacity-100 transition-opacity">
+            {(!activeFilter || activeFilter !== "trash") && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
+                className={`hover:text-amber-400 transition-colors p-1.5 cursor-pointer ${item.favorite ? "text-amber-400" : "text-neutral-700"}`}
+                title={item.favorite ? "Remove favorite" : "Add favorite"}
+              >
+                <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
+              </button>
+            )}
+
+            {revealedId === item.id && revealedData?.url && (
+              <a
+                href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-neutral-600 hover:text-neutral-300 transition-colors p-1.5"
+                title="Open URL"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            {activeFilter === "trash" ? (
+              <>
+                <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="text-neutral-600 hover:text-green-400 transition-colors p-1.5 cursor-pointer" title="Restore"><RefreshCw className="w-3.5 h-3.5" /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item.id); }} className="text-neutral-600 hover:text-red-500 transition-colors p-1.5 cursor-pointer" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
+              </>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
+                className="text-neutral-700 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
+                title="Move to Trash"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Expanded detail */}
+        {revealedId === item.id && revealedData && (
+          editId === item.id ? (
+            <div className="px-4 pb-4 pt-3 mx-4 mb-1">
+              <NewEntryForm
+                folders={folders}
+                onSave={handleSave}
+                onCancel={() => setEditId(null)}
+                initialData={{
+                  id: item.id,
+                  name: item.name,
+                  folder: item.folder,
+                  tags: item.tags,
+                  template: item.template || "login",
+                  payload: revealedData
+                }}
+              />
+            </div>
+          ) : (
+            <ExpandedDetails data={revealedData} readOnly={activeFilter === "trash"} onEdit={() => setEditId(item.id)} />
+          )
+        )}
+      </div>
+    );
+  };
 
   const renderGrouped = () => {
     if (!grouped) return null;
@@ -1316,14 +1403,55 @@ export default function VaultPage() {
         <div className="space-y-px">
           {/* List header */}
           <div className="flex items-center justify-between py-2">
-            <div className="flex items-center gap-2 text-xs text-neutral-600 uppercase tracking-wider">
-              {activeFolder !== null ? (
-                <>{activeFolder === "" ? "Uncategorized" : activeFolder}</>
-              ) : (
-                <>Entries</>
+            {/* Left: label + select-all */}
+            <div className="flex items-center gap-3">
+              {visibleItems.length > 0 && (
+                <input
+                  type="checkbox"
+                  title="Select all"
+                  checked={selectedIds.size === visibleItems.length && visibleItems.length > 0}
+                  onChange={handleSelectAll}
+                  className="w-3.5 h-3.5 rounded accent-neutral-500 cursor-pointer"
+                />
+              )}
+              <div className="text-xs text-neutral-600 uppercase tracking-wider">
+                {activeFilter === "trash" ? "Trash" :
+                  activeFilter === "favorites" ? "Favorites" :
+                    activeType ? `${activeType.charAt(0).toUpperCase()}${activeType.slice(1)}s` :
+                      activeFolder !== null ? (activeFolder === "" ? "Uncategorized" : activeFolder) :
+                        activeTag ? `#${activeTag}` :
+                          "All Items"}
+              </div>
+              {isSelectionMode && (
+                <span className="text-[10px] text-neutral-500">{selectedIds.size} selected</span>
               )}
             </div>
-            <span className="text-xs text-neutral-700">{visibleItems.length}</span>
+
+            <div className="flex items-center gap-3">
+              {/* Trash-specific: empty trash */}
+              {activeFilter === "trash" && visibleItems.length > 0 && !isSelectionMode && (
+                <button
+                  onClick={handleEmptyTrash}
+                  className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors cursor-pointer"
+                >
+                  Empty Trash
+                </button>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-600 hidden sm:inline">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as "createdAt" | "updatedAt" | "name")}
+                  className="bg-transparent text-xs text-neutral-400 hover:text-neutral-200 outline-none cursor-pointer"
+                >
+                  <option value="createdAt" className="bg-neutral-900 text-neutral-200">Date Added</option>
+                  <option value="updatedAt" className="bg-neutral-900 text-neutral-200">Last Modified</option>
+                  <option value="name" className="bg-neutral-900 text-neutral-200">Name (A-Z)</option>
+                </select>
+              </div>
+              <span className="text-xs text-neutral-700 select-none hidden sm:inline">|</span>
+              <span className="text-xs text-neutral-700">{visibleItems.length}</span>
+            </div>
           </div>
 
           {/* Folder filter pills */}
@@ -1381,7 +1509,7 @@ export default function VaultPage() {
 
           {!grouped && visibleItems.length === 0 && items.length > 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-20 h-20 opacity-50 mb-4">
+              <div className="w-80 h-80 opacity-50 mb-4">
                 <Image
                   src="/illustrations/computer-files_7dj6.svg"
                   alt=""
@@ -1395,6 +1523,82 @@ export default function VaultPage() {
           )}
         </div>
       </main>
+
+      {/* Floating Bulk Action Bar */}
+      {isSelectionMode && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2.5 rounded-2xl border border-neutral-800 bg-neutral-950/90 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+          {/* Selection info */}
+          <div className="flex flex-col pr-1">
+            <span className="text-[12px] font-semibold text-neutral-200 whitespace-nowrap">{selectedIds.size} selected</span>
+            <button onClick={() => setSelectedIds(new Set())} className="text-[10px] text-neutral-600 hover:text-neutral-400 text-left transition-colors cursor-pointer">Deselect all</button>
+          </div>
+
+          <div className="w-px h-6 bg-neutral-800 mx-1" />
+
+          {/* Move to folder — only outside trash */}
+          {activeFilter !== "trash" && folders.length > 0 && (
+            <>
+              <select
+                onChange={e => {
+                  if (e.target.value === "__none") return;
+                  handleBulkAction("move", e.target.value);
+                  (e.target as HTMLSelectElement).value = "__none";
+                }}
+                defaultValue="__none"
+                className="text-[11px] bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-1.5 rounded-lg outline-none cursor-pointer hover:border-neutral-600 transition-colors max-w-[130px]"
+              >
+                <option value="__none" disabled>Move to…</option>
+                <option value="">(Uncategorized)</option>
+                {folders.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <div className="w-px h-6 bg-neutral-800 mx-1" />
+            </>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-0.5">
+            {activeFilter !== "trash" && (
+              <button
+                onClick={() => handleBulkAction("favorite")}
+                className="p-2 text-neutral-500 hover:text-amber-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer"
+                title="Toggle Favorite"
+              >
+                <Star className="w-4 h-4" />
+              </button>
+            )}
+
+            {activeFilter === "trash" ? (
+              <>
+                <button
+                  onClick={() => handleBulkAction("restore")}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-400 hover:text-green-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer"
+                  title="Restore Selected"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Restore
+                </button>
+                <button
+                  onClick={() => handleBulkAction("delete")}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                  title="Delete Permanently"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => handleBulkAction("trash")}
+                className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
+                title="Move to Trash"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

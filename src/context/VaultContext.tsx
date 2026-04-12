@@ -31,6 +31,7 @@ export interface VaultItem {
   folder?: string;
   template?: Template;
   createdAt?: string;
+  updatedAt?: string;
   lastAccessedAt?: string;
   favorite?: boolean;
   hasTotp?: boolean;
@@ -139,7 +140,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
             return; // Skip adding to state
           }
         }
-        list.push({ id: d.id, ...data });
+        list.push({ ...data, id: d.id });
       });
       
       list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -284,7 +285,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const updateItem = useCallback(async (id: string, payload: Partial<VaultItem>) => {
     if (!user?.uid) return;
-    await setDoc(doc(db, "users", user.uid, "vaultItems", id), payload, { merge: true });
+    const finalPayload = {
+      ...payload,
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, "users", user.uid, "vaultItems", id), finalPayload, { merge: true });
   }, [user]);
 
   const deleteItem = useCallback(async (id: string) => {
@@ -354,6 +359,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       lock,
       setAutoLockMinutes,
       saveItem,
+      updateItem,
       deleteItem,
       hardDeleteItem,
       restoreItem,

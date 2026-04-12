@@ -108,8 +108,8 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden sm:flex items-center gap-6 text-[13px] text-neutral-500">
-            <a href="#features"   className="hover:text-neutral-200 transition-colors">Features</a>
-            <a href="#security"   className="hover:text-neutral-200 transition-colors">Security</a>
+            <a href="#features" className="hover:text-neutral-200 transition-colors">Features</a>
+            <a href="#security" className="hover:text-neutral-200 transition-colors">Security</a>
             <a href="#howitworks" className="hover:text-neutral-200 transition-colors">How it works</a>
           </div>
 
@@ -193,9 +193,9 @@ export default function LandingPage() {
               <div className="p-4 space-y-2">
                 {[
                   { name: "GitHub", sub: "dev@example.com", domain: "github.com", color: "#6e7681" },
-                  { name: "Figma",  sub: "dev@example.com", domain: "figma.com",  color: "#a259ff" },
+                  { name: "Figma", sub: "dev@example.com", domain: "figma.com", color: "#a259ff" },
                   { name: "Linear", sub: "dev@example.com", domain: "linear.app", color: "#5e6ad2" },
-                  { name: "Vercel", sub: "dev@example.com", domain: "vercel.com",  color: "#eaeaea" },
+                  { name: "Vercel", sub: "dev@example.com", domain: "vercel.com", color: "#eaeaea" },
                 ].map((item, i) => (
                   <div key={item.name} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[var(--border)] ${i === 0 ? "bg-neutral-900" : "bg-transparent"}`}>
                     <div className="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0" style={{ background: item.color + "22", color: item.color }}>
@@ -316,12 +316,12 @@ export default function LandingPage() {
                 />
               </div>
               {[
-                { label: "Algorithm",      value: "AES-256-GCM",           color: "text-emerald-500" },
-                { label: "Key derivation", value: "PBKDF2 / SHA-256",     color: "text-blue-400" },
-                { label: "Iterations",     value: "100,000",               color: "text-purple-400" },
-                { label: "IV size",        value: "12 bytes (random)",     color: "text-amber-400" },
-                { label: "Auth tag",       value: "128 bits",              color: "text-emerald-500" },
-                { label: "Stored secret",  value: "none — zero-knowledge", color: "text-neutral-600" },
+                { label: "Algorithm", value: "AES-256-GCM", color: "text-emerald-500" },
+                { label: "Key derivation", value: "PBKDF2 / SHA-256", color: "text-blue-400" },
+                { label: "Iterations", value: "100,000", color: "text-purple-400" },
+                { label: "IV size", value: "12 bytes (random)", color: "text-amber-400" },
+                { label: "Auth tag", value: "128 bits", color: "text-emerald-500" },
+                { label: "Stored secret", value: "none — zero-knowledge", color: "text-neutral-600" },
               ].map((row) => (
                 <div key={row.label} className="flex justify-between items-center border-b border-[var(--border)] pb-3 last:border-0 last:pb-0 relative z-10">
                   <span className="text-neutral-600">{row.label}</span>
@@ -337,12 +337,12 @@ export default function LandingPage() {
       <section className="border-t border-[var(--border)]">
         <div className="max-w-5xl mx-auto px-5 py-20 text-center relative overflow-hidden">
           {/* Background completed illustration */}
-          <div className="absolute right-8 top-1/2 -translate-y-1/2 w-32 h-32 opacity-[0.08] hidden md:block pointer-events-none select-none">
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 w-48 h-48 opacity-[0.08] hidden md:block pointer-events-none select-none rotate-15">
             <Image
               src="/illustrations/completed_vjc6.svg"
               alt=""
-              width={128}
-              height={128}
+              width={192}
+              height={192}
               className="object-contain w-full h-full"
             />
           </div>
@@ -372,8 +372,8 @@ export default function LandingPage() {
             <span className="text-[13px] text-neutral-600">{config.name}</span>
           </div>
           <div className="flex items-center gap-5 text-[12px] text-neutral-600">
-            <Link href="/privacy"  className="hover:text-neutral-400 transition-colors">Privacy</Link>
-            <Link href="/terms"    className="hover:text-neutral-400 transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms</Link>
             <Link href="/security" className="hover:text-neutral-400 transition-colors">Security</Link>
             <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-400 transition-colors flex items-center gap-1">
               <GithubIcon /> GitHub
