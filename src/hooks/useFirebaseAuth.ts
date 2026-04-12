@@ -33,13 +33,29 @@ function friendly(err: unknown): string {
 
 export const useFirebaseAuth = () => {
   const [user,             setUser]             = useState<User | null>(null);
+  const [isAdmin,          setIsAdmin]          = useState(false);
+  const [isAdminLoading,   setIsAdminLoading]   = useState(true);
   const [isAuthLoading,    setIsAuthLoading]    = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error,            setError]            = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      
+      if (u) {
+        try {
+          const tokenResult = await u.getIdTokenResult(true);
+          setIsAdmin(!!tokenResult.claims.admin);
+        } catch (error) {
+          console.error("Error fetching claims:", error);
+          setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+      
+      setIsAdminLoading(false);
       setIsAuthLoading(false);
     });
     return () => unsubscribe();
@@ -91,5 +107,5 @@ export const useFirebaseAuth = () => {
 
   const logout = async () => { await signOut(auth); };
 
-  return { user, isAuthLoading, isAuthenticating, error, login, register, googleLogin, resetPassword, logout };
+  return { user, isAdmin, isAdminLoading, isAuthLoading, isAuthenticating, error, login, register, googleLogin, resetPassword, logout };
 };

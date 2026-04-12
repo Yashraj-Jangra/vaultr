@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 import { SiteConfigProvider } from "@/context/SiteConfigContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 export const metadata: Metadata = {
   title: {
@@ -35,7 +36,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <SiteConfigProvider>{children}</SiteConfigProvider>
+        <SiteConfigProvider>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </SiteConfigProvider>
       </body>
     </html>
   );

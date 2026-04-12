@@ -889,13 +889,13 @@ export default function VaultPage() {
 
           <div className="flex items-center justify-between mt-6 text-[12px]">
             <button 
-               onClick={() => { setUnlockOverlay("forgot"); setAnimKey(k=>k+1); }}
+               onClick={() => { setUnlockOverlay("forgot"); }}
                className="text-neutral-600 hover:text-neutral-300 transition-colors"
             >
                Forgot password?
             </button>
             <button 
-               onClick={() => { setUnlockOverlay("why"); setAnimKey(k=>k+1); }}
+               onClick={() => { setUnlockOverlay("why"); }}
                className="flex items-center gap-1.5 text-neutral-600 hover:text-neutral-300 transition-colors"
             >
                <Shield className="w-3.5 h-3.5" /> Why is this needed?
@@ -944,7 +944,7 @@ export default function VaultPage() {
 
            <div className="mt-8 space-y-3">
               <button
-                 onClick={() => { setUnlockOverlay("main"); setAnimKey(k=>k+1); }}
+                 onClick={() => { setUnlockOverlay("main"); }}
                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
               >
                  Try another password
@@ -995,7 +995,7 @@ export default function VaultPage() {
 
            <div className="mt-8">
               <button
-                 onClick={() => { setUnlockOverlay("main"); setAnimKey(k=>k+1); }}
+                 onClick={() => { setUnlockOverlay("main"); }}
                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
               >
                  ← Back to unlock

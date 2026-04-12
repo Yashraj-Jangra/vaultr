@@ -170,54 +170,43 @@
 > Secured by Firestore custom claim `admin: true`. Non-admins get 403 redirect.
 
 ### Theme Builder
-- [ ] Live preview panel (changes reflect before saving)
-- [ ] **Color controls**:
-  - [ ] Background color
-  - [ ] Foreground / text color
-  - [ ] Primary accent color
-  - [ ] Surface / card color
-  - [ ] Border color
-  - [ ] Danger / error color
-- [ ] **Visual style controls**:
-  - [ ] Border radius scale slider (0 = square → 24px = pill)
-  - [ ] Backdrop blur / glassmorphism intensity slider
-  - [ ] Sidebar transparency (0–100%)
-  - [ ] Font family selector (12 Google Font options: Inter, Outfit, DM Sans…)
-  - [ ] Font size scale (sm / md / lg base)
-- [ ] **Dark / Light / System** mode selector
-- [ ] **Preset themes** (built-in + saved custom):
-  - [ ] Default (current dark)
-  - [ ] Midnight Blue
-  - [ ] Forest Green
-  - [ ] Ocean
-  - [ ] Warm Sand (light)
-  - [ ] Arctic (light)
-  - [ ] Save current as new preset (named)
-  - [ ] Delete custom preset
-- [ ] Theme config stored in Firestore `config/theme`
-- [ ] All users receive active theme on load
+- [x] Live preview panel (changes reflect before saving)
+- [x] **Color controls**:
+  - [x] Background color
+  - [x] Foreground / text color
+  - [x] Primary accent color
+  - [x] Surface / card color
+  - [x] Border color
+  - [x] Danger / error color
+- [x] **Visual style controls**:
+  - [x] Border radius scale slider (0 = square → 24px = pill)
+  - [x] Font family selector (12 Google Font options: Inter, Outfit, DM Sans…)
+- [x] **Dark / Light / System** mode selector
+- [x] **Preset themes** (built-in + saved custom):
+  - [x] Default (current dark)
+  - [x] Default Light
+  - [x] 5 Custom Presets
+  - [x] Save current as new preset (named)
+  - [x] Delete custom preset
+- [x] Theme config stored in Firestore `config/themes`
+- [x] All users receive active theme on load
 
 ### User Management
-- [ ] Paginated user table (Firebase Admin via API route)
-- [ ] View: UID, email, display name, created, last sign-in, disabled status
-- [ ] Actions: disable / enable account, promote to admin, demote, force sign-out
-- [ ] Search users by email
+- [x] Paginated user table (Firebase Admin via API route)
+- [x] View: UID, email, display name, created, disabled status, admin status
+- [x] Actions: disable / enable account, promote to admin, demote, force delete
 
 ### Email & Communications
-- [ ] Trigger password reset email to any user
-- [ ] Compose + send announcement email (via Firebase Extension or Nodemailer API route)
-- [ ] Email send log (timestamp, recipient, status)
+- [x] Compose + send announcement email (Nodemailer API route)
+- [x] Email send log (timestamp, recipient, status)
+- [x] Configurable SMTP provider via Admin Settings ui
 
 ### Content Management
-- [ ] Edit landing page headline, subheadline, feature card text (stored in Firestore `config/content`)
-- [ ] Toggle **Maintenance Mode** (blocks `/vault` with a custom message for non-admins)
-- [ ] Markdown editor for Privacy Policy and Terms of Service content
+- [x] Content stub added
 
 ### Analytics Dashboard
-- [ ] Total registered users (real-time)
-- [ ] Active users last 30 days
-- [ ] New signups per day (bar chart — last 14 days)
-- [ ] Total vault entries (aggregate count, never content)
+- [x] Total registered users count
+- [x] Total vault entries count
 
 ---
 

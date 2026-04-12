@@ -8,7 +8,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { collection, onSnapshot, query, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, query, addDoc, deleteDoc, doc, setDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useCrypto, deriveKey } from "@/hooks/useCrypto";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
@@ -250,11 +250,25 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     await addDoc(collection(db, "users", user.uid, "vaultItems"), payload);
+    
+    // Increment global analytics tally
+    try {
+      await setDoc(doc(db, "config", "stats"), { totalEntries: increment(1) }, { merge: true });
+    } catch (err) {
+      console.warn("Failed to increment stats", err);
+    }
   }, [user]);
 
   const deleteItem = useCallback(async (id: string) => {
     if (!user?.uid) return;
     await deleteDoc(doc(db, "users", user.uid, "vaultItems", id));
+    
+    // Decrement global analytics tally
+    try {
+      await setDoc(doc(db, "config", "stats"), { totalEntries: increment(-1) }, { merge: true });
+    } catch (err) {
+      console.warn("Failed to decrement stats", err);
+    }
   }, [user]);
 
   const decryptItem = useCallback(async (blob: string): Promise<string> => {
