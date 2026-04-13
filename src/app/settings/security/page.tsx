@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useVault } from "@/context/VaultContext";
 import { deriveKey, reEncryptBlobs } from "@/hooks/useCrypto";
@@ -23,8 +23,20 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Monitor,
+  Smartphone,
+  Tablet,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  ShieldAlert,
+  LogOut,
+  Mail,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { saveVaultSession } from "@/hooks/useVaultSession";
+import { useSessionManager } from "@/hooks/useSessionManager";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -286,12 +298,86 @@ export default function SecuritySettingsPage() {
   const liveCount = items.filter((i) => !i.deletedAt).length;
   const isVaultLocked = !cryptoKey;
 
+  // ── Session manager
+  const {
+    sessions, currentSessionId, isVerified, loading: sessionsLoading,
+    sendingCode, verifying, revoking, otpError, otpSuccess,
+    sendVerificationEmail, verifyOtp, revokeSession, revokeAllOtherSessions, clearOtpState,
+  } = useSessionManager(user?.uid ?? null);
+
+  // ── Session notification prefs
+  const [newDeviceEmailAlert, setNewDeviceEmailAlert] = useState(true);
+  const [requireVerifOnNew, setRequireVerifOnNew] = useState(false);
+  const [notifSaving, setNotifSaving] = useState(false);
+
+  // OTP input
+  const [otpValue, setOtpValue] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+
+  // Revoke confirmation
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
+  const [revokeAllBusy, setRevokeAllBusy] = useState(false);
+  const otpRef = useRef<HTMLInputElement>(null);
+
+  // Load notification prefs from Firestore
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, "users", user.uid, "profile", "security")).then((snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.newDeviceEmailAlert !== undefined) setNewDeviceEmailAlert(d.newDeviceEmailAlert);
+        if (d.requireVerificationOnNew !== undefined) setRequireVerifOnNew(d.requireVerificationOnNew);
+      }
+    }).catch(() => {});
+  }, [user?.uid]);
+
+  const saveNotifPrefs = async (field: string, value: boolean) => {
+    if (!user?.uid) return;
+    setNotifSaving(true);
+    try {
+      await setDoc(doc(db, "users", user.uid, "profile", "security"), { [field]: value }, { merge: true });
+    } finally { setNotifSaving(false); }
+  };
+
+  const handleSendCode = async () => {
+    const res = await sendVerificationEmail();
+    if (res.ok) { setCodeSent(true); setTimeout(() => otpRef.current?.focus(), 100); }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpValue.length !== 6) return;
+    const res = await verifyOtp(otpValue);
+    if (res.ok) setOtpValue("");
+  };
+
+  const handleRevokeConfirmed = async (sessionId: string) => {
+    setConfirmRevoke(null);
+    await revokeSession(sessionId);
+  };
+
+  const handleRevokeAllConfirmed = async () => {
+    setConfirmRevokeAll(false);
+    setRevokeAllBusy(true);
+    await revokeAllOtherSessions();
+    setRevokeAllBusy(false);
+  };
+
+  // Relative time helper
+  const relativeTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-[18px] font-semibold text-neutral-100">Security</h1>
         <p className="text-[13px] text-neutral-600">
-          Change your master password, configure auto-lock, and manage session security.
+          Change your master password, configure auto-lock, and manage active sessions.
         </p>
       </div>
 
@@ -462,6 +548,267 @@ export default function SecuritySettingsPage() {
           <p className="text-[11px] text-neutral-700">
             To enable phone or TOTP 2FA, manage it through your Firebase project&apos;s Authentication settings or via the Firebase console linked to this account.
           </p>
+        </div>
+      </Section>
+
+      {/* ── Sessions & Devices */}
+      <Section
+        title="Sessions & Devices"
+        description="Manage where your account is active. Verify devices and revoke access remotely."
+        icon={Monitor}
+      >
+        <div className="space-y-5">
+
+          {/* ── Current device trust status */}
+          <div className="flex items-start gap-3 p-4 rounded-xl border border-[var(--border)] bg-neutral-900/50">
+            <div className="mt-0.5 shrink-0">
+              {isVerified
+                ? <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                : <ShieldAlert className="w-5 h-5 text-amber-400" />}
+            </div>
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <p className="text-[13px] font-medium text-neutral-200">
+                  This device is{" "}
+                  <span className={isVerified ? "text-emerald-400" : "text-amber-400"}>
+                    {isVerified ? "verified ✓" : "not verified"}
+                  </span>
+                </p>
+                <p className="text-[12px] text-neutral-600 mt-0.5">
+                  {isVerified
+                    ? "Email verification was completed for this browser session."
+                    : "Verify this device to confirm it's you. A code will be sent to your email."}
+                </p>
+              </div>
+
+              {/* OTP flow */}
+              {!isVerified && !otpSuccess && (
+                <div className="space-y-3">
+                  {!codeSent ? (
+                    <Button
+                      onClick={handleSendCode}
+                      disabled={sendingCode}
+                      variant="default"
+                    >
+                      {sendingCode ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Sending…</> : <><Mail className="w-3.5 h-3.5 mr-1.5" />Send verification code</>}
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[12px] text-neutral-500">Enter the 6-digit code sent to your email:</p>
+                      <div className="flex gap-2">
+                        <input
+                          ref={otpRef}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={otpValue}
+                          onChange={(e) => { clearOtpState(); setOtpValue(e.target.value.replace(/\D/g, "").slice(0, 6)); }}
+                          placeholder="000000"
+                          className="w-32 px-3 py-2 rounded-lg bg-neutral-900 border border-[var(--border)] text-neutral-100 font-mono text-center text-[18px] tracking-[0.3em] focus:outline-none focus:border-neutral-500 transition-colors"
+                        />
+                        <Button
+                          onClick={handleVerifyOtp}
+                          disabled={verifying || otpValue.length !== 6}
+                          variant="default"
+                        >
+                          {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify"}
+                        </Button>
+                        <button
+                          onClick={handleSendCode}
+                          disabled={sendingCode}
+                          className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer"
+                        >
+                          Resend
+                        </button>
+                      </div>
+                      {otpError && (
+                        <p className="text-[12px] text-red-400 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />{otpError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {otpSuccess && (
+                <p className="text-[13px] text-emerald-400 flex items-center gap-1.5">
+                  <Check className="w-4 h-4" />Device verified successfully!
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* ── Active sessions list */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-medium text-neutral-400 uppercase tracking-wider">Active Sessions</p>
+              {sessions.filter(s => !s.isCurrentDevice).length > 0 && (
+                <button
+                  onClick={() => setConfirmRevokeAll(true)}
+                  disabled={revokeAllBusy}
+                  className="text-[12px] text-red-500 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Sign out all other devices
+                </button>
+              )}
+            </div>
+
+            {sessionsLoading ? (
+              <div className="flex items-center gap-2 py-4 text-[13px] text-neutral-600">
+                <Loader2 className="w-4 h-4 animate-spin" />Loading sessions…
+              </div>
+            ) : sessions.length === 0 ? (
+              <p className="text-[13px] text-neutral-700 py-2">No sessions found. Session data will appear here after your next sign-in.</p>
+            ) : (
+              <div className="space-y-2">
+                {sessions.map((session) => {
+                  const DeviceIcon = session.deviceType === "mobile" ? Smartphone : session.deviceType === "tablet" ? Tablet : Monitor;
+                  const isRevoking = revoking.has(session.sessionId);
+                  return (
+                    <div
+                      key={session.sessionId}
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                        session.isCurrentDevice
+                          ? "border-emerald-900/60 bg-emerald-950/20"
+                          : "border-[var(--border)] bg-neutral-900/30"
+                      }`}
+                    >
+                      {/* Device icon */}
+                      <div className={`shrink-0 p-2 rounded-lg ${
+                        session.isCurrentDevice ? "bg-emerald-900/40" : "bg-neutral-800"
+                      }`}>
+                        <DeviceIcon className={`w-4 h-4 ${
+                          session.isCurrentDevice ? "text-emerald-400" : "text-neutral-500"
+                        }`} />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-[13px] font-medium text-neutral-200 truncate">{session.deviceName}</p>
+                          {session.isCurrentDevice && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/50 text-emerald-400 border border-emerald-900/60 shrink-0">Current</span>
+                          )}
+                          {session.isTrusted ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-emerald-500 border border-neutral-700 shrink-0 flex items-center gap-1">
+                              <Check className="w-2.5 h-2.5" />Verified
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-amber-500 border border-neutral-700 shrink-0">Unverified</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                          {session.location && (
+                            <span className="text-[11px] text-neutral-600 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />{session.location}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-neutral-600 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />{relativeTime(session.lastSeenAt)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Revoke */}
+                      {!session.isCurrentDevice && (
+                        confirmRevoke === session.sessionId ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleRevokeConfirmed(session.sessionId)}
+                              disabled={isRevoking}
+                              className="text-[11px] px-2 py-1 rounded bg-red-900/50 text-red-400 border border-red-900 hover:bg-red-900 transition-colors cursor-pointer"
+                            >
+                              {isRevoking ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+                            </button>
+                            <button
+                              onClick={() => setConfirmRevoke(null)}
+                              className="text-[11px] px-2 py-1 rounded bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmRevoke(session.sessionId)}
+                            title="Revoke this session"
+                            className="shrink-0 p-1.5 rounded-lg text-neutral-600 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── Revoke all confirmation dialog */}
+          {confirmRevokeAll && (
+            <div className="flex items-start gap-3 p-4 rounded-xl border border-red-900/60 bg-red-950/20">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-3">
+                <p className="text-[13px] text-red-300">Sign out of all other devices?</p>
+                <p className="text-[12px] text-red-500/80">All other sessions will be immediately revoked. This cannot be undone.</p>
+                <div className="flex gap-2">
+                  <Button onClick={handleRevokeAllConfirmed} variant="danger" disabled={revokeAllBusy}>
+                    {revokeAllBusy ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Revoking…</> : "Yes, sign out all"}
+                  </Button>
+                  <Button onClick={() => setConfirmRevokeAll(false)} variant="ghost">Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Notification preferences */}
+          <div className="space-y-3 pt-2 border-t border-[var(--border)]">
+            <p className="text-[12px] font-medium text-neutral-400 uppercase tracking-wider">Notification Preferences</p>
+            {[
+              {
+                label: "Email me when a new device signs in",
+                description: "Get alerted if someone logs into your account from an unrecognised device.",
+                key: "newDeviceEmailAlert" as const,
+                value: newDeviceEmailAlert,
+                setter: setNewDeviceEmailAlert,
+              },
+              {
+                label: "Require email verification for new devices",
+                description: "Automatically send a verification code to any new device on login.",
+                key: "requireVerificationOnNew" as const,
+                value: requireVerifOnNew,
+                setter: setRequireVerifOnNew,
+              },
+            ].map(({ label, description, key, value, setter }) => (
+              <label key={key} className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={value}
+                    onChange={(e) => {
+                      setter(e.target.checked);
+                      saveNotifPrefs(key, e.target.checked);
+                    }}
+                    className="sr-only"
+                  />
+                  <div className={`w-9 h-5 rounded-full transition-colors ${
+                    value ? "bg-emerald-600" : "bg-neutral-700"
+                  }`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${
+                      value ? "left-[18px]" : "left-0.5"
+                    }`} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[13px] text-neutral-300 group-hover:text-neutral-100 transition-colors">{label}</p>
+                  <p className="text-[11px] text-neutral-600 mt-0.5">{description}</p>
+                </div>
+              </label>
+            ))}
+            {notifSaving && <p className="text-[11px] text-neutral-600 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Saving…</p>}
+          </div>
         </div>
       </Section>
     </div>
