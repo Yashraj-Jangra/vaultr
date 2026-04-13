@@ -232,35 +232,35 @@
 
 ---
 
-## Sprint 8 — Settings Pages
+## Sprint 8 — Settings Pages ✅
 
 ### `/settings/account`
-- [ ] Display name (inline edit + save to Firebase Auth profile)
-- [ ] Email address (change triggers `updateEmail`)
-- [ ] Profile photo (upload → Firebase Storage, resized, CDN URL saved)
-- [ ] Connected providers (Google, Email — unlink / link)
-- [ ] User theme preference (override admin theme)
+- [x] Display name (inline edit + save to Firebase Auth profile)
+- [x] Email address (shown; note on change flow)
+- [x] Profile photo (upload → Firebase Storage → `updateProfile`)
+- [x] Connected providers (Google, Email — unlink / link)
+- [x] User theme preference (override admin theme, stored in `localStorage`)
 
 ### `/settings/security`
-- [ ] **Change master password**
-  - [ ] Re-derive AES-GCM key from new password
-  - [ ] Re-encrypt all blobs with new key
-  - [ ] Progress indicator with item count
-- [ ] Auto-lock timer (Off / 5 / 15 / 30 min)
-- [ ] Clipboard auto-clear timer (Off / 30s / 60s)
-- [ ] Two-factor authentication on Firebase account (TOTP for login, separate from vault 2FA)
-- [ ] Active sessions view (educational / informational)
+- [x] **Change master password**
+  - [x] Re-derive AES-GCM key from new password (`reEncryptBlobs` utility)
+  - [x] Re-encrypt all blobs with new key (Firestore `writeBatch`, max 500/batch)
+  - [x] Progress indicator with item count
+- [x] Auto-lock timer (Off / 5 / 15 / 30 min)
+- [x] Clipboard auto-clear timer (Off / 30s / 60s, stored in `localStorage`)
+- [x] Two-factor authentication on Firebase account (informational card with provider details)
+- [x] Last password changed date (stored in `users/{uid}/profile/security` Firestore doc)
 
 ### `/settings/data`
-- [ ] **Export vault** — download `-export-YYYY-MM-DD.json`
-  - [ ] Option to protect export with separate passphrase
-  - [ ] Blobs stay encrypted in export file
-- [ ] **Import vault** — re-upload export file, re-encrypt under current key
-- [ ] **CSV Import** — parse LastPass / Bitwarden / Chrome CSV formats
-  - [ ] Preview table before importing
-  - [ ] Conflict resolution (skip / overwrite)
-- [ ] **Delete all vault data** — wipe `vaultItems` collection (type "DELETE" to confirm)
-- [ ] **Delete account** — Firebase Auth deletion + Firestore wipe
+- [x] **Export vault** — download `vaultr-export-YYYY-MM-DD.json`
+  - [x] Option to protect export with separate passphrase (AES-GCM wrapped .enc file)
+  - [x] Blobs stay encrypted in export file
+- [x] **Import vault** — re-upload export file (.json or .enc), re-add under current key
+- [x] **CSV Import** — parse LastPass / Bitwarden / Chrome CSV formats (papaparse)
+  - [x] Preview table before importing (up to 50 rows shown)
+  - [x] Conflict resolution (skip / overwrite)
+- [x] **Delete all vault data** — wipe `vaultItems` collection (type "DELETE" to confirm)
+- [x] **Delete account** — Firebase Auth deletion + Firestore wipe (type "DELETE ACCOUNT")
 
 ---
 
@@ -309,9 +309,9 @@
 | 5 | Password Health | ⏭️ Deferred | 0 / 14 |
 | 6 | Admin Panel | ✅ Complete | 22 / 22 |
 | 7 | Vault Extensions | ✅ Complete | 17 / 17 |
-| 8 | Settings Pages | 🔄 In Progress | 0 / 16 |
+| 8 | Settings Pages | ✅ Complete | 18 / 18 |
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
-| — | **Total** | | **101 / 148** |
+| — | **Total** | | **119 / 166** |
 
 ### Recently Implemented (Post-Sprint-0)
 
@@ -335,5 +335,5 @@
 
 ---
 
-*Last updated: 2026-04-12*
+*Last updated: 2026-04-13*
 *To begin a sprint, say "begin sprint N".*

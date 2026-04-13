@@ -62,6 +62,9 @@ export interface VaultContextValue {
   decryptItem: (blob: string) => Promise<string>;
   encryptData: (data: string) => Promise<string>;
   setSearchQuery: (q: string) => void;
+  // UI State
+  isNewEntryOpen: boolean;
+  setIsNewEntryOpen: (val: boolean) => void;
   // Derived
   folders: string[];
   filteredItems: VaultItem[];
@@ -88,6 +91,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [isLoading,   setIsLoading]   = useState(true);
   const [unlockError, setUnlockError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
   const [autoLockMinutes, setAutoLockMinutesState] = useState(DEFAULT_AUTO_LOCK_MINUTES);
 
   // Tracks whether we've already attempted to restore the session on mount
@@ -367,6 +371,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       decryptItem,
       encryptData,
       setSearchQuery,
+      isNewEntryOpen,
+      setIsNewEntryOpen,
       folders,
       filteredItems,
     }}>

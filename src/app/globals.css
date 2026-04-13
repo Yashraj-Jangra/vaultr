@@ -13,8 +13,36 @@
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
-  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: var(--font-theme), var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: var(--font-geist-mono), 'SF Mono', 'Fira Code', monospace;
+
+  /* Custom Neutral Scale for Theme Support */
+  --color-neutral-50: var(--neutral-50, #fafafa);
+  --color-neutral-100: var(--neutral-100, #f5f5f5);
+  --color-neutral-200: var(--neutral-200, #e5e5e5);
+  --color-neutral-300: var(--neutral-300, #d4d4d4);
+  --color-neutral-400: var(--neutral-400, #a3a3a3);
+  --color-neutral-500: var(--neutral-500, #737373);
+  --color-neutral-600: var(--neutral-600, #525252);
+  --color-neutral-700: var(--neutral-700, #404040);
+  --color-neutral-800: var(--neutral-800, #262626);
+  --color-neutral-900: var(--neutral-900, #171717);
+  --color-neutral-950: var(--neutral-950, #0a0a0a);
+}
+
+.theme-light {
+  /* Invert Neutral Palette */
+  --neutral-50: #0a0a0a;
+  --neutral-100: #171717;
+  --neutral-200: #262626;
+  --neutral-300: #404040;
+  --neutral-400: #525252;
+  --neutral-500: #737373;
+  --neutral-600: #a3a3a3;
+  --neutral-700: #d4d4d4;
+  --neutral-800: #e5e5e5;
+  --neutral-900: #f5f5f5;
+  --neutral-950: #fafafa;
 }
 
 body {
@@ -22,10 +50,12 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 *, *::before, *::after {
   box-sizing: border-box;
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
 }
 
 ::selection {

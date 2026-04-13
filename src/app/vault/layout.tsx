@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/useToast";
 
 function VaultShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [newEntryOpen, setNewEntryOpen] = useState(false);
   const { toasts, removeToast } = useToast();
 
   // Keyboard: Ctrl/⌘+K → command palette, Esc handled inside palette
@@ -31,8 +30,8 @@ function VaultShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar — passes new-entry trigger down */}
-      <Sidebar onNewEntry={() => setNewEntryOpen(true)} />
+      {/* Sidebar uses VaultContext for New Entry trigger */}
+      <Sidebar />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -44,10 +43,7 @@ function VaultShell({ children }: { children: React.ReactNode }) {
           }}
         />
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
-          {/* Pass new entry state to children via data attribute */}
-          <div data-newentry={newEntryOpen ? "1" : "0"} data-closenewentry="closenewentry">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
 
@@ -59,9 +55,6 @@ function VaultShell({ children }: { children: React.ReactNode }) {
 
       {/* Toasts */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-
-      {/* Suppress unused var lint */}
-      {newEntryOpen && <span className="hidden" onClick={() => setNewEntryOpen(false)} />}
     </div>
   );
 }

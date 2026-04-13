@@ -193,4 +193,11 @@ export function applyTheme(theme: ThemeConfig): void {
   r.style.setProperty("--font-theme",   `'${theme.font}', var(--font-geist-sans), sans-serif`);
   // Apply color-scheme for browser chrome (scrollbars, inputs, etc.)
   r.style.setProperty("color-scheme",   theme.mode);
+
+  if (theme.mode === "light") {
+    r.classList.add("theme-light");
+  } else {
+    r.classList.remove("theme-light");
+  }
 }
+

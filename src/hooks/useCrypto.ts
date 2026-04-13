@@ -67,3 +67,31 @@ export const useCrypto = () => {
 
   return { encrypt, decrypt };
 };
+
+/**
+ * Re-encrypts a list of encrypted blobs from an old key to a new key.
+ * Used by the "Change Master Password" flow in /settings/security.
+ *
+ * Returns an array of { id, encryptedBlob } ready to batch-write to Firestore.
+ * Each item is processed independently — a failure in one does NOT roll back others
+ * (the caller should use a Firestore batch write for atomicity after this resolves).
+ */
+export async function reEncryptBlobs(
+  items: Array<{ id: string; encryptedBlob: string }>,
+  oldKey: CryptoKey,
+  newKey: CryptoKey,
+  onProgress?: (done: number, total: number) => void
+): Promise<Array<{ id: string; encryptedBlob: string }>> {
+  const { encrypt, decrypt } = useCrypto();
+  const results: Array<{ id: string; encryptedBlob: string }> = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const plaintext = await decrypt(oldKey, item.encryptedBlob);
+    const newBlob = await encrypt(newKey, plaintext);
+    results.push({ id: item.id, encryptedBlob: newBlob });
+    onProgress?.(i + 1, items.length);
+  }
+
+  return results;
+}

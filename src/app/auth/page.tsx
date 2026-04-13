@@ -14,7 +14,7 @@ import {
 // ── Strength meter ─────────────────────────────────────────────────────────────
 function strengthScore(pw: string): number {
   let s = 0;
-  if (pw.length >= 8)  s++;
+  if (pw.length >= 8) s++;
   if (pw.length >= 12) s++;
   if (/[A-Z]/.test(pw)) s++;
   if (/[0-9]/.test(pw)) s++;
@@ -31,7 +31,7 @@ function StrengthMeter({ pw }: { pw: string }) {
   return (
     <div className="space-y-1.5 pt-1.5 pb-0.5">
       <div className="flex gap-1">
-        {[1,2,3,4,5].map((i) => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
             className="h-[3px] flex-1 rounded-full transition-all duration-500"
@@ -50,10 +50,10 @@ function StrengthMeter({ pw }: { pw: string }) {
 function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
     </svg>
   );
 }
@@ -134,11 +134,11 @@ const LEFT = {
     badge: "Welcome back",
     headline: "Unlock your\nencrypted vault.",
     sub: "Your passwords are waiting — secured with AES-256-GCM and decrypted only by you.",
-    illustration: "/illustrations/unlock_m0yr.svg",
+    illustration: "/illustrations/data-thief_d66l.svg",
     formIcon: "/illustrations/secure-login_m11a.svg",
     bullets: [
-      { icon: <Lock className="w-3.5 h-3.5" />,  title: "AES-256-GCM",         desc: "Industry-standard encryption" },
-      { icon: <Zap  className="w-3.5 h-3.5" />,  title: "Zero-knowledge",       desc: "We can't read your data. Ever." },
+      { icon: <Lock className="w-3.5 h-3.5" />, title: "AES-256-GCM", desc: "Industry-standard encryption" },
+      { icon: <Zap className="w-3.5 h-3.5" />, title: "Zero-knowledge", desc: "We can't read your data. Ever." },
       { icon: <Globe className="w-3.5 h-3.5" />, title: "Access from anywhere", desc: "Synced via Firebase" },
     ],
   },
@@ -146,12 +146,12 @@ const LEFT = {
     badge: "Get started free",
     headline: "Zero-knowledge\nsecurity, day one.",
     sub: "Your vault is encrypted before it leaves your browser. Not even we can see inside.",
-    illustration: "/illustrations/authentication_1evl.svg",
-    formIcon: "/illustrations/user-account_fvqa.svg",
+    illustration: "/illustrations/security_0ubl.svg",
+    formIcon: "/illustrations/vault_tyfh.svg",
     bullets: [
-      { icon: <UserPlus className="w-3.5 h-3.5" />, title: "30-second setup",    desc: "No credit card required" },
-      { icon: <Lock className="w-3.5 h-3.5" />,     title: "Master password",    desc: "Only you know it — ever" },
-      { icon: <Globe className="w-3.5 h-3.5" />,    title: "All your devices",   desc: "Sync across everything you use" },
+      { icon: <UserPlus className="w-3.5 h-3.5" />, title: "30-second setup", desc: "No credit card required" },
+      { icon: <Lock className="w-3.5 h-3.5" />, title: "Master password", desc: "Only you know it — ever" },
+      { icon: <Globe className="w-3.5 h-3.5" />, title: "All your devices", desc: "Sync across everything you use" },
     ],
   },
   forgot: {
@@ -161,15 +161,15 @@ const LEFT = {
     illustration: "/illustrations/forgot-password_nttj.svg",
     formIcon: "/illustrations/forgot-password_nttj.svg",
     bullets: [
-      { icon: <Mail className="w-3.5 h-3.5" />, title: "Check your inbox",  desc: "Reset link expires in 1 hour" },
+      { icon: <Mail className="w-3.5 h-3.5" />, title: "Check your inbox", desc: "Reset link expires in 1 hour" },
       { icon: <KeyRound className="w-3.5 h-3.5" />, title: "Set new password", desc: "Your vault data is preserved" },
     ],
   },
 };
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-type Tab   = "signin" | "signup";
-type View  = "main" | "forgot" | "sent";
+type Tab = "signin" | "signup";
+type View = "main" | "forgot" | "sent";
 
 export default function AuthPage() {
   const { user, isAuthLoading, login, register, googleLogin, resetPassword, isAuthenticating, error } = useFirebaseAuth();
@@ -177,21 +177,21 @@ export default function AuthPage() {
   const router = useRouter();
 
   // ─ state
-  const [tab,        setTab]        = useState<Tab>("signin");
-  const [view,       setView]       = useState<View>("main");
-  
+  const [tab, setTab] = useState<Tab>("signin");
+  const [view, setView] = useState<View>("main");
+
   // ─ form fields
-  const [firstName,  setFirstName]  = useState("");
-  const [username,   setUsername]   = useState("");
-  const [email,      setEmail]      = useState("");
-  const [password,   setPassword]   = useState("");
-  const [showPass,   setShowPass]   = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
 
   // ─ forgot overlay & crossfades
-  const [forgotMounted,  setForgotMounted]  = useState(false);
-  const [forgotVisible,  setForgotVisible]  = useState(false);
-  const [leftView,   setLeftView]   = useState<LeftView>("signin");
-  const [animKey,    setAnimKey]    = useState(0); 
+  const [forgotMounted, setForgotMounted] = useState(false);
+  const [forgotVisible, setForgotVisible] = useState(false);
+  const [leftView, setLeftView] = useState<LeftView>("signin");
+  const [animKey, setAnimKey] = useState(0);
 
   // ─ redirect if already logged in
   useEffect(() => {
@@ -231,7 +231,7 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tab === "signin") await login(email, password);
-    else                  await register(email, password, firstName, username);
+    else await register(email, password, firstName, username);
   };
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -264,7 +264,7 @@ export default function AuthPage() {
           style={{ background: "radial-gradient(ellipse 70% 60% at 30% 40%, rgba(255,255,255,0.025) 0%, transparent 70%)" }} />
 
         {/* Illustration — crossfades when animKey changes */}
-        <div key={`img-${animKey}`} className="absolute inset-0 flex items-center justify-center pointer-events-none select-none animate-auth-left-in">
+        <div key={`img-${animKey}`} className="absolute inset-0 flex items-center justify-end pr-8 pointer-events-none select-none animate-auth-left-in">
           <Image
             src={lc.illustration}
             alt=""
@@ -359,10 +359,10 @@ export default function AuthPage() {
 
             {/* Static Google Button & Title */}
             <div className="space-y-4">
-              
+
               {/* Contextual Illustration (fades on tab switch) */}
               <div key={`icon-${animKey}`} className="flex justify-center mb-6 animate-auth-form-in">
-                <Image src={lc.formIcon} priority alt="" width={64} height={64} className="opacity-80" />
+                <Image src={lc.formIcon} priority alt="" width={300} height={300} className="opacity-80" />
               </div>
 
               <div key={`title-${animKey}`} className="mb-2 text-center animate-auth-form-in">
@@ -389,23 +389,23 @@ export default function AuthPage() {
 
                 {/* ── Morphing New Fields (Grid Expansion) ── */}
                 <div className={`expand-grid ${isSignUp ? 'expand-open' : 'expand-closed'}`}>
-                   <div>
-                      <div className="pb-3 flex gap-3">
-                        <AuthInput type="text" placeholder="First name" value={firstName} onChange={setFirstName} required={isSignUp} disabled={!isSignUp}>
-                           <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
-                        </AuthInput>
-                        <AuthInput type="text" placeholder="Username" value={username} onChange={setUsername} required={isSignUp} disabled={!isSignUp}>
-                           <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
-                        </AuthInput>
-                      </div>
-                   </div>
+                  <div>
+                    <div className="pb-3 flex gap-3">
+                      <AuthInput type="text" placeholder="First name" value={firstName} onChange={setFirstName} required={isSignUp} disabled={!isSignUp}>
+                        <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
+                      </AuthInput>
+                      <AuthInput type="text" placeholder="Username" value={username} onChange={setUsername} required={isSignUp} disabled={!isSignUp}>
+                        <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
+                      </AuthInput>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Static base fields */}
                 <AuthInput type="email" placeholder="Email address" value={email} onChange={setEmail} required>
                   <Mail className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-700 pointer-events-none" />
                 </AuthInput>
-                
+
                 <AuthInput type={showPass ? "text" : "password"} placeholder={isSignUp ? "Create a strong password" : "Password"} value={password} onChange={setPassword} required>
                   <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-400 transition-colors cursor-pointer p-0.5" tabIndex={-1}>
                     {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -415,7 +415,7 @@ export default function AuthPage() {
                 {/* Morphing strength meter */}
                 <div className={`expand-grid ${isSignUp ? 'expand-open' : 'expand-closed'}`}>
                   <div>
-                     <StrengthMeter pw={password} />
+                    <StrengthMeter pw={password} />
                   </div>
                 </div>
 
@@ -469,7 +469,7 @@ export default function AuthPage() {
                       <div>
                         <h2 className="text-[16px] font-semibold text-neutral-100">Check your inbox</h2>
                         <p className="text-[12px] text-neutral-500 mt-1 leading-relaxed">
-                          Reset link sent to <br/><span className="text-neutral-300 font-medium">{email}</span>
+                          Reset link sent to <br /><span className="text-neutral-300 font-medium">{email}</span>
                         </p>
                       </div>
                     </div>

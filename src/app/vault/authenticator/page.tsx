@@ -46,7 +46,7 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-[var(--border)] bg-neutral-900/40 rounded-xl hover:border-neutral-700 hover:bg-neutral-800/40 transition-all group">
-      
+
       <div className="flex items-center gap-4 mb-4 sm:mb-0">
         {/* Minimal Sync Ring */}
         <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
@@ -60,7 +60,7 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
           </svg>
           <Fingerprint className={`w-4 h-4 transition-colors duration-500 ${percent > 20 ? "text-neutral-500" : "text-red-500 animate-pulse"}`} />
         </div>
-        
+
         {/* Info */}
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-neutral-100 truncate tracking-tight">{item.name}</h3>
@@ -73,16 +73,16 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
         {/* Clean Segments */}
         <div className="flex items-center gap-1.5 font-mono text-[22px] font-bold tracking-[0.2em] text-neutral-200 select-none">
           {code === "ERROR" || code === "------" ? (
-             <span className="text-red-400 font-sans tracking-normal px-2 text-sm border border-red-900/40 bg-red-950/30 py-1 rounded">Invalid Secret</span>
+            <span className="text-red-400 font-sans tracking-normal px-2 text-sm border border-red-900/40 bg-red-950/30 py-1 rounded">Invalid Secret</span>
           ) : (
-             <>
-               <span className="bg-neutral-800/80 px-2 py-0.5 rounded">{code.slice(0,3)}</span>
-               <span className="text-neutral-600 font-sans text-xl opacity-50 mx-1">-</span>
-               <span className="bg-neutral-800/80 px-2 py-0.5 rounded">{code.slice(3,6)}</span>
-             </>
+            <>
+              <span className="bg-neutral-800/80 px-2 py-0.5 rounded">{code.slice(0, 3)}</span>
+              <span className="text-neutral-600 font-sans text-xl opacity-50 mx-1">-</span>
+              <span className="bg-neutral-800/80 px-2 py-0.5 rounded">{code.slice(3, 6)}</span>
+            </>
           )}
         </div>
-        
+
         <button
           onClick={copy}
           className="w-8 h-8 rounded bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700 transition-colors cursor-pointer"
@@ -104,7 +104,7 @@ export default function AuthenticatorPage() {
   const { decrypt } = useCrypto();
 
   const [items, setItems] = useState<VaultItem[]>([]);
-  
+
   // Decrypted secrets store: { [itemId]: secret }
   const [secrets, setSecrets] = useState<Record<string, string>>({});
 
@@ -132,7 +132,7 @@ export default function AuthenticatorPage() {
   // Decrypt items once unlocked
   useEffect(() => {
     if (!cryptoKey || items.length === 0) return;
-    
+
     const missingItems = items.filter(i => secrets[i.id] === undefined);
     if (missingItems.length === 0) return; // Exit early safely if all decrypted
 
@@ -177,7 +177,7 @@ export default function AuthenticatorPage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden h-full min-h-[500px]">
         <div className="absolute inset-0 pointer-events-none"
-             style={{ background: "radial-gradient(ellipse 50% 55% at 50% 45%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 40%, transparent 70%)" }}
+          style={{ background: "radial-gradient(ellipse 50% 55% at 50% 45%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 40%, transparent 70%)" }}
         />
         {/* Authenticator illustration — faint background */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
@@ -202,7 +202,7 @@ export default function AuthenticatorPage() {
                 <Fingerprint className={`w-6 h-6 transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-400"}`} />
               </div>
             </div>
-            
+
             <div className="text-center space-y-1.5">
               <div className="flex items-center justify-center gap-1.5 mb-2 opacity-40">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -261,9 +261,9 @@ export default function AuthenticatorPage() {
       <div className="space-y-4">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-            <div className="w-32 h-32 sm:w-40 sm:h-40 opacity-60">
+            <div className="w-80 h-80 sm:w-80 sm:h-80 opacity-80">
               <Image
-                src="/illustrations/two-factor-authentication_ofho.svg"
+                src="/illustrations/authentication_1evl.svg"
                 alt=""
                 width={160}
                 height={160}

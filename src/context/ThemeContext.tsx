@@ -34,7 +34,7 @@ interface ThemeContextValue {
   /** Loading state for initial theme fetch */
   loading: boolean;
   /** Set theme for this user (persisted to localStorage) */
-  setUserTheme: (themeId: string) => void;
+  setUserTheme: (themeId: string | null) => void;
   /** Admin: save / create a theme to Firestore */
   saveTheme: (theme: ThemeConfig) => Promise<void>;
   /** Admin: delete a custom theme */
@@ -116,10 +116,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [activeTheme]);
 
   const setUserTheme = useCallback(
-    (themeId: string) => {
+    (themeId: string | null) => {
+      const storageKey = user ? `vaultr_theme_${user.uid}` : "vaultr_theme";
+      if (!themeId) {
+        localStorage.removeItem(storageKey);
+        setLocalThemeId(null);
+        return;
+      }
       const theme = allThemes.find((t) => t.id === themeId);
       if (!theme) return;
-      const storageKey = user ? `vaultr_theme_${user.uid}` : "vaultr_theme";
       localStorage.setItem(storageKey, themeId);
       setLocalThemeId(themeId);
     },

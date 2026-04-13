@@ -20,15 +20,11 @@ const TYPE_ITEMS = [
   { filter: "type=profile", label: "Profiles", icon: <User    className="w-3.5 h-3.5" />, template: "profile" },
 ] as const;
 
-interface SidebarProps {
-  onNewEntry?: () => void;
-}
-
-export function Sidebar({ onNewEntry }: SidebarProps) {
+export function Sidebar(props: any) {
   const pathname     = usePathname();
   const searchParams = useSearchParams();
   const { config }   = useSiteConfig();
-  const { folders, items } = useVault();
+  const { folders, items, setIsNewEntryOpen } = useVault();
   const [collapsed, setCollapsed]       = useState(false);
   const [foldersOpen, setFoldersOpen]   = useState(true);
   const [typesOpen, setTypesOpen]       = useState(true);
@@ -119,7 +115,7 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
       {/* New entry button */}
       <div className={`px-3 pt-3 pb-2 shrink-0 ${collapsed ? "flex justify-center px-2" : ""}`}>
         <button
-          onClick={onNewEntry}
+          onClick={() => setIsNewEntryOpen(true)}
           title="New entry"
           className={`flex items-center gap-2 px-3 py-2 rounded-md border border-dashed border-[var(--border)] text-[12px] text-neutral-500 hover:text-neutral-200 hover:border-neutral-600 transition-colors cursor-pointer w-full ${
             collapsed ? "justify-center" : ""
@@ -131,6 +127,7 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
       </div>
 
       {/* ─── Scrollable nav area ───────────────────────────────────────────── */}
+
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-1 space-y-0.5 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
 
         {/* Main views */}

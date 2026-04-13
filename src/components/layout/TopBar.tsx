@@ -2,9 +2,10 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, LogOut, User, ChevronDown, Wand2 } from "lucide-react";
+import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon } from "lucide-react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useVault } from "@/context/VaultContext";
+import { useTheme } from "@/context/ThemeContext";
 
 interface TopBarProps {
   onSearchOpen?: () => void;  // opens command palette
@@ -15,6 +16,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
   const router = useRouter();
   const { user, logout } = useFirebaseAuth();
   const { isLocked, lock } = useVault();
+  const { activeTheme, setUserTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -85,12 +87,24 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
               >
                 <User className="w-3.5 h-3.5" /> Profile
               </button>
+              
+              <button
+                onClick={() => {
+                  setUserTheme(activeTheme.mode === "dark" ? "light" : "dark");
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+              >
+                {activeTheme.mode === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                {activeTheme.mode === "dark" ? "Light Mode" : "Dark Mode"}
+              </button>
+
               <button
                 onClick={() => { lock(); setMenuOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5" /> Lock vault
               </button>
+              <div className="h-px bg-[var(--border)] my-1 mx-1" />
               <button
                 onClick={async () => { await logout(); router.push("/"); setMenuOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-red-400 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"

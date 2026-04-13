@@ -14,7 +14,7 @@ import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
-  CreditCard, User, FileText, Lock, Plus, X, Wand2, Inbox, Shield, Star, Edit2
+  CreditCard, User, FileText, Lock, Plus, Minus, X, Wand2, Inbox, Shield, Star, Edit2, LayoutList, LayoutGrid
 } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 import { PasswordHealth } from "@/components/vault/PasswordHealth";
@@ -32,6 +32,7 @@ export interface DecryptedPayload {
   username?: string;
   password?: string;
   url?: string;
+  urls?: string[];
   // card
   cardName?: string;
   cardNumber?: string;
@@ -236,7 +237,13 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
   // Login
   const [username, setUsername] = useState(initialData?.payload.username || "");
   const [password, setPassword] = useState(initialData?.payload.password || "");
-  const [url, setUrl] = useState(initialData?.payload.url || "");
+  const [urls, setUrls] = useState<string[]>(() => {
+    const arr = initialData?.payload.urls ? [...initialData.payload.urls] : [];
+    if (initialData?.payload.url && !arr.includes(initialData.payload.url)) {
+      arr.unshift(initialData.payload.url);
+    }
+    return arr.length > 0 ? arr : [""];
+  });
   const [totpSecret, setTotpSecret] = useState(initialData?.payload.totpSecret || "");
   const [showTotpField, setShowTotpField] = useState(!!initialData?.payload.totpSecret);
 
@@ -285,7 +292,16 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
       customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key, value: f.value })),
       entryNotes: entryNotes.trim() ? entryNotes.trim() : undefined,
     };
-    if (template === "login") Object.assign(payload, { username, password, url, totpSecret: totpSecret.trim() });
+    if (template === "login") {
+      const validUrls = urls.map(u => u.trim()).filter(Boolean);
+      Object.assign(payload, { 
+        username, 
+        password, 
+        url: validUrls[0] || "",
+        urls: validUrls, 
+        totpSecret: totpSecret.trim() 
+      });
+    }
     if (template === "card") Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
     if (template === "address") Object.assign(payload, { line1, line2, city, state: state, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
@@ -398,7 +414,19 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
               </div>
             )}
           </div>
-          <Input value={url} onChange={e => setUrl(e.target.value)} placeholder="URL (optional)" />
+
+          <div className="space-y-2">
+            {urls.map((u, i) => (
+              <div key={i} className="flex gap-2">
+                <Input value={u} onChange={e => setUrls(p => p.map((x, idx) => idx === i ? e.target.value : x))} placeholder="URL (optional)" />
+                {i === urls.length - 1 ? (
+                  <button type="button" onClick={() => setUrls(p => [...p, ""])} className="shrink-0 px-2 border rounded-md border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600 transition-colors cursor-pointer"><Plus className="w-3.5 h-3.5" /></button>
+                ) : (
+                  <button type="button" onClick={() => setUrls(p => p.filter((_, idx) => idx !== i))} className="shrink-0 px-2 border rounded-md border-[var(--border)] text-neutral-600 hover:text-red-400 hover:border-red-900/50 transition-colors cursor-pointer"><Minus className="w-3.5 h-3.5" /></button>
+                )}
+              </div>
+            ))}
+          </div>
 
           {!showTotpField ? (
             <button
@@ -614,7 +642,11 @@ function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, r
       {t === "login" && <>
         <DetailRow label="User" value={data.username || ""} />
         <DetailRow label="Password" value={data.password || ""} masked />
-        <DetailRow label="URL" value={data.url || ""} isUrl />
+        {data.urls && data.urls.length > 0 ? (
+          data.urls.map((u, i) => <DetailRow key={i} label={i === 0 ? "URL" : `URL ${i+1}`} value={u} isUrl />)
+        ) : (
+          <DetailRow label="URL" value={data.url || ""} isUrl />
+        )}
         {data.totpSecret && (
           <div className="flex items-start gap-4">
             <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">2FA Code</span>
@@ -734,6 +766,8 @@ export default function VaultPage() {
     restoreItem,
     toggleFavorite,
     updateItem,
+    isNewEntryOpen,
+    setIsNewEntryOpen,
   } = useVault();
 
   const [masterPassword, setMasterPassword] = useState("");
@@ -757,8 +791,6 @@ export default function VaultPage() {
     return [shuffled[0], shuffled[1]];
   });
 
-  const [showForm, setShowForm] = useState(false);
-
   const searchParams = useSearchParams();
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
   const activeFilter = searchParams.get("filter");
@@ -774,6 +806,16 @@ export default function VaultPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<"createdAt" | "updatedAt" | "name">("createdAt");
   const isSelectionMode = selectedIds.size > 0;
+
+  const [viewMode, setViewModeState] = useState<"list" | "grid">("list");
+  useEffect(() => {
+    const saved = localStorage.getItem("vaultr_view_mode");
+    if (saved === "grid") setViewModeState("grid");
+  }, []);
+  const setViewMode = (mode: "list" | "grid") => {
+    setViewModeState(mode);
+    localStorage.setItem("vaultr_view_mode", mode);
+  };
 
   // Clear selections on route change
   useEffect(() => {
@@ -832,7 +874,7 @@ export default function VaultPage() {
       if (folder) doc_.folder = folder;
       if (domain) doc_.domain = domain;
       await addDoc(collection(db, "users", user.uid, "vaultItems"), doc_);
-      setShowForm(false);
+      setIsNewEntryOpen(false);
     }
   };
 
@@ -846,6 +888,7 @@ export default function VaultPage() {
   };
 
   const handleHardDelete = async (id: string) => {
+    if (!window.confirm("This item will be deleted permanently and can never be recovered. Are you sure you want to proceed?")) return;
     await hardDeleteItem(id);
     if (revealedId === id) { setRevealedId(null); setRevealedData(null); }
   };
@@ -861,6 +904,11 @@ export default function VaultPage() {
 
   const handleBulkAction = async (action: "trash" | "restore" | "delete" | "favorite" | "move", payload?: string) => {
     if (!user || selectedIds.size === 0) return;
+
+    if (action === "delete") {
+      if (!window.confirm(`These ${selectedIds.size} item(s) will be deleted permanently and can never be recovered. Are you sure you want to proceed?`)) return;
+    }
+
     const promises: Promise<void>[] = [];
 
     selectedIds.forEach(id => {
@@ -878,13 +926,6 @@ export default function VaultPage() {
     });
 
     await Promise.all(promises);
-    setSelectedIds(new Set());
-  };
-
-  const handleEmptyTrash = async () => {
-    if (!user) return;
-    const trashed = items.filter(i => !!i.deletedAt);
-    await Promise.all(trashed.map(i => hardDeleteItem(i.id)));
     setSelectedIds(new Set());
   };
 
@@ -1218,7 +1259,10 @@ export default function VaultPage() {
   const renderItem = (item: VaultItem) => {
     const isSelected = selectedIds.has(item.id);
     return (
-      <div key={item.id} className={`border-t border-[var(--border)] first:border-t-0 transition-colors ${isSelected ? "bg-neutral-900/50" : ""}`}>
+      <div key={item.id} className={viewMode === "grid" 
+        ? `border border-[var(--border)] rounded-lg transition-colors bg-neutral-950/20 flex flex-col ${isSelected ? "ring-1 ring-neutral-500 bg-neutral-900/50" : ""}`
+        : `border-t border-[var(--border)] first:border-t-0 transition-colors ${isSelected ? "bg-neutral-900/50" : ""}`
+      }>
         <div className="flex items-center gap-3 px-4 py-2.5 group">
           {/* Selection Checkbox */}
           <div className={`shrink-0 flex items-center justify-center transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
@@ -1349,7 +1393,7 @@ export default function VaultPage() {
             {collapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </button>
           {!collapsed && grpItems.length > 0 && (
-            <div className="border border-[var(--border)] rounded-lg overflow-hidden mb-4">
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4" : "border border-[var(--border)] rounded-lg overflow-hidden mb-4"}>
               {grpItems.map(renderItem)}
             </div>
           )}
@@ -1368,7 +1412,7 @@ export default function VaultPage() {
           {folders.length > 0 && (
             <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-1 py-2">Uncategorized</div>
           )}
-          <div className="border border-[var(--border)] rounded-lg overflow-hidden">
+          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
             {loose.map(renderItem)}
           </div>
         </div>
@@ -1384,9 +1428,9 @@ export default function VaultPage() {
       <main className="max-w-2xl mx-auto px-5 py-8 space-y-6">
 
         {/* New entry button / form */}
-        {!showForm ? (
+        {!isNewEntryOpen ? (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => setIsNewEntryOpen(true)}
             className="text-[13px] text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <Plus className="w-3.5 h-3.5" /> New entry
@@ -1395,7 +1439,7 @@ export default function VaultPage() {
           <NewEntryForm
             folders={folders}
             onSave={handleSave}
-            onCancel={() => setShowForm(false)}
+            onCancel={() => setIsNewEntryOpen(false)}
           />
         )}
 
@@ -1422,23 +1466,24 @@ export default function VaultPage() {
                         activeTag ? `#${activeTag}` :
                           "All Items"}
               </div>
-              {isSelectionMode && (
-                <span className="text-[10px] text-neutral-500">{selectedIds.size} selected</span>
-              )}
-            </div>
+                {isSelectionMode && (
+                  <span className="text-[10px] text-neutral-500">{selectedIds.size} selected</span>
+                )}
+              </div>
 
-            <div className="flex items-center gap-3">
-              {/* Trash-specific: empty trash */}
-              {activeFilter === "trash" && visibleItems.length > 0 && !isSelectionMode && (
-                <button
-                  onClick={handleEmptyTrash}
-                  className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors cursor-pointer"
-                >
-                  Empty Trash
-                </button>
-              )}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-600 hidden sm:inline">Sort:</span>
+              <div className="flex items-center gap-3">
+                {/* view toggle */}
+                <div className="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800 hidden sm:flex">
+                  <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-neutral-800 text-neutral-200 shadow-sm" : "text-neutral-500 hover:text-neutral-300"} transition-all flex items-center`}>
+                    <LayoutList className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md ${viewMode === "grid" ? "bg-neutral-800 text-neutral-200 shadow-sm" : "text-neutral-500 hover:text-neutral-300"} transition-all flex items-center`}>
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-600 hidden sm:inline">Sort:</span>
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value as "createdAt" | "updatedAt" | "name")}
@@ -1479,9 +1524,9 @@ export default function VaultPage() {
           {items.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center relative">
               {/* Illustration */}
-              <div className="w-28 h-28 sm:w-36 sm:h-36 opacity-60 mb-5">
+              <div className="w-80 h-80 sm:w-80 sm:h-80 opacity-80 mb-5">
                 <Image
-                  src="/illustrations/private-files_m2bw.svg"
+                  src="/illustrations/empty_4zx0.svg"
                   alt=""
                   width={144}
                   height={144}
@@ -1502,23 +1547,25 @@ export default function VaultPage() {
 
           {/* Filtered (single-folder view) */}
           {!grouped && visibleItems.length > 0 && (
-            <div className="border border-[var(--border)] rounded-lg overflow-hidden">
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
               {visibleItems.map(renderItem)}
             </div>
           )}
 
           {!grouped && visibleItems.length === 0 && items.length > 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-80 h-80 opacity-50 mb-4">
+              <div className="w-80 h-80 opacity-80 mb-4">
                 <Image
-                  src="/illustrations/computer-files_7dj6.svg"
+                  src={activeFilter === "trash" ? "/illustrations/throw-away_k2t5.svg" : "/illustrations/new-entries_xw4m.svg"}
                   alt=""
                   width={80}
                   height={80}
                   className="object-contain w-full h-full"
                 />
               </div>
-              <p className="text-[13px] text-neutral-500">No entries in this folder.</p>
+              <p className="text-[13px] text-neutral-500">
+                {activeFilter === "trash" ? "Trash is empty." : "No entries in this folder."}
+              </p>
             </div>
           )}
         </div>
