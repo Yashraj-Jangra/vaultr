@@ -9,7 +9,6 @@ import {
   collection,
   getDocs,
   deleteDoc,
-  doc,
   addDoc,
   writeBatch,
 } from "firebase/firestore";
@@ -130,7 +129,7 @@ function mapCsvRow(
 
 export default function DataSettingsPage() {
   const { user } = useFirebaseAuth();
-  const { items, encryptData, decryptItem } = useVault();
+  const { items, encryptData } = useVault();
 
   // ── Export state
   const [exporting, setExporting] = useState(false);
@@ -173,7 +172,11 @@ export default function DataSettingsPage() {
         version: 1,
         exportedAt: new Date().toISOString(),
         uid: user.uid,
-        items: items.map(({ id: _id, ...rest }) => rest), // strip runtime id
+        items: items.map((item) => {
+          const { id, ...rest } = item;
+          void id; // ignore unused
+          return rest;
+        }), // strip runtime id
       };
       const jsonStr = JSON.stringify(exportData, null, 2);
       let blob: Blob;

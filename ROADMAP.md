@@ -284,67 +284,78 @@
 
 ---
 
-## Sprint 10 \u2014 Device Trust & Session Management
+## Sprint 10 — Device Trust & Session Management ✅
 
 > Zero-knowledge-compatible. No vault keys involved. All session data is metadata only.
 
 ### Session Registration & Tracking
-- [ ] **`src/lib/session.ts`** \u2014 client-side session utilities
-  - [ ] `generateSessionId()` \u2014 `crypto.randomUUID()` stored in `localStorage`
-  - [ ] `detectDevice()` \u2014 user-agent parser \u2192 `{ deviceName, deviceType, browser, os }`
-  - [ ] `heartbeat()` \u2014 updates `lastSeenAt` every 5 min via Firestore `setDoc({merge:true})`
-- [ ] **`/api/auth/register-session`** \u2014 called once after login
-  - [ ] Captures IP from `x-forwarded-for` header
-  - [ ] Optional rough GeoIP via ip-api.com (free, no key, best-effort)
-  - [ ] Creates `users/{uid}/sessions/{sessionId}` doc with `isTrusted: false`
-  - [ ] Triggers new-device alert email if user has other sessions and `newDeviceEmailAlert: true`
+- [x] **`src/lib/session.ts`** — client-side session utilities
+  - [x] `generateSessionId()` — `crypto.randomUUID()` stored in `localStorage`
+  - [x] `detectDevice()` — user-agent parser → `{ deviceName, deviceType, browser, os }`
+  - [x] `heartbeat()` — updates `lastSeenAt` every 5 min via Firestore `setDoc({merge:true})`
+- [x] **`/api/auth/register-session`** — called once after login
+  - [x] Captures IP from `x-forwarded-for` header
+  - [x] Optional rough GeoIP via ip-api.com (free, no key, best-effort)
+  - [x] Creates `users/{uid}/sessions/{sessionId}` doc with `isTrusted: false`
+  - [x] Triggers new-device alert email if user has other sessions and `newDeviceEmailAlert: true`
 
 ### Email-Based Device Verification
-- [ ] **`/api/auth/send-verification-email`** \u2014 OTP dispatch
-  - [ ] Generates 6-digit OTP, stores SHA-256 hash in session doc
-  - [ ] Sends branded email via existing SMTP pipeline (Nodemailer)
-  - [ ] Rate-limited: 3 sends per session per hour
-- [ ] **`/api/auth/verify-device`** \u2014 OTP check
-  - [ ] Compares SHA-256(otp) against stored hash
-  - [ ] Max 5 attempts then 1hr lockout
-  - [ ] Sets `isTrusted: true`, clears `verificationToken`
+- [x] **`/api/auth/send-verification-email`** — OTP dispatch
+  - [x] Generates 6-digit OTP, stores SHA-256 hash in session doc
+  - [x] Sends branded email via existing SMTP pipeline (Nodemailer)
+  - [x] Rate-limited: 3 sends per session per hour
+- [x] **`/api/auth/verify-device`** — OTP check
+  - [x] Compares SHA-256(otp) against stored hash
+  - [x] Max 5 attempts then 1hr lockout
+  - [x] Sets `isTrusted: true`, clears `verificationToken`
 
 ### Session Revocation
-- [ ] **`/api/auth/revoke-session`** \u2014 terminate a session
-  - [ ] Deletes session doc from Firestore
-  - [ ] If revoking current session: triggers `signOut(auth)`
-- [ ] **"Sign out of all other devices"** \u2014 bulk revoke all non-current sessions
+- [x] **`/api/auth/revoke-session`** — terminate a session
+  - [x] Deletes session doc from Firestore
+  - [x] If revoking current session: triggers `signOut(auth)`
+- [x] **"Sign out of all other devices"** — bulk revoke all non-current sessions
 
 ### `useSessionManager` Hook
-- [ ] **`src/hooks/useSessionManager.ts`**
-  - [ ] Realtime listener on `users/{uid}/sessions`
-  - [ ] Derives `isCurrentDevice` client-side by comparing `sessionId` in `localStorage`
-  - [ ] Exposes: `sessions[]`, `isVerified`, `sendVerificationEmail()`, `verifyOtp()`, `revokeSession()`, `revokeAllOtherSessions()`
+- [x] **`src/hooks/useSessionManager.ts`**
+  - [x] Realtime listener on `users/{uid}/sessions`
+  - [x] Derives `isCurrentDevice` client-side by comparing `sessionId` in `localStorage`
+  - [x] Exposes: `sessions[]`, `isVerified`, `sendVerificationEmail()`, `verifyOtp()`, `revokeSession()`, `revokeAllOtherSessions()`
 
 ### UI: Security Settings (`/settings/security`)
-- [ ] **"Sessions & Devices"** section (new, at bottom of page)
-  - [ ] Current device card with **Verified ✓** / **Unverified \u26a0** badge
-  - [ ] Inline 6-digit OTP input when device is unverified
-  - [ ] Active sessions list \u2014 device icon, name, browser, OS, rough location, last seen
-  - [ ] "Current device" green badge on active row
-  - [ ] **Revoke** button per non-current session (with confirmation dialog)
-  - [ ] **"Sign out of all other devices"** danger button
-- [ ] **Notification Preference toggles**
-  - [ ] Email me when a new device signs in (`newDeviceEmailAlert`)
-  - [ ] Require email verification for new devices (`requireVerificationOnNew`)
+- [x] **"Sessions & Devices"** section (new, at bottom of page)
+  - [x] Current device card with **Verified ✓** / **Unverified ⚠** badge
+  - [x] Inline 6-digit OTP input when device is unverified
+  - [x] Active sessions list — device icon, name, browser, OS, rough location, last seen
+  - [x] "Current device" green badge on active row
+  - [x] **Revoke** button per non-current session (with confirmation dialog)
+  - [x] **"Sign out of all other devices"** danger button
+- [x] **Notification Preference toggles**
+  - [x] Email me when a new device signs in (`newDeviceEmailAlert`)
+  - [x] Require email verification for new devices (`requireVerificationOnNew`)
 
 ### UI: Vault Layout Warning Banner
-- [ ] Dismissible banner in `vault/layout.tsx`
-  - [ ] Shown only when `isTrusted === false` for current session
-  - [ ] "This device is not verified. \[Send code\] \[Dismiss\]"
-  - [ ] Does **not** block vault access (zero-knowledge constraint)
+- [x] Dismissible banner in `vault/layout.tsx`
+  - [x] Shown only when `isTrusted === false` for current session
+  - [x] "This device is not verified. [Send code] [Dismiss]"
+  - [x] Does **not** block vault access (zero-knowledge constraint)
 
 ### Admin Panel Extension
-- [ ] **"Active Sessions" tab** in Admin Panel
-  - [ ] Table: user email, device, location, last seen, trusted status, Actions
-  - [ ] Admin can force-revoke any user's session
+- [x] **"Active Sessions" tab** in Admin Panel
+  - [x] Table: user email, device, location, last seen, trusted status, Actions
+  - [x] Admin can force-revoke any user's session
 
 ---
+
+## Sprint 11 — Email Templates configuration ✅
+
+- [x] Create a shared template utility `src/lib/emailTemplates.ts` 
+- [x] Add Admin Template configurations view
+  - [x] Add email templates WYSIWYG editor
+  - [x] Provide testing email sending mechanism from admin dashboard
+- [x] Bind email triggers for register session and system notifications to use templates.
+
+---
+
 
 ## Deferred / Future Consideration
 
@@ -373,8 +384,9 @@
 | 7 | Vault Extensions | ✅ Complete | 17 / 17 |
 | 8 | Settings Pages | ✅ Complete | 18 / 18 |
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
-| 10 | Device Trust & Sessions | ⬜ Todo | 0 / 20 |
-| — | **Total** | | **119 / 186** |
+| 10 | Device Trust & Sessions | ✅ Complete | 20 / 20 |
+| 11 | Email Templates | ✅ Complete | 3 / 3 |
+| — | **Total** | | **142 / 189** |
 
 ### Recently Implemented (Post-Sprint-0)
 

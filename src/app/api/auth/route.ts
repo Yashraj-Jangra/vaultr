@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { adminAuth } from '@/lib/firebase/admin';

@@ -1,7 +1,11 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/firebase/verifyUser";
 import { adminDb } from "@/lib/firebase/admin";
-import nodemailer from "nodemailer";
+import { sendTemplatedEmail } from "@/lib/emailTemplates";
+import { auditLog } from "@/lib/auditLog";
+import { createHash, randomInt } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,22 +16,26 @@ export async function POST(req: NextRequest) {
     const { sessionId, deviceName, deviceType, browser, os } = body;
     if (!sessionId) return NextResponse.json({ error: "sessionId required" }, { status: 400 });
 
-    const sessionRef = adminDb.collection("users").doc(user.uid).collection("sessions").doc(sessionId);
+    const sessionRef = adminDb
+      .collection("users")
+      .doc(user.uid)
+      .collection("sessions")
+      .doc(sessionId);
 
-    // Idempotent — if already exists, just update heartbeat
+    // Idempotent — if exists, just update heartbeat
     const existing = await sessionRef.get();
     if (existing.exists) {
       await sessionRef.update({ lastSeenAt: new Date() });
       return NextResponse.json({ status: "existing", sessionId });
     }
 
-    // Capture IP
+    // ── Capture IP
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    // GeoIP — best-effort, silent on failure
+    // ── GeoIP — best-effort, silent on failure
     let location = "";
     if (ip && ip !== "unknown" && ip !== "127.0.0.1" && !ip.startsWith("::")) {
       try {
@@ -41,17 +49,102 @@ export async function POST(req: NextRequest) {
       } catch { /* silent */ }
     }
 
-    // Load user security prefs
-    const secSnap = await adminDb.collection("users").doc(user.uid).collection("profile").doc("security").get();
+    // ── Load user security prefs
+    const secSnap = await adminDb
+      .collection("users")
+      .doc(user.uid)
+      .collection("profile")
+      .doc("security")
+      .get();
     const sec = secSnap.data() ?? {};
     const newDeviceEmailAlert: boolean = sec.newDeviceEmailAlert ?? true;
     const requireVerificationOnNew: boolean = sec.requireVerificationOnNew ?? false;
 
-    // Check if user has any other sessions
-    const existingSessions = await adminDb.collection("users").doc(user.uid).collection("sessions").limit(1).get();
+    // ── Check if user already has sessions (0 = first device, skip alert)
+    const existingSessions = await adminDb
+      .collection("users")
+      .doc(user.uid)
+      .collection("sessions")
+      .limit(1)
+      .get();
     const hasOtherSessions = !existingSessions.empty;
 
     const now = new Date();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+
+    // ── Determine auto-OTP state
+    let verificationRequired = requireVerificationOnNew;
+    let verificationEmailSent = false;
+
+    // Default OTP fields — overwritten if we auto-send
+    let otpFields: Record<string, unknown> = {
+      verificationToken: null,
+      otpAttempts: 0,
+      otpSendCount: 0,
+      otpWindowStart: null,
+      otpSentAt: null,
+    };
+
+    if (requireVerificationOnNew && user.email) {
+      // Auto-generate and send OTP
+      const otp = String(randomInt(100000, 999999));
+      const otpHash = createHash("sha256").update(otp).digest("hex");
+      otpFields = {
+        verificationToken: otpHash,
+        otpAttempts: 0,
+        otpSendCount: 1,
+        otpWindowStart: now,
+        otpSentAt: now,
+      };
+
+      try {
+        await sendTemplatedEmail(adminDb, {
+          templateKey: "device_verification",
+          to: user.email,
+          vars: { OTP: otp, DEVICE_NAME: deviceName || "your device" },
+        });
+        verificationEmailSent = true;
+        auditLog({
+          ts: now.toISOString(),
+          event: "email.sent",
+          uid: user.uid,
+          sessionId,
+          email: user.email,
+          meta: { templateKey: "device_verification" },
+        });
+      } catch (emailErr) {
+        // Roll back OTP fields — code wasn't delivered
+        verificationEmailSent = false;
+        otpFields = {
+          verificationToken: null,
+          otpAttempts: 0,
+          otpSendCount: 0,
+          otpWindowStart: null,
+          otpSentAt: null,
+        };
+        auditLog({
+          ts: now.toISOString(),
+          event: "email.failed",
+          uid: user.uid,
+          sessionId,
+          email: user.email,
+          meta: { templateKey: "device_verification", error: String(emailErr) },
+        });
+      }
+    } else if (requireVerificationOnNew && !user.email) {
+      auditLog({
+        ts: now.toISOString(),
+        event: "session.auto_verify_skipped",
+        uid: user.uid,
+        sessionId,
+        ip,
+        location,
+        deviceName: deviceName || "Unknown Device",
+        meta: { reason: "no_email", browser, os, deviceType },
+      });
+    }
+
+    // ── Write session document
     await sessionRef.set({
       sessionId,
       deviceName: deviceName || "Unknown Device",
@@ -63,72 +156,100 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       lastSeenAt: now,
       isTrusted: false,
-      verificationToken: null,
-      otpAttempts: 0,
-      otpSendCount: 0,
-      otpWindowStart: null,
+      ...otpFields,
     });
 
-    // Send new-device alert email if user has other sessions and opted in
-    if (hasOtherSessions && newDeviceEmailAlert && user.email) {
-      sendAlertEmail(user.email, {
-        deviceName: deviceName || "Unknown Device",
-        location,
-        time: now.toUTCString(),
+    // ── Audit: session created
+    auditLog({
+      ts: now.toISOString(),
+      event: "session.created",
+      uid: user.uid,
+      sessionId,
+      ip,
+      location,
+      deviceName: deviceName || "Unknown Device",
+      meta: { browser, os, deviceType, isFirstDevice: !hasOtherSessions },
+    });
+
+    // ── Auto-verify sent audit (after session doc exists)
+    if (requireVerificationOnNew && user.email && verificationEmailSent) {
+      auditLog({
+        ts: now.toISOString(),
+        event: "session.auto_verify_sent",
+        uid: user.uid,
         sessionId,
-      }).catch(() => {/* silent */});
+        ip,
+        location,
+        deviceName: deviceName || "Unknown Device",
+        email: user.email,
+        meta: { browser, os, deviceType },
+      });
     }
 
-    // Auto-send OTP if requireVerificationOnNew is set
-    if (requireVerificationOnNew && user.email) {
-      fetch(`${req.nextUrl.origin}/api/auth/send-verification-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: req.headers.get("Authorization") ?? "" },
-        body: JSON.stringify({ sessionId, deviceName: deviceName || "Unknown Device" }),
-      }).catch(() => {/* silent */});
+    // ── New-device alert email (fire-and-forget, never block response)
+    if (hasOtherSessions && newDeviceEmailAlert && user.email) {
+      sendTemplatedEmail(adminDb, {
+        templateKey: "new_device_alert",
+        to: user.email,
+        vars: {
+          DEVICE_NAME: deviceName || "Unknown Device",
+          LOCATION: location || "Unknown",
+          TIME: now.toUTCString(),
+          SECURITY_URL: `${appUrl}/settings/security`,
+        },
+      })
+        .then(() => {
+          auditLog({
+            ts: new Date().toISOString(),
+            event: "session.alert_sent",
+            uid: user.uid,
+            sessionId,
+            ip,
+            email: user.email,
+            meta: { templateKey: "new_device_alert" },
+          });
+          auditLog({
+            ts: new Date().toISOString(),
+            event: "email.sent",
+            uid: user.uid,
+            sessionId,
+            email: user.email,
+            meta: { templateKey: "new_device_alert" },
+          });
+        })
+        .catch((emailErr: unknown) => {
+          auditLog({
+            ts: new Date().toISOString(),
+            event: "email.failed",
+            uid: user.uid,
+            sessionId,
+            email: user.email,
+            meta: { templateKey: "new_device_alert", error: String(emailErr) },
+          });
+        });
+    } else if (!hasOtherSessions) {
+      auditLog({
+        ts: now.toISOString(),
+        event: "session.first_device",
+        uid: user.uid,
+        sessionId,
+        ip,
+        location,
+        deviceName: deviceName || "Unknown Device",
+        meta: { browser, os },
+      });
     }
 
-    return NextResponse.json({ status: "created", sessionId, isTrusted: false, requireVerificationOnNew });
+    return NextResponse.json({
+      status: "created",
+      sessionId,
+      isTrusted: false,
+      verificationRequired,
+      verificationEmailSent,
+    });
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[register-session]", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
-
-// ── Email helpers ─────────────────────────────────────────────────────────────
-
-async function getTransporter() {
-  if (!adminDb) return null;
-  const snap = await adminDb.collection("adminSettings").doc("smtp").get();
-  if (!snap.exists) return null;
-  const s = snap.data()!;
-  return nodemailer.createTransport({
-    host: s.host, port: Number(s.port), secure: Number(s.port) === 465,
-    auth: { user: s.user, pass: s.pass },
-  });
-}
-
-async function sendAlertEmail(to: string, ctx: { deviceName: string; location: string; time: string; sessionId: string }) {
-  const t = await getTransporter();
-  if (!t) return;
-  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/settings/security`;
-  await t.sendMail({
-    from: `"Vaultr Security" <no-reply@vaultr.app>`,
-    to,
-    subject: "⚠️ New device signed in to your Vaultr account",
-    html: `<div style="font-family:sans-serif;max-width:540px;margin:auto;padding:32px 24px;background:#0a0a0a;color:#e5e5e5;border-radius:12px">
-      <h2 style="margin:0 0 8px;font-size:20px;color:#fff">New device signed in</h2>
-      <p style="color:#a3a3a3;font-size:14px;margin:0 0 24px">A new device has signed in to your Vaultr account.</p>
-      <div style="background:#171717;border:1px solid #262626;border-radius:8px;padding:16px 20px;margin-bottom:24px">
-        <p style="margin:0 0 6px;font-size:13px;color:#a3a3a3"><b style="color:#d4d4d4">Device:</b> ${ctx.deviceName}</p>
-        <p style="margin:0 0 6px;font-size:13px;color:#a3a3a3"><b style="color:#d4d4d4">Location:</b> ${ctx.location || "Unknown"}</p>
-        <p style="margin:0;font-size:13px;color:#a3a3a3"><b style="color:#d4d4d4">Time:</b> ${ctx.time}</p>
-      </div>
-      <p style="font-size:13px;color:#a3a3a3">If this wasn't you, revoke the session immediately.</p>
-      <a href="${url}" style="display:inline-block;margin-top:12px;padding:10px 20px;background:#ef4444;color:#fff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Review Active Sessions</a>
-      <p style="margin-top:32px;font-size:11px;color:#525252">Vaultr · Do not reply to this email.</p>
-    </div>`,
-    text: `New device signed in.\nDevice: ${ctx.deviceName}\nLocation: ${ctx.location || "Unknown"}\nTime: ${ctx.time}\n\nReview: ${url}`,
-  });
 }

@@ -10,15 +10,14 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { ToastContainer } from "@/components/common/ToastContainer";
 import { useToast } from "@/hooks/useToast";
-import { useSessionManager } from "@/hooks/useSessionManager";
-import { ShieldAlert, X } from "lucide-react";
-import Link from "next/link";
 
-function VaultShell({ uid, children }: { uid: string; children: React.ReactNode }) {
+// VaultShell no longer handles device verification — that gate lives in vault/page.tsx,
+// before the master password screen. The banner is intentionally removed; when
+// requireVerificationOnNew is OFF (the default), users should see zero "unverified" UI.
+
+function VaultShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const { toasts, removeToast } = useToast();
-  const { isVerified } = useSessionManager(uid);
 
   // Keyboard: Ctrl/⌘+K → command palette
   React.useEffect(() => {
@@ -32,8 +31,6 @@ function VaultShell({ uid, children }: { uid: string; children: React.ReactNode 
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const showBanner = !isVerified && !bannerDismissed;
-
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -41,30 +38,6 @@ function VaultShell({ uid, children }: { uid: string; children: React.ReactNode 
 
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Unverified device banner */}
-        {showBanner && (
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-950/80 border-b border-amber-900/60 text-amber-300 text-[12px] shrink-0">
-            <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-            <span className="flex-1">
-              This device is not verified.{" "}
-              <Link
-                href="/settings/security"
-                className="underline underline-offset-2 hover:text-amber-200 transition-colors"
-              >
-                Verify now
-              </Link>
-              {" "}to confirm it&apos;s you.
-            </span>
-            <button
-              onClick={() => setBannerDismissed(true)}
-              className="shrink-0 p-1 hover:text-amber-100 transition-colors rounded cursor-pointer"
-              title="Dismiss"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
         <TopBar
           onSearchOpen={() => setPaletteOpen(true)}
           onGeneratorOpen={() => {
@@ -112,7 +85,7 @@ export default function VaultLayout({ children }: { children: React.ReactNode })
   return (
     <VaultProvider>
       <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p className="text-xs text-neutral-600">Loading vault…</p></div>}>
-        <VaultShell uid={user.uid}>{children}</VaultShell>
+        <VaultShell>{children}</VaultShell>
       </React.Suspense>
     </VaultProvider>
   );

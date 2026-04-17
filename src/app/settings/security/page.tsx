@@ -222,8 +222,7 @@ export default function SecuritySettingsPage() {
       // If vault has items, verify old key decrypts the first one
       const liveItems = items.filter((i) => !i.deletedAt);
       if (liveItems.length > 0) {
-        const { useCrypto } = await import("@/hooks/useCrypto");
-        const { decrypt } = useCrypto();
+        const { decrypt } = await import("@/hooks/useCrypto");
         try {
           await decrypt(oldKey, liveItems[0].encryptedBlob);
         } catch {
@@ -300,8 +299,9 @@ export default function SecuritySettingsPage() {
 
   // ── Session manager
   const {
-    sessions, currentSessionId, isVerified, loading: sessionsLoading,
+    sessions, isVerified, loading: sessionsLoading,
     sendingCode, verifying, revoking, otpError, otpSuccess,
+    autoVerificationTriggered, autoVerificationEmailSent,
     sendVerificationEmail, verifyOtp, revokeSession, revokeAllOtherSessions, clearOtpState,
   } = useSessionManager(user?.uid ?? null);
 
@@ -310,9 +310,16 @@ export default function SecuritySettingsPage() {
   const [requireVerifOnNew, setRequireVerifOnNew] = useState(false);
   const [notifSaving, setNotifSaving] = useState(false);
 
-  // OTP input
+  // OTP input — auto-open if server triggered verification
   const [otpValue, setOtpValue] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+
+  // Sync codeSent with autoVerificationTriggered when the email was sent
+  useEffect(() => {
+    if (autoVerificationTriggered && autoVerificationEmailSent) {
+      setCodeSent(true);
+    }
+  }, [autoVerificationTriggered, autoVerificationEmailSent]);
 
   // Revoke confirmation
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
@@ -488,7 +495,7 @@ export default function SecuritySettingsPage() {
           ))}
         </div>
         <p className="text-[11px] text-neutral-700">
-          Stored per-user in this browser. The vault locks automatically after the idle period. When set to 'Never', it only locks when you explicitly lock it or close the tab.
+          Stored per-user in this browser. The vault locks automatically after the idle period. When set to &apos;Never&apos;, it only locks when you explicitly lock it or close the tab.
         </p>
       </Section>
 
@@ -584,7 +591,28 @@ export default function SecuritySettingsPage() {
               {/* OTP flow */}
               {!isVerified && !otpSuccess && (
                 <div className="space-y-3">
-                  {!codeSent ? (
+                  {/* Auto-verification: email sent — jump straight to OTP input */}
+                  {autoVerificationTriggered && autoVerificationEmailSent && (
+                    <p className="text-[12px] text-blue-400 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5" />
+                      A verification code was automatically sent to your email.
+                    </p>
+                  )}
+
+                  {/* Auto-verification: no email on account */}
+                  {autoVerificationTriggered && !autoVerificationEmailSent && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-900/50 bg-amber-950/20">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-amber-400">
+                        Verification is required but no email is linked to your account.
+                        Link an email in{" "}
+                        <a href="/settings/account" className="underline hover:text-amber-300">Account Settings</a>
+                        {" "}to enable device verification.
+                      </p>
+                    </div>
+                  )}
+
+                  {!codeSent && !autoVerificationTriggered ? (
                     <Button
                       onClick={handleSendCode}
                       disabled={sendingCode}
@@ -594,33 +622,40 @@ export default function SecuritySettingsPage() {
                     </Button>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-[12px] text-neutral-500">Enter the 6-digit code sent to your email:</p>
-                      <div className="flex gap-2">
-                        <input
-                          ref={otpRef}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={6}
-                          value={otpValue}
-                          onChange={(e) => { clearOtpState(); setOtpValue(e.target.value.replace(/\D/g, "").slice(0, 6)); }}
-                          placeholder="000000"
-                          className="w-32 px-3 py-2 rounded-lg bg-neutral-900 border border-[var(--border)] text-neutral-100 font-mono text-center text-[18px] tracking-[0.3em] focus:outline-none focus:border-neutral-500 transition-colors"
-                        />
-                        <Button
-                          onClick={handleVerifyOtp}
-                          disabled={verifying || otpValue.length !== 6}
-                          variant="default"
-                        >
-                          {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify"}
-                        </Button>
-                        <button
-                          onClick={handleSendCode}
-                          disabled={sendingCode}
-                          className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer"
-                        >
-                          Resend
-                        </button>
-                      </div>
+                      {!autoVerificationTriggered && (
+                        <p className="text-[12px] text-neutral-500">Enter the 6-digit code sent to your email:</p>
+                      )}
+                      {autoVerificationTriggered && autoVerificationEmailSent && (
+                        <p className="text-[12px] text-neutral-500">Enter the 6-digit code sent to your email:</p>
+                      )}
+                      {(codeSent || (autoVerificationTriggered && autoVerificationEmailSent)) && (
+                        <div className="flex gap-2">
+                          <input
+                            ref={otpRef}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={otpValue}
+                            onChange={(e) => { clearOtpState(); setOtpValue(e.target.value.replace(/\D/g, "").slice(0, 6)); }}
+                            placeholder="000000"
+                            className="w-32 px-3 py-2 rounded-lg bg-neutral-900 border border-[var(--border)] text-neutral-100 font-mono text-center text-[18px] tracking-[0.3em] focus:outline-none focus:border-neutral-500 transition-colors"
+                          />
+                          <Button
+                            onClick={handleVerifyOtp}
+                            disabled={verifying || otpValue.length !== 6}
+                            variant="default"
+                          >
+                            {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify"}
+                          </Button>
+                          <button
+                            onClick={handleSendCode}
+                            disabled={sendingCode}
+                            className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer"
+                          >
+                            Resend
+                          </button>
+                        </div>
+                      )}
                       {otpError && (
                         <p className="text-[12px] text-red-400 flex items-center gap-1">
                           <AlertCircle className="w-3.5 h-3.5" />{otpError}

@@ -11,16 +11,19 @@ import {
   FileText, 
   Settings,
   Shield,
-  ArrowLeft
+  ArrowLeft,
+  ScrollText,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { name: "Themes", href: "/admin/theme", icon: Palette },
-  { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Email", href: "/admin/email", icon: Mail },
-  { name: "Content", href: "/admin/content", icon: FileText },
-  { name: "Settings", href: "/admin/smtp", icon: Settings },
+  { name: "Analytics",     href: "/admin/analytics",       icon: BarChart3   },
+  { name: "Themes",        href: "/admin/theme",           icon: Palette     },
+  { name: "Users",         href: "/admin/users",           icon: Users       },
+  { name: "Security Logs", href: "/admin/logs",            icon: ScrollText  },
+  { name: "Send Email",    href: "/admin/email",           icon: Mail        },
+  { name: "Templates",     href: "/admin/email/templates", icon: FileText    },
+  { name: "Content",       href: "/admin/content",         icon: FileText    },
+  { name: "SMTP Settings", href: "/admin/smtp",            icon: Settings    },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -41,7 +44,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           
           <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
             {NAV_ITEMS.map((item) => {
-              const isActive = pathname.startsWith(item.href);
+              // Exact match for shorter paths that are prefixes of other paths
+              const isActive = item.href === "/admin/email"
+                ? pathname === "/admin/email"
+                : pathname.startsWith(item.href);
               const Icon = item.icon;
               return (
                 <Link

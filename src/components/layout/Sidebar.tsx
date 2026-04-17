@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Shield, KeyRound, Folder, Star, Settings,
   ChevronDown, ChevronRight, Plus, Fingerprint,
-  LayoutDashboard, Inbox, Wand2, Trash2, Tag,
+  LayoutDashboard, Inbox, Wand2, Trash2,
   CreditCard, FileText, User, Lock, MapPin,
 } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigContext";
@@ -20,7 +20,14 @@ const TYPE_ITEMS = [
   { filter: "type=profile", label: "Profiles", icon: <User    className="w-3.5 h-3.5" />, template: "profile" },
 ] as const;
 
-export function Sidebar(props: any) {
+const Badge = ({ count, red }: { count: number; red?: boolean }) =>
+  count > 0 ? (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono shrink-0 ${
+      red ? "bg-red-950/40 text-red-400" : "bg-neutral-800 text-neutral-500"
+    }`}>{count}</span>
+  ) : null;
+
+export function Sidebar() {
   const pathname     = usePathname();
   const searchParams = useSearchParams();
   const { config }   = useSiteConfig();
@@ -88,13 +95,6 @@ export function Sidebar(props: any) {
 
   const sectionHeaderCls =
     "w-full flex items-center justify-between px-3 py-1 text-[10px] text-neutral-600 uppercase tracking-widest hover:text-neutral-400 transition-colors cursor-pointer";
-
-  const Badge = ({ count, red }: { count: number; red?: boolean }) =>
-    count > 0 ? (
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono shrink-0 ${
-        red ? "bg-red-950/40 text-red-400" : "bg-neutral-800 text-neutral-500"
-      }`}>{count}</span>
-    ) : null;
 
   return (
     <aside

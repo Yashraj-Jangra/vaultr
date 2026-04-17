@@ -17,6 +17,15 @@ export function setSessionId(id: string): void {
   if (typeof window !== "undefined") localStorage.setItem(SESSION_ID_KEY, id);
 }
 
+/**
+ * Removes the session ID from localStorage.
+ * Called when the session is remotely revoked so that, if the user logs back in
+ * on this device, a fresh session ID is generated instead of re-using the revoked one.
+ */
+export function clearSessionId(): void {
+  if (typeof window !== "undefined") localStorage.removeItem(SESSION_ID_KEY);
+}
+
 export function generateSessionId(): string {
   const id = crypto.randomUUID();
   setSessionId(id);
@@ -84,23 +93,53 @@ export function detectDevice(): DeviceInfo {
 
 let _heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
-export function startHeartbeat(uid: string, sessionId: string, idToken: string): void {
-  stopHeartbeat();
-  void uid; // suppress unused-var warning
+export interface HeartbeatOptions {
+  uid: string;
+  sessionId: string;
+  /** Fresh Firebase ID token. The heartbeat re-fetches this on each tick via getToken(). */
+  getToken: () => Promise<string | null>;
+  /**
+   * Called immediately when the heartbeat detects that this session has been
+   * revoked by another device or an admin. The caller should sign the user out.
+   */
+  onRevoked: () => void;
+}
 
-  const tick = () => {
-    fetch("/api/auth/session-heartbeat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ sessionId }),
-    }).catch(() => {/* silent */});
+export function startHeartbeat(opts: HeartbeatOptions): void {
+  stopHeartbeat();
+  void opts.uid; // suppress unused-var lint
+
+  const tick = async () => {
+    try {
+      const token = await opts.getToken();
+      if (!token) return; // token gone — auth is already resolving a signout
+
+      const res = await fetch("/api/auth/session-heartbeat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ sessionId: opts.sessionId }),
+      });
+
+      if (!res.ok) return; // network/server error — stay silent, try again next tick
+
+      const data: { ok: boolean; revoked: boolean } = await res.json();
+
+      if (data.revoked) {
+        // This session was deleted remotely — force immediate logout.
+        stopHeartbeat();
+        clearSessionId(); // prevent ghost session on next login
+        opts.onRevoked();
+      }
+    } catch {
+      // Network failure — remain silent; next tick will retry.
+    }
   };
 
-  tick(); // immediate
-  _heartbeatTimer = setInterval(tick, 5 * 60 * 1000);
+  tick(); // immediate first beat
+  _heartbeatTimer = setInterval(tick, 5 * 60 * 1000); // every 5 min
 }
 
 export function stopHeartbeat(): void {

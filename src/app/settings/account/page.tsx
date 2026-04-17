@@ -78,7 +78,7 @@ const PROVIDER_META: Record<string, { label: string; color: string }> = {
 
 export default function AccountSettingsPage() {
   const { user } = useFirebaseAuth();
-  const { activeTheme, setUserTheme, allThemes } = useTheme();
+  const { setUserTheme } = useTheme();
 
   // ── Basic Profile (Auth)
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");

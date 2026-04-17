@@ -15,7 +15,11 @@ export default function AnalyticsDashboard() {
         const ref = doc(db, "config", "stats");
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          setStats(snap.data() as { totalUsers: number; totalEntries: number });
+          const data = snap.data();
+          setStats({
+            totalUsers: data?.totalUsers || 0,
+            totalEntries: data?.totalEntries || 0,
+          });
         }
       } catch (err) {
         console.error("Failed to load stats", err);
