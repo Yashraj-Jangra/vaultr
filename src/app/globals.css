@@ -7,6 +7,7 @@
   --border: #1a1a1a;
   --border-hover: #333;
   --surface: #111;
+  --surface-2: #0d0d0d;
   --accent: #fff;
 }
 
@@ -55,7 +56,7 @@ body {
 
 *, *::before, *::after {
   box-sizing: border-box;
-  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
 
 ::selection {
@@ -63,10 +64,12 @@ body {
   color: #fff;
 }
 
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2e2e2e; }
 
+/* ─── Core animations ────────────────────────────────────────────────────── */
 @keyframes shrink {
   from { width: 100%; }
   to   { width: 0%; }
@@ -114,8 +117,8 @@ body {
   100% { transform: translateY(-20px) scale(0.9); opacity: 0; }
 }
 
-.animate-fade-up   { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
-.animate-shake     { animation: shake 0.45s ease both; }
+.animate-fade-up    { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-shake      { animation: shake 0.45s ease both; }
 .animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
 .animate-unlock-open { animation: unlock-open 0.5s cubic-bezier(0.4,0,0.2,1) forwards; }
 
@@ -146,14 +149,20 @@ body {
 /* Morphing grid wrapper */
 .expand-grid {
   display: grid;
-  transition: grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .expand-grid > div {
   overflow: hidden;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 .expand-closed { grid-template-rows: 0fr; }
 .expand-open   { grid-template-rows: 1fr; }
 .expand-closed > div { opacity: 0; transform: translateY(-4px); pointer-events: none; }
 .expand-open > div { opacity: 1; transform: translateY(0); }
 
+/* ─── New entry form entrance ────────────────────────────────────────────── */
+@keyframes form-drop-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-form-in { animation: form-drop-in 0.28s cubic-bezier(0.16,1,0.3,1) both; }

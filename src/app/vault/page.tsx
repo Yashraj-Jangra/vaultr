@@ -9,6 +9,7 @@ import { useSessionManager } from "@/hooks/useSessionManager";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
@@ -322,242 +323,262 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
     setSaving(false);
   };
 
-  const sel = "w-full bg-transparent border border-[var(--border)] rounded-md px-3 py-2 text-[13px] text-[var(--fg)] focus:outline-none focus:border-[var(--border-hover)] transition-colors appearance-none cursor-pointer";
+
+  // ── Template icon pills ─────────────────────────────────────────────────
+  const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
+    { id: "login",   label: "Login",   icon: <Lock       className="w-3.5 h-3.5" /> },
+    { id: "card",    label: "Card",    icon: <CreditCard className="w-3.5 h-3.5" /> },
+    { id: "note",    label: "Note",    icon: <FileText   className="w-3.5 h-3.5" /> },
+    { id: "address", label: "Address", icon: <FileText   className="w-3.5 h-3.5" /> },
+    { id: "profile", label: "Profile", icon: <User       className="w-3.5 h-3.5" /> },
+  ];
 
   return (
-    <Card className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium">New entry</span>
-        <button onClick={onCancel} className="text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer p-1">
+    <Card className="space-y-0 p-0 overflow-hidden animate-form-in">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-neutral-800 border border-[var(--border)] flex items-center justify-center">
+            {TEMPLATES.find(t => t.id === template)?.icon ?? <Lock className="w-3.5 h-3.5 text-neutral-400" />}
+          </div>
+          <span className="text-[13px] font-medium text-neutral-200">
+            {initialData ? "Edit entry" : "New entry"}
+          </span>
+        </div>
+        <button onClick={onCancel} className="text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer p-1 rounded-md hover:bg-neutral-800">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Template + Folder row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="px-5 py-4 space-y-4">
+
+        {/* ── Type pill selector ─────────────────────────────────────────── */}
         <div className="space-y-1.5">
-          <label className="text-[11px] text-neutral-600 uppercase tracking-wider">Type</label>
-          <div className="relative">
-            <select className={sel} value={template} onChange={e => setTemplate(e.target.value as Template)}>
-              <option value="login">Login</option>
-              <option value="card">Credit Card</option>
-              <option value="address">Address</option>
-              <option value="profile">Profile</option>
-              <option value="note">Secure Note</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[11px] text-neutral-600 uppercase tracking-wider">Folder</label>
-          <div className="relative">
-            <select className={sel} value={folder} onChange={e => setFolder(e.target.value)}>
-              <option value="">No folder</option>
-              {folders.map(f => <option key={f} value={f}>{f}</option>)}
-              <option value="__new__">+ New folder…</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
-      </div>
-
-      {folder === "__new__" && (
-        <Input value={newFolder} onChange={e => setNewFolder(e.target.value)} placeholder="Folder name" autoFocus />
-      )}
-
-      <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags - comma separated (optional)" />
-
-      {/* Entry name */}
-      <Input
-        value={name}
-        onChange={e => setName(e.target.value)}
-        placeholder={
-          template === "login" ? "Name — e.g. Gmail, GitHub" :
-            template === "card" ? "Card label — e.g. Visa Personal" :
-              template === "address" ? "Label — e.g. Home, Office" :
-                template === "profile" ? "Profile label — e.g. Personal ID" :
-                  "Note title"
-        }
-      />
-
-      {/* Template-specific fields */}
-      {template === "login" && (
-        <div className="space-y-3">
-          <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username / Email" />
-
-          {/* Password row with generator toggle */}
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type="text"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="font-mono pr-8"
-                />
-              </div>
+          <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Type</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {TEMPLATES.map(t => (
               <button
+                key={t.id}
                 type="button"
-                onClick={() => setShowGen(v => !v)}
-                title="Generate password"
-                className={`shrink-0 px-2 border rounded-md transition-colors cursor-pointer ${showGen
-                  ? "border-neutral-600 text-neutral-200"
-                  : "border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600"
-                  }`}
+                onClick={() => setTemplate(t.id)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] border transition-all cursor-pointer ${
+                  template === t.id
+                    ? "border-neutral-600 bg-neutral-800 text-neutral-200"
+                    : "border-[var(--border)] text-neutral-500 hover:text-neutral-300 hover:border-neutral-700"
+                }`}
               >
-                <Wand2 className="w-3.5 h-3.5" />
+                <span className={template === t.id ? "text-neutral-300" : "text-neutral-700"}>{t.icon}</span>
+                {t.label}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Name ──────────────────────────────────────────────────────── */}
+        <div className="space-y-1.5">
+          <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Name</span>
+          <Input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder={
+              template === "login"   ? "e.g. Gmail, GitHub" :
+              template === "card"    ? "e.g. Visa Personal" :
+              template === "address" ? "e.g. Home, Office" :
+              template === "profile" ? "e.g. Personal ID" :
+                                       "Note title"
+            }
+            autoFocus={!initialData}
+          />
+        </div>
+
+        {/* ── Folder + Tags row ─────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Folder</span>
+            <Select
+              value={folder}
+              onChange={setFolder}
+              options={[
+                { value: "", label: "No folder" },
+                ...folders.map(f => ({ value: f, label: f, icon: <Folder className="w-3.5 h-3.5" /> })),
+                { value: "__new__", label: "+ New folder…", divider: folders.length > 0 },
+              ]}
+              placeholder="No folder"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Tags</span>
+            <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="work, personal…" />
+          </div>
+        </div>
+
+        {folder === "__new__" && (
+          <Input value={newFolder} onChange={e => setNewFolder(e.target.value)} placeholder="New folder name" autoFocus />
+        )}
+
+        {/* ── Divider ───────────────────────────────────────────────────── */}
+        <div className="border-t border-[var(--border)]" />
+
+        {/* ── Template-specific fields ───────────────────────────────────── */}
+        {template === "login" && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Credentials</span>
+              <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username / Email" />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="font-mono" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGen(v => !v)}
+                  title="Generate password"
+                  className={`shrink-0 px-2.5 border rounded-lg transition-colors cursor-pointer ${
+                    showGen ? "border-neutral-600 bg-neutral-800 text-neutral-200" : "border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-700"
+                  }`}
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {showGen && (
+                <div className="border border-[var(--border)] rounded-lg p-3 bg-[var(--surface-2)]">
+                  <PasswordGen compact onUse={pw => { setPassword(pw); setShowGen(false); }} />
+                </div>
+              )}
             </div>
-            {showGen && (
-              <div className="border border-[var(--border)] rounded-lg p-3 bg-neutral-950/60">
-                <PasswordGen compact onUse={pw => { setPassword(pw); setShowGen(false); }} />
+
+            <div className="space-y-1.5">
+              <span className="text-[10px] text-neutral-700 uppercase tracking-widest">URLs</span>
+              {urls.map((u, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input value={u} onChange={e => setUrls(p => p.map((x, idx) => idx === i ? e.target.value : x))} placeholder="https://…" />
+                  {i === urls.length - 1 ? (
+                    <button type="button" onClick={() => setUrls(p => [...p, ""])} className="shrink-0 px-2 border rounded-lg border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600 transition-colors cursor-pointer"><Plus className="w-3.5 h-3.5" /></button>
+                  ) : (
+                    <button type="button" onClick={() => setUrls(p => p.filter((_, idx) => idx !== i))} className="shrink-0 px-2 border rounded-lg border-[var(--border)] text-neutral-600 hover:text-red-400 hover:border-red-900/50 transition-colors cursor-pointer"><Minus className="w-3.5 h-3.5" /></button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {!showTotpField ? (
+              <button type="button" onClick={() => setShowTotpField(true)} className="text-[11px] text-neutral-600 hover:text-neutral-300 w-fit flex items-center gap-1.5 transition-colors cursor-pointer">
+                <Plus className="w-3 h-3" /> Add 2FA Secret
+              </button>
+            ) : (
+              <div className="relative space-y-1.5">
+                <span className="text-[10px] text-neutral-700 uppercase tracking-widest">2FA</span>
+                <Input value={totpSecret} onChange={e => setTotpSecret(e.target.value)} type="password" placeholder="TOTP Setup Key (Base32)" className="font-mono pr-14" />
+                <div className="absolute top-[30px] right-3 text-[10px] uppercase font-semibold tracking-wider text-neutral-600 select-none bg-[var(--surface)] px-1.5 py-0.5 rounded border border-[var(--border)]">TOTP</div>
               </div>
             )}
           </div>
+        )}
 
+        {template === "card" && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Card Details</span>
+            <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Cardholder name" />
+            <Input value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="Card number" className="font-mono" />
+            <div className="grid grid-cols-3 gap-2">
+              <Input value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" />
+              <Input value={cvv} onChange={e => setCvv(e.target.value)} placeholder="CVV" type="password" />
+              <Input value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN" type="password" />
+            </div>
+          </div>
+        )}
+
+        {template === "address" && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Address</span>
+            <Input value={line1} onChange={e => setLine1(e.target.value)} placeholder="Address line 1" />
+            <Input value={line2} onChange={e => setLine2(e.target.value)} placeholder="Address line 2 (apt, suite…)" />
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={city} onChange={e => setCity(e.target.value)} placeholder="City" />
+              <Input value={state} onChange={e => setState_(e.target.value)} placeholder="State / Province" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={zip} onChange={e => setZip(e.target.value)} placeholder="ZIP / Postal code" />
+              <Input value={country} onChange={e => setCountry(e.target.value)} placeholder="Country" />
+            </div>
+          </div>
+        )}
+
+        {template === "profile" && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Profile</span>
+            <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" />
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={profEmail} onChange={e => setProfEmail(e.target.value)} placeholder="Email" type="email" />
+              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={dob} onChange={e => setDob(e.target.value)} placeholder="Date of birth" />
+              <Input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="ID / Passport no." />
+            </div>
+          </div>
+        )}
+
+        {template === "note" && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Content</span>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Write your secure note…"
+              rows={6}
+              className="w-full bg-[var(--surface-2)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-[13px] text-[var(--fg)] placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors resize-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
+            />
+          </div>
+        )}
+
+        {/* ── Private notes (non-note templates) ────────────────────────── */}
+        {template !== "note" && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Notes</span>
+            <textarea
+              value={entryNotes}
+              onChange={e => setEntryNotes(e.target.value)}
+              placeholder="Private notes…"
+              rows={2}
+              className="w-full bg-[var(--surface-2)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-[13px] text-[var(--fg)] placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors resize-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
+            />
+          </div>
+        )}
+
+        {/* ── Custom fields ─────────────────────────────────────────────── */}
+        {customFields.length > 0 && (
           <div className="space-y-2">
-            {urls.map((u, i) => (
-              <div key={i} className="flex gap-2">
-                <Input value={u} onChange={e => setUrls(p => p.map((x, idx) => idx === i ? e.target.value : x))} placeholder="URL (optional)" />
-                {i === urls.length - 1 ? (
-                  <button type="button" onClick={() => setUrls(p => [...p, ""])} className="shrink-0 px-2 border rounded-md border-[var(--border)] text-neutral-600 hover:text-neutral-300 hover:border-neutral-600 transition-colors cursor-pointer"><Plus className="w-3.5 h-3.5" /></button>
-                ) : (
-                  <button type="button" onClick={() => setUrls(p => p.filter((_, idx) => idx !== i))} className="shrink-0 px-2 border rounded-md border-[var(--border)] text-neutral-600 hover:text-red-400 hover:border-red-900/50 transition-colors cursor-pointer"><Minus className="w-3.5 h-3.5" /></button>
-                )}
+            <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Custom Fields</span>
+            {customFields.map(f => (
+              <div key={f.id} className="flex gap-2">
+                <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" className="w-1/3" />
+                <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" />
+                <button onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="text-neutral-700 hover:text-red-400 transition-colors cursor-pointer shrink-0 px-1">
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             ))}
           </div>
+        )}
 
-          {!showTotpField ? (
-            <button
-              type="button"
-              onClick={() => setShowTotpField(true)}
-              className="text-[11px] text-neutral-500 hover:text-neutral-300 w-fit flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add 2FA Secret
-            </button>
-          ) : (
-            <div className="relative">
-              <Input
-                value={totpSecret}
-                onChange={e => setTotpSecret(e.target.value)}
-                type="password"
-                placeholder="TOTP Setup Key (Base32)"
-                className="font-mono pr-12"
-              />
-              <div className="absolute top-[9px] right-3 text-[10px] uppercase font-semibold tracking-wider text-neutral-600 select-none bg-neutral-900 px-1 py-0.5 rounded">
-                TOTP
-              </div>
-            </div>
-          )}
+        <button onClick={addCustom} className="text-[11px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer flex items-center gap-1.5">
+          <Plus className="w-3 h-3" /> Add custom field
+        </button>
+      </div>
+
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-[var(--border)] bg-[var(--surface-2)]">
+        <span className="text-[11px] text-neutral-700 flex items-center gap-1.5">
+          <Lock className="w-3 h-3" /> Encrypted locally
+        </span>
+        <div className="flex items-center gap-2">
+          <Button onClick={onCancel} variant="ghost">Cancel</Button>
+          <Button onClick={handleSave} variant="primary" disabled={!name.trim() || saving}>
+            {saving ? "Saving…" : initialData ? "Save Changes" : "Encrypt & Save"}
+          </Button>
         </div>
-      )}
-
-      {template === "card" && (
-        <div className="space-y-3">
-          <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Cardholder name" />
-          <Input value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="Card number" className="font-mono" />
-          <div className="grid grid-cols-3 gap-2">
-            <Input value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" />
-            <Input value={cvv} onChange={e => setCvv(e.target.value)} placeholder="CVV" type="password" />
-            <Input value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN" type="password" />
-          </div>
-        </div>
-      )}
-
-      {template === "address" && (
-        <div className="space-y-3">
-          <Input value={line1} onChange={e => setLine1(e.target.value)} placeholder="Address line 1" />
-          <Input value={line2} onChange={e => setLine2(e.target.value)} placeholder="Address line 2 (apt, suite…)" />
-          <div className="grid grid-cols-2 gap-2">
-            <Input value={city} onChange={e => setCity(e.target.value)} placeholder="City" />
-            <Input value={state} onChange={e => setState_(e.target.value)} placeholder="State / Province" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Input value={zip} onChange={e => setZip(e.target.value)} placeholder="ZIP / Postal code" />
-            <Input value={country} onChange={e => setCountry(e.target.value)} placeholder="Country" />
-          </div>
-        </div>
-      )}
-
-      {template === "profile" && (
-        <div className="space-y-3">
-          <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" />
-          <div className="grid grid-cols-2 gap-2">
-            <Input value={profEmail} onChange={e => setProfEmail(e.target.value)} placeholder="Email" type="email" />
-            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Input value={dob} onChange={e => setDob(e.target.value)} placeholder="Date of birth" />
-            <Input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="ID / Passport no." />
-          </div>
-        </div>
-      )}
-
-      {template === "note" && (
-        <textarea
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          placeholder="Write your secure note…"
-          rows={5}
-          className="w-full bg-transparent border border-[var(--border)] rounded-md px-3 py-2 text-[13px] text-[var(--fg)] placeholder-neutral-600 focus:outline-none focus:border-[var(--border-hover)] transition-colors resize-none"
-        />
-      )}
-
-      {/* Entry Notes */}
-      {template !== "note" && (
-        <textarea
-          value={entryNotes}
-          onChange={e => setEntryNotes(e.target.value)}
-          placeholder="Private notes…"
-          rows={2}
-          className="w-full bg-transparent border border-[var(--border)] rounded-md px-3 py-2 text-[13px] text-[var(--fg)] placeholder-neutral-600 focus:outline-none focus:border-[var(--border-hover)] transition-colors resize-none mt-2"
-        />
-      )}
-
-      {/* Custom fields */}
-      {customFields.length > 0 && (
-        <div className="space-y-2 pt-1">
-          {customFields.map(f => (
-            <div key={f.id} className="flex gap-2">
-              <Input
-                value={f.key}
-                onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))}
-                placeholder="Label"
-                className="w-1/3"
-              />
-              <Input
-                value={f.value}
-                onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))}
-                placeholder="Value"
-                type="password"
-              />
-              <button
-                onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))}
-                className="text-neutral-700 hover:text-red-400 transition-colors cursor-pointer shrink-0 px-1"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <button
-        onClick={addCustom}
-        className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors cursor-pointer flex items-center gap-1"
-      >
-        <Plus className="w-3 h-3" /> Add field
-      </button>
-
-      {/* Footer */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
-        <Button onClick={onCancel} variant="ghost">Cancel</Button>
-        <Button onClick={handleSave} variant="primary" disabled={!name.trim() || saving}>
-          {saving ? "Saving…" : initialData ? "Save Changes" : "Encrypt & Save"}
-        </Button>
       </div>
     </Card>
   );
@@ -1614,9 +1635,13 @@ export default function VaultPage() {
         {!isNewEntryOpen ? (
           <button
             onClick={() => setIsNewEntryOpen(true)}
-            className="text-[13px] text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5"
+            className="group flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border border-dashed border-[var(--border)] text-neutral-500 hover:text-neutral-200 hover:border-neutral-600 hover:bg-neutral-900/40 transition-all cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" /> New entry
+            <div className="w-5 h-5 rounded-md border border-[var(--border)] group-hover:border-neutral-600 flex items-center justify-center transition-colors shrink-0">
+              <Plus className="w-3 h-3" />
+            </div>
+            <span className="text-[13px]">Add new item</span>
+            <span className="ml-auto text-[11px] text-neutral-700 font-mono hidden sm:block">login · card · note</span>
           </button>
         ) : (
           <NewEntryForm
@@ -1667,16 +1692,16 @@ export default function VaultPage() {
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-neutral-600 hidden sm:inline">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value as "createdAt" | "updatedAt" | "name")}
-                  className="bg-transparent text-xs text-neutral-400 hover:text-neutral-200 outline-none cursor-pointer"
-                >
-                  <option value="createdAt" className="bg-neutral-900 text-neutral-200">Date Added</option>
-                  <option value="updatedAt" className="bg-neutral-900 text-neutral-200">Last Modified</option>
-                  <option value="name" className="bg-neutral-900 text-neutral-200">Name (A-Z)</option>
-                </select>
-              </div>
+                  <Select
+                    value={sortBy}
+                    onChange={(v) => setSortBy(v as "createdAt" | "updatedAt" | "name")}
+                    options={[
+                      { value: "createdAt", label: "Date Added" },
+                      { value: "updatedAt", label: "Last Modified" },
+                      { value: "name",      label: "Name (A–Z)" },
+                    ]}
+                    className="w-36"
+                  /></div>
               <span className="text-xs text-neutral-700 select-none hidden sm:inline">|</span>
               <span className="text-xs text-neutral-700">{visibleItems.length}</span>
             </div>
