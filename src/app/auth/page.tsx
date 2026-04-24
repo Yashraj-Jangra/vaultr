@@ -198,10 +198,19 @@ export default function AuthPage() {
     if (!isAuthLoading && user) router.replace("/vault");
   }, [user, isAuthLoading, router]);
 
+  const [prevIllustration, setPrevIllustration] = useState(LEFT["signin"].illustration);
+  const [nextIllustration, setNextIllustration] = useState(LEFT["signin"].illustration);
+  const [fading, setFading] = useState(false);
+
   const triggerAnim = useCallback((lv: LeftView) => {
+    const next = LEFT[lv].illustration;
+    setPrevIllustration(nextIllustration);
+    setNextIllustration(next);
+    setFading(true);
     setLeftView(lv);
     setAnimKey((k) => k + 1);
-  }, []);
+    setTimeout(() => setFading(false), 450);
+  }, [nextIllustration]);
 
   const switchTab = useCallback((t: Tab) => {
     setTab(t);
@@ -263,17 +272,31 @@ export default function AuthPage() {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse 70% 60% at 30% 40%, rgba(255,255,255,0.025) 0%, transparent 70%)" }} />
 
-        {/* Illustration — crossfades when animKey changes */}
-        <div key={`img-${animKey}`} className="absolute inset-0 flex items-center justify-end pr-8 pointer-events-none select-none animate-auth-left-in">
-          <Image
-            src={lc.illustration}
-            alt=""
-            width={340}
-            height={340}
-            className="object-contain opacity-[0.1]"
-            priority
-          />
-        </div>
+        {/* Illustration — smooth opacity crossfade */}
+        {leftView !== "forgot" && (
+          <div className="absolute inset-0 flex items-center justify-end pr-12 pointer-events-none select-none">
+            {/* Outgoing — fades out */}
+            <Image
+              src={prevIllustration}
+              alt=""
+              width={480}
+              height={480}
+              className="absolute object-contain translate-x-12"
+              style={{ opacity: fading ? 0 : 0, transition: "opacity 0.4s ease" }}
+              priority
+            />
+            {/* Incoming — fades in */}
+            <Image
+              src={nextIllustration}
+              alt=""
+              width={480}
+              height={480}
+              className="absolute object-contain translate-x-12"
+              style={{ opacity: fading ? 0.45 : 0.5, transition: "opacity 0.45s ease" }}
+              priority
+            />
+          </div>
+        )}
 
         {/* ── Logo */}
         <div className="flex items-center gap-2.5 relative z-10">
@@ -360,9 +383,9 @@ export default function AuthPage() {
             {/* Static Google Button & Title */}
             <div className="space-y-4">
 
-              {/* Contextual Illustration (fades on tab switch) */}
-              <div key={`icon-${animKey}`} className="flex justify-center mb-6 animate-auth-form-in">
-                <Image src={lc.formIcon} priority alt="" width={300} height={300} className="opacity-80" />
+              {/* Contextual Illustration — small, above title */}
+              <div key={`icon-${animKey}`} className="flex justify-center mb-4 animate-auth-form-in">
+                <Image src={lc.formIcon} priority alt="" width={350} height={350} className="object-contain" style={{ opacity: 0.75 }} />
               </div>
 
               <div key={`title-${animKey}`} className="mb-2 text-center animate-auth-form-in">
@@ -478,7 +501,7 @@ export default function AuthPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="text-center mb-6">
-                      <Image src={lc.formIcon} alt="" width={64} height={64} className="mx-auto opacity-80 mb-4" />
+                      <Image src={lc.formIcon} alt="" width={500} height={500} className="mx-auto opacity-80 mb-4" />
                       <h2 className="text-[18px] font-semibold text-neutral-100">Reset password</h2>
                       <p className="text-[12px] text-neutral-600 mt-1">Enter your email and we&apos;ll send a link.</p>
                     </div>
