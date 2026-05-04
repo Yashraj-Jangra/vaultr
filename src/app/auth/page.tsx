@@ -190,42 +190,37 @@ export default function AuthPage() {
   // ─ forgot overlay & crossfades
   const [forgotMounted, setForgotMounted] = useState(false);
   const [forgotVisible, setForgotVisible] = useState(false);
-  const [leftView, setLeftView] = useState<LeftView>("signin");
-  const [animKey, setAnimKey] = useState(0);
+  const [leftView, setLeftView] = useState<LeftView>("signin"); // drives text content (delayed)
+  const [activeView, setActiveView] = useState<LeftView>("signin"); // drives illustrations (instant)
+  const [fading, setFading] = useState(false);
 
   // ─ redirect if already logged in
   useEffect(() => {
     if (!isAuthLoading && user) router.replace("/vault");
   }, [user, isAuthLoading, router]);
 
-  const [prevIllustration, setPrevIllustration] = useState(LEFT["signin"].illustration);
-  const [nextIllustration, setNextIllustration] = useState(LEFT["signin"].illustration);
-  const [fading, setFading] = useState(false);
-
   const triggerAnim = useCallback((lv: LeftView) => {
-    const next = LEFT[lv].illustration;
-    setPrevIllustration(nextIllustration);
-    setNextIllustration(next);
+    if (lv === leftView) return;
+    setActiveView(lv);
     setFading(true);
-    setLeftView(lv);
-    setAnimKey((k) => k + 1);
-    setTimeout(() => setFading(false), 450);
-  }, [nextIllustration]);
+    setTimeout(() => {
+      setLeftView(lv);
+      setFading(false);
+    }, 150);
+  }, [leftView]);
 
   const switchTab = useCallback((t: Tab) => {
-    setTab(t);
     triggerAnim(t);
+    setTimeout(() => setTab(t), 150);
   }, [triggerAnim]);
 
   const openForgot = useCallback(() => {
     setForgotMounted(true);
     triggerAnim("forgot");
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        setForgotVisible(true);
-        setView("forgot");
-      })
-    );
+    setTimeout(() => {
+      setForgotVisible(true);
+      setView("forgot");
+    }, 150);
   }, [triggerAnim]);
 
   const closeForgot = useCallback(() => {
@@ -272,31 +267,25 @@ export default function AuthPage() {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse 70% 60% at 30% 40%, rgba(255,255,255,0.025) 0%, transparent 70%)" }} />
 
-        {/* Illustration — smooth opacity crossfade */}
-        {leftView !== "forgot" && (
-          <div className="absolute inset-0 flex items-center justify-end pr-12 pointer-events-none select-none">
-            {/* Outgoing — fades out */}
+        {/* Illustration — smooth opacity crossfade without remounts */}
+        <div className="absolute inset-0 flex items-center justify-end pr-12 pointer-events-none select-none">
+          {(["signin", "signup"] as const).map((t) => (
             <Image
-              src={prevIllustration}
+              key={t}
+              src={LEFT[t].illustration}
               alt=""
               width={480}
               height={480}
-              className="absolute object-contain translate-x-12"
-              style={{ opacity: fading ? 0 : 0, transition: "opacity 0.4s ease" }}
+              className="absolute object-contain translate-x-12 transition-all duration-700 ease-in-out"
+              style={{
+                opacity: activeView === t ? 0.6 : 0,
+                transform: activeView === t ? "translateX(48px) scale(1)" : "translateX(30px) scale(0.95)",
+                filter: activeView === t ? "blur(0px)" : "blur(4px)"
+              }}
               priority
             />
-            {/* Incoming — fades in */}
-            <Image
-              src={nextIllustration}
-              alt=""
-              width={480}
-              height={480}
-              className="absolute object-contain translate-x-12"
-              style={{ opacity: fading ? 0.45 : 0.5, transition: "opacity 0.45s ease" }}
-              priority
-            />
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* ── Logo */}
         <div className="flex items-center gap-2.5 relative z-10">
@@ -306,8 +295,11 @@ export default function AuthPage() {
           <span className="text-[15px] font-semibold text-white tracking-tight">{config.name}</span>
         </div>
 
-        {/* ── Center content — crossfades */}
-        <div key={`content-${animKey}`} className="relative z-10 space-y-8 animate-auth-left-in">
+        {/* ── Center content — crossfades using CSS */}
+        <div
+          className="relative z-10 space-y-8 transition-all duration-300"
+          style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(8px)" : "translateY(0)" }}
+        >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] text-[11px] text-neutral-500">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             {lc.badge}
@@ -383,12 +375,30 @@ export default function AuthPage() {
             {/* Static Google Button & Title */}
             <div className="space-y-4">
 
-              {/* Contextual Illustration — small, above title */}
-              <div key={`icon-${animKey}`} className="flex justify-center mb-4 animate-auth-form-in">
-                <Image src={lc.formIcon} priority alt="" width={350} height={350} className="object-contain" style={{ opacity: 0.75 }} />
+              {/* Contextual Illustration — crossfades via CSS */}
+              <div className="relative w-full h-[140px] sm:h-[180px] flex justify-center items-center mb-6 pointer-events-none select-none">
+                {(["signin", "signup"] as const).map((t) => (
+                  <Image
+                    key={t}
+                    src={LEFT[t].formIcon}
+                    priority
+                    alt=""
+                    width={350}
+                    height={350}
+                    className="absolute object-contain transition-all duration-700 ease-in-out"
+                    style={{
+                      opacity: activeView === t ? 0.8 : 0,
+                      transform: activeView === t ? "scale(1)" : "scale(0.92)",
+                      filter: activeView === t ? "blur(0px)" : "blur(2px)"
+                    }}
+                  />
+                ))}
               </div>
 
-              <div key={`title-${animKey}`} className="mb-2 text-center animate-auth-form-in">
+              <div
+                className="mb-2 text-center transition-all duration-300"
+                style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(4px)" : "translateY(0)" }}
+              >
                 <h1 className="text-[18px] font-semibold text-neutral-100">
                   {isSignUp ? "Create an account" : "Welcome back"}
                 </h1>
@@ -445,7 +455,10 @@ export default function AuthPage() {
                 {/* Submit button (text swaps via key to trigger fade) */}
                 <div className="pt-1">
                   <AuthBtn type="submit" loading={isAuthenticating}>
-                    <span key={`btn-${animKey}`} className="flex items-center gap-2 animate-auth-form-in">
+                    <span
+                      className="flex items-center gap-2 transition-all duration-300"
+                      style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(4px)" : "translateY(0)" }}
+                    >
                       {isSignUp ? "Create account" : "Sign in"} <ArrowRight className="w-3.5 h-3.5" />
                     </span>
                   </AuthBtn>

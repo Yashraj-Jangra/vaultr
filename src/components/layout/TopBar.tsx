@@ -16,7 +16,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
   const router = useRouter();
   const { user, logout } = useFirebaseAuth();
   const { isLocked, lock } = useVault();
-  const { activeTheme, setUserTheme } = useTheme();
+  const { activeTheme, mode, setMode } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -75,24 +75,24 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-44 bg-neutral-900 border border-[var(--border)] rounded-lg shadow-xl overflow-hidden z-50">
+          <div className="absolute right-0 top-full mt-2 w-44 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl overflow-hidden z-50">
             <div className="px-3 py-2.5 border-b border-[var(--border)]">
-              <p className="text-[12px] text-neutral-300 font-medium truncate">{user?.displayName || "User"}</p>
-              <p className="text-[11px] text-neutral-600 truncate">{user?.email}</p>
+              <p className="text-[12px] text-[var(--fg)] font-medium truncate">{user?.displayName || "User"}</p>
+              <p className="text-[11px] text-[var(--fg-muted)] truncate">{user?.email}</p>
             </div>
             <div className="p-1">
               <button
                 onClick={() => { router.push("/settings/account"); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
               >
                 <User className="w-3.5 h-3.5" /> Profile
               </button>
               
               <button
                 onClick={() => {
-                  setUserTheme(activeTheme.mode === "dark" ? "light" : "dark");
+                  setMode(activeTheme.mode === "dark" ? "light" : "dark");
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
               >
                 {activeTheme.mode === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
                 {activeTheme.mode === "dark" ? "Light Mode" : "Dark Mode"}
@@ -100,14 +100,14 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
 
               <button
                 onClick={() => { lock(); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5" /> Lock vault
               </button>
               <div className="h-px bg-[var(--border)] my-1 mx-1" />
               <button
                 onClick={async () => { await logout(); router.push("/"); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-neutral-400 hover:text-red-400 hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--danger)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" /> Sign out
               </button>

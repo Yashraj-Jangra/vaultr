@@ -14,8 +14,9 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Check, Unlink, Link2, AlertCircle, KeySquare } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext";
+import { Check, Unlink, Link2, AlertCircle, KeySquare, Moon, Sun, Monitor } from "lucide-react";
+import { useTheme, AppMode } from "@/context/ThemeContext";
+import { ThemeConfig } from "@/lib/themes";
 
 // We export dynamic so SSR doesn't complain about useFirebaseAuth
 export const dynamic = "force-dynamic";
@@ -44,9 +45,9 @@ function Section({
   return (
     <section className="border border-[var(--border)] rounded-xl p-6 space-y-5 bg-[var(--surface)]">
       <div className="space-y-1">
-        <h2 className="text-[14px] font-semibold text-neutral-200">{title}</h2>
+        <h2 className="text-[14px] font-semibold text-[var(--fg)]">{title}</h2>
         {description && (
-          <p className="text-[12px] text-neutral-600">{description}</p>
+          <p className="text-[12px] text-[var(--fg-muted)]">{description}</p>
         )}
       </div>
       {children}
@@ -63,7 +64,7 @@ function FieldRow({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] text-neutral-600 uppercase tracking-wider">
+      <label className="text-[11px] text-[var(--fg-muted)] uppercase tracking-wider">
         {label}
       </label>
       {children}
@@ -73,12 +74,115 @@ function FieldRow({
 
 const PROVIDER_META: Record<string, { label: string; color: string }> = {
   "google.com": { label: "Google", color: "text-blue-400 border-blue-900/50 bg-blue-950/20" },
-  "password":   { label: "Email / Password", color: "text-neutral-400 border-[var(--border)] bg-neutral-900" },
+  "password":   { label: "Email / Password", color: "text-[var(--fg-muted)] border-[var(--border)] bg-[var(--bg)]" },
 };
 
+// ── Theme card ─────────────────────────────────────────────────────────────
+function ThemeCard({
+  theme,
+  selected,
+  onSelect,
+}: {
+  theme: ThemeConfig;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      title={theme.name}
+      className={`relative flex flex-col gap-2 p-2.5 rounded-xl border-2 transition-all cursor-pointer text-left w-full focus:outline-none ${
+        selected
+          ? "border-[var(--accent)] bg-[var(--bg)]"
+          : "border-[var(--border)] bg-[var(--bg)] hover:border-[var(--border-hover)]"
+      }`}
+    >
+      {/* Color swatches */}
+      <div className="flex gap-1 items-center">
+        <span
+          className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+          style={{ backgroundColor: theme.colors.bg }}
+        />
+        <span
+          className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+          style={{ backgroundColor: theme.colors.accent }}
+        />
+        <span
+          className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+          style={{ backgroundColor: theme.colors.surface }}
+        />
+        <span
+          className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+          style={{ backgroundColor: theme.colors.danger }}
+        />
+      </div>
+
+      {/* Name */}
+      <span className="text-[11px] font-medium text-[var(--fg)] truncate leading-tight">
+        {theme.name}
+      </span>
+
+      {/* Selected checkmark */}
+      {selected && (
+        <span className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full bg-[var(--accent)] flex items-center justify-center">
+          <Check className="w-2 h-2 text-[var(--bg)]" />
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ── Theme slot group ────────────────────────────────────────────────────────
+function ThemeSlotGroup({
+  label,
+  icon,
+  themes,
+  selectedId,
+  onSelect,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  themes: ThemeConfig[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--fg-muted)] shrink-0">{icon}</span>
+        <span className="text-[11px] font-semibold text-[var(--fg)] uppercase tracking-wider">{label}</span>
+      </div>
+      {themes.length === 0 ? (
+        <p className="text-[12px] text-[var(--fg-muted)] italic">No published themes in this mode yet.</p>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          {themes.map((t) => (
+            <ThemeCard
+              key={t.id}
+              theme={t}
+              selected={selectedId === t.id}
+              onSelect={() => onSelect(t.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
 export default function AccountSettingsPage() {
   const { user } = useFirebaseAuth();
-  const { setUserTheme } = useTheme();
+  const {
+    themes,
+    mode,
+    darkThemeId,
+    lightThemeId,
+    setMode,
+    setDarkTheme,
+    setLightTheme,
+  } = useTheme();
 
   // ── Basic Profile (Auth)
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
@@ -199,29 +303,15 @@ export default function AccountSettingsPage() {
   const hasGoogle = providers.some((p) => p.providerId === "google.com");
   const hasPassword = providers.some((p) => p.providerId === "password");
 
-  // ── Theme preference
-  const THEME_OPTIONS = [
-    { value: "admin",  label: "System Theme" },
-    { value: "light",  label: "Light Theme" },
-    { value: "dark",   label: "Dark Theme" },
-  ] as const;
+  // ── Theme data ─────────────────────────────────────────────────────────
+  const darkThemes  = themes.filter((t) => t.mode === "dark");
+  const lightThemes = themes.filter((t) => t.mode === "light");
 
-  const currentThemeChoice = (() => {
-    if (typeof window === "undefined") return "admin";
-    const storageKey = user ? `vaultr_theme_${user.uid}` : "vaultr_theme";
-    const val = localStorage.getItem(storageKey);
-    if (!val) return "admin";
-    if (val === "light" || val === "dark") return val;
-    return "admin";
-  })();
-
-  const saveTheme = (val: "admin" | "light" | "dark") => {
-    if (val === "admin") {
-      setUserTheme(null);
-    } else {
-      setUserTheme(val);
-    }
-  };
+  const MODE_OPTIONS: { value: AppMode; label: string; icon: React.ReactNode }[] = [
+    { value: "dark",   label: "Dark",   icon: <Moon   className="w-3.5 h-3.5" /> },
+    { value: "light",  label: "Light",  icon: <Sun    className="w-3.5 h-3.5" /> },
+    { value: "system", label: "System", icon: <Monitor className="w-3.5 h-3.5" /> },
+  ];
 
   const initials = user?.displayName
     ? user.displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -230,8 +320,8 @@ export default function AccountSettingsPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-[18px] font-semibold text-neutral-100">Account</h1>
-        <p className="text-[13px] text-neutral-600">
+        <h1 className="text-[18px] font-semibold text-[var(--fg)]">Account</h1>
+        <p className="text-[13px] text-[var(--fg-muted)]">
           Manage your profile, sign-in methods, and theme preference.
         </p>
       </div>
@@ -252,7 +342,7 @@ export default function AccountSettingsPage() {
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-neutral-800 border border-[var(--border)] flex items-center justify-center text-[18px] font-semibold text-neutral-300">
+              <div className="w-16 h-16 rounded-full bg-[var(--border)] border border-[var(--border)] flex items-center justify-center text-[18px] font-semibold text-[var(--fg)]">
                 {initials}
               </div>
             )}
@@ -331,25 +421,25 @@ export default function AccountSettingsPage() {
       >
         <div className="space-y-2">
           {providers.map((p) => {
-            const meta = PROVIDER_META[p.providerId] ?? { label: p.providerId, color: "text-neutral-400 border-[var(--border)] bg-neutral-900" };
+            const meta = PROVIDER_META[p.providerId] ?? { label: p.providerId, color: "text-[var(--fg-muted)] border-[var(--border)] bg-[var(--bg)]" };
             return (
               <div
                 key={p.providerId}
-                className="flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--border)] bg-neutral-900/60"
+                className="flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]"
               >
                 <div className="space-y-0.5">
                   <span className={`text-[12px] font-medium px-2 py-0.5 rounded border text-[11px] ${meta.color}`}>
                     {meta.label}
                   </span>
                   {(p.email || (p.providerId === "password" && user?.email)) && (
-                    <p className="text-[11px] text-neutral-600 mt-1">
+                    <p className="text-[11px] text-[var(--fg-muted)] mt-1">
                       {p.email || user?.email}
                     </p>
                   )}
                 </div>
                 <button
                   onClick={() => handleUnlink(p.providerId)}
-                  className="flex items-center gap-1.5 text-[12px] text-neutral-600 hover:text-red-400 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-[12px] text-[var(--fg-muted)] hover:text-[var(--danger)] transition-colors cursor-pointer"
                   title="Unlink provider"
                 >
                   <Unlink className="w-3.5 h-3.5" />
@@ -362,7 +452,7 @@ export default function AccountSettingsPage() {
           {!hasGoogle && (
             <button
               onClick={handleLinkGoogle}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[var(--border)] text-[13px] text-neutral-500 hover:text-neutral-300 hover:border-neutral-600 transition-colors cursor-pointer w-full"
+              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[var(--border)] text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--border-hover)] transition-colors cursor-pointer w-full"
             >
               <Link2 className="w-4 h-4" />
               Link Google account
@@ -372,7 +462,7 @@ export default function AccountSettingsPage() {
           {!hasPassword && !linkingEmail && (
             <button
               onClick={() => setLinkingEmail(true)}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[var(--border)] text-[13px] text-neutral-500 hover:text-neutral-300 hover:border-neutral-600 transition-colors cursor-pointer w-full"
+              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[var(--border)] text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--border-hover)] transition-colors cursor-pointer w-full"
             >
               <KeySquare className="w-4 h-4" />
               Link Email &amp; Password
@@ -380,8 +470,8 @@ export default function AccountSettingsPage() {
           )}
 
           {linkingEmail && (
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-neutral-900/40 space-y-3">
-              <p className="text-[12px] text-neutral-300 font-medium">Link Email &amp; Password</p>
+            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+              <p className="text-[12px] text-[var(--fg)] font-medium">Link Email &amp; Password</p>
               <div className="space-y-2">
                 <Input 
                   value={linkEmailStr} 
@@ -407,29 +497,58 @@ export default function AccountSettingsPage() {
         </div>
       </Section>
 
-      {/* ── Theme preference */}
+      {/* ── Theme Preference */}
       <Section
         title="Theme Preference"
-        description="Override the theme for this browser."
+        description="Choose your active mode, then pick a theme for each mode independently."
       >
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {THEME_OPTIONS.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => saveTheme(value)}
-              className={`px-4 py-3 rounded-lg border text-[13px] text-left transition-colors cursor-pointer ${
-                currentThemeChoice === value
-                  ? "border-neutral-500 bg-neutral-800 text-neutral-100"
-                  : "border-[var(--border)] text-neutral-500 hover:border-neutral-700 hover:text-neutral-300"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span>{label}</span>
-                {currentThemeChoice === value && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
-              </div>
-            </button>
-          ))}
+        {/* Mode toggle */}
+        <div className="space-y-2">
+          <p className="text-[11px] text-[var(--fg-muted)] uppercase tracking-wider font-semibold">Active Mode</p>
+          <div className="flex gap-2">
+            {MODE_OPTIONS.map(({ value, label, icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-[13px] font-medium transition-all cursor-pointer ${
+                  mode === value
+                    ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg)]"
+                    : "border-[var(--border)] text-[var(--fg-muted)] hover:border-[var(--border-hover)] hover:text-[var(--fg)]"
+                }`}
+              >
+                {icon}
+                {label}
+              </button>
+            ))}
+          </div>
+          {mode === "system" && (
+            <p className="text-[11px] text-[var(--fg-muted)] pl-1">
+              Automatically follows your OS dark/light preference.
+            </p>
+          )}
         </div>
+
+        {/* Divider */}
+        <div className="h-px bg-[var(--border)]" />
+
+        {/* Dark theme slot */}
+        <ThemeSlotGroup
+          label="Dark Theme"
+          icon={<Moon className="w-4 h-4" />}
+          themes={darkThemes}
+          selectedId={darkThemeId}
+          onSelect={(id) => setDarkTheme(id)}
+        />
+
+        {/* Light theme slot */}
+        <ThemeSlotGroup
+          label="Light Theme"
+          icon={<Sun className="w-4 h-4" />}
+          themes={lightThemes}
+          selectedId={lightThemeId}
+          onSelect={(id) => setLightTheme(id)}
+        />
       </Section>
     </div>
   );

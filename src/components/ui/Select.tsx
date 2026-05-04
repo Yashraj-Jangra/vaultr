@@ -100,27 +100,27 @@ export function Select({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`w-full flex items-center gap-2 bg-[var(--surface-2)] border rounded-lg px-3 py-2 text-[13px] text-left transition-all outline-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+        className={`w-full flex items-center gap-2 bg-[var(--surface)] border rounded-lg px-3 py-2 text-[13px] text-left transition-all outline-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
           open
-            ? "border-neutral-700 ring-1 ring-white/5"
-            : "border-[var(--border)] hover:border-neutral-700"
+            ? "border-[var(--border-hover)] ring-1 ring-[var(--accent)]/10"
+            : "border-[var(--border)] hover:border-[var(--border-hover)]"
         }`}
       >
         {selected?.icon && (
-          <span className="text-neutral-600 shrink-0">{selected.icon}</span>
+          <span className="text-[var(--fg-muted)] shrink-0">{selected.icon}</span>
         )}
-        <span className={`flex-1 truncate ${selected ? "text-[var(--fg)]" : "text-neutral-600"}`}>
+        <span className={`flex-1 truncate ${selected ? "text-[var(--fg)]" : "text-[var(--fg-muted)]"}`}>
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-neutral-600 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {/* Dropdown panel */}
       {open && (
         <div
-          className="absolute z-50 left-0 right-0 mt-1.5 rounded-xl border border-[var(--border)] bg-[#0f0f0f] shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden"
+          className="absolute z-50 left-0 right-0 mt-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden"
           style={{ animation: "select-drop-in 0.15s cubic-bezier(0.16,1,0.3,1) both" }}
         >
           <ul
@@ -144,20 +144,20 @@ export function Select({
                     onClick={() => handleSelect(opt)}
                     className={`flex items-center gap-2.5 px-3 py-2 mx-1 rounded-lg text-[13px] cursor-pointer transition-colors select-none ${
                       isHighlighted
-                        ? "bg-neutral-800 text-neutral-200"
+                        ? "bg-[var(--border)] text-[var(--fg)]"
                         : isSelected
-                        ? "text-neutral-200"
-                        : "text-neutral-500"
+                        ? "text-[var(--fg)]"
+                        : "text-[var(--fg-muted)]"
                     }`}
                   >
                     {opt.icon && (
-                      <span className={`shrink-0 ${isHighlighted || isSelected ? "text-neutral-400" : "text-neutral-700"}`}>
+                      <span className={`shrink-0 ${isHighlighted || isSelected ? "text-[var(--fg)]" : "text-[var(--fg-muted)]"}`}>
                         {opt.icon}
                       </span>
                     )}
                     <span className="flex-1 truncate">{opt.label}</span>
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
                     )}
                   </li>
                 </React.Fragment>

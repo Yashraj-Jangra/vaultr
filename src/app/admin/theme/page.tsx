@@ -135,6 +135,31 @@ export default function ThemeBuilderPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Publish toggle — only for non-built-in themes */}
+              {!formData.builtIn && (
+                <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Publish Theme</p>
+                    <p className="text-xs text-[var(--fg-muted)] mt-0.5">Visible to all users in their Settings</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, published: !prev.published }))}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                      formData.published ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+                    }`}
+                    role="switch"
+                    aria-checked={!!formData.published}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full shadow-lg transition duration-200 ${
+                        formData.published ? "translate-x-5 bg-[var(--bg)]" : "translate-x-0 bg-[var(--fg-muted)]"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">

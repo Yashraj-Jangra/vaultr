@@ -36,7 +36,7 @@ const STEPS = [
 
 const VAULT_ITEMS = [
   { name: "GitHub", sub: "dev@example.com", color: "#6e7681", letter: "G" },
-  { name: "Figma",  sub: "dev@example.com", color: "#a259ff", letter: "F" },
+  { name: "Figma", sub: "dev@example.com", color: "#a259ff", letter: "F" },
   { name: "Linear", sub: "dev@example.com", color: "#5e6ad2", letter: "L" },
   { name: "Vercel", sub: "dev@example.com", color: "#eaeaea", letter: "V" },
   { name: "Stripe", sub: "dev@example.com", color: "#6772e5", letter: "S" },
@@ -137,7 +137,7 @@ export default function LandingPage() {
             {/* RIGHT — vault mockup + illustration */}
             <div className="relative hidden lg:block">
               {/* Large vault illustration — background layer */}
-              <div className="absolute -top-6 -right-6 w-[360px] h-[360px] pointer-events-none select-none">
+              <div className="absolute -top-12 -right-12 w-[480px] h-[480px] pointer-events-none select-none">
                 <Image src="/illustrations/vault_tyfh.svg" alt="" fill className="object-contain" style={{ opacity: 0.15 }} priority />
               </div>
               {/* Vault UI card */}
@@ -221,8 +221,8 @@ export default function LandingPage() {
                 <div className="relative z-10 w-9 h-9 rounded-full border border-[var(--border)] bg-neutral-900 flex items-center justify-center shrink-0">
                   <span className="text-[11px] font-mono text-neutral-500">{i + 1}</span>
                 </div>
-                <div className="w-28 h-28">
-                  <Image src={step.illustration} alt="" width={112} height={112} className="object-contain w-full h-full" style={{ opacity: 0.75 }} />
+                <div className="w-40 h-40">
+                  <Image src={step.illustration} alt="" width={160} height={160} className="object-contain w-full h-full" style={{ opacity: 0.75 }} />
                 </div>
                 <div>
                   <span className="text-[10px] font-mono text-neutral-700 block mb-1">{step.n}</span>
@@ -242,26 +242,26 @@ export default function LandingPage() {
             <p className="text-[11px] text-neutral-600 uppercase tracking-widest mb-3">Everything included</p>
             <h2 className="text-[32px] font-semibold text-neutral-100 tracking-tight">Built for security-minded people</h2>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="group rounded-xl border border-[var(--border)] bg-neutral-950 p-6 relative overflow-hidden hover:border-neutral-700/60 transition-all duration-300"
+                className="group rounded-xl border border-[var(--border)] bg-neutral-950 p-6 sm:p-8 relative overflow-hidden hover:border-neutral-700/60 transition-all duration-300"
                 style={{ "--accent": f.accent } as React.CSSProperties}
               >
                 {/* Subtle top-left accent */}
                 <div className="absolute top-0 left-0 w-full h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${f.accent}50, transparent)` }} />
                 {/* Illustration — large, bottom-right */}
-                <div className="absolute bottom-0 right-0 w-28 h-28 pointer-events-none select-none">
-                  <Image src={f.illustration} alt="" width={112} height={112} className="object-contain w-full h-full transition-all duration-300" style={{ opacity: 0.22 }} />
+                <div className="absolute bottom-0 right-0 w-36 h-36 translate-x-4 translate-y-4 pointer-events-none select-none">
+                  <Image src={f.illustration} alt="" width={144} height={144} className="object-contain w-full h-full transition-all duration-300" style={{ opacity: 0.15 }} />
                 </div>
                 {/* Icon */}
-                <div className="w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center mb-4 relative z-10 transition-colors" style={{ background: f.accent + "15", color: f.accent, borderColor: f.accent + "30" }}>
+                <div className="w-10 h-10 rounded-lg border border-[var(--border)] flex items-center justify-center mb-5 relative z-10 transition-colors" style={{ background: f.accent + "15", color: f.accent, borderColor: f.accent + "30" }}>
                   {f.icon}
                 </div>
-                <div className="relative z-10 space-y-2">
-                  <h3 className="text-[14px] font-semibold text-neutral-200">{f.title}</h3>
-                  <p className="text-[12px] text-neutral-500 leading-relaxed">{f.desc}</p>
+                <div className="relative z-10 space-y-2.5 pr-[80px] sm:pr-[90px]">
+                  <h3 className="text-[15px] font-semibold text-neutral-200">{f.title}</h3>
+                  <p className="text-[13px] text-neutral-500 leading-relaxed">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -282,8 +282,8 @@ export default function LandingPage() {
                 Your master password derives an AES-256-GCM key via PBKDF2 (100,000 iterations, SHA-256). All encryption happens in your browser. Only ciphertext ever reaches our servers.
               </p>
               <div className="flex items-center gap-5">
-                <div className="w-20 h-20 shrink-0">
-                  <Image src="/illustrations/firewall_cfej.svg" alt="" width={80} height={80} className="object-contain w-full h-full" style={{ opacity: 0.6 }} />
+                <div className="w-32 h-32 shrink-0">
+                  <Image src="/illustrations/firewall_cfej.svg" alt="" width={128} height={128} className="object-contain w-full h-full" style={{ opacity: 0.6 }} />
                 </div>
                 <Link href="/security" className="inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-200 transition-colors">
                   Read the full security spec <ChevronRight className="w-3.5 h-3.5" />
@@ -297,12 +297,12 @@ export default function LandingPage() {
               </div>
               <div className="font-mono text-[12px] divide-y divide-[var(--border)]">
                 {[
-                  { label: "Algorithm",      value: "AES-256-GCM",          color: "text-emerald-400" },
-                  { label: "Key derivation", value: "PBKDF2 / SHA-256",     color: "text-blue-400" },
-                  { label: "Iterations",     value: "100,000",              color: "text-neutral-300" },
-                  { label: "IV size",        value: "12 bytes (random)",    color: "text-neutral-400" },
-                  { label: "Auth tag",       value: "128 bits",             color: "text-emerald-400" },
-                  { label: "Stored secret",  value: "none — zero-knowledge", color: "text-neutral-600" },
+                  { label: "Algorithm", value: "AES-256-GCM", color: "text-emerald-400" },
+                  { label: "Key derivation", value: "PBKDF2 / SHA-256", color: "text-blue-400" },
+                  { label: "Iterations", value: "100,000", color: "text-neutral-300" },
+                  { label: "IV size", value: "12 bytes (random)", color: "text-neutral-400" },
+                  { label: "Auth tag", value: "128 bits", color: "text-emerald-400" },
+                  { label: "Stored secret", value: "none — zero-knowledge", color: "text-neutral-600" },
                 ].map((row) => (
                   <div key={row.label} className="flex justify-between items-center px-5 py-3 hover:bg-neutral-900/30 transition-colors">
                     <span className="text-neutral-600">{row.label}</span>
@@ -320,7 +320,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-24 relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 80% at 50% 50%, rgba(99,102,241,0.04) 0%, transparent 70%)" }} />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-            <Image src="/illustrations/safe_0mei.svg" alt="" width={300} height={300} className="object-contain" style={{ opacity: 0.06 }} />
+            <Image src="/illustrations/safe_0mei.svg" alt="" width={400} height={400} className="object-contain" style={{ opacity: 0.06 }} />
           </div>
           <div className="relative text-center space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[var(--border)] text-[11px] text-neutral-600 mb-2">

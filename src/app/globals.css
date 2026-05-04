@@ -7,8 +7,10 @@
   --border: #1a1a1a;
   --border-hover: #333;
   --surface: #111;
-  --surface-2: #0d0d0d;
+  /* surface-2 always tracks surface so inputs/dropdowns work in every theme */
+  --surface-2: var(--surface);
   --accent: #fff;
+  --danger: #ef4444;
 }
 
 @theme inline {
@@ -45,6 +47,10 @@
   --neutral-900: #f5f5f5;
   --neutral-950: #fafafa;
 }
+
+/* Light-theme scrollbar */
+.theme-light::-webkit-scrollbar-thumb { background: #ccc; }
+.theme-light::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
 body {
   background: var(--bg);

@@ -351,22 +351,158 @@
 - [x] Create a shared template utility `src/lib/emailTemplates.ts` 
 - [x] Add Admin Template configurations view
   - [x] Add email templates WYSIWYG editor
-  - [x] Provide testing email sending mechanism from admin dashboard
+- [x] Provide testing email sending mechanism from admin dashboard
 - [x] Bind email triggers for register session and system notifications to use templates.
 
 ---
 
+## Sprint 12 — Robust Session Management & Security Audit Logs
 
-## Deferred / Future Consideration
+> Zero-knowledge-compatible. All session metadata only — vault keys never involved.
+> Logs are stored in Firestore and must **never be deleted** (admin or user), only filtered/viewed.
 
-- [-] HaveIBeenPwned breach check (external network, opt-in toggle in Sprint 5)
-- [-] Browser extension autofill (separate repo, uses same Firebase project)
-- [-] Secure sharing via encrypted link (complex, v2 roadmap)
-- [-] Biometric unlock via WebAuthn / Passkeys
-- [-] Offline mode (IndexedDB cache of encrypted blobs)
-- [-] Multi-vault / Team / Family plan
-- [-] Self-hosted / open source deployment guide
-- [-] iOS / Android app (React Native / Capacitor wrapper)
+### User-Controlled Session Preferences
+- [ ] **New device login alert** (default: **on**)
+  - [ ] Email notification on new device sign-in (already partially in Sprint 10 — wire to new toggle)
+  - [ ] In-app notification badge / toast on new device detected
+- [ ] **Device verification gate** (default: **off**)
+  - [ ] Setting: `requireVerificationOnNew` toggle in `/settings/security`
+  - [ ] When enabled: new device must complete OTP email verification before vault access is granted
+  - [ ] When disabled: new device can access vault immediately, alert email still sent
+  - [ ] Clear UX: toggling this shows a confirmation modal explaining the trade-off
+- [ ] **Per-device trust** — user can manually mark a device as trusted/untrusted from session list
+- [ ] **Session nickname** — user can rename sessions (e.g. "Work Laptop", "Home iPhone")
+- [ ] **Session expiry** — optional setting: auto-revoke sessions inactive for N days (7 / 30 / 90 / Never)
+
+### Security Audit Logs (Permanent, Append-Only)
+- [ ] **`src/lib/auditLog.ts`** — shared log writer
+  - [ ] `logSecurityEvent(uid, event)` — writes to `users/{uid}/auditLog/{autoId}`
+  - [ ] Schema: `{ event, timestamp, sessionId, deviceName, ip, location, meta: {} }`
+  - [ ] Firestore rules: **append-only** — no update or delete permitted for any role
+- [ ] **Logged events** (exhaustive list):
+  - [ ] `LOGIN_SUCCESS` — new sign-in (device, IP, location)
+  - [ ] `LOGIN_FAILURE` — wrong master password or auth failure (reason, IP)
+  - [ ] `NEW_DEVICE_DETECTED` — first session from unknown device
+  - [ ] `DEVICE_VERIFIED` — OTP verification completed successfully
+  - [ ] `DEVICE_VERIFICATION_FAILED` — wrong OTP attempt (attempt count included)
+  - [ ] `DEVICE_VERIFICATION_LOCKED` — max OTP attempts exceeded (1hr lockout)
+  - [ ] `SESSION_REVOKED` — self-revoke or revoke-other session
+  - [ ] `SESSION_BULK_REVOKE` — "sign out all other devices"
+  - [ ] `ADMIN_SESSION_REVOKE` — admin force-revoked a user session (includes admin UID)
+  - [ ] `MASTER_PASSWORD_CHANGED` — re-encryption completed
+  - [ ] `ACCOUNT_EXPORT` — vault exported (format, item count)
+  - [ ] `ACCOUNT_IMPORT` — vault imported (item count, source format)
+  - [ ] `SETTING_CHANGED` — security preference changed (which setting, old→new value)
+  - [ ] `ACCOUNT_DELETION_INITIATED` — user triggered account delete
+
+### Admin Panel — Security Audit Log Viewer (`/admin/logs`)
+- [ ] **Persistent log table** — never paginated away, infinite scroll
+- [ ] **Filters** (combinable):
+  - [ ] By **user** — search by email or UID
+  - [ ] By **event type** — multi-select checklist of all event types
+  - [ ] By **date range** — from/to date pickers
+  - [ ] By **IP address** — exact or prefix match
+  - [ ] By **location** — country / city contains
+  - [ ] By **session ID** — trace a specific session's full history
+- [ ] **Export logs** — download filtered results as CSV (admin only)
+- [ ] **Log entry detail panel** — click row → slide-in with full `meta` JSON
+- [ ] **Live tail mode** — toggle to auto-scroll as new events arrive (Firestore onSnapshot)
+- [ ] **Event severity badges** — color-coded: Info (blue) · Warning (amber) · Critical (red)
+  - [ ] Critical: `LOGIN_FAILURE`, `DEVICE_VERIFICATION_LOCKED`, `ADMIN_SESSION_REVOKE`, `ACCOUNT_DELETION_INITIATED`
+  - [ ] Warning: `DEVICE_VERIFICATION_FAILED`, `NEW_DEVICE_DETECTED`
+  - [ ] Info: everything else
+- [ ] **Summary cards** at top: total events today, unique users active, critical events in last 24h
+
+### Firestore Rules
+- [ ] `users/{uid}/auditLog/{logId}` — **create allowed** (authenticated user or server), **read allowed** (owner or admin), **update/delete denied for everyone** (immutable)
+- [ ] Admin read access to any user's auditLog via admin claim
+
+---
+
+## Future Plans — Long-Term Vision
+
+> These are post-v1 roadmap items. Not all will be built, but all have been thought through. Ordered roughly by priority / feasibility.
+
+---
+
+### 🧩 Browser Extension — Autofill & Quick Access
+
+> Separate repo, same Firebase project. The extension talks to the web app's Firebase backend using the same UID/credentials.
+
+- [-] **Manifest V3** Chrome/Edge extension (Firefox MV2 compat layer)
+- [-] **Popup UI** — search vault entries, copy username/password with one click
+- [-] **Page autofill** — detect login fields on active tab, inject credentials
+  - [-] Smart field detection (heuristics: `type=password`, `name=email`, `autocomplete=username`)
+  - [-] Multiple accounts per domain — show picker if >1 match
+  - [-] Keyboard shortcut to trigger autofill (`Alt+Shift+F`)
+- [-] **Context menu** — right-click a password field → "Fill from _vaultr"
+- [-] **Inline icon** — small _vaultr icon injected into detected password fields
+- [-] **New credential detection** — offer to save new logins when form is submitted
+- [-] **Session bridge** — extension re-uses Firebase auth token; no separate login
+- [-] **Zero-knowledge maintained** — master password derived in extension context, vault key never leaves extension memory
+- [-] **Extension settings** — autofill on/off, inline icon on/off, per-site exceptions list
+- [-] **Biometric unlock** in extension (WebAuthn / OS biometrics via `navigator.credentials`)
+
+---
+
+### 📱 Mobile Apps — iOS & Android
+
+- [-] **React Native wrapper** (Expo) or **Capacitor** shell around the existing Next.js web app
+- [-] **Biometric unlock** — Face ID / Touch ID / Fingerprint via `expo-local-authentication` or Capacitor plugin
+- [-] **App-level autofill** — iOS AutoFill Credential Provider Extension, Android Autofill Framework
+- [-] **Offline mode** — IndexedDB / SQLite cache of encrypted blobs; sync on reconnect
+- [-] **Push notifications** — new device login alerts via FCM (Firebase Cloud Messaging)
+- [-] **Share Sheet integration** — iOS Share extension to save credentials from Safari
+- [-] **Widget** — home screen quick-copy widget for pinned credentials (no master password required for read if biometric unlocked)
+
+---
+
+### 👥 Collaboration — Shared Vaults & Teams
+
+- [-] **Shared vault items** — send an encrypted copy of an entry to another _vaultr user (asymmetric encryption, recipient's public key)
+- [-] **Secure link sharing** — time-limited, view-once encrypted link for non-users (password-protected AES blob in URL fragment)
+- [-] **Team / Organization plan** — org-level vault with role-based access (Owner, Admin, Member, Viewer)
+- [-] **Folder-level sharing** — share an entire folder with specific team members
+- [-] **Audit trail per shared item** — who viewed, when, from where
+- [-] **Emergency access** — designate a trusted contact who can request access after N-day waiting period (Dead Man's Switch pattern)
+
+---
+
+### ⚡ Power User Features
+
+- [-] **CLI tool** — `vaultr` npm package: `vaultr get <name>`, `vaultr copy <name>`, `vaultr add`, `vaultr export`
+- [-] **REST API / Webhooks** — personal API tokens for programmatic read access (read-only, scoped)
+- [-] **Import from more sources** — 1Password (.1pux), Dashlane (.dash), Keeper, Enpass, KeePass (.kdbx)
+- [-] **SSH Key storage** — dedicated SSH key template (public + private key, passphrase); one-click copy to clipboard
+- [-] **Secure Notes with Markdown** — rich Markdown renderer in revealed view (headings, code blocks, links)
+- [-] **File attachments** — attach files to entries (encrypted, stored in Firebase Storage, max 5MB per file)
+- [-] **Password rotation reminders** — per-entry "remind me to rotate in N days" with email/push alert
+- [-] **Collections / Smart folders** — dynamic folders based on rules (e.g. "all entries with weak passwords", "entries older than 90 days")
+- [-] **Custom templates** — user-defined entry templates beyond the built-in Login/Card/Note/Address types
+- [-] **Duplicate entry detection** — warn when saving a credential already in vault (same domain + username)
+
+---
+
+### 🏗️ Infrastructure & Developer
+
+- [-] **Self-hosted deployment guide** — Docker Compose stack: Next.js + Firebase Emulator + custom SMTP
+- [-] **Open source release** — public GitHub repo, MIT or AGPL license decision
+- [-] **End-to-end tests** — Playwright test suite covering: auth flow, vault CRUD, encryption round-trip, session management
+- [-] **Unit tests** — Vitest for all pure functions in `src/lib/` (crypto, generator, health scoring, TOTP)
+- [-] **CI/CD pipeline** — GitHub Actions: lint → type-check → unit tests → Playwright → deploy to Vercel/Firebase
+- [-] **Rate limiting middleware** — per-user API route throttling (login attempts, OTP sends, export requests)
+- [-] **Audit log SIEM export** — periodic export of audit logs to S3-compatible storage for enterprise compliance
+- [-] **Content Security Policy** hardening — strict CSP with nonces, no `unsafe-inline`
+
+---
+
+### 💼 Monetization & Business (if pursued)
+
+- [-] **Free tier** — unlimited entries, 1 device, core features
+- [-] **Pro tier** — unlimited devices, sharing, file attachments, priority support
+- [-] **Team tier** — all Pro + org vaults, SSO (SAML/OIDC), admin console, audit logs export
+- [-] **White-label / self-hosted license** — for enterprises wanting on-prem deployment
+- [-] **Stripe integration** — subscription billing, per-seat pricing for Teams
 
 ---
 
@@ -386,7 +522,9 @@
 | 9 | PWA & Polish | ⬜ Todo | 0 / 13 |
 | 10 | Device Trust & Sessions | ✅ Complete | 20 / 20 |
 | 11 | Email Templates | ✅ Complete | 3 / 3 |
-| — | **Total** | | **142 / 189** |
+| 12 | Robust Session Mgmt & Audit Logs | ⬜ Todo | 0 / 35 |
+| — | **Total** | | **142 / 224** |
+
 
 ### Recently Implemented (Post-Sprint-0)
 
@@ -410,5 +548,5 @@
 
 ---
 
-*Last updated: 2026-04-13*  
+*Last updated: 2026-05-04*  
 *To begin a sprint, say "begin sprint N".*
