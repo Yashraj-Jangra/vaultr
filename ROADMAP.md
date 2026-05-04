@@ -506,6 +506,154 @@
 
 ---
 
+## Sprint 13 — Notification System
+
+> Zero-knowledge safe — notifications contain only metadata, never vault data.
+> Three independently shippable layers. Build in order: Email extensions → In-app → Browser Push.
+
+### Layer 1 — In-App Notifications (Bell Icon + Panel)
+
+#### New Files
+- [ ] **`src/context/NotificationContext.tsx`** — real-time `onSnapshot` on `users/{uid}/notifications`
+  - [ ] Exposes: `notifications[]`, `unreadCount`, `markRead(id)`, `markAllRead()`, `clearAll()`
+  - [ ] Auto-marks as read when notification panel is opened
+- [ ] **`src/lib/notification.ts`** — server-side helper
+  - [ ] `sendNotification(uid, { type, title, body, meta })` — writes to Firestore
+  - [ ] Called from all existing API routes that trigger security events
+- [ ] **`src/components/layout/NotificationPanel.tsx`** — dropdown panel
+  - [ ] Grouped by date (Today, Yesterday, Earlier)
+  - [ ] Per-item: icon by type, title, relative timestamp, unread dot, click-to-mark-read
+  - [ ] Empty state illustration
+  - [ ] "Mark all as read" + "Clear all" actions
+
+#### Modified Files
+- [ ] **`TopBar.tsx`** — add bell icon with animated unread count badge
+- [ ] **Root `layout.tsx`** — wrap with `<NotificationProvider>`
+- [ ] **`/api/auth/register-session`** — add `sendNotification()` for `NEW_DEVICE`
+- [ ] **`/api/auth/verify-device`** — notify on `DEVICE_VERIFIED` / `DEVICE_VERIFICATION_FAILED`
+- [ ] **`/api/auth/revoke-session`** — notify target user on remote revoke
+- [ ] **`settings/security/page.tsx`** — per-event notification preference toggles
+
+#### Firestore Schema
+```
+users/{uid}/notifications/{id}
+  type:      "NEW_DEVICE" | "SESSION_REVOKED" | "DEVICE_VERIFIED" |
+             "DEVICE_VERIFICATION_FAILED" | "PASSWORD_CHANGED" |
+             "VAULT_EXPORTED" | "VAULT_IMPORTED" | "ADMIN_ACTION"
+  title:     string
+  body:      string
+  read:      boolean
+  createdAt: timestamp
+  meta:      {}   ← deviceName, IP, sessionId, etc.
+```
+
+#### Firestore Rules
+- [ ] Users can **read** and **update** (mark read) own notifications
+- [ ] Only server (Admin SDK) can **create** notifications
+- [ ] No deletes except by owner (for "clear all" UX)
+
+---
+
+### Layer 2 — Browser Push Notifications
+
+#### New Files
+- [ ] **`public/sw.js`** — service worker
+  - [ ] Listens for `push` events → calls `self.registration.showNotification()`
+  - [ ] Handles `notificationclick` → focuses app tab or opens `/vault`
+  - [ ] Handles SW updates gracefully (skip waiting, claim clients)
+- [ ] **`/api/push/subscribe`** — save browser's `PushSubscription` to Firestore
+- [ ] **`/api/push/unsubscribe`** — remove subscription doc
+- [ ] **`/api/push/send`** — internal utility (not public endpoint)
+  - [ ] Loads all `pushSubscriptions` for a UID
+  - [ ] Calls `webpush.sendNotification()` for each
+  - [ ] On `410 Gone` response: deletes stale subscription doc automatically
+
+#### New Dependency
+```bash
+npm install web-push
+```
+
+#### New Environment Variables
+```
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...   # sent to client to register SW
+VAPID_PRIVATE_KEY=...              # server only, never exposed
+VAPID_SUBJECT=mailto:admin@vaultr.app
+```
+
+#### Modified Files
+- [ ] **`next.config.ts`** — add service worker headers (`Service-Worker-Allowed`)
+- [ ] **Root `layout.tsx`** — register SW on mount (`navigator.serviceWorker.register`)
+- [ ] **Notification settings** — "Enable Push" button triggers `Notification.requestPermission()`; on grant, subscribes and POSTs to `/api/push/subscribe`
+
+#### Firestore Schema
+```
+users/{uid}/pushSubscriptions/{subId}
+  endpoint:   string
+  keys:       { p256dh: string, auth: string }
+  createdAt:  timestamp
+  userAgent:  string
+```
+
+#### Edge Cases
+- [ ] Fan-out to **all** subscriptions (user may have multiple browsers/devices)
+- [ ] Handle `410 Gone` → delete stale subscription, don't retry
+- [ ] Browser permission revoked silently → subscription stops; detect and surface in settings
+- [ ] Safari iOS 16.4+ push support (slightly different API — test explicitly)
+- [ ] Push while tab is open → suppress OS notification, show in-app toast instead
+
+---
+
+### Layer 3 — Email Notification Extensions
+
+> Infrastructure already exists (`emailTemplates.ts`, Nodemailer, SMTP admin config).
+
+#### New Email Triggers
+- [ ] Session revoked remotely (by user from another device)
+- [ ] Admin force-revoked session
+- [ ] Master password changed
+- [ ] Vault exported
+- [ ] Vault imported (item count)
+
+#### New Features
+- [ ] **Unsubscribe link** in every email footer (one-click disable that specific email type)
+- [ ] Per-event email opt-in/out in notification settings UI
+
+---
+
+### Notification Preferences UI (`/settings/notifications` or `/settings/security`)
+
+```
+Notification Preferences
+────────────────────────────────────────────────────────
+New device sign-in            [✓ Email]  [✓ In-app]
+Session revoked remotely      [✓ Email]  [✓ In-app]
+Device verification events    [ Email]   [✓ In-app]
+Admin actions on account      [✓ Email]  [✓ In-app]
+────────────────────────────────────────────────────────
+Browser Push Notifications    [Enable Push] / [Enabled ✓]
+                              (requires browser permission)
+────────────────────────────────────────────────────────
+```
+
+#### Firestore Schema
+```
+users/{uid}/notificationPrefs/default
+  newDeviceAlert:       { email: boolean, inApp: boolean }
+  sessionRevoked:       { email: boolean, inApp: boolean }
+  deviceVerification:   { email: boolean, inApp: boolean }
+  adminActions:         { email: boolean, inApp: boolean }
+  pushEnabled:          boolean
+```
+
+---
+
+### Build Order (Recommended)
+1. **Layer 3 email additions** — lowest effort, highest impact, no new dependencies
+2. **Layer 1 in-app** — `NotificationContext` + panel + `TopBar` bell
+3. **Layer 2 browser push** — after service worker and VAPID setup confirmed working
+
+---
+
 ## Progress Summary
 
 | Sprint | Feature Area | Status | Done |
@@ -523,7 +671,9 @@
 | 10 | Device Trust & Sessions | ✅ Complete | 20 / 20 |
 | 11 | Email Templates | ✅ Complete | 3 / 3 |
 | 12 | Robust Session Mgmt & Audit Logs | ⬜ Todo | 0 / 35 |
-| — | **Total** | | **142 / 224** |
+| 13 | Notification System | ⬜ Todo | 0 / 38 |
+| — | **Total** | | **142 / 262** |
+
 
 
 ### Recently Implemented (Post-Sprint-0)
