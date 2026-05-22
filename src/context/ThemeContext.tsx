@@ -126,11 +126,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const storedDark  = localStorage.getItem(keys.dark);
     const storedLight = localStorage.getItem(keys.light);
 
-    if (storedMode === "dark" || storedMode === "light" || storedMode === "system") {
-      setModeState(storedMode);
-    }
-    if (storedDark)  setDarkId(storedDark);
-    if (storedLight) setLightId(storedLight);
+    setTimeout(() => {
+      if (storedMode === "dark" || storedMode === "light" || storedMode === "system") {
+        setModeState(storedMode);
+      }
+      if (storedDark)  setDarkId(storedDark);
+      if (storedLight) setLightId(storedLight);
+    }, 0);
   }, [keys]);
 
   // ── Subscribe to Firestore themes collection ──────────────────────────

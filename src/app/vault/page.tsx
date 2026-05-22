@@ -790,13 +790,10 @@ export default function VaultPage() {
   } = useSessionManager(user?.uid ?? null);
 
   const [gateOtp, setGateOtp] = useState("");
-  const [gateSent, setGateSent] = useState(false);
+  const [manualCodeSent, setManualCodeSent] = useState(false);
   const [gateShakeKey, setGateShakeKey] = useState(0);
 
-  // Auto-show OTP input when server already dispatched the code
-  useEffect(() => {
-    if (autoVerificationEmailSent) setGateSent(true);
-  }, [autoVerificationEmailSent]);
+  const gateSent = autoVerificationEmailSent || manualCodeSent;
 
   // ── Pull everything from the shared VaultContext ──────────────────────────
   const {
@@ -1070,7 +1067,7 @@ export default function VaultPage() {
   const handleGateSendCode = async () => {
     const result = await sendVerificationEmail();
     if (result.ok) {
-      setGateSent(true);
+      setManualCodeSent(true);
       clearGateOtpState();
       setGateOtp("");
     }

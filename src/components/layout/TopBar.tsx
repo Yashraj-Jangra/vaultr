@@ -16,7 +16,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
   const router = useRouter();
   const { user, logout } = useFirebaseAuth();
   const { isLocked, lock } = useVault();
-  const { activeTheme, mode, setMode } = useTheme();
+  const { activeTheme, setMode } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
