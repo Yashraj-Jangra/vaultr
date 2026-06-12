@@ -223,8 +223,9 @@ export default function AdminSupportPage() {
 
   if (selectedTicket) {
     return (
-      <div className="flex flex-col h-[calc(100vh-8rem)] -mt-4 text-[var(--fg)]">
-        <div className="flex items-center justify-between border-b border-[var(--border)] pb-4 mb-4">
+      <div className="p-8 pb-20 h-[calc(100vh-4rem)] flex flex-col">
+        <div className="flex flex-col flex-1 text-[var(--fg)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--border)] pb-6 mb-6 gap-4">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSelectedTicket(null)}
@@ -360,6 +361,7 @@ export default function AdminSupportPage() {
                 </label>
               </div>
             </form>
+          </div>
           </div>
         </div>
       </div>
