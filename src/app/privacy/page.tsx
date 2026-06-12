@@ -88,18 +88,18 @@ export default function PrivacyPage() {
             </Section>
             <Section id="collect" title="Data We Collect" icon={<Database className="w-4 h-4" />}>
               <ul>
-                <li><strong>Account information:</strong> Your email address and Firebase Auth UID, used for authentication.</li>
-                <li><strong>Encrypted vault data:</strong> Ciphertext blobs stored in Firestore. We cannot decrypt these.</li>
+                <li><strong>Account information:</strong> Your email address and User ID, used for authentication.</li>
+                <li><strong>Encrypted vault data:</strong> Ciphertext blobs stored in our database. We cannot decrypt these.</li>
                 <li><strong>Usage metadata:</strong> Timestamps of vault item creation. No content is readable.</li>
               </ul>
-              <p>We do <strong>not</strong> collect: your master password, plaintext credentials, IP addresses beyond Firebase&apos;s standard logging, or any analytics beyond basic crash reports.</p>
+              <p>We do <strong>not</strong> collect: your master password, plaintext credentials, IP addresses beyond standard server logging, or any analytics beyond basic crash reports.</p>
             </Section>
             <Section id="storage" title="How We Store Your Data" icon={<Lock className="w-4 h-4" />}>
-              <p>All vault content is encrypted with AES-256-GCM using a key derived from your master password via PBKDF2 (100,000 iterations). The resulting ciphertext is stored in Google Cloud Firestore. We hold the ciphertext, not the key.</p>
+              <p>All vault content is encrypted with AES-256-GCM using a key derived from your master password via PBKDF2 (100,000 iterations). The resulting ciphertext is stored in a self-hosted PostgreSQL database. We hold the ciphertext, not the key.</p>
             </Section>
             <Section id="third" title="Third-Party Services" icon={<Users className="w-4 h-4" />}>
               <ul>
-                <li><strong>Firebase (Google):</strong> Authentication and database infrastructure. Subject to Google&apos;s Privacy Policy.</li>
+                <li><strong>Database:</strong> Self-hosted and secure.</li>
                 <li><strong>Google Favicon API:</strong> Used to fetch site icons for display only — only the domain name is transmitted, no credentials.</li>
               </ul>
             </Section>

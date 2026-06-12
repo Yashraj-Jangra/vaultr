@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { VaultProvider } from "@/context/VaultContext";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -62,15 +62,15 @@ function VaultShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function VaultLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthLoading } = useFirebaseAuth();
+  const { user, isAuthLoading } = useAuth();
   const router = useRouter();
 
   React.useEffect(() => {
-    // Only redirect once Firebase has resolved — avoids redirect loop on initial load
+    // Only redirect once Auth has resolved — avoids redirect loop on initial load
     if (!isAuthLoading && !user) router.replace("/");
   }, [isAuthLoading, user, router]);
 
-  // Still checking Firebase auth state — show nothing to avoid flash
+  // Still checking Better Auth state — show nothing to avoid flash
   if (isAuthLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -79,7 +79,7 @@ export default function VaultLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Firebase resolved, no user — redirect is in flight
+  // Auth resolved, no user — redirect is in flight
   if (!user) return null;
 
   return (

@@ -13,12 +13,18 @@ import {
   Shield,
   ArrowLeft,
   ScrollText,
+  Database as DatabaseIcon,
+  LifeBuoy,
+  ServerCog,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { name: "Analytics",     href: "/admin/analytics",       icon: BarChart3   },
+  { name: "Database",      href: "/admin/database",        icon: DatabaseIcon},
+  { name: "Support",       href: "/admin/support",         icon: LifeBuoy    },
   { name: "Themes",        href: "/admin/theme",           icon: Palette     },
   { name: "Users",         href: "/admin/users",           icon: Users       },
+  { name: "System Ops",    href: "/admin/system",          icon: ServerCog   },
   { name: "Security Logs", href: "/admin/logs",            icon: ScrollText  },
   { name: "Send Email",    href: "/admin/email",           icon: Mail        },
   { name: "Templates",     href: "/admin/email/templates", icon: FileText    },

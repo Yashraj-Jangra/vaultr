@@ -1,12 +1,12 @@
 "use client";
 
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ShieldAlert } from "lucide-react";
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, isAdminLoading, isAuthLoading } = useFirebaseAuth();
+  const { user, isAdmin, isAdminLoading, isAuthLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-[var(--bg)] text-[var(--fg)]">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border)] border-t-[var(--accent)]" />
         <p className="text-sm text-[var(--fg-muted)] animate-pulse">
-          Verifying security clearance...
+          Verifying security clearance... (Auth: {isAuthLoading ? "loading" : "done"}, Admin: {isAdminLoading ? "loading" : "done"})
         </p>
       </div>
     );

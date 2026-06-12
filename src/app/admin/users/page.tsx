@@ -1,19 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
-import { 
-  UsersIcon, 
-  ShieldAlert, 
-  CheckCircle2, 
-  XCircle, 
+import { useAuth } from "@/hooks/useAuth";
+import {
+  UsersIcon,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle,
   MoreVertical,
   Trash2,
   Shield,
   ShieldOff,
   UserX,
-  UserCheck
+  UserCheck,
+  LogOut,
+  LogIn,
+  User,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import { authClient } from "@/lib/auth/auth-client";
 
 interface AdminUser {
   uid: string;
@@ -26,26 +33,28 @@ interface AdminUser {
 }
 
 export default function UsersAdminPage() {
-  const { user } = useFirebaseAuth();
+  const { user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pageToken, setPageToken] = useState<string | undefined>();
   const [processingUid, setProcessingUid] = useState<string | null>(null);
+  const [openMenuUid, setOpenMenuUid] = useState<string | null>(null);
 
-  const fetchUsers = async (token?: string) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const fetchUsers = async () => {
     try {
-      let url = "/api/admin/users?maxResults=50";
-      if (token) url += `&pageToken=${token}`;
-      const res = await fetch(url);
+      // Fetch up to 1000 users for client-side search and pagination
+      const res = await fetch("/api/admin/users?maxResults=1000");
 
       if (!res.ok) {
         throw new Error(await res.text());
       }
 
       const data = await res.json();
-      setUsers(token ? [...users, ...data.users] : data.users);
-      setPageToken(data.pageToken);
+      setUsers(data.users);
     } catch (err: unknown) {
       setError((err as Error).message || "Failed to load users");
     } finally {
@@ -60,16 +69,18 @@ export default function UsersAdminPage() {
 
   const handleAction = async (uid: string, action: string) => {
     if (processingUid) return;
-    
+
     const actionMap: Record<string, string> = {
       disable: "Disable this user?",
       enable: "Enable this user?",
       promote: "Promote this user to Admin?",
       demote: "Remove Admin privileges from this user?",
       delete: "Permanently delete this user? This cannot be undone.",
+      revoke_sessions: "Revoke all active sessions for this user?",
     };
 
-    if (!confirm(actionMap[action])) return;
+    if (action !== "revoke_sessions" && !confirm(actionMap[action])) return;
+    if (action === "revoke_sessions" && !confirm(actionMap[action])) return;
 
     setProcessingUid(uid);
     try {
@@ -82,7 +93,7 @@ export default function UsersAdminPage() {
       });
 
       if (!res.ok) throw new Error(await res.text());
-      
+
       // Optimistic update
       if (action === "delete") {
         setUsers(users.filter(u => u.uid !== uid));
@@ -103,6 +114,38 @@ export default function UsersAdminPage() {
     }
   };
 
+  const filteredUsers = users.filter((u) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      u.displayName?.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.uid.toLowerCase().includes(q)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / rowsPerPage));
+  const currentUsers = filteredUsers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, rowsPerPage]);
+
+  const handleImpersonate = async (uid: string) => {
+    if (processingUid) return;
+    if (!confirm("Login as this user? You will be redirected to their vault.")) return;
+
+    setProcessingUid(uid);
+    try {
+      const res = await authClient.admin.impersonateUser({ userId: uid });
+      if (res.error) throw res.error;
+      window.location.href = "/vault";
+    } catch (err: any) {
+      alert("Impersonation failed: " + (err.message || "Unknown error"));
+    } finally {
+      setProcessingUid(null);
+    }
+  };
+
   if (loading && users.length === 0) {
     return (
       <div className="p-8 pb-20 flex justify-center mt-20">
@@ -112,7 +155,7 @@ export default function UsersAdminPage() {
   }
 
   return (
-    <div className="p-8 pb-20 max-w-6xl">
+    <div className="p-8 pb-20">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">User Management</h2>
@@ -120,7 +163,33 @@ export default function UsersAdminPage() {
         </div>
         <div className="flex items-center space-x-2 text-sm text-[var(--fg-muted)] bg-[var(--surface)] px-4 py-2 rounded-lg border border-[var(--border)]">
           <UsersIcon className="w-4 h-4 mr-2" />
-          <span>Showing {users.length} users</span>
+          <span>Total {users.length} users</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+        <div className="relative w-full sm:w-96">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--fg-muted)]" />
+          <input
+            type="text"
+            placeholder="Search by name, email, or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[var(--accent)] transition-colors text-[var(--fg)] placeholder:text-[var(--fg-muted)]"
+          />
+        </div>
+        <div className="flex items-center gap-4 text-sm w-full sm:w-auto">
+          <span className="text-[var(--fg-muted)] whitespace-nowrap">Rows per page:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            className="bg-[var(--bg)] border border-[var(--border)] text-[var(--fg)] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[var(--accent)] transition-colors cursor-pointer"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
         </div>
       </div>
 
@@ -131,31 +200,27 @@ export default function UsersAdminPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-[var(--fg-muted)] uppercase bg-[var(--bg)]/50 border-b border-[var(--border)]">
-              <tr>
-                <th className="px-6 py-4 font-medium">User</th>
-                <th className="px-6 py-4 font-medium">Joined</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Role</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.uid} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg)]/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-[var(--fg)]">
-                      {u.displayName || u.email.split("@")[0]}
-                    </div>
-                    <div className="text-[var(--fg-muted)] font-mono text-xs mt-0.5">{u.email}</div>
-                  </td>
-                  <td className="px-6 py-4 text-[var(--fg-muted)] whitespace-nowrap">
-                    {new Date(u.creationTime).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
+      <div className="border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+        <div className="divide-y divide-[var(--border)]">
+          {currentUsers.length === 0 ? (
+            <div className="p-8 text-center text-[var(--fg-muted)]">No users found matching your criteria.</div>
+          ) : currentUsers.map((u) => (
+            <div key={u.uid} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-[var(--bg)]/40 transition-colors group first:rounded-t-xl last:rounded-b-xl">
+              <div className="flex-1">
+                <div className="font-medium text-[var(--fg)]">
+                  {u.displayName || u.email.split("@")[0]}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[var(--fg-muted)] font-mono text-xs">{u.email}</span>
+                  <span className="text-[10px] bg-[var(--bg)] border border-[var(--border)] text-[var(--fg-muted)] px-1.5 py-0.5 rounded font-mono hidden sm:inline-block">ID: {u.uid}</span>
+                </div>
+                <div className="text-[10px] text-[var(--fg-muted)]/70 mt-1 sm:hidden">
+                  ID: {u.uid} &bull; Joined {new Date(u.creationTime).toLocaleDateString()}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4 mt-4 sm:mt-0">
+                  <div className="flex gap-2">
                     {u.disabled ? (
                       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-[var(--danger)]/10 text-[var(--danger)]">
                         <XCircle className="w-3 h-3 mr-1" /> Disabled
@@ -165,8 +230,6 @@ export default function UsersAdminPage() {
                         <CheckCircle2 className="w-3 h-3 mr-1" /> Active
                       </span>
                     )}
-                  </td>
-                  <td className="px-6 py-4">
                     {u.isAdmin ? (
                       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)]">
                         <Shield className="w-3 h-3 mr-1" /> Admin
@@ -176,10 +239,20 @@ export default function UsersAdminPage() {
                         User
                       </span>
                     )}
-                  </td>
-                  <td className="px-6 py-4 text-right relative group">
-                    <button 
-                      className={`p-2 rounded text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] transition-colors ${processingUid === u.uid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  </div>
+
+                  <div 
+                    className="relative"
+                    tabIndex={-1}
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setOpenMenuUid(null);
+                      }
+                    }}
+                  >
+                    <button
+                      onClick={() => setOpenMenuUid(openMenuUid === u.uid ? null : u.uid)}
+                      className={`p-2 rounded-lg text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)] transition-colors border border-transparent hover:border-[var(--border)] ${processingUid === u.uid ? 'opacity-50 cursor-not-allowed' : ''}`}
                       disabled={processingUid === u.uid}
                     >
                       {processingUid === u.uid ? (
@@ -188,56 +261,90 @@ export default function UsersAdminPage() {
                         <MoreVertical className="w-4 h-4" />
                       )}
                     </button>
-                    
-                    {/* Simplified actions dropdown block */}
-                    <div className="absolute right-8 top-4 w-40 bg-[var(--bg)] border border-[var(--border)] rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 p-1 flex flex-col pointer-events-none group-hover:pointer-events-auto">
+
+                    <div className={`absolute right-0 sm:right-8 top-10 sm:top-4 w-44 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-2xl transition-all z-50 p-1 flex flex-col ${openMenuUid === u.uid ? 'opacity-100 visible pointer-events-auto translate-y-0' : 'opacity-0 invisible pointer-events-none -translate-y-2'}`}>
                       {u.disabled ? (
-                        <button onClick={() => handleAction(u.uid, "enable")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--surface)] text-[#34d399] rounded text-left">
-                          <UserCheck className="w-3 h-3 mr-2" /> Enable User
+                        <button onClick={() => handleAction(u.uid, "enable")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--bg)] text-[#34d399] rounded-md text-left transition-colors">
+                          <UserCheck className="w-3.5 h-3.5 mr-2" /> Enable User
                         </button>
                       ) : (
-                        <button onClick={() => handleAction(u.uid, "disable")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--surface)] text-[var(--danger)] rounded text-left">
-                          <UserX className="w-3 h-3 mr-2" /> Disable User
+                        <button onClick={() => handleAction(u.uid, "disable")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--bg)] text-[var(--danger)] rounded-md text-left transition-colors">
+                          <UserX className="w-3.5 h-3.5 mr-2" /> Disable User
                         </button>
                       )}
                       
                       <div className="h-px bg-[var(--border)] my-1" />
                       
                       {u.isAdmin ? (
-                        <button onClick={() => handleAction(u.uid, "demote")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--surface)] text-[var(--danger)] rounded text-left" disabled={u.uid === user?.uid}>
-                          <ShieldOff className="w-3 h-3 mr-2" /> Remove Admin
+                        <button onClick={() => handleAction(u.uid, "demote")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--bg)] text-[var(--danger)] rounded-md text-left transition-colors" disabled={u.uid === user?.uid}>
+                          <ShieldOff className="w-3.5 h-3.5 mr-2" /> Remove Admin
                         </button>
                       ) : (
-                        <button onClick={() => handleAction(u.uid, "promote")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--surface)] text-[var(--accent)] rounded text-left">
-                          <Shield className="w-3 h-3 mr-2" /> Make Admin
+                        <button onClick={() => handleAction(u.uid, "promote")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--bg)] text-[var(--accent)] rounded-md text-left transition-colors">
+                          <Shield className="w-3.5 h-3.5 mr-2" /> Make Admin
                         </button>
                       )}
                       
                       <div className="h-px bg-[var(--border)] my-1" />
+
+                      <button
+                        onClick={() => handleImpersonate(u.uid)}
+                        disabled={processingUid === u.uid || u.uid === user?.uid}
+                        className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--bg)] text-[var(--accent)] rounded-md text-left transition-colors disabled:opacity-50"
+                      >
+                        <LogIn className="w-3.5 h-3.5 mr-2" /> Login as User
+                      </button>
                       
-                      <button onClick={() => handleAction(u.uid, "delete")} className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--danger)] hover:text-white text-[var(--danger)] rounded text-left" disabled={u.uid === user?.uid}>
-                         <Trash2 className="w-3 h-3 mr-2" /> Delete Account
+                      <div className="h-px bg-[var(--border)] my-1" />
+
+                      <button
+                        onClick={() => handleAction(u.uid, "revoke_sessions")}
+                        disabled={processingUid === u.uid}
+                        className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--bg)] text-orange-500 rounded-md text-left transition-colors disabled:opacity-50"
+                      >
+                        <LogOut className="w-3.5 h-3.5 mr-2" /> Revoke Sessions
+                      </button>
+
+                      <button
+                        onClick={() => handleAction(u.uid, "delete")}
+                        disabled={u.uid === user?.uid}
+                        className="flex items-center w-full px-3 py-2 text-xs hover:bg-[var(--danger)] hover:text-white text-[var(--danger)] rounded-md text-left transition-colors mt-1 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete Account
                       </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       
-      {pageToken && (
-        <div className="mt-6 flex justify-center">
-          <button 
-            onClick={() => fetchUsers(pageToken)}
-            className="px-4 py-2 rounded-md border border-[var(--border)] text-sm font-medium hover:bg-[var(--surface)] transition-colors disabled:opacity-50"
-            disabled={loading}
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+        <div className="text-sm text-[var(--fg-muted)]">
+          Showing {filteredUsers.length > 0 ? Math.min((currentPage - 1) * rowsPerPage + 1, filteredUsers.length) : 0} to {Math.min(currentPage * rowsPerPage, filteredUsers.length)} of {filteredUsers.length} results
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[var(--bg)] hover:border-[var(--border-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "Loading..." : "Load More"}
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-medium px-4 text-[var(--fg)]">
+            {currentPage} <span className="text-[var(--fg-muted)]">/ {totalPages}</span>
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="p-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[var(--bg)] hover:border-[var(--border-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

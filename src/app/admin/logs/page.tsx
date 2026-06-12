@@ -57,6 +57,7 @@ const EVENT_META: Record<
   "otp.rate_limited":           { label: "OTP Rate-Limited",       severity: "warning", icon: AlertTriangle },
   "email.sent":                 { label: "Email Sent",             severity: "success", icon: Mail },
   "email.failed":               { label: "Email Failed",           severity: "danger",  icon: XCircle },
+  "email.broadcast":            { label: "Email Broadcast",        severity: "warning", icon: Mail },
 };
 
 const SEVERITY_STYLES: Record<Severity, { badge: string; dot: string; icon: string }> = {

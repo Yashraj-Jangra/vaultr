@@ -34,13 +34,16 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full">
-        <SiteConfigProvider>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
-        </SiteConfigProvider>
+      <body className="min-h-full" suppressHydrationWarning>
+        <div id="app-root" className="h-full min-h-full">
+          <SiteConfigProvider>
+            <ThemeProvider>
+              {children}
+            </ThemeProvider>
+          </SiteConfigProvider>
+        </div>
       </body>
     </html>
   );

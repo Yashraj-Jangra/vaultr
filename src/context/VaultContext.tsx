@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from "react";
 import { useCrypto, deriveKey } from "@/hooks/useCrypto";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import {
   saveVaultSession,
   loadVaultSession,
@@ -73,6 +73,11 @@ const AUTO_LOCK_PREF_KEY = "vaultr_autolock_min";
 // Postgres returns snake_case; our interface uses camelCase
 
 function rowToItem(row: Record<string, unknown>): VaultItem {
+  const createdAt = row.created_at ?? row.createdAt;
+  const updatedAt = row.updated_at ?? row.updatedAt;
+  const lastAccessedAt = row.last_accessed_at ?? row.lastAccessedAt;
+  const deletedAt = row.deleted_at ?? row.deletedAt;
+
   return {
     id:             row.id as string,
     name:           row.name as string,
@@ -80,13 +85,13 @@ function rowToItem(row: Record<string, unknown>): VaultItem {
     domain:         (row.domain ?? undefined) as string | undefined,
     folder:         (row.folder ?? undefined) as string | undefined,
     template:       (row.template ?? "login") as Template,
-    createdAt:      row.created_at ? new Date(row.created_at as string).toISOString() : undefined,
-    updatedAt:      row.updated_at ? new Date(row.updated_at as string).toISOString() : undefined,
-    lastAccessedAt: row.last_accessed_at ? new Date(row.last_accessed_at as string).toISOString() : undefined,
+    createdAt:      createdAt ? new Date(createdAt as string | Date).toISOString() : undefined,
+    updatedAt:      updatedAt ? new Date(updatedAt as string | Date).toISOString() : undefined,
+    lastAccessedAt: lastAccessedAt ? new Date(lastAccessedAt as string | Date).toISOString() : undefined,
     favorite:       (row.favorite ?? false) as boolean,
-    hasTotp:        (row.has_totp ?? false) as boolean,
+    hasTotp:        (row.has_totp ?? row.hasTotp ?? false) as boolean,
     tags:           (row.tags ?? []) as string[],
-    deletedAt:      row.deleted_at ? new Date(row.deleted_at as string).toISOString() : null,
+    deletedAt:      deletedAt ? new Date(deletedAt as string | Date).toISOString() : null,
   };
 }
 
@@ -103,12 +108,13 @@ async function apiFetch(path: string, init?: RequestInit) {
 const VaultContext = createContext<VaultContextValue | null>(null);
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useFirebaseAuth();
+  const { user } = useAuth();
   const { encrypt, decrypt } = useCrypto();
 
   const [items,          setItems]          = useState<VaultItem[]>([]);
   const [cryptoKey,      setCryptoKey]      = useState<CryptoKey | null>(null);
   const [isLoading,      setIsLoading]      = useState(true);
+  const [isRestoring,    setIsRestoring]    = useState(true);
   const [unlockError,    setUnlockError]    = useState("");
   const [searchQuery,    setSearchQuery]    = useState("");
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
@@ -164,7 +170,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
-  // ── Subscribe to SSE for real-time updates (replaces Firestore onSnapshot)
+  // ── Subscribe to SSE for real-time updates
   useEffect(() => {
     if (!user?.id) {
       setIsLoading(false);
@@ -197,11 +203,18 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   // ── Session restore
   useEffect(() => {
-    if (!user?.id || sessionRestored.current) return;
+    if (!user?.id) {
+      setIsRestoring(false);
+      return;
+    }
+    if (sessionRestored.current) return;
     sessionRestored.current = true;
 
     const session = loadVaultSession(user.id, autoLockMinutes);
-    if (!session) return;
+    if (!session) {
+      setIsRestoring(false);
+      return;
+    }
 
     (async () => {
       try {
@@ -209,6 +222,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         setCryptoKey(key);
       } catch {
         clearVaultSession(user.id!);
+      } finally {
+        setIsRestoring(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,7 +379,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       })
     : items;
 
-  const effectiveIsLoading = Boolean(user?.id) ? isLoading : false;
+  const effectiveIsLoading = Boolean(user?.id) ? (isLoading || isRestoring) : false;
 
   return (
     <VaultContext.Provider value={{

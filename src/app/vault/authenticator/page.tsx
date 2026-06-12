@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import { DecryptedPayload, VaultItem } from "../page";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 // ─── Minimal Live TOTP Row ──────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
 // ─── Page Component ─────────────────────────────────────────────────────────
 
 export default function AuthenticatorPage() {
-  const { user } = useFirebaseAuth();
+  const { user } = useAuth();
   const { items, cryptoKey, unlock: ctxUnlock } = useVault();
   const { decrypt } = useCrypto();
 

@@ -6,8 +6,8 @@
 
 ## Sprint 0 — Foundation ✅
 
-- [x] Firebase Auth (email/password)
-- [x] Firestore encrypted blob storage
+- [x] Better Auth / Postgres Auth (email/password)
+- [x] PostgreSQL encrypted blob storage
 - [x] AES-256-GCM client-side encryption (PBKDF2 key derivation, 100k iterations, SHA-256)
 - [x] Vault entry CRUD (create, reveal, delete)
 - [x] Custom fields per entry (label + masked value)
@@ -18,7 +18,7 @@
 - [x] User / Email label in revealed entry view
 - [x] Wrong master password detection (trial-decrypt with inline error)
 - [x] Zero-knowledge model (master password never leaves the browser)
-- [x] Strict Firestore security rules (per-user ownership)
+- [x] Strict PostgreSQL security rules (per-user ownership)
 - [x] **Design Philosophy**: Strict Minimal Dark UI. 
   - Sleek, compact, functional-focused. 
   - NO AI-like excessive gradients, NO heavy glassmorphism or blur effects, NO decorative neon glowing shadows. Keep aesthetics consistent with a purely robust utilitarian tool.
@@ -80,7 +80,7 @@
 - [x] Register (create account) form with live password strength meter
 - [x] **Google Sign-In** — `signInWithPopup` + Google OAuth button
 - [x] **Forgot Password** — "Forgot password?" flow using `sendPasswordResetEmail`
-  - [ ] Custom SMTP token flow *(deferred — currently uses Firebase's built-in email)*
+  - [ ] Custom SMTP token flow *(deferred — currently uses Better Auth / Postgres's built-in email)*
 
 ### Landing Page (`/`) ✅
 - [x] **Header nav** — Logo, Sign In, Get Started
@@ -167,7 +167,7 @@
 
 ## Sprint 6 — Admin Panel (`/admin`)
 
-> Secured by Firestore custom claim `admin: true`. Non-admins get 403 redirect.
+> Secured by PostgreSQL custom claim `admin: true`. Non-admins get 403 redirect.
 
 ### Theme Builder
 - [x] Live preview panel (changes reflect before saving)
@@ -188,11 +188,11 @@
   - [x] 5 Custom Presets
   - [x] Save current as new preset (named)
   - [x] Delete custom preset
-- [x] Theme config stored in Firestore `config/themes`
+- [x] Theme config stored in PostgreSQL `config/themes`
 - [x] All users receive active theme on load
 
 ### User Management
-- [x] Paginated user table (Firebase Admin via API route)
+- [x] Paginated user table (Better Auth / Postgres Admin via API route)
 - [x] View: UID, email, display name, created, disabled status, admin status
 - [x] Actions: disable / enable account, promote to admin, demote, force delete
 
@@ -235,21 +235,21 @@
 ## Sprint 8 — Settings Pages ✅
 
 ### `/settings/account`
-- [x] Display name (inline edit + save to Firebase Auth profile)
+- [x] Display name (inline edit + save to Better Auth / Postgres Auth profile)
 - [x] Email address (shown; note on change flow)
-- [x] Profile photo (upload → Firebase Storage → `updateProfile`)
+- [x] Profile photo (upload → Better Auth / Postgres Storage → `updateProfile`)
 - [x] Connected providers (Google, Email — unlink / link)
 - [x] User theme preference (override admin theme, stored in `localStorage`)
 
 ### `/settings/security`
 - [x] **Change master password**
   - [x] Re-derive AES-GCM key from new password (`reEncryptBlobs` utility)
-  - [x] Re-encrypt all blobs with new key (Firestore `writeBatch`, max 500/batch)
+  - [x] Re-encrypt all blobs with new key (PostgreSQL `writeBatch`, max 500/batch)
   - [x] Progress indicator with item count
 - [x] Auto-lock timer (Off / 5 / 15 / 30 min)
 - [x] Clipboard auto-clear timer (Off / 30s / 60s, stored in `localStorage`)
-- [x] Two-factor authentication on Firebase account (informational card with provider details)
-- [x] Last password changed date (stored in `users/{uid}/profile/security` Firestore doc)
+- [x] Two-factor authentication on Better Auth / Postgres account (informational card with provider details)
+- [x] Last password changed date (stored in `users/{uid}/profile/security` PostgreSQL doc)
 
 ### `/settings/data`
 - [x] **Export vault** — download `vaultr-export-YYYY-MM-DD.json`
@@ -260,13 +260,13 @@
   - [x] Preview table before importing (up to 50 rows shown)
   - [x] Conflict resolution (skip / overwrite)
 - [x] **Delete all vault data** — wipe `vaultItems` collection (type "DELETE" to confirm)
-- [x] **Delete account** — Firebase Auth deletion + Firestore wipe (type "DELETE ACCOUNT")
+- [x] **Delete account** — Better Auth / Postgres Auth deletion + PostgreSQL wipe (type "DELETE ACCOUNT")
 
 ---
 
 ## Sprint 9 — PWA, Attachments & Polish
 
-- [ ] **Attachments** — store filename reference, encrypted file in Firebase Storage
+- [ ] **Attachments** — store filename reference, encrypted file in Better Auth / Postgres Storage
 - [ ] `public/manifest.json` — installable PWA (name, icons, theme color, display)
 - [ ] `public/robots.txt` — crawl rules
 - [ ] `public/sitemap.xml` — public page URLs
@@ -292,7 +292,7 @@
 - [x] **`src/lib/session.ts`** — client-side session utilities
   - [x] `generateSessionId()` — `crypto.randomUUID()` stored in `localStorage`
   - [x] `detectDevice()` — user-agent parser → `{ deviceName, deviceType, browser, os }`
-  - [x] `heartbeat()` — updates `lastSeenAt` every 5 min via Firestore `setDoc({merge:true})`
+  - [x] `heartbeat()` — updates `lastSeenAt` every 5 min via PostgreSQL `setDoc({merge:true})`
 - [x] **`/api/auth/register-session`** — called once after login
   - [x] Captures IP from `x-forwarded-for` header
   - [x] Optional rough GeoIP via ip-api.com (free, no key, best-effort)
@@ -311,7 +311,7 @@
 
 ### Session Revocation
 - [x] **`/api/auth/revoke-session`** — terminate a session
-  - [x] Deletes session doc from Firestore
+  - [x] Deletes session doc from PostgreSQL
   - [x] If revoking current session: triggers `signOut(auth)`
 - [x] **"Sign out of all other devices"** — bulk revoke all non-current sessions
 
@@ -359,7 +359,7 @@
 ## Sprint 12 — Robust Session Management & Security Audit Logs
 
 > Zero-knowledge-compatible. All session metadata only — vault keys never involved.
-> Logs are stored in Firestore and must **never be deleted** (admin or user), only filtered/viewed.
+> Logs are stored in PostgreSQL and must **never be deleted** (admin or user), only filtered/viewed.
 
 ### User-Controlled Session Preferences
 - [ ] **New device login alert** (default: **on**)
@@ -378,7 +378,7 @@
 - [ ] **`src/lib/auditLog.ts`** — shared log writer
   - [ ] `logSecurityEvent(uid, event)` — writes to `users/{uid}/auditLog/{autoId}`
   - [ ] Schema: `{ event, timestamp, sessionId, deviceName, ip, location, meta: {} }`
-  - [ ] Firestore rules: **append-only** — no update or delete permitted for any role
+  - [ ] PostgreSQL rules: **append-only** — no update or delete permitted for any role
 - [ ] **Logged events** (exhaustive list):
   - [ ] `LOGIN_SUCCESS` — new sign-in (device, IP, location)
   - [ ] `LOGIN_FAILURE` — wrong master password or auth failure (reason, IP)
@@ -406,14 +406,14 @@
   - [ ] By **session ID** — trace a specific session's full history
 - [ ] **Export logs** — download filtered results as CSV (admin only)
 - [ ] **Log entry detail panel** — click row → slide-in with full `meta` JSON
-- [ ] **Live tail mode** — toggle to auto-scroll as new events arrive (Firestore onSnapshot)
+- [ ] **Live tail mode** — toggle to auto-scroll as new events arrive (PostgreSQL onSnapshot)
 - [ ] **Event severity badges** — color-coded: Info (blue) · Warning (amber) · Critical (red)
   - [ ] Critical: `LOGIN_FAILURE`, `DEVICE_VERIFICATION_LOCKED`, `ADMIN_SESSION_REVOKE`, `ACCOUNT_DELETION_INITIATED`
   - [ ] Warning: `DEVICE_VERIFICATION_FAILED`, `NEW_DEVICE_DETECTED`
   - [ ] Info: everything else
 - [ ] **Summary cards** at top: total events today, unique users active, critical events in last 24h
 
-### Firestore Rules
+### PostgreSQL Rules
 - [ ] `users/{uid}/auditLog/{logId}` — **create allowed** (authenticated user or server), **read allowed** (owner or admin), **update/delete denied for everyone** (immutable)
 - [ ] Admin read access to any user's auditLog via admin claim
 
@@ -427,7 +427,7 @@
 
 ### 🧩 Browser Extension — Autofill & Quick Access
 
-> Separate repo, same Firebase project. The extension talks to the web app's Firebase backend using the same UID/credentials.
+> Separate repo, same Better Auth / Postgres project. The extension talks to the web app's Better Auth / Postgres backend using the same UID/credentials.
 
 - [-] **Manifest V3** Chrome/Edge extension (Firefox MV2 compat layer)
 - [-] **Popup UI** — search vault entries, copy username/password with one click
@@ -438,7 +438,7 @@
 - [-] **Context menu** — right-click a password field → "Fill from _vaultr"
 - [-] **Inline icon** — small _vaultr icon injected into detected password fields
 - [-] **New credential detection** — offer to save new logins when form is submitted
-- [-] **Session bridge** — extension re-uses Firebase auth token; no separate login
+- [-] **Session bridge** — extension re-uses Better Auth / Postgres auth token; no separate login
 - [-] **Zero-knowledge maintained** — master password derived in extension context, vault key never leaves extension memory
 - [-] **Extension settings** — autofill on/off, inline icon on/off, per-site exceptions list
 - [-] **Biometric unlock** in extension (WebAuthn / OS biometrics via `navigator.credentials`)
@@ -451,7 +451,7 @@
 - [-] **Biometric unlock** — Face ID / Touch ID / Fingerprint via `expo-local-authentication` or Capacitor plugin
 - [-] **App-level autofill** — iOS AutoFill Credential Provider Extension, Android Autofill Framework
 - [-] **Offline mode** — IndexedDB / SQLite cache of encrypted blobs; sync on reconnect
-- [-] **Push notifications** — new device login alerts via FCM (Firebase Cloud Messaging)
+- [-] **Push notifications** — new device login alerts via FCM (Better Auth / Postgres Cloud Messaging)
 - [-] **Share Sheet integration** — iOS Share extension to save credentials from Safari
 - [-] **Widget** — home screen quick-copy widget for pinned credentials (no master password required for read if biometric unlocked)
 
@@ -475,7 +475,7 @@
 - [-] **Import from more sources** — 1Password (.1pux), Dashlane (.dash), Keeper, Enpass, KeePass (.kdbx)
 - [-] **SSH Key storage** — dedicated SSH key template (public + private key, passphrase); one-click copy to clipboard
 - [-] **Secure Notes with Markdown** — rich Markdown renderer in revealed view (headings, code blocks, links)
-- [-] **File attachments** — attach files to entries (encrypted, stored in Firebase Storage, max 5MB per file)
+- [-] **File attachments** — attach files to entries (encrypted, stored in Better Auth / Postgres Storage, max 5MB per file)
 - [-] **Password rotation reminders** — per-entry "remind me to rotate in N days" with email/push alert
 - [-] **Collections / Smart folders** — dynamic folders based on rules (e.g. "all entries with weak passwords", "entries older than 90 days")
 - [-] **Custom templates** — user-defined entry templates beyond the built-in Login/Card/Note/Address types
@@ -485,11 +485,11 @@
 
 ### 🏗️ Infrastructure & Developer
 
-- [-] **Self-hosted deployment guide** — Docker Compose stack: Next.js + Firebase Emulator + custom SMTP
+- [-] **Self-hosted deployment guide** — Docker Compose stack: Next.js + Better Auth / Postgres Emulator + custom SMTP
 - [-] **Open source release** — public GitHub repo, MIT or AGPL license decision
 - [-] **End-to-end tests** — Playwright test suite covering: auth flow, vault CRUD, encryption round-trip, session management
 - [-] **Unit tests** — Vitest for all pure functions in `src/lib/` (crypto, generator, health scoring, TOTP)
-- [-] **CI/CD pipeline** — GitHub Actions: lint → type-check → unit tests → Playwright → deploy to Vercel/Firebase
+- [-] **CI/CD pipeline** — GitHub Actions: lint → type-check → unit tests → Playwright → deploy to Vercel/Better Auth / Postgres
 - [-] **Rate limiting middleware** — per-user API route throttling (login attempts, OTP sends, export requests)
 - [-] **Audit log SIEM export** — periodic export of audit logs to S3-compatible storage for enterprise compliance
 - [-] **Content Security Policy** hardening — strict CSP with nonces, no `unsafe-inline`
@@ -518,7 +518,7 @@
   - [ ] Exposes: `notifications[]`, `unreadCount`, `markRead(id)`, `markAllRead()`, `clearAll()`
   - [ ] Auto-marks as read when notification panel is opened
 - [ ] **`src/lib/notification.ts`** — server-side helper
-  - [ ] `sendNotification(uid, { type, title, body, meta })` — writes to Firestore
+  - [ ] `sendNotification(uid, { type, title, body, meta })` — writes to PostgreSQL
   - [ ] Called from all existing API routes that trigger security events
 - [ ] **`src/components/layout/NotificationPanel.tsx`** — dropdown panel
   - [ ] Grouped by date (Today, Yesterday, Earlier)
@@ -534,7 +534,7 @@
 - [ ] **`/api/auth/revoke-session`** — notify target user on remote revoke
 - [ ] **`settings/security/page.tsx`** — per-event notification preference toggles
 
-#### Firestore Schema
+#### PostgreSQL Schema
 ```
 users/{uid}/notifications/{id}
   type:      "NEW_DEVICE" | "SESSION_REVOKED" | "DEVICE_VERIFIED" |
@@ -547,7 +547,7 @@ users/{uid}/notifications/{id}
   meta:      {}   ← deviceName, IP, sessionId, etc.
 ```
 
-#### Firestore Rules
+#### PostgreSQL Rules
 - [ ] Users can **read** and **update** (mark read) own notifications
 - [ ] Only server (Admin SDK) can **create** notifications
 - [ ] No deletes except by owner (for "clear all" UX)
@@ -561,7 +561,7 @@ users/{uid}/notifications/{id}
   - [ ] Listens for `push` events → calls `self.registration.showNotification()`
   - [ ] Handles `notificationclick` → focuses app tab or opens `/vault`
   - [ ] Handles SW updates gracefully (skip waiting, claim clients)
-- [ ] **`/api/push/subscribe`** — save browser's `PushSubscription` to Firestore
+- [ ] **`/api/push/subscribe`** — save browser's `PushSubscription` to PostgreSQL
 - [ ] **`/api/push/unsubscribe`** — remove subscription doc
 - [ ] **`/api/push/send`** — internal utility (not public endpoint)
   - [ ] Loads all `pushSubscriptions` for a UID
@@ -585,7 +585,7 @@ VAPID_SUBJECT=mailto:admin@vaultr.app
 - [ ] **Root `layout.tsx`** — register SW on mount (`navigator.serviceWorker.register`)
 - [ ] **Notification settings** — "Enable Push" button triggers `Notification.requestPermission()`; on grant, subscribes and POSTs to `/api/push/subscribe`
 
-#### Firestore Schema
+#### PostgreSQL Schema
 ```
 users/{uid}/pushSubscriptions/{subId}
   endpoint:   string
@@ -635,7 +635,7 @@ Browser Push Notifications    [Enable Push] / [Enabled ✓]
 ────────────────────────────────────────────────────────
 ```
 
-#### Firestore Schema
+#### PostgreSQL Schema
 ```
 users/{uid}/notificationPrefs/default
   newDeviceAlert:       { email: boolean, inApp: boolean }

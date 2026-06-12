@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, AlertCircle } from "lucide-react";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { Save, AlertCircle, Send, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function SMTPSettingsPage() {
-  const { user } = useFirebaseAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   
   const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ export default function SMTPSettingsPage() {
     port: "587",
     user: "",
     pass: "",
+    supportEmail: "",
     profiles: [{ id: "default", name: "Vaultr Admin", email: "no-reply@vaultr.app", isDefault: true }],
   });
 
@@ -30,6 +32,7 @@ export default function SMTPSettingsPage() {
               port: data.smtp.port ?? "587",
               user: data.smtp.user ?? "",
               pass: data.smtp.pass ?? "",
+              supportEmail: data.smtp.supportEmail ?? "",
               profiles: data.smtp.profiles ?? [{ id: "default", name: data.smtp.fromName ?? "Vaultr Admin", email: data.smtp.user ?? "", isDefault: true }],
             });
           }
@@ -43,8 +46,8 @@ export default function SMTPSettingsPage() {
     loadSettings();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!user) return;
     setSaving(true);
     setMessage(null);
@@ -66,12 +69,34 @@ export default function SMTPSettingsPage() {
     }
   };
 
+  const handleTestConnection = async () => {
+    if (!user) return;
+    setTesting(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/smtp/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to send test email");
+      }
+      setMessage({ type: 'success', text: "Test email sent successfully! Please check your inbox." });
+    } catch (err: unknown) {
+      setMessage({ type: 'error', text: (err as Error).message || "Failed to send test email." });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) {
-    return <div className="p-8 pb-20 animate-pulse bg-[var(--surface)] h-screen" />;
+    return <div className="p-8 pb-20 animate-pulse bg-[var(--surface)] min-h-screen" />;
   }
 
   return (
-    <div className="p-8 pb-20 max-w-2xl">
+    <div className="p-8 pb-20 w-full max-w-full">
       <div className="mb-8">
         <h2 className="text-2xl font-bold tracking-tight">SMTP Settings</h2>
         <p className="text-sm text-[var(--fg-muted)] mt-1">Configure your email provider to send outgoing mail to users.</p>
@@ -83,72 +108,88 @@ export default function SMTPSettingsPage() {
             ? 'bg-[var(--danger)]/5 text-[var(--danger)] border-[var(--danger)]/20' 
             : 'bg-[#34d399]/5 text-[#34d399] border-[#34d399]/20'
         }`}>
-          <AlertCircle className="w-5 h-5 mr-3" />
+          {message.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 mr-3 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 mr-3 shrink-0" />
+          )}
           <span className="text-sm font-medium">{message.text}</span>
         </div>
       )}
 
-      <form onSubmit={handleSave} className="space-y-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleSave} className="space-y-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
           <div className="md:col-span-2">
-            <label className="text-sm font-medium text-[var(--fg-muted)] block mb-1">SMTP Host</label>
+            <label className="text-sm font-medium text-[var(--fg)] block mb-2">SMTP Host</label>
             <input
               type="text"
               required
               placeholder="e.g. smtp.mailgun.org"
               value={formData.host}
               onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none transition-colors"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-[var(--fg-muted)] block mb-1">SMTP Port</label>
+          <div className="md:col-span-2">
+            <label className="text-sm font-medium text-[var(--fg)] block mb-2">SMTP Port</label>
             <input
               type="number"
               required
               placeholder="e.g. 587 or 465"
               value={formData.port}
               onChange={(e) => setFormData({ ...formData, port: e.target.value })}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none transition-colors"
+              className="w-full md:w-1/2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
             />
           </div>
 
-          <div className="md:col-span-2 border-t border-[var(--border)] pt-6 mt-2">
-            <h3 className="text-sm font-semibold mb-4 tracking-tight">Authentication</h3>
-            <p className="text-xs text-[var(--fg-muted)] mb-4">
+          <div className="md:col-span-2">
+            <label className="text-sm font-medium text-[var(--fg)] block mb-2">Support Email Address (for Admin Alerts)</label>
+            <input
+              type="email"
+              placeholder="e.g. support@vaultr.app"
+              value={formData.supportEmail}
+              onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
+              className="w-full md:w-1/2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
+            />
+            <p className="text-xs text-[var(--fg-muted)] mt-2">Where should support ticket alerts be sent? Leave blank to disable admin alerts.</p>
+          </div>
+
+          <div className="md:col-span-2 border-t border-[var(--border)] pt-8 mt-2">
+            <h3 className="text-sm font-semibold mb-2 tracking-tight text-[var(--fg)]">Authentication</h3>
+            <p className="text-xs text-[var(--fg-muted)] mb-6">
               These are the credentials used to authenticate with your SMTP server (e.g., Mailgun API key or Gmail App Password).
             </p>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="text-sm font-medium text-[var(--fg-muted)] block mb-1">SMTP Username</label>
+          <div className="md:col-span-1">
+            <label className="text-sm font-medium text-[var(--fg)] block mb-2">SMTP Username</label>
             <input
               type="text"
               required
               autoComplete="off"
               value={formData.user}
               onChange={(e) => setFormData({ ...formData, user: e.target.value })}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none transition-colors"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="text-sm font-medium text-[var(--fg-muted)] block mb-1">SMTP Password</label>
+          <div className="md:col-span-1">
+            <label className="text-sm font-medium text-[var(--fg)] block mb-2">SMTP Password</label>
             <input
               type="password"
               required
               autoComplete="new-password"
               value={formData.pass}
               onChange={(e) => setFormData({ ...formData, pass: e.target.value })}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none transition-colors"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
             />
           </div>
 
-          <div className="md:col-span-2 border-t border-[var(--border)] pt-6 mt-2">
-            <div className="flex items-center justify-between mb-4">
+          <div className="md:col-span-2 border-t border-[var(--border)] pt-8 mt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
               <div>
-                <h3 className="text-sm font-semibold tracking-tight">Sender Profiles</h3>
+                <h3 className="text-sm font-semibold tracking-tight text-[var(--fg)]">Sender Profiles</h3>
                 <p className="text-xs text-[var(--fg-muted)] mt-1">
                   Configure different alias emails (e.g. support@, no-reply@) that emails will be sent &apos;From&apos;.
                 </p>
@@ -156,7 +197,7 @@ export default function SMTPSettingsPage() {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, profiles: [...formData.profiles, { id: crypto.randomUUID(), name: "", email: "", isDefault: false }] })}
-                className="text-xs font-medium text-[var(--accent)] hover:opacity-80 transition-opacity"
+                className="shrink-0 flex items-center justify-center rounded-md bg-[var(--bg)] border border-[var(--border)] px-4 py-2 text-xs font-medium hover:bg-[var(--border)] transition-colors"
               >
                 + Add Profile
               </button>
@@ -164,10 +205,10 @@ export default function SMTPSettingsPage() {
 
             <div className="space-y-4">
               {formData.profiles.map((profile, idx) => (
-                <div key={profile.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
-                  <div className="flex-1 w-full flex flex-col md:flex-row gap-3">
+                <div key={profile.id} className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] transition-colors hover:border-neutral-700">
+                  <div className="flex-1 w-full flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
-                       <label className="text-xs text-[var(--fg-muted)] mb-1 block">From Name</label>
+                       <label className="text-xs text-[var(--fg-muted)] mb-1.5 block">From Name</label>
                        <input
                          type="text"
                          required
@@ -178,11 +219,11 @@ export default function SMTPSettingsPage() {
                            newProfiles[idx].name = e.target.value;
                            setFormData({ ...formData, profiles: newProfiles });
                          }}
-                         className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs focus:border-[var(--accent)] focus:outline-none transition-colors"
+                         className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
                        />
                     </div>
                     <div className="flex-1">
-                       <label className="text-xs text-[var(--fg-muted)] mb-1 block">From Email</label>
+                       <label className="text-xs text-[var(--fg-muted)] mb-1.5 block">From Email</label>
                        <input
                          type="email"
                          required
@@ -193,13 +234,13 @@ export default function SMTPSettingsPage() {
                            newProfiles[idx].email = e.target.value;
                            setFormData({ ...formData, profiles: newProfiles });
                          }}
-                         className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs focus:border-[var(--accent)] focus:outline-none transition-colors"
+                         className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
                        />
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-[var(--border)]">
-                    <label className="flex items-center text-xs font-medium mr-4 cursor-pointer">
+                  <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto mt-2 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-0 border-[var(--border)] lg:min-w-[150px]">
+                    <label className="flex items-center text-sm font-medium mr-6 cursor-pointer text-[var(--fg)]">
                       <input 
                          type="radio" 
                          name="defaultProfile" 
@@ -208,7 +249,7 @@ export default function SMTPSettingsPage() {
                            const newProfiles = formData.profiles.map((p, i) => ({ ...p, isDefault: i === idx }));
                            setFormData({ ...formData, profiles: newProfiles });
                          }}
-                         className="mr-1.5"
+                         className="mr-2 w-4 h-4 text-[var(--accent)] bg-[var(--bg)] border-[var(--border)] focus:ring-[var(--accent)]"
                       />
                       Default
                     </label>
@@ -221,7 +262,7 @@ export default function SMTPSettingsPage() {
                         if (profile.isDefault && newProfiles.length > 0) newProfiles[0].isDefault = true;
                         setFormData({ ...formData, profiles: newProfiles });
                       }}
-                      className="text-xs text-[var(--danger)] hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="text-sm font-medium text-[var(--danger)] hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
                     >
                       Remove
                     </button>
@@ -232,14 +273,28 @@ export default function SMTPSettingsPage() {
           </div>
         </div>
 
-        <div className="pt-4 flex justify-end">
+        <div className="pt-8 mt-4 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={handleTestConnection}
+            disabled={testing || saving || !formData.host || !formData.user || !formData.pass}
+            className="w-full sm:w-auto flex items-center justify-center rounded-md bg-[var(--bg)] border border-[var(--border)] text-[var(--fg)] px-6 py-2.5 text-sm font-medium hover:bg-[var(--border)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {testing ? (
+              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-[var(--fg)] border-t-transparent" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}{" "}
+            Test Connection
+          </button>
+          
           <button
             type="submit"
-            disabled={saving}
-            className="flex items-center rounded-md bg-[var(--accent)] text-[var(--bg)] px-6 py-2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            disabled={saving || testing}
+            className="w-full sm:w-auto flex items-center justify-center rounded-md bg-neutral-100 text-neutral-900 px-6 py-2.5 text-sm font-medium hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-[var(--bg)] border-t-transparent" />
+              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}{" "}

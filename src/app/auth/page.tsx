@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import {
   Shield, Eye, EyeOff, ArrowRight, Lock, Zap, Globe,
@@ -139,7 +139,7 @@ const LEFT = {
     bullets: [
       { icon: <Lock className="w-3.5 h-3.5" />, title: "AES-256-GCM", desc: "Industry-standard encryption" },
       { icon: <Zap className="w-3.5 h-3.5" />, title: "Zero-knowledge", desc: "We can't read your data. Ever." },
-      { icon: <Globe className="w-3.5 h-3.5" />, title: "Access from anywhere", desc: "Synced via Firebase" },
+      { icon: <Globe className="w-3.5 h-3.5" />, title: "Access from anywhere", desc: "Synced securely" },
     ],
   },
   signup: {
@@ -172,7 +172,7 @@ type Tab = "signin" | "signup";
 type View = "main" | "forgot" | "sent";
 
 export default function AuthPage() {
-  const { user, isAuthLoading, login, register, googleLogin, resetPassword, isAuthenticating, error } = useFirebaseAuth();
+  const { user, isAuthLoading, login, register, googleLogin, resetPassword, isAuthenticating, error } = useAuth();
   const { config } = useSiteConfig();
   const router = useRouter();
 

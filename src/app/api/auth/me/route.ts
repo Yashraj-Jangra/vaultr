@@ -4,7 +4,7 @@
  * Returns the current user's profile from user_profiles table,
  * including their role (admin/user) and other preferences.
  *
- * Called by useFirebaseAuth hook to check admin status.
+ * Called by useAuth hook to check admin status.
  */
 
 export const runtime = "nodejs";

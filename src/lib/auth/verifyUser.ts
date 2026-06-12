@@ -2,7 +2,6 @@
  * src/lib/auth/verifyUser.ts
  *
  * Server-side helper to verify a request comes from an authenticated user.
- * Replaces: src/lib/firebase/verifyUser.ts
  *
  * Better Auth uses HttpOnly cookies for sessions — no manual Bearer token needed
  * for browser-initiated requests. For server-to-server calls, the session cookie
@@ -13,7 +12,7 @@ import { NextRequest } from "next/server";
 import { auth } from "./auth";
 
 export interface UserPayload {
-  id: string;         // renamed from Firebase's `uid` to match Better Auth
+  id: string;         // Better Auth user ID
   email: string | null | undefined;
   name: string | null | undefined;
 }

@@ -19,7 +19,6 @@ import {
 import { sql } from "drizzle-orm";
 
 // ─── Vault Items ──────────────────────────────────────────────────────────────
-// Replaces: Firestore  users/{uid}/vaultItems/{id}
 // Each row holds one AES-256-GCM encrypted credential blob. The encrypted_blob
 // field is opaque to the server — only the client can decrypt it with the master key.
 
@@ -43,36 +42,8 @@ export const vaultItems = pgTable("vault_items", {
 export type VaultItem    = typeof vaultItems.$inferSelect;
 export type NewVaultItem = typeof vaultItems.$inferInsert;
 
-// ─── Device Sessions ──────────────────────────────────────────────────────────
-// Replaces: Firestore  users/{uid}/sessions/{sessionId}
-// Tracks active device sessions, OTP verification, and trust status.
-// Note: These are _vaultr device sessions, separate from Better Auth's own sessions.
-
-export const deviceSessions = pgTable("device_sessions", {
-  id:                uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId:         text("session_id").unique().notNull(),  // UUID from localStorage
-  userId:            text("user_id").notNull(),
-  deviceName:        text("device_name"),
-  deviceType:        text("device_type"),
-  browser:           text("browser"),
-  os:                text("os"),
-  ipAddress:         text("ip_address"),
-  location:          text("location"),
-  createdAt:         timestamp("created_at",       { withTimezone: true }).defaultNow(),
-  lastSeenAt:        timestamp("last_seen_at",      { withTimezone: true }).defaultNow(),
-  isTrusted:         boolean("is_trusted").default(false),
-  verificationToken: text("verification_token"),        // SHA-256 hash of OTP
-  otpAttempts:       integer("otp_attempts").default(0),
-  otpSendCount:      integer("otp_send_count").default(0),
-  otpWindowStart:    timestamp("otp_window_start",  { withTimezone: true }),
-  otpSentAt:         timestamp("otp_sent_at",        { withTimezone: true }),
-});
-
-export type DeviceSession    = typeof deviceSessions.$inferSelect;
-export type NewDeviceSession = typeof deviceSessions.$inferInsert;
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
-// Replaces: Firestore  users/{uid}/profile/personal  +  users/{uid}/profile/security
 // Extends Better Auth's own user record with app-specific fields.
 
 export const userProfiles = pgTable("user_profiles", {
@@ -95,7 +66,6 @@ export type UserProfile    = typeof userProfiles.$inferSelect;
 export type NewUserProfile = typeof userProfiles.$inferInsert;
 
 // ─── Config: Site Settings ────────────────────────────────────────────────────
-// Replaces: Firestore  config/site
 // Singleton row (id = 1 always). Stores site name, logo, etc.
 
 export const configSite = pgTable("config_site", {
@@ -104,7 +74,6 @@ export const configSite = pgTable("config_site", {
 });
 
 // ─── Config: Themes ───────────────────────────────────────────────────────────
-// Replaces: Firestore  config/themes/list/{id}
 
 export const configThemes = pgTable("config_themes", {
   id:        text("id").primaryKey(),
@@ -118,7 +87,6 @@ export type ConfigTheme    = typeof configThemes.$inferSelect;
 export type NewConfigTheme = typeof configThemes.$inferInsert;
 
 // ─── Config: Stats ────────────────────────────────────────────────────────────
-// Replaces: Firestore  config/stats
 // Singleton row (id = 1). Stores aggregate counters like total vault entries.
 
 export const configStats = pgTable("config_stats", {
@@ -127,7 +95,6 @@ export const configStats = pgTable("config_stats", {
 });
 
 // ─── Admin: SMTP Settings ─────────────────────────────────────────────────────
-// Replaces: Firestore  adminSettings/smtp
 // Singleton row (id = 1). Written only by admin, read server-side for email sending.
 
 export const adminSmtp = pgTable("admin_smtp", {
@@ -136,7 +103,6 @@ export const adminSmtp = pgTable("admin_smtp", {
 });
 
 // ─── Admin: Email Templates ───────────────────────────────────────────────────
-// Replaces: Firestore  adminSettings/emailTemplates
 // Singleton row (id = 1). Custom HTML per email type.
 
 export const adminEmailTemplates = pgTable("admin_email_templates", {
@@ -162,3 +128,109 @@ export const auditLogs = pgTable("audit_logs", {
 
 export type AuditLog    = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+
+// ─── Better Auth Tables ───────────────────────────────────────────────────────
+export const user = pgTable("user", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("emailVerified").notNull(),
+  image: text("image"),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull(),
+  role: text("role"),
+  banned: boolean("banned"),
+  banReason: text("banReason"),
+  banExpires: timestamp("banExpires"),
+  twoFactorEnabled: boolean("twoFactorEnabled")
+});
+
+export const session = pgTable("session", {
+  id: text("id").primaryKey(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull(),
+  ipAddress: text("ipAddress"),
+  userAgent: text("userAgent"),
+  userId: text("userId").notNull().references(() => user.id)
+});
+
+export const account = pgTable("account", {
+  id: text("id").primaryKey(),
+  accountId: text("accountId").notNull(),
+  providerId: text("providerId").notNull(),
+  userId: text("userId").notNull().references(() => user.id),
+  accessToken: text("accessToken"),
+  refreshToken: text("refreshToken"),
+  idToken: text("idToken"),
+  accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
+  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull()
+});
+
+export const verification = pgTable("verification", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt"),
+  updatedAt: timestamp("updatedAt")
+});
+
+export const twoFactor = pgTable("twoFactor", {
+  id: text("id").primaryKey(),
+  secret: text("secret").notNull(),
+  backupCodes: text("backupCodes").notNull(),
+  userId: text("userId").notNull().references(() => user.id)
+});
+
+// ─── Support System ───────────────────────────────────────────────────────────
+
+export const supportTickets = pgTable("support_tickets", {
+  id:         uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:     text("user_id").notNull(),
+  subject:    text("subject").notNull(),
+  status:     text("status").default("open"), // open, pending, resolved, closed
+  priority:   text("priority").default("normal"), // low, normal, high, urgent
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt:  timestamp("updated_at", { withTimezone: true }),
+});
+
+export type SupportTicket    = typeof supportTickets.$inferSelect;
+export type NewSupportTicket = typeof supportTickets.$inferInsert;
+
+export const ticketMessages = pgTable("ticket_messages", {
+  id:         uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId:   uuid("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+  senderId:   text("sender_id").notNull(), // userId of sender, or "SYSTEM"
+  message:    text("message").notNull(),
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type TicketMessage    = typeof ticketMessages.$inferSelect;
+export type NewTicketMessage = typeof ticketMessages.$inferInsert;
+
+// ─── Email Logs ───────────────────────────────────────────────────────────────
+
+export const emailLogs = pgTable("email_logs", {
+  id:         uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipient:  text("recipient").notNull(),
+  subject:    text("subject").notNull(),
+  status:     text("status").notNull(), // sent, failed
+  error:      text("error"),
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// ─── Config: System Operations ────────────────────────────────────────────────
+
+export const configSystem = pgTable("config_system", {
+  id:               integer("id").primaryKey().default(1),
+  pauseSignups:     boolean("pause_signups").default(false),
+  maintenanceMode:  boolean("maintenance_mode").default(false),
+  discordWebhook:   text("discord_webhook"),
+  backupCron:       text("backup_cron"), // e.g. "0 0 * * *"
+});

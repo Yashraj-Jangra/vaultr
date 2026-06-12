@@ -14,6 +14,7 @@
 
 import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
+import { sendDiscordWebhook } from "./webhook";
 
 // ─── Event catalogue ─────────────────────────────────────────────────────────
 
@@ -33,7 +34,8 @@ export type AuditEventKey =
   | "otp.sent"
   | "otp.rate_limited"
   | "email.sent"
-  | "email.failed";
+  | "email.failed"
+  | "email.broadcast";
 
 // ─── Entry shape ──────────────────────────────────────────────────────────────
 
@@ -42,7 +44,7 @@ export interface AuditLogEntry {
   ts: string;
   /** Event identifier */
   event: AuditEventKey;
-  /** Firebase UID of the subject user */
+  /** User ID of the subject user */
   uid: string;
   /** Session document ID (when relevant) */
   sessionId?: string;
@@ -99,6 +101,16 @@ export function auditLog(entry: AuditLogEntry): void {
         ts: entry.ts ?? new Date().toISOString(),
       }) + "\n";
     appendFileSync(todayPath(), line, "utf8");
+
+    // Async webhook dispatch for critical alerts
+    const criticalEvents: AuditEventKey[] = ["session.revoke_all", "session.revoked_other", "device.verify_locked", "email.broadcast"];
+    if (criticalEvents.includes(entry.event)) {
+      sendDiscordWebhook(
+        "Critical Audit Event", 
+        `**Event:** ${entry.event}\n**User ID:** ${entry.uid}\n**IP:** ${entry.ip || 'Unknown'}\n**Device:** ${entry.deviceName || 'Unknown'}`,
+        0xff0000
+      ).catch(e => console.error("Failed to dispatch audit webhook", e));
+    }
   } catch {
     // Never propagate — logging errors are silently dropped.
   }

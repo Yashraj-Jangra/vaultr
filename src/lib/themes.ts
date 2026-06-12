@@ -39,7 +39,7 @@ export const FONT_OPTIONS = [
   "Fira Code",
 ] as const;
 
-// Built-in themes — these are seeded into Firestore on first admin visit if absent
+// Built-in themes — these are seeded into PostgreSQL on first admin visit if absent
 export const BUILT_IN_THEMES: ThemeConfig[] = [
   {
     id: "dark",

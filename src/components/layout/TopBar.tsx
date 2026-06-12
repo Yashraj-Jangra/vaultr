@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon } from "lucide-react";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon, Shield } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -14,7 +14,7 @@ interface TopBarProps {
 
 export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
   const router = useRouter();
-  const { user, logout } = useFirebaseAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { isLocked, lock } = useVault();
   const { activeTheme, setMode } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,6 +81,15 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
               <p className="text-[11px] text-[var(--fg-muted)] truncate">{user?.email}</p>
             </div>
             <div className="p-1">
+              {isAdmin && (
+                <button
+                  onClick={() => { router.push("/admin"); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
+                >
+                  <Shield className="w-3.5 h-3.5" /> Admin Panel
+                </button>
+              )}
+
               <button
                 onClick={() => { router.push("/settings/account"); setMenuOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"

@@ -12,7 +12,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
-import { admin } from "better-auth/plugins";
+import { admin, twoFactor } from "better-auth/plugins";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -21,6 +21,14 @@ export const auth = betterAuth({
 
   plugins: [
     admin(),
+    twoFactor({
+      otpOptions: {
+        async sendOTP({ user, otp }) {
+          // This will be replaced with our actual email sending logic later
+          console.log(`[DEV] Send OTP to ${user.email}: ${otp}`);
+        }
+      }
+    }),
   ],
 
   // ── Email + Password ────────────────────────────────────────────────────────

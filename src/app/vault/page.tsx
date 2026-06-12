@@ -2,10 +2,9 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSessionManager } from "@/hooks/useSessionManager";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -771,31 +770,15 @@ function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, r
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function VaultPage() {
-  const { user, logout } = useFirebaseAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
 
-  // ── Device gate: hook MUST be called before any early return (Rules of Hooks)
-  const {
-    loading: sessionsLoading,
-    needsDeviceGate,
-    autoVerificationEmailSent,
-    sendVerificationEmail,
-    verifyOtp,
-    otpError,
-    sendingCode: gateSendingCode,
-    verifying: gateVerifying,
-    clearOtpState: clearGateOtpState,
-  } = useSessionManager(user?.uid ?? null);
 
-  const [gateOtp, setGateOtp] = useState("");
-  const [manualCodeSent, setManualCodeSent] = useState(false);
-  const [gateShakeKey, setGateShakeKey] = useState(0);
-
-  const gateSent = autoVerificationEmailSent || manualCodeSent;
 
   // ── Pull everything from the shared VaultContext ──────────────────────────
   const {
     cryptoKey,
+    isLoading,
     items,
     unlock: ctxUnlock,
     encryptData,
@@ -1058,23 +1041,6 @@ export default function VaultPage() {
     });
   };
 
-  // ── Device gate handlers
-  const handleGateSendCode = async () => {
-    const result = await sendVerificationEmail();
-    if (result.ok) {
-      setManualCodeSent(true);
-      clearGateOtpState();
-      setGateOtp("");
-    }
-  };
-
-  const handleGateVerify = async () => {
-    if (gateOtp.length !== 6) return;
-    const result = await verifyOtp(gateOtp);
-    if (!result.ok) setGateShakeKey((k) => k + 1);
-    // On success: Firestore onSnapshot sets isTrusted → true
-    // → isVerified → true → needsDeviceGate → false → gate unmounts automatically
-  };
 
   // ── Not logged in
   if (!user) return (
@@ -1083,143 +1049,10 @@ export default function VaultPage() {
     </div>
   );
 
-  // ── Sessions / prefs still loading — show minimal dark screen to prevent flash
-  if (sessionsLoading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg)]">
-      <div className="w-10 h-10 rounded-xl border border-[var(--border)] bg-[#0d0d0d] flex items-center justify-center">
-        <Lock className="w-4 h-4 text-neutral-700" />
-      </div>
-    </div>
-  );
-
-  // ── Device verification gate
-  // Only shown when requireVerificationOnNew = true (OFF by default) AND device is not yet trusted.
-  // When OFF: zero UI, zero banners — the user goes straight to their master password.
-  if (needsDeviceGate) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg)] text-[var(--fg)] overflow-hidden">
-
-      {/* Grid pattern */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{
-        backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
-        backgroundSize: "40px 40px",
-      }} />
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,255,255,0.015) 0%, transparent 70%)" }} />
-
-      {/* Left illustration */}
-      <div className="absolute top-1/2 -translate-y-1/2 -left-16 hidden md:block w-[400px] h-[400px] pointer-events-none select-none opacity-[0.04]">
-        <Image src={randomSvgs[0]} alt="" width={400} height={400} className="object-contain" priority />
-      </div>
-      {/* Bottom-right illustration */}
-      <div className="absolute -bottom-16 -right-16 hidden md:block w-[450px] h-[450px] pointer-events-none select-none opacity-[0.04]">
-        <Image src={randomSvgs[1]} alt="" width={450} height={450} className="object-contain" priority />
-      </div>
-      {/* Mobile fallback */}
-      <div className="absolute bottom-10 right-0 w-48 h-48 pointer-events-none select-none md:hidden opacity-[0.03]">
-        <Image src={randomSvgs[0]} alt="" width={192} height={192} className="object-contain" />
-      </div>
-
-      {/* Center card */}
-      <div className="w-full max-w-[340px] relative z-10">
-
-        {/* Header */}
-        <div className="flex flex-col items-center gap-5 animate-auth-panel-in">
-          {/* Shield halo */}
-          <div className="relative flex items-center justify-center mb-2">
-            <div
-              className="absolute w-24 h-24 rounded-full opacity-20 animate-pulse-ring"
-              style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
-            />
-            <div className="w-16 h-16 rounded-2xl border border-[var(--border)] bg-[#0d0d0d] flex items-center justify-center relative z-10">
-              <ShieldCheck className="w-6 h-6 text-neutral-500" />
-            </div>
-          </div>
-
-          <div className="text-center space-y-1.5 mb-2">
-            <div className="flex items-center justify-center gap-1.5 opacity-40">
-              <ShieldCheck className="w-3 h-3" />
-              <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">Device Verification</span>
-            </div>
-            <h1 className="text-[18px] font-semibold text-neutral-100 tracking-tight">
-              Verify this device
-            </h1>
-            <p className="text-[12px] text-neutral-500">
-              Your account requires device verification before you can access your vault.
-            </p>
-          </div>
-        </div>
-
-        {/* Form */}
-        <div key={gateShakeKey} className={`space-y-3 mt-6 ${gateShakeKey > 0 && otpError ? "animate-shake" : ""}`}>
-
-          {/* Auto-sent info badge */}
-          {gateSent && autoVerificationEmailSent && (
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-blue-900/40 bg-blue-950/20 animate-auth-form-in">
-              <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <p className="text-[12px] text-blue-400">A verification code was sent to your email.</p>
-            </div>
-          )}
-
-          {/* Error */}
-          {otpError && (
-            <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border border-red-900/40 bg-red-950/25 animate-auth-form-in">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1" />
-              <p className="text-[12px] text-red-400">{otpError}</p>
-            </div>
-          )}
-
-          {/* Step 1: request code */}
-          {!gateSent ? (
-            <button
-              onClick={handleGateSendCode}
-              disabled={gateSendingCode}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_4px_16px_rgba(255,255,255,0.05)]"
-            >
-              {gateSendingCode
-                ? <span className="w-4 h-4 border-2 border-neutral-600 border-t-neutral-900 rounded-full animate-spin" />
-                : <><Mail className="w-3.5 h-3.5" /> Send verification code</>}
-            </button>
-          ) : (
-            /* Step 2: enter code */
-            <div className="space-y-3">
-              <p className="text-[12px] text-neutral-500 text-center">Enter the 6-digit code sent to your email:</p>
-
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={gateOtp}
-                onChange={(e) => {
-                  clearGateOtpState();
-                  setGateOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
-                }}
-                onKeyDown={(e) => e.key === "Enter" && handleGateVerify()}
-                placeholder="000000"
-                autoFocus
-                className="w-full bg-[#0d0d0d] border border-[var(--border)] rounded-xl px-4 py-3 text-[18px] text-neutral-200 font-mono text-center tracking-[0.4em] placeholder-neutral-800 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-white/5 transition-all duration-200 shadow-[0_4px_24px_rgba(0,0,0,0.2)]"
-              />
-
-              <button
-                onClick={handleGateVerify}
-                disabled={gateVerifying || gateOtp.length !== 6}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 shadow-[0_4px_16px_rgba(255,255,255,0.05)]"
-              >
-                {gateVerifying
-                  ? <span className="w-4 h-4 border-2 border-neutral-600 border-t-neutral-900 rounded-full animate-spin" />
-                  : <><ShieldCheck className="w-3.5 h-3.5" /> Verify device</>}
-              </button>
-
-              <button
-                onClick={handleGateSendCode}
-                disabled={gateSendingCode}
-                className="w-full text-center text-[12px] text-neutral-700 hover:text-neutral-500 transition-colors py-1"
-              >
-                {gateSendingCode ? "Sending…" : "Resend code"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+  // ── Loading state while restoring session or fetching items
+  if (isLoading) return (
+    <div className="flex items-center justify-center min-h-[70vh]">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
     </div>
   );
 

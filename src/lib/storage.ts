@@ -2,7 +2,7 @@
  * src/lib/storage.ts
  *
  * MinIO S3-compatible file storage client.
- * Replaces: Firebase Storage
+ * Replaces: Local Storage
  *
  * This file is SERVER-ONLY. Never import in client components.
  *

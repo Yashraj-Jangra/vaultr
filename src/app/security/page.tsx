@@ -8,7 +8,7 @@ const SPEC = [
   { label: "Encryption algorithm",  value: "AES-256-GCM",                  color: "text-emerald-400" },
   { label: "Key derivation",        value: "PBKDF2-SHA-256",               color: "text-blue-400" },
   { label: "PBKDF2 iterations",     value: "100,000",                       color: "text-neutral-300" },
-  { label: "Salt",                  value: "Firebase UID (user-unique)",    color: "text-neutral-400" },
+  { label: "Salt",                  value: "User ID (user-unique)",    color: "text-neutral-400" },
   { label: "IV / nonce",            value: "12 bytes, crypto.getRandomValues()", color: "text-neutral-400" },
   { label: "Authentication tag",    value: "128 bits (GCM standard)",       color: "text-emerald-400" },
   { label: "Key length",            value: "256 bits",                      color: "text-blue-400" },
@@ -28,7 +28,7 @@ const SECTIONS = [
 const STEPS = [
   {
     n: "1", title: "Key derivation",
-    desc: "Your master password is combined with your Firebase UID (acting as a unique salt) and passed through PBKDF2-SHA-256 with 100,000 iterations. The result is a 256-bit AES-GCM key.",
+    desc: "Your master password is combined with your User ID (acting as a unique salt) and passed through PBKDF2-SHA-256 with 100,000 iterations. The result is a 256-bit AES-GCM key.",
     illustration: "/illustrations/fingerprint_kdwq.svg",
   },
   {
@@ -38,7 +38,7 @@ const STEPS = [
   },
   {
     n: "3", title: "Storage",
-    desc: "Only the base64-encoded ciphertext blob is sent to Firestore. The plaintext credentials and the derived key never leave your browser tab.",
+    desc: "Only the base64-encoded ciphertext blob is sent to the server. The plaintext credentials and the derived key never leave your browser tab.",
     illustration: "/illustrations/secure-server_lz9x.svg",
   },
   {
@@ -168,7 +168,7 @@ export default function SecurityPage() {
               <div className="mt-4 p-5 rounded-xl border border-[var(--border)] bg-neutral-950 flex items-start gap-4">
                 <Image src="/illustrations/secure-server_lz9x.svg" alt="" width={64} height={64} className="object-contain shrink-0" style={{ opacity: 0.55 }} />
                 <p className="text-[14px] text-neutral-500 leading-relaxed">
-                  All ciphertext is stored in Google Cloud Firestore. The encryption key is derived fresh in your browser each time you unlock. No key material is ever persisted — not in our database, not in cookies, not in localStorage.
+                  All ciphertext is stored in a self-hosted PostgreSQL database. The encryption key is derived fresh in your browser each time you unlock. No key material is ever persisted — not in our database, not in cookies, not in localStorage.
                 </p>
               </div>
             </section>

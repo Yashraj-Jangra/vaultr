@@ -6,7 +6,7 @@
  * Each template has: subject, bodyHtml, bodyText, fromProfileId.
  * Variables are replaced with {{VAR_NAME}} syntax.
  *
- * Replaces: Firebase Firestore adminSettings/emailTemplates doc
+ * Replaces: Local Database adminSettings/emailTemplates doc
  */
 
 import nodemailer, { Transporter } from "nodemailer";
@@ -28,6 +28,7 @@ export interface SmtpConfig {
   port: string | number;
   user: string;
   pass: string;
+  supportEmail?: string;
   profiles: SmtpProfile[];
 }
 
@@ -43,7 +44,9 @@ export type TemplateKey =
   | "new_device_alert"
   | "welcome"
   | "password_changed"
-  | "account_deleted";
+  | "account_deleted"
+  | "support_reply"
+  | "new_ticket_alert";
 
 // ─── Default templates ────────────────────────────────────────────────────────
 
@@ -157,6 +160,37 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, EmailTemplate> = {
         Thank you for using Vaultr. If you deleted your account by mistake or have questions, please reach out to support.
       </p>`),
     bodyText: "Your Vaultr account has been permanently deleted. All vault data is gone. This cannot be undone.",
+  },
+
+  support_reply: {
+    subject: "Re: {{TICKET_SUBJECT}}",
+    bodyHtml: WRAPPER(`
+      <h2 style="margin:0 0 8px;font-size:20px;color:#f5f5f5;font-weight:700;">Support Reply</h2>
+      <p style="color:#a3a3a3;font-size:14px;margin:0 0 16px;line-height:1.6;">
+        You have received a new reply on your support ticket: <strong style="color:#d4d4d4;">{{TICKET_SUBJECT}}</strong>
+      </p>
+      <div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+        <p style="margin:0;font-size:14px;color:#d4d4d4;line-height:1.6;white-space:pre-wrap;">{{MESSAGE}}</p>
+      </div>
+      <a href="{{APP_URL}}/settings/support" style="display:inline-block;padding:11px 22px;background:#6366f1;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">View Ticket</a>`),
+    bodyText: "You have received a reply on your ticket: {{TICKET_SUBJECT}}\n\n{{MESSAGE}}\n\nView Ticket: {{APP_URL}}/settings/support",
+  },
+
+  new_ticket_alert: {
+    subject: "New Support Ticket: {{TICKET_SUBJECT}}",
+    bodyHtml: WRAPPER(`
+      <h2 style="margin:0 0 8px;font-size:20px;color:#f5f5f5;font-weight:700;">New Support Ticket Created</h2>
+      <p style="color:#a3a3a3;font-size:14px;margin:0 0 16px;line-height:1.6;">
+        A new support ticket has been submitted by <strong style="color:#d4d4d4;">{{USER_EMAIL}}</strong>.
+      </p>
+      <div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:5px 0;font-size:13px;color:#737373;width:100px;">Priority</td><td style="font-size:13px;color:#d4d4d4;font-weight:500;">{{PRIORITY}}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#737373;">Subject</td><td style="font-size:13px;color:#d4d4d4;font-weight:500;">{{TICKET_SUBJECT}}</td></tr>
+        </table>
+      </div>
+      <a href="{{APP_URL}}/admin/support" style="display:inline-block;padding:11px 22px;background:#dc2626;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">View Inbox</a>`),
+    bodyText: "New support ticket from {{USER_EMAIL}}.\nPriority: {{PRIORITY}}\nSubject: {{TICKET_SUBJECT}}\n\nView Inbox: {{APP_URL}}/admin/support",
   },
 };
 

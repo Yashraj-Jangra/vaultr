@@ -22,23 +22,23 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    // Build update payload — map camelCase → snake_case for DB
-    const updatePayload: Record<string, unknown> = {};
-    if (body.name          !== undefined) updatePayload.name           = body.name;
-    if (body.encryptedBlob !== undefined) updatePayload.encrypted_blob = body.encryptedBlob;
-    if (body.domain        !== undefined) updatePayload.domain         = body.domain;
-    if (body.folder        !== undefined) updatePayload.folder         = body.folder;
-    if (body.template      !== undefined) updatePayload.template       = body.template;
-    if (body.favorite      !== undefined) updatePayload.favorite       = body.favorite;
-    if (body.hasTotp       !== undefined) updatePayload.has_totp       = body.hasTotp;
-    if (body.tags          !== undefined) updatePayload.tags           = body.tags;
-    if ("deletedAt" in body)              updatePayload.deleted_at     = body.deletedAt ? new Date(body.deletedAt) : null;
-    if (body.updatedAt     !== undefined) updatePayload.updated_at     = new Date(body.updatedAt);
-    else                                  updatePayload.updated_at     = new Date();
+    // Build update payload using camelCase (Drizzle maps to snake_case automatically)
+    const updatePayload: Partial<typeof vaultItems.$inferInsert> = {};
+    if (body.name          !== undefined) updatePayload.name          = body.name;
+    if (body.encryptedBlob !== undefined) updatePayload.encryptedBlob = body.encryptedBlob;
+    if (body.domain        !== undefined) updatePayload.domain        = body.domain;
+    if (body.folder        !== undefined) updatePayload.folder        = body.folder;
+    if (body.template      !== undefined) updatePayload.template      = body.template;
+    if (body.favorite      !== undefined) updatePayload.favorite      = body.favorite;
+    if (body.hasTotp       !== undefined) updatePayload.hasTotp       = body.hasTotp;
+    if (body.tags          !== undefined) updatePayload.tags          = body.tags;
+    if ("deletedAt" in body)              updatePayload.deletedAt     = body.deletedAt ? new Date(body.deletedAt) : null;
+    if (body.updatedAt     !== undefined) updatePayload.updatedAt     = new Date(body.updatedAt);
+    else                                  updatePayload.updatedAt     = new Date();
 
     const [item] = await db
       .update(vaultItems)
-      .set(updatePayload as Parameters<typeof db.update>[0] extends unknown ? never : never)
+      .set(updatePayload)
       .where(and(eq(vaultItems.id, id), eq(vaultItems.userId, user.id)))
       .returning();
 

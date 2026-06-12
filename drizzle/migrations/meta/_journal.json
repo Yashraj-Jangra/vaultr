@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781263904130,
+      "tag": "0000_majestic_lockheed",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781264596001,
+      "tag": "0001_exotic_inhumans",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781265272380,
+      "tag": "0002_special_kinsey_walden",
+      "breakpoints": true
+    }
+  ]
+}

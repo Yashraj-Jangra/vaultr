@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import {
@@ -43,7 +43,7 @@ const VAULT_ITEMS = [
 ];
 
 export default function LandingPage() {
-  const { user, isAuthLoading } = useFirebaseAuth();
+  const { user, isAuthLoading } = useAuth();
   const { config } = useSiteConfig();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);

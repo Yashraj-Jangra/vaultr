@@ -40,7 +40,7 @@ export const encrypt = async (key: CryptoKey, plaintext: string): Promise<string
   payload.set(iv, 0);
   payload.set(ciphertext, iv.length);
 
-  // Convert to Base64 for Firestore storage
+  // Convert to Base64 for database storage
   const binary = Array.from(payload).map((b) => String.fromCharCode(b)).join('');
   return btoa(binary);
 };
@@ -72,9 +72,9 @@ export const useCrypto = () => {
  * Re-encrypts a list of encrypted blobs from an old key to a new key.
  * Used by the "Change Master Password" flow in /settings/security.
  *
- * Returns an array of { id, encryptedBlob } ready to batch-write to Firestore.
+ * Returns an array of { id, encryptedBlob } ready to batch-write to the database.
  * Each item is processed independently — a failure in one does NOT roll back others
- * (the caller should use a Firestore batch write for atomicity after this resolves).
+ * (the caller should use a database transaction for atomicity after this resolves).
  */
 export async function reEncryptBlobs(
   items: Array<{ id: string; encryptedBlob: string }>,

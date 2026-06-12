@@ -5,6 +5,7 @@ import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
+import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function PATCH(
@@ -57,6 +58,11 @@ export async function PATCH(
             set: { role: "user" },
           });
         return NextResponse.json({ success: true, message: "User demoted from admin" });
+
+      case "revoke_sessions":
+        // Delete all sessions for the user in the database directly
+        await db.delete(schema.session).where(eq(schema.session.userId, uid));
+        return NextResponse.json({ success: true, message: "All active sessions revoked" });
 
       case "delete":
         // Better Auth admin delete — removes user + all their sessions

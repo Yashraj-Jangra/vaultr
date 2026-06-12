@@ -2,10 +2,9 @@
  * src/lib/auth/verifyAdmin.ts
  *
  * Server-side helper to verify a request comes from an admin user.
- * Replaces: src/lib/firebase/verifyAdmin.ts
  *
  * Admin status is stored in user_profiles.role = 'admin' (our own table),
- * not in a JWT claim like Firebase custom claims.
+ * not in a JWT claim like JWT custom claims.
  */
 
 import { NextRequest } from "next/server";

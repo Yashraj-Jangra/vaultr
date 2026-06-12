@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useVault } from "@/context/VaultContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const TYPE_ITEMS = [
   { filter: "type=login",   label: "Logins",   icon: <Lock    className="w-3.5 h-3.5" />, template: "login"   },
@@ -32,6 +33,7 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const { config }   = useSiteConfig();
   const { folders, items, setIsNewEntryOpen } = useVault();
+  const { isImpersonating, stopImpersonating } = useAuth();
   const [collapsed, setCollapsed]       = useState(false);
   const [foldersOpen, setFoldersOpen]   = useState(true);
   const [typesOpen, setTypesOpen]       = useState(true);
@@ -319,6 +321,17 @@ export function Sidebar() {
             <Settings className="w-4 h-4 shrink-0" />
             {!collapsed && "Settings"}
           </Link>
+
+          {isImpersonating && (
+            <button
+              onClick={() => stopImpersonating()}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 transition-colors cursor-pointer"
+              title="Stop Impersonating"
+            >
+              <User className="w-4 h-4 shrink-0" />
+              {!collapsed && "Stop Impersonating"}
+            </button>
+          )}
 
           <button
             onClick={() => setCollapsed(v => !v)}

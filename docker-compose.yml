@@ -42,7 +42,7 @@ services:
       # Named volume — just copy this directory to back up all stored files
       - miniodata:/data
     ports:
-      - "127.0.0.1:9000:9000"   # S3-compatible API
+      - "127.0.0.1:9005:9000"   # S3-compatible API
       - "127.0.0.1:9001:9001"   # MinIO web console (http://localhost:9001)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]

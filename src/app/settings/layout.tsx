@@ -3,21 +3,22 @@
 import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { VaultProvider } from "@/context/VaultContext";
-import { User, Shield, Database } from "lucide-react";
+import { User, Shield, Database, LifeBuoy } from "lucide-react";
 
 const SETTINGS_NAV = [
   { href: "/settings/account",  label: "Account",  icon: User },
   { href: "/settings/security", label: "Security", icon: Shield },
   { href: "/settings/data",     label: "Data",     icon: Database },
+  { href: "/settings/support",  label: "Support",  icon: LifeBuoy },
 ] as const;
 
 function SettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, isAuthLoading } = useFirebaseAuth();
+  const { user, isAuthLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -90,7 +91,7 @@ function SettingsShell({ children }: { children: React.ReactNode }) {
               })}
             </div>
 
-            <div className="max-w-2xl mx-auto px-6 py-8">
+            <div className="w-full max-w-6xl mx-auto px-6 py-10 lg:px-12 lg:py-12">
               {children}
             </div>
           </main>

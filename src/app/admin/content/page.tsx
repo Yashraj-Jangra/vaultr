@@ -4,7 +4,7 @@ import { FileText } from "lucide-react";
 
 export default function ContentAdminPage() {
   return (
-    <div className="p-8 pb-20 max-w-4xl">
+    <div className="p-8 pb-20">
       <div className="mb-8">
         <h2 className="text-2xl font-bold tracking-tight">Content Management</h2>
         <p className="text-sm text-[var(--fg-muted)] mt-1">Manage static text, legal docs, and onboarding tooltips.</p>

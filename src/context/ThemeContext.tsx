@@ -13,7 +13,7 @@ import {
   BUILT_IN_THEMES,
   applyTheme,
 } from "@/lib/themes";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 export type AppMode = "dark" | "light" | "system";
 
@@ -62,7 +62,7 @@ function resolveMode(mode: AppMode): "dark" | "light" {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useFirebaseAuth();
+  const { user } = useAuth();
   const [allThemes,    setAllThemes]  = useState<ThemeConfig[]>(BUILT_IN_THEMES);
   const [loading,      setLoading]    = useState(true);
   const [mode,         setModeState]  = useState<AppMode>("dark");
@@ -103,16 +103,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }, 0);
   }, [keys]);
 
-  // ── Fetch themes from REST API (replaces Firestore onSnapshot)
+  // ── Fetch themes from REST API
   useEffect(() => {
     fetch("/api/config/themes", { credentials: "include" })
       .then((r) => r.json())
       .then((data: { themes?: ThemeConfig[] }) => {
-        const firestoreThemes: ThemeConfig[] = data.themes ?? [];
-        const firestoreIds = new Set(firestoreThemes.map((t) => t.id));
-        const merged = [
-          ...BUILT_IN_THEMES.filter((t) => !firestoreIds.has(t.id)),
-          ...firestoreThemes,
+        const dbThemes: ThemeConfig[] = data.themes ?? [];
+        const dbIds = new Set(dbThemes.map((t) => t.id));
+        const merged: ThemeConfig[] = [
+          ...BUILT_IN_THEMES.filter((t) => !dbIds.has(t.id)),
+          ...dbThemes,
         ].sort((a, b) => {
           if (a.builtIn && !b.builtIn) return -1;
           if (!a.builtIn && b.builtIn) return 1;

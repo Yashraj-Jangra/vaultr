@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
     // Better Auth admin API — list all users from auth tables
     const { users, total } = await auth.api.listUsers({
+      headers: req.headers,
       query: { limit, offset },
     });
 

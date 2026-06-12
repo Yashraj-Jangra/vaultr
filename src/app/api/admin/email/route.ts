@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       text:    message,
     });
 
-    // Log to audit file (replaces Firestore admin/emailLog collection)
+    // Log to audit file
     auditLog({
       ts:    new Date().toISOString(),
       event: "email.sent",

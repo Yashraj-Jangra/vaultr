@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 /**
  * /api/vault/stream
  *
- * Server-Sent Events endpoint — replaces Firestore onSnapshot.
+ * Server-Sent Events endpoint for real-time vault updates.
  * Clients connect once on mount and receive push notifications when their
  * vault data changes. On receiving a 'vault_changed' event, the client
  * re-fetches from /api/vault/items.

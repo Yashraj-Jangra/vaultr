@@ -1,4 +1,4 @@
-// Site configuration stored in Firestore under config/site
+// Site configuration stored in PostgreSQL under config_site
 // Admin can update these values from the admin panel
 
 export interface SiteConfig {
