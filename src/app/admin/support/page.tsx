@@ -70,6 +70,14 @@ export default function AdminSupportPage() {
     }
   };
 
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const interval = setInterval(() => {
+      fetchMessages(selectedTicket.id);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [selectedTicket]);
+
   const handleOpenTicket = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setMessages([]);
