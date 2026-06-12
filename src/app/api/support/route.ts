@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
           to: conn.smtp.supportEmail,
           vars: {
             USER_EMAIL: user.email || user.id,
-            PRIORITY: newTicket.priority,
+            PRIORITY: newTicket.priority || "normal",
             TICKET_SUBJECT: newTicket.subject,
             APP_URL: appUrl,
           }

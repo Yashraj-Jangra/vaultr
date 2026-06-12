@@ -80,7 +80,7 @@ export async function POST(
           to: conn.smtp.supportEmail,
           vars: {
             USER_EMAIL: user.email || user.id,
-            PRIORITY: ticket[0].priority,
+            PRIORITY: ticket[0].priority || "normal",
             TICKET_SUBJECT: ticket[0].subject,
             APP_URL: appUrl,
           }
