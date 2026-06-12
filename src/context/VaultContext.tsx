@@ -8,8 +8,6 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { collection, onSnapshot, query, addDoc, deleteDoc, doc, setDoc, increment, deleteField } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { useCrypto, deriveKey } from "@/hooks/useCrypto";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import {
@@ -40,7 +38,6 @@ export interface VaultItem {
 }
 
 export interface VaultContextValue {
-  // State
   items: VaultItem[];
   cryptoKey: CryptoKey | null;
   isLocked: boolean;
@@ -49,7 +46,6 @@ export interface VaultContextValue {
   searchQuery: string;
   /** Auto-lock timeout in minutes. 0 = disabled. Default: 15. */
   autoLockMinutes: number;
-  // Actions
   unlock: (masterPassword: string) => Promise<string | void>;
   lock: () => void;
   setAutoLockMinutes: (minutes: number) => void;
@@ -62,21 +58,45 @@ export interface VaultContextValue {
   decryptItem: (blob: string) => Promise<string>;
   encryptData: (data: string) => Promise<string>;
   setSearchQuery: (q: string) => void;
-  // UI State
   isNewEntryOpen: boolean;
   setIsNewEntryOpen: (val: boolean) => void;
-  // Derived
   folders: string[];
   filteredItems: VaultItem[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Default auto-lock: 15 minutes of inactivity */
 const DEFAULT_AUTO_LOCK_MINUTES = 15;
-
-/** localStorage key for per-user auto-lock preference */
 const AUTO_LOCK_PREF_KEY = "vaultr_autolock_min";
+
+// ─── DB row → VaultItem normalizer ────────────────────────────────────────────
+// Postgres returns snake_case; our interface uses camelCase
+
+function rowToItem(row: Record<string, unknown>): VaultItem {
+  return {
+    id:             row.id as string,
+    name:           row.name as string,
+    encryptedBlob:  (row.encrypted_blob ?? row.encryptedBlob) as string,
+    domain:         (row.domain ?? undefined) as string | undefined,
+    folder:         (row.folder ?? undefined) as string | undefined,
+    template:       (row.template ?? "login") as Template,
+    createdAt:      row.created_at ? new Date(row.created_at as string).toISOString() : undefined,
+    updatedAt:      row.updated_at ? new Date(row.updated_at as string).toISOString() : undefined,
+    lastAccessedAt: row.last_accessed_at ? new Date(row.last_accessed_at as string).toISOString() : undefined,
+    favorite:       (row.favorite ?? false) as boolean,
+    hasTotp:        (row.has_totp ?? false) as boolean,
+    tags:           (row.tags ?? []) as string[],
+    deletedAt:      row.deleted_at ? new Date(row.deleted_at as string).toISOString() : null,
+  };
+}
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+
+async function apiFetch(path: string, init?: RequestInit) {
+  const res = await fetch(path, { credentials: "include", ...init });
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  return res.json();
+}
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -86,243 +106,237 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const { user } = useFirebaseAuth();
   const { encrypt, decrypt } = useCrypto();
 
-  const [items,       setItems]       = useState<VaultItem[]>([]);
-  const [cryptoKey,   setCryptoKey]   = useState<CryptoKey | null>(null);
-  const [isLoading,   setIsLoading]   = useState(true);
-  const [unlockError, setUnlockError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [items,          setItems]          = useState<VaultItem[]>([]);
+  const [cryptoKey,      setCryptoKey]      = useState<CryptoKey | null>(null);
+  const [isLoading,      setIsLoading]      = useState(true);
+  const [unlockError,    setUnlockError]    = useState("");
+  const [searchQuery,    setSearchQuery]    = useState("");
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
   const [autoLockMinutes, setAutoLockMinutesState] = useState(DEFAULT_AUTO_LOCK_MINUTES);
 
-  // Tracks whether we've already attempted to restore the session on mount
   const sessionRestored = useRef(false);
+  const sseRef = useRef<EventSource | null>(null);
 
   // ── Load auto-lock preference from localStorage (per-user)
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     try {
-      const stored = localStorage.getItem(`${AUTO_LOCK_PREF_KEY}_${user.uid}`);
-      if (stored !== null) {
-        setAutoLockMinutesState(Number(stored));
-      }
-    } catch {
-      // ignore
-    }
-  }, [user?.uid]);
+      const stored = localStorage.getItem(`${AUTO_LOCK_PREF_KEY}_${user.id}`);
+      if (stored !== null) setAutoLockMinutesState(Number(stored));
+    } catch { /* ignore */ }
+  }, [user?.id]);
 
   const setAutoLockMinutes = useCallback((minutes: number) => {
     setAutoLockMinutesState(minutes);
-    if (user?.uid) {
-      try {
-        localStorage.setItem(`${AUTO_LOCK_PREF_KEY}_${user.uid}`, String(minutes));
-      } catch {
-        // ignore
-      }
+    if (user?.id) {
+      try { localStorage.setItem(`${AUTO_LOCK_PREF_KEY}_${user.id}`, String(minutes)); }
+      catch { /* ignore */ }
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
-  // ── Subscribe to Firestore vault items
-  const hasUser = Boolean(user?.uid);
-
-  useEffect(() => {
-    if (!hasUser) return;
-    const q = query(collection(db, "users", user!.uid, "vaultItems"));
-    const unsub = onSnapshot(q, (snap) => {
-      const list: VaultItem[] = [];
-      const now = Date.now();
-      
-      snap.forEach((d) => {
-        const data = d.data() as VaultItem;
-        // Passive trash sweep: hard delete if deletedAt > 30 days
-        if (data.deletedAt) {
-          const deletedTime = new Date(data.deletedAt).getTime();
-          const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-          if (now - deletedTime > thirtyDaysMs) {
-            // Delete passively, won't await to avoid UI blocking
-            deleteDoc(doc(db, "users", user!.uid, "vaultItems", d.id));
-            setDoc(doc(db, "config", "stats"), { totalEntries: increment(-1) }, { merge: true }).catch(()=>{});
-            return; // Skip adding to state
+  // ── Fetch vault items from REST API
+  const fetchItems = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const data = await apiFetch("/api/vault/items");
+      const list: VaultItem[] = (data.items ?? [])
+        .map(rowToItem)
+        .filter((item: VaultItem) => {
+          // Passive trash sweep: hard delete if deletedAt > 30 days
+          if (item.deletedAt) {
+            const deletedTime = new Date(item.deletedAt).getTime();
+            if (Date.now() - deletedTime > 30 * 24 * 60 * 60 * 1000) {
+              // Fire and forget — hard delete passively
+              fetch(`/api/vault/items/${item.id}`, { method: "DELETE", credentials: "include" }).catch(() => {});
+              return false;
+            }
           }
-        }
-        list.push({ ...data, id: d.id });
-      });
-      
-      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          return true;
+        })
+        .sort((a: VaultItem, b: VaultItem) =>
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
       setItems(list);
+    } catch (err) {
+      console.error("[VaultContext] fetchItems error", err);
+    } finally {
       setIsLoading(false);
-    });
-    return () => unsub();
-  }, [hasUser, user]);
+    }
+  }, [user?.id]);
 
-  // If no user, loading is false
-  const effectiveIsLoading = hasUser ? isLoading : false;
-
-  // ── Session restore: on mount (or when user becomes available),
-  //    check sessionStorage and silently re-derive key if session is still valid
+  // ── Subscribe to SSE for real-time updates (replaces Firestore onSnapshot)
   useEffect(() => {
-    if (!user?.uid || sessionRestored.current) return;
-    sessionRestored.current = true;
-
-    const session = loadVaultSession(user.uid, autoLockMinutes);
-    if (!session) return;
-
-    // Silently re-derive the key
-    (async () => {
-      try {
-        const key = await deriveKey(session.masterPassword, user.uid);
-        setCryptoKey(key);
-      } catch {
-        // Session data corrupted — clear it
-        clearVaultSession(user.uid!);
-      }
-    })();
-    // We intentionally do NOT include autoLockMinutes here — it would re-run
-    // needlessly. The session is only restored once per mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid]);
-
-  // ── Auto-lock idle timer
-  const lockTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const warnTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearTimers = useCallback(() => {
-    if (lockTimerRef.current)  clearTimeout(lockTimerRef.current);
-    if (warnTimerRef.current)  clearTimeout(warnTimerRef.current);
-  }, []);
-
-  const resetIdleTimer = useCallback(() => {
-    if (!cryptoKey || !user?.uid) return;
-    if (autoLockMinutes === 0) return;
-
-    clearTimers();
-
-    // Refresh the session timestamp so a restore after idle doesn't succeed
-    refreshVaultSession(user.uid);
-
-    const lockMs = autoLockMinutes * 60 * 1000;
-    lockTimerRef.current = setTimeout(() => {
-      setCryptoKey(null);
-      if (user?.uid) clearVaultSession(user.uid);
-    }, lockMs);
-  }, [cryptoKey, user?.uid, autoLockMinutes, clearTimers]);
-
-  // Start/reset the idle timer whenever the vault is unlocked or the timeout changes
-  useEffect(() => {
-    if (!cryptoKey || autoLockMinutes === 0) {
-      clearTimers();
+    if (!user?.id) {
+      setIsLoading(false);
       return;
     }
 
-    resetIdleTimer();
+    // Initial fetch
+    fetchItems();
 
-    const ACTIVITY_EVENTS = [
-      "mousemove", "mousedown", "keydown", "touchstart", "scroll", "click",
-    ] as const;
-    const handleActivity = () => resetIdleTimer();
+    // SSE stream
+    const es = new EventSource("/api/vault/stream", { withCredentials: true });
+    sseRef.current = es;
 
-    ACTIVITY_EVENTS.forEach((e) =>
-      window.addEventListener(e, handleActivity, { passive: true })
-    );
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "vault_changed") fetchItems();
+      } catch { /* ignore malformed messages */ }
+    };
+
+    es.onerror = () => {
+      // SSE reconnects automatically; no action needed
+    };
 
     return () => {
-      ACTIVITY_EVENTS.forEach((e) =>
-        window.removeEventListener(e, handleActivity)
-      );
+      es.close();
+      sseRef.current = null;
+    };
+  }, [user?.id, fetchItems]);
+
+  // ── Session restore
+  useEffect(() => {
+    if (!user?.id || sessionRestored.current) return;
+    sessionRestored.current = true;
+
+    const session = loadVaultSession(user.id, autoLockMinutes);
+    if (!session) return;
+
+    (async () => {
+      try {
+        const key = await deriveKey(session.masterPassword, user.id);
+        setCryptoKey(key);
+      } catch {
+        clearVaultSession(user.id!);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // ── Auto-lock idle timer
+  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimers = useCallback(() => {
+    if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+    if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
+  }, []);
+
+  const resetIdleTimer = useCallback(() => {
+    if (!cryptoKey || !user?.id) return;
+    if (autoLockMinutes === 0) return;
+    clearTimers();
+    refreshVaultSession(user.id);
+    const lockMs = autoLockMinutes * 60 * 1000;
+    lockTimerRef.current = setTimeout(() => {
+      setCryptoKey(null);
+      if (user?.id) clearVaultSession(user.id);
+    }, lockMs);
+  }, [cryptoKey, user?.id, autoLockMinutes, clearTimers]);
+
+  useEffect(() => {
+    if (!cryptoKey || autoLockMinutes === 0) { clearTimers(); return; }
+    resetIdleTimer();
+    const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;
+    const handleActivity = () => resetIdleTimer();
+    ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }));
+    return () => {
+      ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, handleActivity));
       clearTimers();
     };
   }, [cryptoKey, autoLockMinutes, resetIdleTimer, clearTimers]);
 
   // ── Clear session when user signs out
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.id) {
       setCryptoKey(null);
       sessionRestored.current = false;
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   // ── Vault actions
 
   const unlock = useCallback(async (masterPassword: string): Promise<string | void> => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     setUnlockError("");
-
-    const key = await deriveKey(masterPassword, user.uid);
-
-    // Validate against an existing item if possible
+    const key = await deriveKey(masterPassword, user.id);
     if (items.length > 0) {
-      try {
-        await decrypt(key, items[0].encryptedBlob);
-      } catch {
+      try { await decrypt(key, items[0].encryptedBlob); }
+      catch {
         const msg = "Wrong master password.";
         setUnlockError(msg);
-        return msg; // return error so caller can act on it directly
+        return msg;
       }
     }
-
     setCryptoKey(key);
-    saveVaultSession(user.uid, masterPassword);
+    saveVaultSession(user.id, masterPassword);
   }, [user, items, decrypt]);
 
   const lock = useCallback(() => {
     setCryptoKey(null);
-    if (user?.uid) clearVaultSession(user.uid);
+    if (user?.id) clearVaultSession(user.id);
     clearTimers();
-  }, [user?.uid, clearTimers]);
+  }, [user?.id, clearTimers]);
 
   const saveItem = useCallback(async (
     item: Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt">
   ) => {
-    if (!user?.uid) return;
-    const payload: Omit<VaultItem, "id"> = {
-      ...item,
-      createdAt: new Date().toISOString(),
-    };
-    await addDoc(collection(db, "users", user.uid, "vaultItems"), payload);
-    
-    // Increment global analytics tally
-    try {
-      await setDoc(doc(db, "config", "stats"), { totalEntries: increment(1) }, { merge: true });
-    } catch (err) {
-      console.warn("Failed to increment stats", err);
-    }
-  }, [user]);
+    if (!user?.id) return;
+    await apiFetch("/api/vault/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(item),
+    });
+    fetchItems();
+  }, [user, fetchItems]);
 
   const updateItem = useCallback(async (id: string, payload: Partial<VaultItem>) => {
-    if (!user?.uid) return;
-    const finalPayload = {
-      ...payload,
-      updatedAt: new Date().toISOString()
-    };
-    await setDoc(doc(db, "users", user.uid, "vaultItems", id), finalPayload, { merge: true });
-  }, [user]);
+    if (!user?.id) return;
+    await apiFetch(`/api/vault/items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, updatedAt: new Date().toISOString() }),
+    });
+    fetchItems();
+  }, [user, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
-    if (!user?.uid) return;
-    // Soft Delete
-    await setDoc(doc(db, "users", user.uid, "vaultItems", id), { deletedAt: new Date().toISOString() }, { merge: true });
-  }, [user]);
-  
+    if (!user?.id) return;
+    // Soft delete — set deletedAt
+    await apiFetch(`/api/vault/items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deletedAt: new Date().toISOString() }),
+    });
+    fetchItems();
+  }, [user, fetchItems]);
+
   const hardDeleteItem = useCallback(async (id: string) => {
-    if (!user?.uid) return;
-    await deleteDoc(doc(db, "users", user.uid, "vaultItems", id));
-    
-    // Decrement global analytics tally
-    try {
-      await setDoc(doc(db, "config", "stats"), { totalEntries: increment(-1) }, { merge: true });
-    } catch (err) {
-      console.warn("Failed to decrement stats", err);
-    }
-  }, [user]);
+    if (!user?.id) return;
+    await apiFetch(`/api/vault/items/${id}`, { method: "DELETE" });
+    fetchItems();
+  }, [user, fetchItems]);
 
   const restoreItem = useCallback(async (id: string) => {
-    if (!user?.uid) return;
-    await setDoc(doc(db, "users", user.uid, "vaultItems", id), { deletedAt: deleteField() }, { merge: true });
-  }, [user]);
+    if (!user?.id) return;
+    await apiFetch(`/api/vault/items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deletedAt: null }),
+    });
+    fetchItems();
+  }, [user, fetchItems]);
 
   const toggleFavorite = useCallback(async (id: string, favorite: boolean) => {
-    if (!user?.uid) return;
-    await setDoc(doc(db, "users", user.uid, "vaultItems", id), { favorite }, { merge: true });
-  }, [user]);
+    if (!user?.id) return;
+    await apiFetch(`/api/vault/items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite }),
+    });
+    fetchItems();
+  }, [user, fetchItems]);
 
   const decryptItem = useCallback(async (blob: string): Promise<string> => {
     if (!cryptoKey) throw new Error("Vault is locked");
@@ -349,6 +363,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         );
       })
     : items;
+
+  const effectiveIsLoading = Boolean(user?.id) ? isLoading : false;
 
   return (
     <VaultContext.Provider value={{

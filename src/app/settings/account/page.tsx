@@ -1,17 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
-import { auth, db } from "@/lib/firebase/client";
-import {
-  updateProfile,
-  unlink,
-  GoogleAuthProvider,
-  linkWithPopup,
-  EmailAuthProvider,
-  linkWithCredential
-} from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Check, Unlink, Link2, AlertCircle, KeySquare, Moon, Sun, Monitor } from "lucide-react";
@@ -190,15 +181,49 @@ export default function AccountSettingsPage() {
   const [authSaving, setAuthSaving] = useState(false);
   const [authMsg, setAuthMsg] = useState({ text: "", ok: true });
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setAuthMsg({ text: "", ok: true });
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const res = await fetch("/api/settings/avatar", {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to upload avatar.");
+      }
+
+      const data = await res.json();
+      setPhotoURL(data.avatarUrl);
+      setAuthMsg({ text: "Avatar uploaded successfully.", ok: true });
+    } catch (err) {
+      setAuthMsg({ text: (err as Error).message, ok: false });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const saveAuthProfile = async () => {
-    if (!auth.currentUser) return;
+    if (!user) return;
     setAuthSaving(true);
     setAuthMsg({ text: "", ok: true });
     try {
-      await updateProfile(auth.currentUser, { 
-        displayName: displayName.trim(),
-        photoURL: photoURL.trim() || null
+      const result = await authClient.updateUser({ 
+        name: displayName.trim(),
+        image: photoURL.trim() || undefined
       });
+      if (result.error) throw new Error(result.error.message);
       setAuthMsg({ text: "Primary profile updated.", ok: true });
     } catch (e) {
       setAuthMsg({ text: (e as Error).message || "Error updating profile.", ok: false });
@@ -207,7 +232,7 @@ export default function AccountSettingsPage() {
     }
   };
 
-  // ── Extra Personal Details (Firestore)
+  // ── Extra Personal Details (REST API)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -219,9 +244,9 @@ export default function AccountSettingsPage() {
     if (!user) return;
     const fetchPersonal = async () => {
       try {
-        const snap = await getDoc(doc(db, "users", user.uid, "profile", "personal"));
-        if (snap.exists()) {
-          const data = snap.data();
+        const res = await fetch("/api/vault/profile");
+        if (res.ok) {
+          const data = await res.json();
           setFirstName(data.firstName || "");
           setLastName(data.lastName || "");
           setPhone(data.phone || "");
@@ -240,12 +265,19 @@ export default function AccountSettingsPage() {
     setDetailsSaving(true);
     setDetailsMsg({ text: "", ok: true });
     try {
-      await setDoc(doc(db, "users", user.uid, "profile", "personal"), {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim(),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+      const res = await fetch("/api/vault/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim()
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to save details");
+      }
       setDetailsMsg({ text: "Personal details saved.", ok: true });
     } catch (e) {
       setDetailsMsg({ text: (e as Error).message || "Error saving details.", ok: false });
@@ -254,54 +286,105 @@ export default function AccountSettingsPage() {
     }
   };
 
-  // ── Provider management
+  // ── Provider management (Better Auth client)
+  const [accounts, setAccounts] = useState<{ id: string; providerId: string; email?: string }[]>([]);
   const [providerMsg, setProviderMsg] = useState({ text: "", ok: true });
   const [linkingEmail, setLinkingEmail] = useState(false);
   const [linkEmailStr, setLinkEmailStr] = useState("");
   const [linkPassStr, setLinkPassStr] = useState("");
 
+  useEffect(() => {
+    if (!user) return;
+    async function fetchAccounts() {
+      try {
+        const res = await authClient.listAccounts();
+        if (res.data) {
+          setAccounts(res.data.map(acc => ({
+            id: acc.id,
+            providerId: acc.providerId,
+            email: acc.accountId ?? undefined
+          })));
+        }
+      } catch (err) {
+        console.error("Failed to load accounts", err);
+      }
+    }
+    fetchAccounts();
+  }, [user]);
+
   const handleUnlink = async (providerId: string) => {
-    if (!auth.currentUser) return;
-    if ((auth.currentUser.providerData?.length ?? 0) <= 1) {
+    if (accounts.length <= 1) {
       setProviderMsg({ text: "Can't unlink — this is your only sign-in method.", ok: false });
       return;
     }
     try {
-      await unlink(auth.currentUser, providerId);
+      const result = await authClient.unlinkAccount({ providerId });
+      if (result.error) throw new Error(result.error.message);
       setProviderMsg({ text: "Provider unlinked.", ok: true });
+      const res = await authClient.listAccounts();
+      if (res.data) {
+        setAccounts(res.data.map(acc => ({
+          id: acc.id,
+          providerId: acc.providerId,
+          email: acc.accountId ?? undefined
+        })));
+      }
     } catch (err) {
       setProviderMsg({ text: (err as Error).message, ok: false });
     }
   };
 
   const handleLinkGoogle = async () => {
-    if (!auth.currentUser) return;
     try {
-      const provider = new GoogleAuthProvider();
-      await linkWithPopup(auth.currentUser, provider);
+      const result = await authClient.linkSocial({
+        provider: "google",
+      });
+      if (result.error) throw new Error(result.error.message);
       setProviderMsg({ text: "Google account linked.", ok: true });
+      const res = await authClient.listAccounts();
+      if (res.data) {
+        setAccounts(res.data.map(acc => ({
+          id: acc.id,
+          providerId: acc.providerId,
+          email: acc.accountId ?? undefined
+        })));
+      }
     } catch (err) {
       setProviderMsg({ text: (err as Error).message, ok: false });
     }
   };
 
   const handleLinkEmailPassword = async () => {
-    if (!auth.currentUser || !linkEmailStr || !linkPassStr) return;
+    if (!linkEmailStr || !linkPassStr) return;
     try {
-      const credential = EmailAuthProvider.credential(linkEmailStr, linkPassStr);
-      await linkWithCredential(auth.currentUser, credential);
+      const res = await fetch("/api/settings/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: linkPassStr }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to link email/password");
+      }
       setProviderMsg({ text: "Email & Password linked.", ok: true });
       setLinkingEmail(false);
       setLinkEmailStr("");
       setLinkPassStr("");
+      const accRes = await authClient.listAccounts();
+      if (accRes.data) {
+        setAccounts(accRes.data.map(acc => ({
+          id: acc.id,
+          providerId: acc.providerId,
+          email: acc.accountId ?? undefined
+        })));
+      }
     } catch (err) {
       setProviderMsg({ text: (err as Error).message, ok: false });
     }
   };
 
-  const providers = user?.providerData ?? [];
-  const hasGoogle = providers.some((p) => p.providerId === "google.com");
-  const hasPassword = providers.some((p) => p.providerId === "password");
+  const hasGoogle = accounts.some((p) => p.providerId === "google");
+  const hasPassword = accounts.some((p) => p.providerId === "credential");
 
   // ── Theme data ─────────────────────────────────────────────────────────
   const darkThemes  = themes.filter((t) => t.mode === "dark");
@@ -349,11 +432,29 @@ export default function AccountSettingsPage() {
           </div>
           <div className="space-y-1 flex-1">
             <FieldRow label="Avatar Photo URL">
-              <Input
-                value={photoURL}
-                onChange={(e) => setPhotoURL(e.target.value)}
-                placeholder="https://example.com/avatar.jpg"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={photoURL}
+                  onChange={(e) => setPhotoURL(e.target.value)}
+                  placeholder="https://example.com/avatar.jpg"
+                  className="flex-1"
+                />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleAvatarFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  variant="ghost"
+                  className="border border-[var(--border)] hover:bg-[var(--border)] shrink-0"
+                >
+                  {uploadingAvatar ? "Uploading…" : "Upload"}
+                </Button>
+              </div>
             </FieldRow>
           </div>
         </div>
@@ -420,31 +521,33 @@ export default function AccountSettingsPage() {
         description="Manage which providers are linked to your account. You must have at least one."
       >
         <div className="space-y-2">
-          {providers.map((p) => {
+          {accounts.map((p) => {
             const meta = PROVIDER_META[p.providerId] ?? { label: p.providerId, color: "text-[var(--fg-muted)] border-[var(--border)] bg-[var(--bg)]" };
             return (
               <div
-                key={p.providerId}
+                key={p.id}
                 className="flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]"
               >
                 <div className="space-y-0.5">
                   <span className={`text-[12px] font-medium px-2 py-0.5 rounded border text-[11px] ${meta.color}`}>
                     {meta.label}
                   </span>
-                  {(p.email || (p.providerId === "password" && user?.email)) && (
+                  {(p.email || (p.providerId === "credential" && user?.email)) && (
                     <p className="text-[11px] text-[var(--fg-muted)] mt-1">
                       {p.email || user?.email}
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => handleUnlink(p.providerId)}
-                  className="flex items-center gap-1.5 text-[12px] text-[var(--fg-muted)] hover:text-[var(--danger)] transition-colors cursor-pointer"
-                  title="Unlink provider"
-                >
-                  <Unlink className="w-3.5 h-3.5" />
-                  Unlink
-                </button>
+                {p.providerId !== "credential" && (
+                  <button
+                    onClick={() => handleUnlink(p.providerId)}
+                    className="flex items-center gap-1.5 text-[12px] text-[var(--fg-muted)] hover:text-[var(--danger)] transition-colors cursor-pointer"
+                    title="Unlink provider"
+                  >
+                    <Unlink className="w-3.5 h-3.5" />
+                    Unlink
+                  </button>
+                )}
               </div>
             );
           })}

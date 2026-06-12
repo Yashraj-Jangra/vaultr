@@ -1,8 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminToken } from "@/lib/firebase/verifyAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { sendTemplatedEmail, DEFAULT_TEMPLATES, type TemplateKey } from "@/lib/emailTemplates";
 
 // Representative placeholder values per template key for test sends
@@ -32,25 +31,18 @@ const TEST_VARS: Record<string, Record<string, string>> = {
 export async function POST(req: NextRequest) {
   try {
     await verifyAdminToken(req);
-    if (!adminDb) return NextResponse.json({ error: "Server not configured" }, { status: 503 });
-
     const { templateKey, to } = await req.json();
 
-    if (!templateKey || !to) {
+    if (!templateKey || !to)
       return NextResponse.json({ error: "templateKey and to are required" }, { status: 400 });
-    }
 
-    if (!Object.keys(DEFAULT_TEMPLATES).includes(templateKey)) {
+    if (!Object.keys(DEFAULT_TEMPLATES).includes(templateKey))
       return NextResponse.json({ error: "Unknown template key" }, { status: 400 });
-    }
 
     const vars = TEST_VARS[templateKey] ?? {};
 
-    await sendTemplatedEmail(adminDb, {
-      templateKey: templateKey as TemplateKey,
-      to,
-      vars,
-    });
+    // sendTemplatedEmail no longer takes a db param — it imports db directly
+    await sendTemplatedEmail({ templateKey: templateKey as TemplateKey, to, vars });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

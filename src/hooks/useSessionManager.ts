@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { collection, onSnapshot, doc, setDoc, getDoc, query, orderBy } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase/client";
-import { signOut } from "firebase/auth";
+import { authClient } from "@/lib/auth/auth-client";
 import {
   getSessionId,
   getOrCreateSessionId,
@@ -33,7 +31,6 @@ export interface SessionManagerState {
   sessions: Session[];
   currentSessionId: string | null;
   isVerified: boolean;
-  /** True when the device is unverified AND requireVerificationOnNew is enabled — gate shows */
   needsDeviceGate: boolean;
   loading: boolean;
   sendingCode: boolean;
@@ -41,9 +38,7 @@ export interface SessionManagerState {
   revoking: Set<string>;
   otpError: string;
   otpSuccess: boolean;
-  /** True when the server auto-sent an OTP during registration (requireVerificationOnNew = true) */
   autoVerificationTriggered: boolean;
-  /** True only if the auto-OTP email was actually delivered */
   autoVerificationEmailSent: boolean;
   sendVerificationEmail: () => Promise<{ ok: boolean; error?: string }>;
   verifyOtp: (otp: string) => Promise<{ ok: boolean; error?: string }>;
@@ -55,93 +50,99 @@ export interface SessionManagerState {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useSessionManager(uid: string | null): SessionManagerState {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  // Two-part loading: wait for BOTH the sessions snapshot AND security prefs to resolve
-  // so the vault page never flashes the wrong screen (gate vs master password).
-  const [snapsLoaded, setSnapsLoaded] = useState(false);
-  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [sessions,     setSessions]     = useState<Session[]>([]);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [prefsLoaded,  setPrefsLoaded]  = useState(false);
   const [requireVerificationOnNew, setRequireVerificationOnNew] = useState(false);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [revoking, setRevoking] = useState<Set<string>>(new Set());
-  const [otpError, setOtpError] = useState("");
-  const [otpSuccess, setOtpSuccess] = useState(false);
+  const [sendingCode,  setSendingCode]  = useState(false);
+  const [verifying,    setVerifying]    = useState(false);
+  const [revoking,     setRevoking]     = useState<Set<string>>(new Set());
+  const [otpError,     setOtpError]     = useState("");
+  const [otpSuccess,   setOtpSuccess]   = useState(false);
   const [autoVerificationTriggered, setAutoVerificationTriggered] = useState(false);
   const [autoVerificationEmailSent, setAutoVerificationEmailSent] = useState(false);
   const bootstrapped = useRef(false);
+  const sseRef = useRef<EventSource | null>(null);
 
   const currentSessionId = getSessionId();
 
-  // ── ID token helper (always returns a fresh token) ────────────────────────
-  const getIdToken = useCallback(async (forceRefresh = false): Promise<string | null> => {
-    try {
-      return await auth.currentUser?.getIdToken(forceRefresh) ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
+  // ── Better Auth session provides the token via cookie — no Bearer token needed
+  //    API routes use verifyUserToken which reads the cookie automatically.
+  //    This helper exists so startHeartbeat can pass a token; with cookie auth
+  //    we return null (the heartbeat endpoint reads the cookie).
+  const getToken = useCallback(async (): Promise<string | null> => null, []);
 
-  // ── Realtime Firestore listener ───────────────────────────────────────────
+  // ── Fetch sessions list from REST API
+  const fetchSessions = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const res = await fetch("/api/auth/sessions", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const curId = getSessionId();
+      const list: Session[] = (data.sessions ?? []).map((row: Record<string, string | boolean>) => ({
+        sessionId:       row.session_id ?? row.sessionId,
+        deviceName:      row.device_name  ?? row.deviceName  ?? "Unknown Device",
+        deviceType:      row.device_type  ?? row.deviceType  ?? "desktop",
+        browser:         row.browser      ?? "Unknown",
+        os:              row.os           ?? "Unknown",
+        ipAddress:       row.ip_address   ?? row.ipAddress   ?? "",
+        location:        row.location     ?? "",
+        createdAt:       row.created_at   ?? row.createdAt   ?? new Date().toISOString(),
+        lastSeenAt:      row.last_seen_at ?? row.lastSeenAt  ?? new Date().toISOString(),
+        isTrusted:       row.is_trusted   ?? row.isTrusted   ?? false,
+        isCurrentDevice: (row.session_id ?? row.sessionId) === curId,
+      }));
+      setSessions(list);
+    } catch { /* silent */ }
+    finally { setSessionsLoaded(true); }
+  }, [uid]);
+
+  // ── Subscribe via SSE for real-time session list updates
   useEffect(() => {
     if (!uid) {
-      // No user — mark both as loaded so loading = false
-      setSnapsLoaded(true);
+      setSessionsLoaded(true);
       setPrefsLoaded(true);
       return;
     }
 
-    const q = query(collection(db, "users", uid, "sessions"), orderBy("lastSeenAt", "desc"));
-    const unsub = onSnapshot(q,
-      (snap) => {
-        const curId = getSessionId();
-        setSessions(snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            sessionId: d.id,
-            deviceName: data.deviceName ?? "Unknown Device",
-            deviceType: data.deviceType ?? "desktop",
-            browser: data.browser ?? "Unknown",
-            os: data.os ?? "Unknown",
-            ipAddress: data.ipAddress ?? "",
-            location: data.location ?? "",
-            createdAt: data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
-            lastSeenAt: data.lastSeenAt?.toDate?.().toISOString() ?? new Date().toISOString(),
-            isTrusted: data.isTrusted ?? false,
-            isCurrentDevice: d.id === curId,
-          };
-        }));
-        setSnapsLoaded(true);
-      },
-      () => setSnapsLoaded(true)
-    );
-    return () => unsub();
-  }, [uid]);
+    fetchSessions();
 
-  // ── Bootstrap: register session + read security prefs + start heartbeat ───
+    const es = new EventSource("/api/auth/sessions/stream", { withCredentials: true });
+    sseRef.current = es;
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "sessions_changed") fetchSessions();
+      } catch { /* ignore */ }
+    };
+    return () => { es.close(); sseRef.current = null; };
+  }, [uid, fetchSessions]);
+
+  // ── Bootstrap: load security prefs + register session + start heartbeat
   useEffect(() => {
     if (!uid || bootstrapped.current) return;
     bootstrapped.current = true;
 
-    // Read requireVerificationOnNew pref — must resolve before gate is shown
-    getDoc(doc(db, "users", uid, "profile", "security"))
-      .then((snap) => {
-        setRequireVerificationOnNew(snap.data()?.requireVerificationOnNew === true);
+    // Load security prefs
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { requireVerificationOnNew?: boolean }) => {
+        setRequireVerificationOnNew(data?.requireVerificationOnNew === true);
       })
-      .catch(() => { /* silent — pref stays false (safe default) */ })
+      .catch(() => { /* safe default: false */ })
       .finally(() => setPrefsLoaded(true));
 
+    // Register session + start heartbeat
     (async () => {
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
-
-        const idToken = await currentUser.getIdToken();
         const sessionId = getOrCreateSessionId();
         const device = detectDevice();
 
         const res = await fetch("/api/auth/register-session", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId, ...device }),
         });
 
@@ -153,49 +154,39 @@ export function useSessionManager(uid: string | null): SessionManagerState {
           }
         }
 
-        // ── Start heartbeat with revocation detection ──────────────────────
-        // onRevoked fires when the server reports this session's doc was deleted.
         startHeartbeat({
           uid,
           sessionId,
-          getToken: () => getIdToken(),
+          getToken,
           onRevoked: () => {
-            // Session was remotely revoked — force full signout immediately.
             stopHeartbeat();
             clearSessionId();
-            signOut(auth).catch(() => {
-              // If signOut fails (e.g. network), force redirect so the user
-              // is not stuck in an indeterminate state.
-              window.location.replace("/");
-            });
+            authClient.signOut().catch(() => window.location.replace("/"));
           },
         });
-      } catch { /* silent – never block vault */ }
+      } catch { /* silent — never block vault */ }
     })();
 
     return () => stopHeartbeat();
-  }, [uid, getIdToken]);
+  }, [uid, getToken, fetchSessions]);
 
-  // ── Derived state ─────────────────────────────────────────────────────────
-  const loading = !snapsLoaded || !prefsLoaded;
+  // ── Derived state
+  const loading = !sessionsLoaded || !prefsLoaded;
   const currentSession = sessions.find((s) => s.isCurrentDevice);
   const isVerified = currentSession?.isTrusted ?? false;
-  // Gate = device unverified AND the user has opted into mandatory verification
   const needsDeviceGate = !isVerified && requireVerificationOnNew;
 
-  // ── sendVerificationEmail ─────────────────────────────────────────────────
+  // ── sendVerificationEmail
   const sendVerificationEmail = useCallback(async () => {
     if (!uid) return { ok: false, error: "Not authenticated" };
-    const idToken = await getIdToken();
-    if (!idToken) return { ok: false, error: "Session expired — please reload" };
-
     setSendingCode(true); setOtpError("");
     try {
       const sessionId = getSessionId();
       const { deviceName } = detectDevice();
       const res = await fetch("/api/auth/send-verification-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, deviceName }),
       });
       const data = await res.json();
@@ -205,20 +196,18 @@ export function useSessionManager(uid: string | null): SessionManagerState {
       }
       return { ok: true };
     } finally { setSendingCode(false); }
-  }, [uid, getIdToken]);
+  }, [uid]);
 
-  // ── verifyOtp ─────────────────────────────────────────────────────────────
+  // ── verifyOtp
   const verifyOtp = useCallback(async (otp: string) => {
     if (!uid) return { ok: false, error: "Not authenticated" };
-    const idToken = await getIdToken();
-    if (!idToken) return { ok: false, error: "Session expired" };
-
     setVerifying(true); setOtpError("");
     try {
       const sessionId = getSessionId();
       const res = await fetch("/api/auth/verify-device", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, otp }),
       });
       const data = await res.json();
@@ -226,72 +215,55 @@ export function useSessionManager(uid: string | null): SessionManagerState {
         setOtpError(data.error ?? "Verification failed");
         return { ok: false, error: data.error };
       }
-
-      // Optimistically update client-side Firestore
-      if (sessionId) {
-        await setDoc(doc(db, "users", uid, "sessions", sessionId), { isTrusted: true }, { merge: true });
-      }
+      // Optimistically update local state
+      setSessions((prev) =>
+        prev.map((s) => s.isCurrentDevice ? { ...s, isTrusted: true } : s)
+      );
       setOtpSuccess(true);
       return { ok: true };
     } finally { setVerifying(false); }
-  }, [uid, getIdToken]);
+  }, [uid]);
 
-  // ── revokeSession ─────────────────────────────────────────────────────────
+  // ── revokeSession
   const revokeSession = useCallback(async (sessionIdToRevoke: string) => {
     if (!uid) return { ok: false, error: "Not authenticated" };
-    const idToken = await getIdToken();
-    if (!idToken) return { ok: false, error: "Session expired" };
-
     setRevoking((p) => new Set(p).add(sessionIdToRevoke));
     try {
       const res = await fetch("/api/auth/revoke-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sessionIdToRevoke }),
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.error };
 
       if (sessionIdToRevoke === currentSessionId) {
-        // Revoking own current session → sign out immediately, no token refresh needed
         stopHeartbeat();
         clearSessionId();
-        await signOut(auth);
-      } else if (data.needsTokenRefresh) {
-        // We revoked another session but revokeRefreshTokens is user-scoped —
-        // force-refresh our own ID token so we don't get 401'd on next request.
-        await getIdToken(true);
+        await authClient.signOut();
       }
-
+      fetchSessions();
       return { ok: true };
     } finally {
       setRevoking((p) => { const n = new Set(p); n.delete(sessionIdToRevoke); return n; });
     }
-  }, [uid, currentSessionId, getIdToken]);
+  }, [uid, currentSessionId, fetchSessions]);
 
-  // ── revokeAllOtherSessions ────────────────────────────────────────────────
+  // ── revokeAllOtherSessions
   const revokeAllOtherSessions = useCallback(async () => {
     if (!uid) return { ok: false, error: "Not authenticated" };
-    const idToken = await getIdToken();
-    if (!idToken) return { ok: false, error: "Session expired" };
-
     const res = await fetch("/api/auth/revoke-session", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentSessionId }),
     });
     const data = await res.json();
     if (!res.ok) return { ok: false, error: data.error };
-
-    if (data.needsTokenRefresh) {
-      // revokeRefreshTokens was called server-side — our own token is now past
-      // the revocation timestamp. Force-refresh immediately so subsequent API
-      // calls (including the next heartbeat) succeed.
-      await getIdToken(true);
-    }
-
+    fetchSessions();
     return { ok: true };
-  }, [uid, currentSessionId, getIdToken]);
+  }, [uid, currentSessionId, fetchSessions]);
 
   const clearOtpState = useCallback(() => { setOtpError(""); setOtpSuccess(false); }, []);
 

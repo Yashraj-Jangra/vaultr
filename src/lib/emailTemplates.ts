@@ -2,13 +2,17 @@
  * src/lib/emailTemplates.ts
  *
  * Server-side email template engine.
- * Templates are stored in Firestore at adminSettings/emailTemplates.
+ * Templates are stored in the admin_email_templates table (PostgreSQL).
  * Each template has: subject, bodyHtml, bodyText, fromProfileId.
  * Variables are replaced with {{VAR_NAME}} syntax.
+ *
+ * Replaces: Firebase Firestore adminSettings/emailTemplates doc
  */
 
-import type { Firestore } from "firebase-admin/firestore";
 import nodemailer, { Transporter } from "nodemailer";
+import { db } from "@/db";
+import { adminSmtp, adminEmailTemplates } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,7 +35,7 @@ export interface EmailTemplate {
   subject: string;
   bodyHtml: string;
   bodyText: string;
-  fromProfileId?: string; // profile id from smtp.profiles
+  fromProfileId?: string;
 }
 
 export type TemplateKey =
@@ -42,7 +46,6 @@ export type TemplateKey =
   | "account_deleted";
 
 // ─── Default templates ────────────────────────────────────────────────────────
-// Variables available per template documented inline.
 
 const WRAPPER = (content: string, footerLine = "Vaultr · Zero-knowledge vault") => `
 <!DOCTYPE html>
@@ -159,20 +162,21 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, EmailTemplate> = {
 
 // ─── Template loader ──────────────────────────────────────────────────────────
 
-export async function loadTemplate(
-  db: Firestore,
-  key: TemplateKey
-): Promise<EmailTemplate> {
+export async function loadTemplate(key: TemplateKey): Promise<EmailTemplate> {
   try {
-    const snap = await db.collection("adminSettings").doc("emailTemplates").get();
-    if (snap.exists) {
-      const data = snap.data()!;
+    const [row] = await db
+      .select({ data: adminEmailTemplates.data })
+      .from(adminEmailTemplates)
+      .where(eq(adminEmailTemplates.id, 1))
+      .limit(1);
+
+    if (row?.data) {
+      const data = row.data as Record<string, EmailTemplate>;
       if (data[key]) {
-        // Merge with default so missing fields fall back gracefully
         return { ...DEFAULT_TEMPLATES[key], ...data[key] };
       }
     }
-  } catch { /* silent — always fall back */ }
+  } catch { /* silent — always fall back to defaults */ }
   return DEFAULT_TEMPLATES[key];
 }
 
@@ -186,30 +190,36 @@ export function renderTemplate(
     str.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? `{{${key}}}`);
   return {
     subject: replace(template.subject),
-    html: replace(template.bodyHtml),
-    text: replace(template.bodyText),
+    html:    replace(template.bodyHtml),
+    text:    replace(template.bodyText),
   };
 }
 
 // ─── SMTP transporter factory ─────────────────────────────────────────────────
 
-export async function createTransporter(
-  db: Firestore
-): Promise<{ transporter: Transporter; smtp: SmtpConfig; fromAddress: string } | null> {
+export async function createTransporter(): Promise<{
+  transporter: Transporter;
+  smtp: SmtpConfig;
+  fromAddress: string;
+} | null> {
   try {
-    const snap = await db.collection("adminSettings").doc("smtp").get();
-    if (!snap.exists) return null;
-    const smtp = snap.data() as SmtpConfig;
+    const [row] = await db
+      .select({ data: adminSmtp.data })
+      .from(adminSmtp)
+      .where(eq(adminSmtp.id, 1))
+      .limit(1);
+
+    if (!row?.data) return null;
+    const smtp = row.data as SmtpConfig;
     if (!smtp.host || !smtp.user || !smtp.pass) return null;
 
     const transporter = nodemailer.createTransport({
-      host: smtp.host,
-      port: Number(smtp.port ?? 587),
+      host:   smtp.host,
+      port:   Number(smtp.port ?? 587),
       secure: Number(smtp.port) === 465,
-      auth: { user: smtp.user, pass: smtp.pass },
+      auth:   { user: smtp.user, pass: smtp.pass },
     });
 
-    // Pick default profile or fallback to smtp.user
     const profiles: SmtpProfile[] = smtp.profiles ?? [];
     const defaultProfile = profiles.find((p) => p.isDefault) ?? profiles[0];
     const fromAddress = defaultProfile
@@ -222,22 +232,18 @@ export async function createTransporter(
 
 // ─── Convenience: send a templated email ─────────────────────────────────────
 
-export async function sendTemplatedEmail(
-  db: Firestore,
-  opts: {
-    templateKey: TemplateKey;
-    to: string;
-    vars: Record<string, string>;
-    fromProfileId?: string; // override profile
-  }
-): Promise<void> {
-  const conn = await createTransporter(db);
+export async function sendTemplatedEmail(opts: {
+  templateKey: TemplateKey;
+  to: string;
+  vars: Record<string, string>;
+  fromProfileId?: string;
+}): Promise<void> {
+  const conn = await createTransporter();
   if (!conn) throw new Error("SMTP not configured");
 
-  const template = await loadTemplate(db, opts.templateKey);
+  const template = await loadTemplate(opts.templateKey);
   const rendered = renderTemplate(template, opts.vars);
 
-  // Resolve fromAddress per-template profile override
   let fromAddress = conn.fromAddress;
   if (opts.fromProfileId ?? template.fromProfileId) {
     const pid = opts.fromProfileId ?? template.fromProfileId;
@@ -246,10 +252,10 @@ export async function sendTemplatedEmail(
   }
 
   await conn.transporter.sendMail({
-    from: fromAddress,
-    to: opts.to,
+    from:    fromAddress,
+    to:      opts.to,
     subject: rendered.subject,
-    html: rendered.html,
-    text: rendered.text,
+    html:    rendered.html,
+    text:    rendered.text,
   });
 }

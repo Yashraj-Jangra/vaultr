@@ -35,16 +35,9 @@ export default function UsersAdminPage() {
 
   const fetchUsers = async (token?: string) => {
     try {
-      if (!user) return;
-      const idToken = await user.getIdToken();
       let url = "/api/admin/users?maxResults=50";
       if (token) url += `&pageToken=${token}`;
-
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
+      const res = await fetch(url);
 
       if (!res.ok) {
         throw new Error(await res.text());
@@ -80,12 +73,10 @@ export default function UsersAdminPage() {
 
     setProcessingUid(uid);
     try {
-      const idToken = await user?.getIdToken();
       const res = await fetch(`/api/admin/users/${uid}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ action }),
       });

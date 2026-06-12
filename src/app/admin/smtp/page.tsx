@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { Save, AlertCircle } from "lucide-react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 
@@ -23,17 +21,18 @@ export default function SMTPSettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const ref = doc(db, "adminSettings", "smtp");
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data();
-          setFormData({
-            host: data.host ?? "",
-            port: data.port ?? "587",
-            user: data.user ?? "",
-            pass: data.pass ?? "",
-            profiles: data.profiles ?? [{ id: "default", name: data.fromName ?? "Vaultr Admin", email: data.user ?? "", isDefault: true }],
-          });
+        const res = await fetch("/api/admin/smtp");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.smtp) {
+            setFormData({
+              host: data.smtp.host ?? "",
+              port: data.smtp.port ?? "587",
+              user: data.smtp.user ?? "",
+              pass: data.smtp.pass ?? "",
+              profiles: data.smtp.profiles ?? [{ id: "default", name: data.smtp.fromName ?? "Vaultr Admin", email: data.smtp.user ?? "", isDefault: true }],
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to load SMTP settings", err);
@@ -50,8 +49,15 @@ export default function SMTPSettingsPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const ref = doc(db, "adminSettings", "smtp");
-      await setDoc(ref, formData);
+      const res = await fetch("/api/admin/smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to save SMTP settings");
+      }
       setMessage({ type: 'success', text: "SMTP settings saved successfully." });
     } catch (err: unknown) {
       setMessage({ type: 'error', text: (err as Error).message || "Failed to save settings." });

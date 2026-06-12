@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useVault } from "@/context/VaultContext";
 import { useCrypto } from "@/hooks/useCrypto";
-import { collection, onSnapshot, query } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { Fingerprint, Copy, Check } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
@@ -100,10 +98,8 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
 
 export default function AuthenticatorPage() {
   const { user } = useFirebaseAuth();
-  const { cryptoKey, unlock: ctxUnlock } = useVault();
+  const { items, cryptoKey, unlock: ctxUnlock } = useVault();
   const { decrypt } = useCrypto();
-
-  const [items, setItems] = useState<VaultItem[]>([]);
 
   // Decrypted secrets store: { [itemId]: secret }
   const [secrets, setSecrets] = useState<Record<string, string>>({});
@@ -113,27 +109,15 @@ export default function AuthenticatorPage() {
   const [unlocking, setUnlocking] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
 
-  // Fetch only items with TOTP flag
-  useEffect(() => {
-    if (!user?.uid) return;
-    const q = query(collection(db, "users", user.uid, "vaultItems"));
-    const unsub = onSnapshot(q, snap => {
-      const list: VaultItem[] = [];
-      snap.forEach(d => {
-        const data = { id: d.id, ...d.data() } as VaultItem;
-        if (data.hasTotp) list.push(data);
-      });
-      list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      setItems(list);
-    });
-    return () => unsub();
-  }, [user]);
+  const totpItems = items
+    .filter(i => i.hasTotp && !i.deletedAt)
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   // Decrypt items once unlocked
   useEffect(() => {
-    if (!cryptoKey || items.length === 0) return;
+    if (!cryptoKey || totpItems.length === 0) return;
 
-    const missingItems = items.filter(i => secrets[i.id] === undefined);
+    const missingItems = totpItems.filter(i => secrets[i.id] === undefined);
     if (missingItems.length === 0) return; // Exit early safely if all decrypted
 
     let isStale = false;
@@ -156,7 +140,7 @@ export default function AuthenticatorPage() {
 
     decryptAll();
     return () => { isStale = true; };
-  }, [cryptoKey, items, decrypt, secrets]);
+  }, [cryptoKey, totpItems, decrypt, secrets]);
 
 
   const handleUnlock = async () => {
@@ -259,7 +243,7 @@ export default function AuthenticatorPage() {
       </div>
 
       <div className="space-y-4">
-        {items.length === 0 ? (
+        {totpItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
             <div className="w-80 h-80 sm:w-80 sm:h-80 opacity-80">
               <Image
@@ -277,7 +261,7 @@ export default function AuthenticatorPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {items.map(item => (
+            {totpItems.map(item => (
               secrets[item.id] ? (
                 <TotpAuthRow key={item.id} item={item} secret={secrets[item.id]} />
               ) : (

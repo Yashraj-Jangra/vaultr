@@ -9,15 +9,6 @@ import React, {
   useMemo,
 } from "react";
 import {
-  collection,
-  doc,
-  onSnapshot,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
-import {
   ThemeConfig,
   BUILT_IN_THEMES,
   applyTheme,
@@ -27,31 +18,18 @@ import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 export type AppMode = "dark" | "light" | "system";
 
 interface ThemeContextValue {
-  /** All themes visible to this user (built-in + published custom) */
   themes: ThemeConfig[];
-  /** All themes including unpublished (admin only) */
   allThemes: ThemeConfig[];
-  /** Currently active theme (derived from mode + selected slot) */
   activeTheme: ThemeConfig;
-  /** Current user mode preference */
   mode: AppMode;
-  /** ID of the theme selected for the dark slot */
   darkThemeId: string;
-  /** ID of the theme selected for the light slot */
   lightThemeId: string;
-  /** Loading state for initial theme fetch */
   loading: boolean;
-  /** Switch active mode */
   setMode: (mode: AppMode) => void;
-  /** Set the dark-slot theme */
   setDarkTheme: (themeId: string) => void;
-  /** Set the light-slot theme */
   setLightTheme: (themeId: string) => void;
-  /** Admin: save / create a theme to Firestore */
   saveTheme: (theme: ThemeConfig) => Promise<void>;
-  /** Admin: delete a custom theme */
   deleteTheme: (themeId: string) => Promise<void>;
-  /** Admin: toggle published state on a theme */
   togglePublished: (themeId: string, published: boolean) => Promise<void>;
 }
 
@@ -77,7 +55,6 @@ const ThemeContext = createContext<ThemeContextValue>({
   togglePublished: async () => {},
 });
 
-/** Detect the actual resolved mode when app mode is "system" */
 function resolveMode(mode: AppMode): "dark" | "light" {
   if (mode !== "system") return mode;
   if (typeof window === "undefined") return "dark";
@@ -86,65 +63,52 @@ function resolveMode(mode: AppMode): "dark" | "light" {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useFirebaseAuth();
-  const [allThemes, setAllThemes]     = useState<ThemeConfig[]>(BUILT_IN_THEMES);
-  const [loading, setLoading]         = useState(true);
-  const [mode, setModeState]          = useState<AppMode>("dark");
-  const [darkThemeId, setDarkId]      = useState<string>(DEFAULT_DARK_ID);
+  const [allThemes,    setAllThemes]  = useState<ThemeConfig[]>(BUILT_IN_THEMES);
+  const [loading,      setLoading]    = useState(true);
+  const [mode,         setModeState]  = useState<AppMode>("dark");
+  const [darkThemeId,  setDarkId]     = useState<string>(DEFAULT_DARK_ID);
   const [lightThemeId, setLightId]    = useState<string>(DEFAULT_LIGHT_ID);
 
-  // ── Storage key helpers ────────────────────────────────────────────────
+  // ── Storage key helpers
   const keys = useMemo(() => {
-    const uid = user?.uid ?? "guest";
+    const uid = user?.id ?? "guest";
     return {
       mode:  `vaultr_mode_${uid}`,
       dark:  `vaultr_dark_theme_${uid}`,
       light: `vaultr_light_theme_${uid}`,
-      // legacy key for migration
-      old:   user ? `vaultr_theme_${user.uid}` : "vaultr_theme",
+      old:   user ? `vaultr_theme_${user.id}` : "vaultr_theme",
     };
   }, [user]);
 
-  // ── Read/migrate from localStorage on user change ─────────────────────
+  // ── Read/migrate from localStorage on user change
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    // Migrate old single-key storage
     const oldVal = localStorage.getItem(keys.old);
     if (oldVal) {
       if (oldVal === "light") {
         localStorage.setItem(keys.mode, "light");
       } else {
         localStorage.setItem(keys.mode, "dark");
-        if (oldVal !== "dark") {
-          localStorage.setItem(keys.dark, oldVal);
-        }
+        if (oldVal !== "dark") localStorage.setItem(keys.dark, oldVal);
       }
       localStorage.removeItem(keys.old);
     }
-
     const storedMode  = localStorage.getItem(keys.mode) as AppMode | null;
     const storedDark  = localStorage.getItem(keys.dark);
     const storedLight = localStorage.getItem(keys.light);
-
     setTimeout(() => {
-      if (storedMode === "dark" || storedMode === "light" || storedMode === "system") {
-        setModeState(storedMode);
-      }
+      if (storedMode === "dark" || storedMode === "light" || storedMode === "system") setModeState(storedMode);
       if (storedDark)  setDarkId(storedDark);
       if (storedLight) setLightId(storedLight);
     }, 0);
   }, [keys]);
 
-  // ── Subscribe to Firestore themes collection ──────────────────────────
+  // ── Fetch themes from REST API (replaces Firestore onSnapshot)
   useEffect(() => {
-    const ref = collection(db, "config", "themes", "list");
-    const unsub = onSnapshot(
-      ref,
-      (snap) => {
-        const firestoreThemes: ThemeConfig[] = snap.docs.map(
-          (d) => d.data() as ThemeConfig
-        );
-        // Merge: Firestore wins over built-ins with the same id
+    fetch("/api/config/themes", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { themes?: ThemeConfig[] }) => {
+        const firestoreThemes: ThemeConfig[] = data.themes ?? [];
         const firestoreIds = new Set(firestoreThemes.map((t) => t.id));
         const merged = [
           ...BUILT_IN_THEMES.filter((t) => !firestoreIds.has(t.id)),
@@ -155,106 +119,95 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           return a.name.localeCompare(b.name);
         });
         setAllThemes(merged);
-        setLoading(false);
-      },
-      () => {
-        // Firestore unavailable — use built-ins
+      })
+      .catch(() => {
+        // API unavailable — use built-ins only
         setAllThemes(BUILT_IN_THEMES);
-        setLoading(false);
-      }
-    );
-    return () => unsub();
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  // ── Derive activeTheme ────────────────────────────────────────────────
+  // ── Derive activeTheme
   const activeTheme = useMemo(() => {
     if (loading) return defaultDarkTheme;
     const resolved = resolveMode(mode);
     const id = resolved === "dark" ? darkThemeId : lightThemeId;
-    const found = allThemes.find(
-      (t) => t.id === id && (t.published || t.builtIn)
-    );
+    const found = allThemes.find((t) => t.id === id && (t.published || t.builtIn));
     return found ?? (resolved === "dark" ? defaultDarkTheme : defaultLightTheme);
   }, [allThemes, loading, mode, darkThemeId, lightThemeId]);
 
-  // ── Apply theme to DOM ────────────────────────────────────────────────
-  useEffect(() => {
-    applyTheme(activeTheme);
-  }, [activeTheme]);
+  useEffect(() => { applyTheme(activeTheme); }, [activeTheme]);
 
-  // ── Listen for OS color-scheme changes when mode === "system" ─────────
   useEffect(() => {
     if (mode !== "system" || typeof window === "undefined") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => applyTheme(activeTheme); // re-derive via useMemo trigger
+    const handler = () => applyTheme(activeTheme);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [mode, activeTheme]);
 
-  // ── Public setters ────────────────────────────────────────────────────
+  // ── Public setters
   const setMode = useCallback((newMode: AppMode) => {
     localStorage.setItem(keys.mode, newMode);
     setModeState(newMode);
   }, [keys]);
 
   const setDarkTheme = useCallback((themeId: string) => {
-    const theme = allThemes.find((t) => t.id === themeId);
-    if (!theme) return;
+    if (!allThemes.find((t) => t.id === themeId)) return;
     localStorage.setItem(keys.dark, themeId);
     setDarkId(themeId);
   }, [allThemes, keys]);
 
   const setLightTheme = useCallback((themeId: string) => {
-    const theme = allThemes.find((t) => t.id === themeId);
-    if (!theme) return;
+    if (!allThemes.find((t) => t.id === themeId)) return;
     localStorage.setItem(keys.light, themeId);
     setLightId(themeId);
   }, [allThemes, keys]);
 
-  // ── Admin helpers ─────────────────────────────────────────────────────
+  // ── Admin helpers (REST API calls to /api/config/themes)
   const saveTheme = useCallback(async (theme: ThemeConfig) => {
-    const ref = doc(db, "config", "themes", "list", theme.id);
-    await setDoc(ref, { ...theme, createdAt: theme.createdAt ?? serverTimestamp() });
+    await fetch("/api/config/themes", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme }),
+    });
+    // Refresh list
+    const data = await fetch("/api/config/themes", { credentials: "include" }).then((r) => r.json());
+    if (data.themes) {
+      const ids = new Set(data.themes.map((t: ThemeConfig) => t.id));
+      setAllThemes([...BUILT_IN_THEMES.filter((t) => !ids.has(t.id)), ...data.themes]);
+    }
   }, []);
 
   const deleteTheme = useCallback(async (themeId: string) => {
     const theme = allThemes.find((t) => t.id === themeId);
     if (theme?.builtIn) throw new Error("Cannot delete built-in themes");
-    const ref = doc(db, "config", "themes", "list", themeId);
-    await deleteDoc(ref);
+    await fetch(`/api/config/themes/${themeId}`, { method: "DELETE", credentials: "include" });
+    setAllThemes((prev) => prev.filter((t) => t.id !== themeId));
   }, [allThemes]);
 
-  const togglePublished = useCallback(
-    async (themeId: string, published: boolean) => {
-      const theme = allThemes.find((t) => t.id === themeId);
-      if (!theme) return;
-      if (theme.builtIn) return; // built-ins are always published
-      const ref = doc(db, "config", "themes", "list", themeId);
-      await setDoc(ref, { ...theme, published }, { merge: true });
-    },
-    [allThemes]
-  );
+  const togglePublished = useCallback(async (themeId: string, published: boolean) => {
+    const theme = allThemes.find((t) => t.id === themeId);
+    if (!theme || theme.builtIn) return;
+    await fetch(`/api/config/themes/${themeId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published }),
+    });
+    setAllThemes((prev) =>
+      prev.map((t) => (t.id === themeId ? { ...t, published } : t))
+    );
+  }, [allThemes]);
 
   const themes = allThemes.filter((t) => t.published || t.builtIn);
 
   return (
-    <ThemeContext.Provider
-      value={{
-        themes,
-        allThemes,
-        activeTheme,
-        mode,
-        darkThemeId,
-        lightThemeId,
-        loading,
-        setMode,
-        setDarkTheme,
-        setLightTheme,
-        saveTheme,
-        deleteTheme,
-        togglePublished,
-      }}
-    >
+    <ThemeContext.Provider value={{
+      themes, allThemes, activeTheme, mode, darkThemeId, lightThemeId, loading,
+      setMode, setDarkTheme, setLightTheme, saveTheme, deleteTheme, togglePublished,
+    }}>
       {children}
     </ThemeContext.Provider>
   );

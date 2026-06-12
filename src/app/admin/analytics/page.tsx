@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { Users, Database, ShieldAlert, Activity } from "lucide-react";
 
 export default function AnalyticsDashboard() {
@@ -12,13 +10,12 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const ref = doc(db, "config", "stats");
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data();
+        const res = await fetch("/api/admin/stats");
+        if (res.ok) {
+          const data = await res.json();
           setStats({
-            totalUsers: data?.totalUsers || 0,
-            totalEntries: data?.totalEntries || 0,
+            totalUsers: data.totalUsers || 0,
+            totalEntries: data.totalEntries || 0,
           });
         }
       } catch (err) {

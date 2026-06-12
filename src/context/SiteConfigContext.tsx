@@ -1,14 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { SiteConfig, DEFAULT_SITE_CONFIG } from "@/lib/site-config";
 
 interface SiteConfigContextValue {
   config: SiteConfig;
   loading: boolean;
-  /** Admin only — persists update to Firestore */
+  /** Admin only — persists update to PostgreSQL via API */
   updateConfig: (patch: Partial<SiteConfig>) => Promise<void>;
 }
 
@@ -19,26 +17,29 @@ const SiteConfigContext = createContext<SiteConfigContextValue>({
 });
 
 export function SiteConfigProvider({ children }: { children: React.ReactNode }) {
-  const [config, setConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
+  const [config, setConfig]   = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
   const [loading, setLoading] = useState(true);
 
+  // Initial fetch from REST API
   useEffect(() => {
-    const ref = doc(db, "config", "site");
-    const unsub = onSnapshot(ref, (snap) => {
-      if (snap.exists()) {
-        setConfig({ ...DEFAULT_SITE_CONFIG, ...snap.data() } as SiteConfig);
-      }
-      setLoading(false);
-    }, () => {
-      // Firestore unavailable (demo mode / rules block) — use defaults
-      setLoading(false);
-    });
-    return () => unsub();
+    fetch("/api/config/site", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.config) setConfig({ ...DEFAULT_SITE_CONFIG, ...data.config });
+      })
+      .catch(() => { /* use defaults on error */ })
+      .finally(() => setLoading(false));
   }, []);
 
   const updateConfig = async (patch: Partial<SiteConfig>) => {
-    const ref = doc(db, "config", "site");
-    await setDoc(ref, { ...config, ...patch }, { merge: true });
+    const newConfig = { ...config, ...patch };
+    setConfig(newConfig); // optimistic
+    await fetch("/api/config/site", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ config: newConfig }),
+    });
   };
 
   return (

@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { Send, AlertCircle, Loader2 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 
 export default function EmailSenderPage() {
   const { user } = useFirebaseAuth();
@@ -23,9 +21,10 @@ export default function EmailSenderPage() {
   useEffect(() => {
     async function fetchProfiles() {
       try {
-        const snap = await getDoc(doc(db, "adminSettings", "smtp"));
-        if (snap.exists() && snap.data().profiles) {
-          const loadedProfiles = snap.data().profiles;
+        const res = await fetch("/api/admin/email");
+        if (res.ok) {
+          const data = await res.json();
+          const loadedProfiles = data.profiles || [];
           setProfiles(loadedProfiles);
           const defaultProfile = loadedProfiles.find((p: {id: string, name: string, email: string, isDefault: boolean}) => p.isDefault) || loadedProfiles[0];
           if (defaultProfile) {
@@ -47,12 +46,10 @@ export default function EmailSenderPage() {
     setSaving(true);
     setMessageBox(null);
     try {
-      const idToken = await user.getIdToken();
       const res = await fetch("/api/admin/email", {
          method: "POST",
          headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
          },
          body: JSON.stringify(formData),
       });

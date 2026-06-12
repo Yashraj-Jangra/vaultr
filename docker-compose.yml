@@ -1,0 +1,66 @@
+version: "3.9"
+
+# _vaultr — local infrastructure
+# Run: docker compose up -d
+# Stop: docker compose down  (data in named volumes is preserved)
+# Backup: docker compose exec -T postgres pg_dump -U vaultr vaultr_db | gzip > backup.sql.gz
+# Restore: gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U vaultr vaultr_db
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vaultr_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-vaultr}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-vaultr_db}
+    volumes:
+      # Named volume — survives docker compose down, image upgrades, container recreation
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Bind to localhost only — never expose raw postgres to the internet
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vaultr} -d ${DB_NAME:-vaultr_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - vaultr_net
+
+  minio:
+    image: minio/minio:latest
+    container_name: vaultr_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-vaultr}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      # Named volume — just copy this directory to back up all stored files
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:9000:9000"   # S3-compatible API
+      - "127.0.0.1:9001:9001"   # MinIO web console (http://localhost:9001)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - vaultr_net
+
+volumes:
+  # Named volumes — data persists independently of containers
+  # To find the actual path: docker volume inspect vaultr_pgdata
+  pgdata:
+    name: vaultr_pgdata
+  miniodata:
+    name: vaultr_miniodata
+
+networks:
+  vaultr_net:
+    name: vaultr_network

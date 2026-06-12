@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
@@ -809,6 +807,8 @@ export default function VaultPage() {
     toggleFavorite,
     isNewEntryOpen,
     setIsNewEntryOpen,
+    saveItem,
+    updateItem,
   } = useVault();
 
   const [masterPassword, setMasterPassword] = useState("");
@@ -887,36 +887,32 @@ export default function VaultPage() {
     const domain = payload.url ? extractDomain(payload.url) : "";
 
     if (editIdParams) {
-      const docRef = doc(db, "users", user.uid, "vaultItems", editIdParams);
       const updates: Partial<VaultItem> = {
         name,
         encryptedBlob: blob,
         template,
         hasTotp: !!payload.totpSecret,
         tags: tags.length > 0 ? tags : [],
-        updatedAt: new Date().toISOString(),
+        folder: folder || undefined,
+        domain: domain || undefined,
       };
-      // For folder and domain, empty string replaces existing value
-      await updateDoc(docRef, { ...updates, folder: folder || "", domain: domain || "" });
+      await updateItem(editIdParams, updates);
 
       setEditId(null);
       if (revealedId === editIdParams) {
         setRevealedData(payload);
       }
     } else {
-      const now = new Date().toISOString();
-      const doc_: Partial<VaultItem> = {
+      const doc_ = {
         name,
         encryptedBlob: blob,
         template,
-        createdAt: now,
-        updatedAt: now,
         hasTotp: !!payload.totpSecret,
         tags: tags.length > 0 ? tags : [],
+        folder: folder || undefined,
+        domain: domain || undefined,
       };
-      if (folder) doc_.folder = folder;
-      if (domain) doc_.domain = domain;
-      await addDoc(collection(db, "users", user.uid, "vaultItems"), doc_);
+      await saveItem(doc_);
       setIsNewEntryOpen(false);
     }
   };
@@ -963,8 +959,7 @@ export default function VaultPage() {
         if (item) promises.push(toggleFavorite(id, !item.favorite));
       }
       else if (action === "move") {
-        const docRef = doc(db, "users", user.uid, "vaultItems", id);
-        promises.push(updateDoc(docRef, { folder: payload || "" }));
+        promises.push(updateItem(id, { folder: payload || undefined }));
       }
     });
 

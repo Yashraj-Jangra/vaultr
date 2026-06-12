@@ -4,13 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useVault } from "@/context/VaultContext";
 import { deriveKey, reEncryptBlobs } from "@/hooks/useCrypto";
-import { auth, db } from "@/lib/firebase/client";
-import {
-  writeBatch,
-  doc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -166,18 +160,38 @@ export default function SecuritySettingsPage() {
     return Number(localStorage.getItem(CLIPBOARD_KEY(user.uid)) ?? 0);
   });
 
-  // Load last password change date from Firestore
+  // Load profile settings (last password changed and notification preferences)
   useEffect(() => {
-    if (!user?.uid) return;
-    getDoc(doc(db, "users", user.uid, "profile", "security"))
-      .then((snap) => {
-        if (snap.exists()) {
-          const d = snap.data().lastPasswordChangedAt;
-          if (d) setLastChanged(d);
+    if (!user) return;
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/vault/profile");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.lastPasswordChangedAt) setLastChanged(data.lastPasswordChangedAt);
+          if (data.newDeviceEmailAlert !== undefined) setNewDeviceEmailAlert(data.newDeviceEmailAlert);
+          if (data.requireVerificationOnNew !== undefined) setRequireVerifOnNew(data.requireVerificationOnNew);
         }
-      })
-      .catch(() => {});
-  }, [user?.uid]);
+      } catch (err) {
+        console.error("Could not fetch security profile:", err);
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
+  // Load provider accounts to display connected sign-in methods
+  const [accounts, setAccounts] = useState<{ id: string; providerId: string }[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    authClient.listAccounts().then((res) => {
+      if (res.data) {
+        setAccounts(res.data.map(acc => ({
+          id: acc.id,
+          providerId: acc.providerId,
+        })));
+      }
+    }).catch(() => {});
+  }, [user]);
 
   const saveClipboard = (secs: number) => {
     setClipboardSecs(secs);
@@ -192,7 +206,7 @@ export default function SecuritySettingsPage() {
 
   // ── Change master password handler
   const handleChangePw = async () => {
-    if (!user?.uid || !auth.currentUser) return;
+    if (!user?.uid) return;
 
     setPwMsg({ text: "", ok: true });
 
@@ -255,27 +269,25 @@ export default function SecuritySettingsPage() {
         }
       );
 
-      // 4. Batch write to Firestore (500 docs per batch)
-      const BATCH_SIZE = 500;
-      for (let i = 0; i < reEncrypted.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const chunk = reEncrypted.slice(i, i + BATCH_SIZE);
-        for (const { id, encryptedBlob } of chunk) {
-          batch.update(doc(db, "users", user.uid, "vaultItems", id), {
-            encryptedBlob,
-          });
-        }
-        await batch.commit();
+      // 4. Send batch re-encryption to API
+      const reencRes = await fetch("/api/vault/items/reencrypt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: reEncrypted }),
+      });
+      if (!reencRes.ok) {
+        const errData = await reencRes.json();
+        throw new Error(errData.error || "Batch re-encryption failed.");
       }
 
       // 5. Save new session password & persist last changed timestamp
       saveVaultSession(user.uid, newPw);
       const now = new Date().toISOString();
-      await setDoc(
-        doc(db, "users", user.uid, "profile", "security"),
-        { lastPasswordChangedAt: now },
-        { merge: true }
-      );
+      await fetch("/api/vault/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lastPasswordChangedAt: now }),
+      });
       setLastChanged(now);
 
       // 6. Clear form & show success
@@ -327,24 +339,20 @@ export default function SecuritySettingsPage() {
   const [revokeAllBusy, setRevokeAllBusy] = useState(false);
   const otpRef = useRef<HTMLInputElement>(null);
 
-  // Load notification prefs from Firestore
-  useEffect(() => {
-    if (!user?.uid) return;
-    getDoc(doc(db, "users", user.uid, "profile", "security")).then((snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        if (d.newDeviceEmailAlert !== undefined) setNewDeviceEmailAlert(d.newDeviceEmailAlert);
-        if (d.requireVerificationOnNew !== undefined) setRequireVerifOnNew(d.requireVerificationOnNew);
-      }
-    }).catch(() => {});
-  }, [user?.uid]);
-
   const saveNotifPrefs = async (field: string, value: boolean) => {
     if (!user?.uid) return;
     setNotifSaving(true);
     try {
-      await setDoc(doc(db, "users", user.uid, "profile", "security"), { [field]: value }, { merge: true });
-    } finally { setNotifSaving(false); }
+      await fetch("/api/vault/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+    } catch (err) {
+      console.error("Failed to save preference:", err);
+    } finally {
+      setNotifSaving(false);
+    }
   };
 
   const handleSendCode = async () => {
@@ -542,12 +550,12 @@ export default function SecuritySettingsPage() {
               Your current sign-in providers:
             </p>
             <div className="flex flex-wrap gap-2">
-              {user?.providerData?.map((p) => (
+              {accounts.map((p) => (
                 <span
-                  key={p.providerId}
+                  key={p.id}
                   className="text-[11px] px-2 py-0.5 rounded border border-[var(--border)] text-neutral-400 bg-neutral-900"
                 >
-                  {p.providerId === "google.com" ? "Google" : "Email / Password"}
+                  {p.providerId === "google" ? "Google" : "Email / Password"}
                 </span>
               ))}
             </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminToken } from "@/lib/firebase/verifyAdmin";
+import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import type { AuditLogEntry } from "@/lib/auditLog";

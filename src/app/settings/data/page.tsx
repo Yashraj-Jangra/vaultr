@@ -4,15 +4,7 @@ import React, { useState, useRef, ChangeEvent } from "react";
 import Papa from "papaparse";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useVault } from "@/context/VaultContext";
-import { auth, db } from "@/lib/firebase/client";
-import {
-  collection,
-  getDocs,
-  deleteDoc,
-  addDoc,
-  writeBatch,
-} from "firebase/firestore";
-import { deleteUser } from "firebase/auth";
+import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -322,17 +314,21 @@ export default function DataSettingsPage() {
         // Decrypt from file (blobs are encrypted under original key — we just carry them over).
         // For a vaultr-export, blobs are already encrypted under the user's key.
         // We simply re-add them as-is (same uid = same key derivation).
-        await addDoc(collection(db, "users", user.uid, "vaultItems"), {
-          name: item.name,
-          encryptedBlob: item.encryptedBlob,
-          domain: item.domain ?? null,
-          folder: item.folder ?? null,
-          template: item.template ?? "login",
-          tags: item.tags ?? [],
-          favorite: item.favorite ?? false,
-          hasTotp: item.hasTotp ?? false,
-          createdAt: new Date().toISOString(),
+        const res = await fetch("/api/vault/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: item.name,
+            encryptedBlob: item.encryptedBlob,
+            domain: item.domain ?? null,
+            folder: item.folder ?? null,
+            template: item.template ?? "login",
+            tags: item.tags ?? [],
+            favorite: item.favorite ?? false,
+            hasTotp: item.hasTotp ?? false,
+          }),
         });
+        if (!res.ok) throw new Error("Failed to import entry");
         added++;
       }
 
@@ -390,26 +386,30 @@ export default function DataSettingsPage() {
         }
 
         const encryptedBlob = await encryptData(JSON.stringify(payload));
-        await addDoc(collection(db, "users", user!.uid, "vaultItems"), {
-          name,
-          folder: folder || null,
-          encryptedBlob,
-          domain: (() => {
-            try {
-              if (!payload.url) return null;
-              return new URL(
-                payload.url.startsWith("http") ? payload.url : `https://${payload.url}`
-              ).hostname;
-            } catch {
-              return null;
-            }
-          })(),
-          template: payload._template || "login",
-          tags: [],
-          favorite: false,
-          hasTotp: !!payload.totpSecret,
-          createdAt: new Date().toISOString(),
+        const res = await fetch("/api/vault/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            folder: folder || null,
+            encryptedBlob,
+            domain: (() => {
+              try {
+                if (!payload.url) return null;
+                return new URL(
+                  payload.url.startsWith("http") ? payload.url : `https://${payload.url}`
+                ).hostname;
+              } catch {
+                return null;
+              }
+            })(),
+            template: payload._template || "login",
+            tags: [],
+            favorite: false,
+            hasTotp: !!payload.totpSecret,
+          }),
         });
+        if (!res.ok) throw new Error("Failed to import CSV entry");
         added++;
 
         // Chunking to prevent UI freeze and show progress
@@ -441,19 +441,16 @@ export default function DataSettingsPage() {
     setDeleting(true);
     setDeleteMsg({ text: "", ok: true });
     try {
-      const snap = await getDocs(
-        collection(db, "users", user.uid, "vaultItems")
-      );
-      const BATCH_SIZE = 500;
-      const docs = snap.docs;
-      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        docs.slice(i, i + BATCH_SIZE).forEach((d) => batch.delete(d.ref));
-        await batch.commit();
+      const res = await fetch("/api/vault/items", {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to clear vault data");
       }
       setDeleteConfirm("");
       setDeleteMsg({
-        text: `All vault data deleted (${docs.length} item(s) removed).`,
+        text: `All vault data deleted successfully.`,
         ok: true,
       });
     } catch (err) {
@@ -469,24 +466,21 @@ export default function DataSettingsPage() {
   // ─── Delete account ───────────────────────────────────────────────────────
 
   const handleDeleteAccount = async () => {
-    if (deleteAccountConfirm !== "DELETE ACCOUNT" || !user?.uid || !auth.currentUser) return;
+    if (deleteAccountConfirm !== "DELETE ACCOUNT" || !user?.uid) return;
     setDeletingAccount(true);
     try {
-      // 1. Wipe vaultItems
-      const snap = await getDocs(
-        collection(db, "users", user.uid, "vaultItems")
-      );
-      for (const d of snap.docs) {
-        await deleteDoc(d.ref);
+      const res = await fetch("/api/settings/delete-account", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to delete account");
       }
-      // 2. Delete Firebase auth user
-      await deleteUser(auth.currentUser);
-      // Navigation happens automatically due to auth state change
+      await authClient.signOut();
+      window.location.href = "/auth";
     } catch (err) {
       setDeleteMsg({
-        text:
-          (err as Error).message ||
-          "Account deletion failed. You may need to re-authenticate first.",
+        text: (err as Error).message || "Account deletion failed.",
         ok: false,
       });
       setDeletingAccount(false);

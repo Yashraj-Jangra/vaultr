@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import {
   Save,
@@ -89,16 +87,24 @@ export default function EmailTemplatesPage() {
   const [sendingTest, setSendingTest] = useState(false);
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Load Firestore templates + SMTP profiles
+  // Load templates + SMTP profiles from API
   useEffect(() => {
     (async () => {
       try {
-        const [tSnap, sSnap] = await Promise.all([
-          getDoc(doc(db, "adminSettings", "emailTemplates")),
-          getDoc(doc(db, "adminSettings", "smtp")),
+        const [tRes, sRes] = await Promise.all([
+          fetch("/api/admin/email/templates"),
+          fetch("/api/admin/email"),
         ]);
-        if (tSnap.exists()) setTemplates(tSnap.data() as Record<string, TemplateState>);
-        if (sSnap.exists() && sSnap.data().profiles) setProfiles(sSnap.data().profiles);
+        if (tRes.ok) {
+          const tData = await tRes.json();
+          setTemplates(tData.templates || {});
+        }
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          setProfiles(sData.profiles || []);
+        }
+      } catch (err) {
+        console.error("Failed to load templates or profiles", err);
       } finally {
         setLoading(false);
       }
@@ -118,7 +124,15 @@ export default function EmailTemplatesPage() {
     setSaving(true);
     setMsg(null);
     try {
-      await setDoc(doc(db, "adminSettings", "emailTemplates"), templates, { merge: true });
+      const res = await fetch("/api/admin/email/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templates),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to save templates");
+      }
       setMsg({ ok: true, text: "Templates saved successfully." });
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message || "Failed to save." });
@@ -140,14 +154,16 @@ export default function EmailTemplatesPage() {
     setSendingTest(true);
     setTestMsg(null);
     try {
-      const idToken = await user.getIdToken();
       // Save templates first so the test uses the latest edits
-      await setDoc(doc(db, "adminSettings", "emailTemplates"), templates, { merge: true });
+      await fetch("/api/admin/email/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templates),
+      });
       const res = await fetch("/api/admin/email/test-template", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ templateKey: selected, to: testEmail }),
       });

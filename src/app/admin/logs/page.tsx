@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { auth } from "@/lib/firebase/client";
+
 import type { AuditEventKey, AuditLogEntry } from "@/lib/auditLog";
 import {
   Search,
@@ -120,35 +120,23 @@ export default function AdminLogsPage() {
   // Expanded row
   const [expanded, setExpanded]       = useState<string | null>(null);
 
-  // ── Get token ──────────────────────────────────────────────────────────────
-  const getToken = useCallback(async (): Promise<string | null> => {
-    try {
-      return (await auth.currentUser?.getIdToken()) ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
+
 
   // ── Fetch available dates ──────────────────────────────────────────────────
   const fetchDates = useCallback(async () => {
-    const token = await getToken();
-    if (!token) return;
     try {
-      const res = await fetch("/api/admin/logs?dates=1", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch("/api/admin/logs?dates=1");
       if (!res.ok) return;
       const data = await res.json();
       const list: string[] = data.dates ?? [];
       setDates(list);
       if (!selectedDate && list.length > 0) setSelectedDate(list[0]);
     } catch { /* silent */ }
-  }, [getToken, selectedDate]);
+  }, [selectedDate]);
 
   // ── Fetch log entries ──────────────────────────────────────────────────────
   const fetchLogs = useCallback(async (resetOffset = false) => {
-    const token = await getToken();
-    if (!token || !selectedDate) return;
+    if (!selectedDate) return;
 
     const currentOffset = resetOffset ? 0 : offset;
     if (resetOffset) setOffset(0);
@@ -165,9 +153,7 @@ export default function AdminLogsPage() {
       if (eventFilter) params.set("event", eventFilter);
       if (qFilter)     params.set("q",     qFilter.trim());
 
-      const res = await fetch(`/api/admin/logs?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/admin/logs?${params.toString()}`);
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -184,7 +170,7 @@ export default function AdminLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [getToken, selectedDate, offset, uidFilter, eventFilter, qFilter]);
+  }, [selectedDate, offset, uidFilter, eventFilter, qFilter]);
 
   // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
