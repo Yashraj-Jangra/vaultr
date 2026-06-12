@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { db } from "@/db";
-import { ticketMessages, supportTickets, userProfiles } from "@/db/schema";
+import { ticketMessages, supportTickets, userProfiles, user } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { sendTemplatedEmail, createTransporter } from "@/lib/emailTemplates";
 
@@ -52,8 +52,8 @@ export async function POST(
     await db.update(supportTickets).set({ updatedAt: new Date() }).where(eq(supportTickets.id, ticketId));
 
     if (sendEmail) {
-      const userProfile = await db.select().from(userProfiles).where(eq(userProfiles.userId, ticket[0].userId)).limit(1);
-      const userEmail = userProfile[0]?.email;
+      const targetUser = await db.select().from(user).where(eq(user.id, ticket[0].userId)).limit(1);
+      const userEmail = targetUser[0]?.email;
       
       if (userEmail) {
         // Find APP_URL from origin

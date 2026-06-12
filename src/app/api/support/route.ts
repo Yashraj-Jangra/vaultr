@@ -5,6 +5,7 @@ import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { supportTickets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { createTransporter, sendTemplatedEmail } from "@/lib/emailTemplates";
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,30 +31,27 @@ export async function POST(req: NextRequest) {
     }).returning();
 
     // Send email alert to Admin if configured
-    import("@/lib/emailTemplates").then(async ({ createTransporter, sendTemplatedEmail }) => {
-      try {
-        const conn = await createTransporter();
-        if (conn && conn.smtp.supportEmail) {
-          // Find APP_URL from origin
-          const protocol = req.headers.get("x-forwarded-proto") || "http";
-          const host = req.headers.get("host") || "localhost:3000";
-          const appUrl = `${protocol}://${host}`;
+    try {
+      const conn = await createTransporter();
+      if (conn && conn.smtp.supportEmail) {
+        const protocol = req.headers.get("x-forwarded-proto") || "http";
+        const host = req.headers.get("host") || "localhost:3000";
+        const appUrl = `${protocol}://${host}`;
 
-          await sendTemplatedEmail({
-            templateKey: "new_ticket_alert",
-            to: conn.smtp.supportEmail,
-            vars: {
-              USER_EMAIL: user.email || user.id,
-              PRIORITY: newTicket.priority,
-              TICKET_SUBJECT: newTicket.subject,
-              APP_URL: appUrl,
-            }
-          });
-        }
-      } catch (e) {
-        console.error("Failed to send admin email alert", e);
+        await sendTemplatedEmail({
+          templateKey: "new_ticket_alert",
+          to: conn.smtp.supportEmail,
+          vars: {
+            USER_EMAIL: user.email || user.id,
+            PRIORITY: newTicket.priority,
+            TICKET_SUBJECT: newTicket.subject,
+            APP_URL: appUrl,
+          }
+        });
       }
-    });
+    } catch (e) {
+      console.error("Failed to send admin email alert", e);
+    }
 
     return NextResponse.json(newTicket);
   } catch (err) {
