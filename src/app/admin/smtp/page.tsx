@@ -143,17 +143,7 @@ export default function SMTPSettingsPage() {
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="text-sm font-medium text-[var(--fg)] block mb-2">Support Email Address (for Admin Alerts)</label>
-            <input
-              type="email"
-              placeholder="e.g. support@vaultr.app"
-              value={formData.supportEmail}
-              onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
-              className="w-full md:w-1/2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
-            />
-            <p className="text-xs text-[var(--fg-muted)] mt-2">Where should support ticket alerts be sent? Leave blank to disable admin alerts.</p>
-          </div>
+
 
           <div className="md:col-span-2 border-t border-[var(--border)] pt-8 mt-2">
             <h3 className="text-sm font-semibold mb-2 tracking-tight text-[var(--fg)]">Authentication</h3>
@@ -269,6 +259,25 @@ export default function SMTPSettingsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-[var(--border)]">
+              <label className="text-sm font-medium text-[var(--fg)] block mb-2">Support Email Address (for Admin Alerts)</label>
+              <select
+                value={formData.supportEmail}
+                onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
+                className="w-full md:w-1/2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:outline-none transition-all"
+              >
+                <option value="">None (Disable admin alerts)</option>
+                {formData.profiles.filter(p => p.email).map((profile) => (
+                  <option key={profile.id} value={profile.email}>
+                    {profile.name ? `${profile.name} <${profile.email}>` : profile.email}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--fg-muted)] mt-2">
+                Select an existing profile to receive email notifications when users open new support tickets.
+              </p>
             </div>
           </div>
         </div>
