@@ -58,6 +58,9 @@ const EVENT_META: Record<
   "email.sent":                 { label: "Email Sent",             severity: "success", icon: Mail },
   "email.failed":               { label: "Email Failed",           severity: "danger",  icon: XCircle },
   "email.broadcast":            { label: "Email Broadcast",        severity: "warning", icon: Mail },
+  "admin.record.updated":       { label: "Admin Record Updated",   severity: "info",    icon: ShieldCheck },
+  "admin.record.deleted":       { label: "Admin Record Deleted",   severity: "danger",  icon: XCircle },
+  "admin.integrity.fixed":      { label: "Integrity Fixed",        severity: "success", icon: ShieldCheck },
 };
 
 const SEVERITY_STYLES: Record<Severity, { badge: string; dot: string; icon: string }> = {
@@ -72,7 +75,8 @@ const PAGE_SIZE = 50;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatTs(iso: string): string {
+function formatTs(iso?: string): string {
+  if (!iso) return "";
   try {
     const d = new Date(iso);
     return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -385,7 +389,7 @@ export default function AdminLogsPage() {
               const meta = EVENT_META[entry.event];
               const sev  = meta ? SEVERITY_STYLES[meta.severity] : SEVERITY_STYLES.info;
               const Icon = meta?.icon ?? CheckCircle;
-              const rowKey = `${entry.ts}-${idx}`;
+              const rowKey = `${entry.ts || ""}-${idx}`;
               const isExpanded = expanded === rowKey;
 
               return (
@@ -456,7 +460,7 @@ export default function AdminLogsPage() {
                     <div className="px-4 pb-4 bg-neutral-900/40 border-t border-[var(--border)]">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
                         {/* Full timestamp */}
-                        <Detail label="Full timestamp" value={entry.ts} mono />
+                        <Detail label="Full timestamp" value={entry.ts || ""} mono />
                         {/* Session ID */}
                         {entry.sessionId && <Detail label="Session ID" value={entry.sessionId} mono />}
                         {/* Full UID */}

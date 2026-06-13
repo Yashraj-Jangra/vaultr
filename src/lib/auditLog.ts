@@ -35,13 +35,16 @@ export type AuditEventKey =
   | "otp.rate_limited"
   | "email.sent"
   | "email.failed"
-  | "email.broadcast";
+  | "email.broadcast"
+  | "admin.record.updated"
+  | "admin.record.deleted"
+  | "admin.integrity.fixed";
 
 // ─── Entry shape ──────────────────────────────────────────────────────────────
 
 export interface AuditLogEntry {
   /** ISO-8601 timestamp */
-  ts: string;
+  ts?: string;
   /** Event identifier */
   event: AuditEventKey;
   /** User ID of the subject user */
