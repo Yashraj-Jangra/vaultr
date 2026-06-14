@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { VaultProvider } from "@/context/VaultContext";
+import { VaultProvider, useVault } from "@/context/VaultContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -17,7 +17,9 @@ import { useToast } from "@/hooks/useToast";
 
 function VaultShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toasts, removeToast } = useToast();
+  const { cryptoKey } = useVault();
 
   // Keyboard: Ctrl/⌘+K → command palette
   React.useEffect(() => {
@@ -31,15 +33,27 @@ function VaultShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  if (!cryptoKey) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar
           onSearchOpen={() => setPaletteOpen(true)}
+          onMenuOpen={() => setMobileMenuOpen(true)}
           onGeneratorOpen={() => {
             window.location.href = "/vault/generator";
           }}
