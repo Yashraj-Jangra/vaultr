@@ -33,7 +33,7 @@
 - [x] Overhauled Admin Support Inbox UI and added bidirectional Email Notifications via SMTP
 
 ## Next Steps:
-- [x] Overhauled desktop sidebar transition in `Sidebar.tsx` using pure CSS masking (eliminating layout snapping and React conditional unmounting)
+- [x] Reverted the desktop sidebar transition rewrite changes in `Sidebar.tsx` back to the starting state as requested
 - [x] Fixed database audit logging typescript check compilation errors in `auditLog.ts` and `src/app/admin/logs/page.tsx`
 - [x] Fixed ESM dynamic imports hoisting bug in `investigate.ts` to allow local database validation run
 - [ ] Final testing of all new admin features and backup restoration routines
