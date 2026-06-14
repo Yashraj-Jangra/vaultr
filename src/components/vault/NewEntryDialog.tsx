@@ -219,7 +219,15 @@ function DetailedCardVisual({ cardNumber, cardName, expiry, entryName }: { cardN
   const mutedColor = isLight ? "text-neutral-500" : "text-white/70";
 
   // Animated digits rendering
-  const groups = isAmex ? [4, 6, 5] : [4, 4, 4, 4];
+  let groups = isAmex ? [4, 6, 5] : [4, 4, 4, 4];
+  if (!isAmex && num.length > 16) {
+    groups = [];
+    let rem = num.length;
+    while (rem > 0) {
+      groups.push(Math.min(4, rem));
+      rem -= 4;
+    }
+  }
   
   const digitGroups = [];
   let charIndex = 0;
@@ -364,7 +372,7 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
   return (
     <div className="relative">
       <Input type={show ? "text" : "password"} value={value} onChange={onChange} placeholder={placeholder} className={`pr-9 ${className}`} />
-      <button type="button" onClick={() => setShow(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors cursor-pointer p-0.5">
+      <button type="button" onClick={() => setShow(v => !v)} disabled={!value} className={`absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors p-0.5 ${!value ? "text-[var(--border)] cursor-not-allowed opacity-50" : "text-[var(--fg-muted)] hover:text-[var(--fg)] cursor-pointer"}`}>
         {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
       </button>
     </div>
@@ -392,7 +400,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
   // Card
   const [cardName,   setCardName]   = useState(initialData?.payload.cardName ?? "");
   const [cardNumber, setCardNumber] = useState(initialData?.payload.cardNumber ?? "");
-  const [expiry,     setExpiry]     = useState(initialData?.payload.expiry ?? "");
+  const [expiryMonth, setExpiryMonth] = useState(() => (initialData?.payload.expiry || "").split("/")[0]?.trim() || "");
+  const [expiryYear,  setExpiryYear]  = useState(() => (initialData?.payload.expiry || "").split("/")[1]?.trim() || "");
   const [cvv,        setCvv]        = useState(initialData?.payload.cvv ?? "");
   const [pin,        setPin]        = useState(initialData?.payload.pin ?? "");
 
@@ -433,7 +442,10 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
     if (initialData?.payload.url && !a.includes(initialData.payload.url)) a.unshift(initialData.payload.url);
     setUrls(a.length > 0 ? a : [""]);
     setTotpSecret(initialData?.payload.totpSecret ?? ""); setShowTotp(!!initialData?.payload.totpSecret);
-    setCardName(initialData?.payload.cardName ?? ""); setCardNumber(initialData?.payload.cardNumber ?? ""); setExpiry(initialData?.payload.expiry ?? ""); setCvv(initialData?.payload.cvv ?? ""); setPin(initialData?.payload.pin ?? "");
+    setCardName(initialData?.payload.cardName ?? ""); setCardNumber(initialData?.payload.cardNumber ?? "");
+    const eParts = (initialData?.payload.expiry || "").split("/");
+    setExpiryMonth(eParts[0]?.trim() || ""); setExpiryYear(eParts[1]?.trim() || "");
+    setCvv(initialData?.payload.cvv ?? ""); setPin(initialData?.payload.pin ?? "");
     setLine1(initialData?.payload.line1 ?? ""); setLine2(initialData?.payload.line2 ?? ""); setCity(initialData?.payload.city ?? ""); setStateVal(initialData?.payload.state ?? ""); setZip(initialData?.payload.zip ?? ""); setCountry(initialData?.payload.country ?? "");
     setFullName(initialData?.payload.fullName ?? ""); setDob(initialData?.payload.dob ?? ""); setIdNumber(initialData?.payload.idNumber ?? ""); setProfEmail(initialData?.payload.email ?? ""); setPhone(initialData?.payload.phone ?? "");
     setNote(initialData?.payload.note ?? ""); setEntryNotes(initialData?.payload.entryNotes ?? "");
@@ -471,7 +483,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
       entryNotes: entryNotes.trim() || undefined,
     };
     if (template === "login")   { const v = urls.map(u => u.trim()).filter(Boolean); Object.assign(payload, { username, password, url: v[0] ?? "", urls: v, totpSecret: totpSecret.trim() }); }
-    if (template === "card")    Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
+    if (template === "card")    Object.assign(payload, { cardName, cardNumber, expiry: (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "", cvv, pin });
     if (template === "address") Object.assign(payload, { line1, line2, city, state: stateVal, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note")    Object.assign(payload, { note });
@@ -480,9 +492,25 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
     else if (initialData?.payload.passwordHistory) { payload.passwordHistory = initialData.payload.passwordHistory; }
     await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id);
     setSaving(false);
-  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, expiry, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave]);
+  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave]);
 
-  if (typeof window === "undefined" || !open) return null;
+  const displayCardNumber = useMemo(() => {
+    let val = cardNumber;
+    if (/^3[47]/.test(val)) {
+      val = val.slice(0, 15);
+      const parts = [];
+      if (val.length > 0) parts.push(val.slice(0, 4));
+      if (val.length > 4) parts.push(val.slice(4, 10));
+      if (val.length > 10) parts.push(val.slice(10, 15));
+      return parts.join(" ");
+    } else {
+      const parts = [];
+      for (let i = 0; i < val.length; i += 4) parts.push(val.slice(i, i + 4));
+      return parts.join(" ");
+    }
+  }, [cardNumber]);
+
+  const displayExpiry = (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "";
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" aria-modal="true" role="dialog">
@@ -490,6 +518,10 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
       
       <div className="relative z-10 w-full max-w-4xl flex rounded-2xl overflow-hidden border border-[var(--border)] shadow-2xl bg-[var(--bg)]"
         style={{ maxHeight: "88dvh", animation: "dialogIn 280ms cubic-bezier(0.16,1,0.3,1) forwards" }}>
+        
+        {/* ... (left panel) ... */}
+        {/* Left panel omitted to keep chunk size small, wait, multi replace needs actual lines. */}
+        {/* I'll just skip the `return createPortal` replace, and only replace what's needed. Wait, I MUST provide the exact target! */}
 
         {/* ━━━━ LEFT PANEL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <div className="w-56 shrink-0 flex flex-col bg-[var(--surface)] border-r border-[var(--border)]">
@@ -636,28 +668,22 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
             {/* ── CARD ── */}
             {template === "card" && (
               <>
-                <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} entryName={name} />
+                <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={displayExpiry} entryName={name} />
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div><FieldLabel>Cardholder Name</FieldLabel><Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Name on card" /></div>
-                  <div><FieldLabel>Card Number</FieldLabel><Input value={cardNumber} onChange={e => {
-                    let val = e.target.value.replace(/\D/g, "");
-                    if (/^3[47]/.test(val)) {
-                      val = val.slice(0, 15);
-                      const parts = [];
-                      if (val.length > 0) parts.push(val.slice(0, 4));
-                      if (val.length > 4) parts.push(val.slice(4, 10));
-                      if (val.length > 10) parts.push(val.slice(10, 15));
-                      setCardNumber(parts.join(" "));
-                    } else {
-                      val = val.slice(0, 16);
-                      const parts = [];
-                      for (let i = 0; i < val.length; i += 4) parts.push(val.slice(i, i + 4));
-                      setCardNumber(parts.join(" "));
-                    }
-                  }} placeholder="•••• •••• •••• ••••" className="font-mono" /></div>
+                  <div>
+                    <FieldLabel>Card Number</FieldLabel>
+                    <Input 
+                      value={displayCardNumber} 
+                      onChange={e => setCardNumber(e.target.value.replace(/\D/g, ""))} 
+                      onCopy={e => { e.clipboardData.setData('text/plain', cardNumber); e.preventDefault(); }}
+                      placeholder="•••• •••• •••• ••••" className="font-mono" 
+                    />
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div><FieldLabel>Expiry</FieldLabel><Input value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" /></div>
+                <div className="grid grid-cols-4 gap-4">
+                  <div><FieldLabel>Exp Month</FieldLabel><Input value={expiryMonth} onChange={e => setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0,2))} placeholder="MM" /></div>
+                  <div><FieldLabel>Exp Year</FieldLabel><Input value={expiryYear} onChange={e => setExpiryYear(e.target.value.replace(/\D/g, "").slice(0,4))} placeholder="YYYY" /></div>
                   <div><FieldLabel>CVV</FieldLabel><SecretInput value={cvv} onChange={e => setCvv(e.target.value)} placeholder="•••" /></div>
                   <div><FieldLabel>PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
                 </div>
