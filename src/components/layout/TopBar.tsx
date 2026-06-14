@@ -10,9 +10,10 @@ import { useTheme } from "@/context/ThemeContext";
 interface TopBarProps {
   onSearchOpen?: () => void;  // opens command palette
   onGeneratorOpen?: () => void;
+  onMenuOpen?: () => void;
 }
 
-export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
+export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProps) {
   const router = useRouter();
   const { user, logout, isAdmin } = useAuth();
   const { isLocked, lock } = useVault();
@@ -37,6 +38,14 @@ export function TopBar({ onSearchOpen, onGeneratorOpen }: TopBarProps) {
 
   return (
     <header className="h-14 border-b border-[var(--border)] bg-[var(--bg)] sticky top-0 z-40 flex items-center px-4 gap-3">
+      {/* Mobile Menu Toggle */}
+      <button
+        onClick={onMenuOpen}
+        className="md:hidden flex items-center justify-center p-1.5 -ml-1.5 rounded-md hover:bg-neutral-800/50 text-neutral-500 hover:text-neutral-300 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
+
       {/* Search bar */}
       <button
         onClick={onSearchOpen}

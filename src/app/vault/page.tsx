@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 import { PasswordHealth } from "@/components/vault/PasswordHealth";
+import { NewEntryDialog } from "@/components/vault/NewEntryDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -825,6 +826,14 @@ export default function VaultPage() {
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [revealedData, setRevealedData] = useState<DecryptedPayload | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [editDialogItem, setEditDialogItem] = useState<{
+    id: string;
+    name: string;
+    folder?: string;
+    tags?: string[];
+    template: Template;
+    payload: DecryptedPayload;
+  } | null>(null);
 
   // Bulk / Sort state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -882,6 +891,7 @@ export default function VaultPage() {
       await updateItem(editIdParams, updates);
 
       setEditId(null);
+      setEditDialogItem(null);
       if (revealedId === editIdParams) {
         setRevealedData(payload);
       }
@@ -1374,25 +1384,20 @@ export default function VaultPage() {
 
         {/* Expanded detail */}
         {revealedId === item.id && revealedData && (
-          editId === item.id ? (
-            <div className="px-4 pb-4 pt-3 mx-4 mb-1">
-              <NewEntryForm
-                folders={folders}
-                onSave={handleSave}
-                onCancel={() => setEditId(null)}
-                initialData={{
-                  id: item.id,
-                  name: item.name,
-                  folder: item.folder,
-                  tags: item.tags,
-                  template: item.template || "login",
-                  payload: revealedData
-                }}
-              />
-            </div>
-          ) : (
-            <ExpandedDetails data={revealedData} readOnly={activeFilter === "trash"} onEdit={() => setEditId(item.id)} />
-          )
+          <ExpandedDetails
+            data={revealedData}
+            readOnly={activeFilter === "trash"}
+            onEdit={() =>
+              setEditDialogItem({
+                id: item.id,
+                name: item.name,
+                folder: item.folder,
+                tags: item.tags,
+                template: item.template || "login",
+                payload: revealedData,
+              })
+            }
+          />
         )}
       </div>
     );
@@ -1456,23 +1461,34 @@ export default function VaultPage() {
 
       <main className="max-w-2xl mx-auto px-5 py-8 space-y-6">
 
-        {/* New entry button / form */}
-        {!isNewEntryOpen ? (
-          <button
-            onClick={() => setIsNewEntryOpen(true)}
-            className="group flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border border-dashed border-[var(--border)] text-neutral-500 hover:text-neutral-200 hover:border-neutral-600 hover:bg-neutral-900/40 transition-all cursor-pointer"
-          >
-            <div className="w-5 h-5 rounded-md border border-[var(--border)] group-hover:border-neutral-600 flex items-center justify-center transition-colors shrink-0">
-              <Plus className="w-3 h-3" />
-            </div>
-            <span className="text-[13px]">Add new item</span>
-            <span className="ml-auto text-[11px] text-neutral-700 font-mono hidden sm:block">login · card · note</span>
-          </button>
-        ) : (
-          <NewEntryForm
+        {/* Add new entry button */}
+        <button
+          onClick={() => setIsNewEntryOpen(true)}
+          className="group flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border border-dashed border-[var(--border)] text-neutral-500 hover:text-neutral-200 hover:border-neutral-600 hover:bg-neutral-900/40 transition-all cursor-pointer"
+        >
+          <div className="w-5 h-5 rounded-md border border-[var(--border)] group-hover:border-neutral-600 flex items-center justify-center transition-colors shrink-0">
+            <Plus className="w-3 h-3" />
+          </div>
+          <span className="text-[13px]">Add new item</span>
+          <span className="ml-auto text-[11px] text-neutral-700 font-mono hidden sm:block">login · card · note</span>
+        </button>
+
+        {/* New entry dialog (portal) */}
+        <NewEntryDialog
+          open={isNewEntryOpen}
+          folders={folders}
+          onSave={handleSave}
+          onClose={() => setIsNewEntryOpen(false)}
+        />
+
+        {/* Edit entry dialog (portal) */}
+        {editDialogItem && (
+          <NewEntryDialog
+            open={!!editDialogItem}
             folders={folders}
             onSave={handleSave}
-            onCancel={() => setIsNewEntryOpen(false)}
+            onClose={() => setEditDialogItem(null)}
+            initialData={editDialogItem}
           />
         )}
 

@@ -268,18 +268,18 @@ export default function AuthPage() {
           style={{ background: "radial-gradient(ellipse 70% 60% at 30% 40%, rgba(255,255,255,0.025) 0%, transparent 70%)" }} />
 
         {/* Illustration — smooth opacity crossfade without remounts */}
-        <div className="absolute inset-0 flex items-center justify-end pr-12 pointer-events-none select-none">
+        <div className="absolute inset-0 flex items-end justify-end pr-8 pb-24 pointer-events-none select-none">
           {(["signin", "signup"] as const).map((t) => (
             <Image
               key={t}
               src={LEFT[t].illustration}
               alt=""
-              width={480}
-              height={480}
-              className="absolute object-contain translate-x-12 transition-all duration-700 ease-in-out"
+              width={400}
+              height={400}
+              className="absolute object-contain w-[240px] lg:w-[280px] xl:w-[360px] h-auto transition-all duration-700 ease-in-out"
               style={{
                 opacity: activeView === t ? 0.6 : 0,
-                transform: activeView === t ? "translateX(48px) scale(1)" : "translateX(30px) scale(0.95)",
+                transform: activeView === t ? "translateX(0px) scale(1)" : "translateX(-20px) scale(0.95)",
                 filter: activeView === t ? "blur(0px)" : "blur(4px)"
               }}
               priority
@@ -341,7 +341,7 @@ export default function AuthPage() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10 relative overflow-hidden">
 
         <div className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none select-none lg:hidden opacity-[0.04]">
-          <Image src={lc.illustration} alt="" width={192} height={192} className="object-contain" />
+          <Image src={lc.illustration} priority alt="" width={192} height={192} className="object-contain w-auto h-auto" style={{ height: "100%", width: "auto" }} />
         </div>
 
         <div className="w-full max-w-[360px] animate-auth-panel-in relative z-10">
@@ -376,16 +376,16 @@ export default function AuthPage() {
             <div className="space-y-4">
 
               {/* Contextual Illustration — crossfades via CSS */}
-              <div className="relative w-full h-[140px] sm:h-[180px] flex justify-center items-center mb-6 pointer-events-none select-none">
+              <div className="relative w-full h-[120px] sm:h-[160px] flex justify-center items-center mb-6 pointer-events-none select-none">
                 {(["signin", "signup"] as const).map((t) => (
                   <Image
                     key={t}
                     src={LEFT[t].formIcon}
                     priority
                     alt=""
-                    width={350}
-                    height={350}
-                    className="absolute object-contain transition-all duration-700 ease-in-out"
+                    width={200}
+                    height={200}
+                    className="absolute object-contain w-[120px] sm:w-[160px] h-auto transition-all duration-700 ease-in-out"
                     style={{
                       opacity: activeView === t ? 0.8 : 0,
                       transform: activeView === t ? "scale(1)" : "scale(0.92)",
@@ -514,7 +514,7 @@ export default function AuthPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="text-center mb-6">
-                      <Image src={lc.formIcon} alt="" width={500} height={500} className="mx-auto opacity-80 mb-4" />
+                      <Image src={lc.formIcon} priority alt="" width={140} height={140} className="w-[120px] sm:w-[140px] h-auto mx-auto opacity-80 mb-4" />
                       <h2 className="text-[18px] font-semibold text-neutral-100">Reset password</h2>
                       <p className="text-[12px] text-neutral-600 mt-1">Enter your email and we&apos;ll send a link.</p>
                     </div>

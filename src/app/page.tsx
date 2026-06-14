@@ -320,7 +320,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-24 relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 80% at 50% 50%, rgba(99,102,241,0.04) 0%, transparent 70%)" }} />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-            <Image src="/illustrations/safe_0mei.svg" alt="" width={400} height={400} className="object-contain" style={{ opacity: 0.06 }} />
+            <Image src="/illustrations/safe_0mei.svg" alt="" width={400} height={400} className="w-auto h-auto object-contain" style={{ opacity: 0.06, width: "auto", height: "auto" }} />
           </div>
           <div className="relative text-center space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[var(--border)] text-[11px] text-neutral-600 mb-2">
