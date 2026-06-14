@@ -33,9 +33,11 @@
 - [x] Overhauled Admin Support Inbox UI and added bidirectional Email Notifications via SMTP
 
 ## Next Steps:
-- [x] Overhauled the desktop sidebar transitions using pure CSS masking (eliminating layout snapping, wrapping, and React unmounting)
+- [x] Overhauled desktop sidebar transitions using pure CSS masking (eliminating layout snapping, wrapping, and React unmounting)
 - [x] Overhauled "Enter Master Password" page to completely hide vault layout shell (sidebar, top bar, bottom nav) when locked
 - [x] Fixed database audit logging typescript check compilation errors in `auditLog.ts` and `src/app/admin/logs/page.tsx`
 - [x] Fixed ESM dynamic imports hoisting bug in `investigate.ts` to allow local database validation run
+- [x] Replaced inline new-entry form with a pop-up modal dialog (`NewEntryDialog.tsx`) — portal-based overlay with smooth transitions, all fields (login / card / address / profile / note), password generator, TOTP, custom fields, and matching dark theme
+- [x] Editing existing entries now uses the same dialog pop-up (clicking "Edit Entry" opens the dialog pre-filled)
 - [ ] Final testing of all new admin features and backup restoration routines
 - [ ] Proceed with any further user-requested feature additions or refinements
