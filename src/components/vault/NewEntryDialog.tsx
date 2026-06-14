@@ -151,95 +151,101 @@ function DetailedCardVisual({ cardNumber, cardName, expiry }: { cardNumber: stri
   const isVisa = cardNumber.startsWith("4");
   const isMC = /^5[1-5]/.test(cardNumber);
   const isAmex = /^3[47]/.test(cardNumber);
-  const isDiscover = /^6/.test(cardNumber);
   
-  let bgGradient = "from-neutral-800 to-neutral-900 border-neutral-700";
-  let textColor = "text-white/90";
-
-  if (isVisa) { bgGradient = "from-[#0f2027] via-[#203a43] to-[#2c5364] border-[#2c5364]"; }
-  if (isMC) { bgGradient = "from-[#1a1a1a] to-[#333333] border-[#444]"; } 
-  if (isAmex) { bgGradient = "from-[#d7e1ec] to-[#f5f7fa] border-[#c0d0e0]"; textColor = "text-slate-800"; } 
-  if (isDiscover) { bgGradient = "from-[#ff4b1f] to-[#ff9068] border-[#ff9068]"; }
+  let bgClass = "from-[#4b6cb7] to-[#182848]"; // Default dark blue
+  let graphics = null;
+  
+  if (isVisa) {
+    bgClass = "from-[#8E2DE2] to-[#4A00E0]"; // Sleek purple
+    graphics = (
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <path d="M0 160 C 80 120, 160 200, 320 100 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+        <path d="M0 120 C 120 180, 200 80, 320 140 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+        <path d="M0 80 C 100 40, 220 140, 320 60 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+      </svg>
+    );
+  } else if (isMC) {
+    bgClass = "from-[#f12711] to-[#f5af19]"; // Vibrant warm
+    graphics = (
+      <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <circle cx="320" cy="0" r="150" fill="rgba(255,255,255,0.1)" />
+        <circle cx="0" cy="200" r="100" fill="rgba(255,255,255,0.1)" />
+      </svg>
+    );
+  } else if (isAmex) {
+    bgClass = "from-[#00c6ff] to-[#0072ff]"; // Bright blue
+    graphics = (
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-40" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <path d="M -50 250 L 150 -50 L 200 -50 L 0 250 Z" fill="white" />
+        <path d="M 50 250 L 250 -50 L 300 -50 L 100 250 Z" fill="white" />
+      </svg>
+    );
+  } else {
+    bgClass = "from-[#11998e] to-[#38ef7d]"; // Mint green
+    graphics = (
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-20" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <path d="M 0 0 L 320 200 M 320 0 L 0 200" stroke="white" strokeWidth="60" strokeLinecap="square" />
+      </svg>
+    );
+  }
 
   const num = cardNumber.replace(/\D/g, "");
-  const formatted = num ? (isAmex ? num.replace(/(\d{4})(\d{6})?(\d{5})?/, "$1 $2 $3").trim() : num.replace(/(\d{4})/g, "$1 ").trim()) : "•••• •••• •••• ••••";
-
-  // Deep embossed text style for plastic look
-  const embossedStyle = { textShadow: "1px 1px 0px rgba(255,255,255,0.2), -1px -1px 0px rgba(0,0,0,0.5)" };
+  // Mask everything except the last 4 digits
+  let formatted = "•••• •••• •••• ••••";
+  if (num) {
+    if (isAmex && num.length > 10) {
+      formatted = `•••• •••••• ${num.slice(-5)}`;
+    } else if (num.length >= 12) {
+      formatted = `•••• •••• •••• ${num.slice(-4)}`;
+    } else {
+      formatted = num.replace(/(\d{4})/g, "$1 ").trim();
+    }
+  }
 
   return (
-    <div className="relative w-full max-w-[420px] mx-auto aspect-[1.586/1] rounded-[20px] overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.3)] transition-transform duration-500 hover:scale-[1.03] border" style={{ perspective: "1000px" }}>
-      {/* Base gradient */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${bgGradient} ${bgGradient.includes("border") ? bgGradient.split(" ").find(c => c.startsWith("border")) : ""}`} />
-      
-      {/* Noise / Frosted Texture */}
-      <div className="absolute inset-0 opacity-[0.1] mix-blend-overlay" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')" }} />
-      
-      {/* Global Glare */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-70 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-80 h-80 bg-white opacity-[0.05] rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-
-      {/* Holographic foil sticker */}
-      {(isVisa || isMC) && (
-        <div className="absolute top-[45%] right-6 w-10 h-10 rounded-md bg-gradient-to-tr from-amber-200 via-pink-300 to-cyan-300 opacity-70 mix-blend-color-dodge shadow-[inset_0_0_10px_rgba(255,255,255,0.8)] flex items-center justify-center overflow-hidden pointer-events-none">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4yIi8+PC9zdmc+')] opacity-50 mix-blend-overlay" />
-          <Globe className="w-6 h-6 text-white/50 animate-[spin_10s_linear_infinite]" />
-        </div>
-      )}
-
-      <div className={`relative h-full flex flex-col p-8 ${textColor}`}>
+    <div className="@container relative w-full max-w-[400px] mx-auto aspect-[1.586/1] select-none">
+      <div className={`absolute inset-0 rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between text-white p-[6cqw]`}>
+        {/* Background Vectors */}
+        {graphics}
         
-        {/* Top row */}
-        <div className="flex justify-between items-start">
-          {/* Contactless Icon */}
-          <svg className="w-7 h-7 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8.5 4c2.5 1.5 4.5 4 5.5 7s1 6-.5 8.5" />
-            <path d="M4.5 7c2 1.5 3.5 3.5 4 6s.5 5-.5 7" />
-            <path d="M12.5 2c3 2 5.5 5 7 8.5s2.5 7.5 1 11" />
-          </svg>
-          <span className="text-[11px] uppercase tracking-widest opacity-40 font-bold">{isAmex ? "American Express" : isVisa ? "Credit" : "Debit"}</span>
-        </div>
-
-        {/* EMV Chip */}
-        <div className="mt-5 w-14 h-11 rounded-lg bg-gradient-to-br from-[#f0d492] via-[#d4af37] to-[#b38b22] relative overflow-hidden shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),0_3px_5px_rgba(0,0,0,0.2)] border border-[#8f6815]">
-          <div className="absolute inset-0 grid grid-cols-3 gap-[1px] p-[1.5px] opacity-50 mix-blend-multiply">
-             <div className="border border-black/40 rounded-sm" />
-             <div className="border border-black/40 rounded-sm" />
-             <div className="border border-black/40 rounded-sm" />
-             <div className="border border-black/40 rounded-sm" />
-             <div className="border border-black/40 rounded-sm" />
-             <div className="border border-black/40 rounded-sm" />
-          </div>
-          <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-black/20" />
-          <div className="absolute left-1/2 top-0 bottom-0 w-[1.5px] bg-black/20" />
-          {/* Chip highlight */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent pointer-events-none" />
-        </div>
-
-        {/* Card Number (Embossed look) */}
-        <div className="mt-auto mb-3 text-[26px] font-mono tracking-[0.18em] font-bold" style={embossedStyle}>
-          {formatted}
-        </div>
-
-        {/* Bottom row */}
-        <div className="flex justify-between items-end">
-          <div className="flex flex-col">
-            <span className="text-[9px] uppercase tracking-widest opacity-60 mb-1" style={{ textShadow: "0 1px 1px rgba(0,0,0,0.3)" }}>Cardholder</span>
-            <span className="text-[15px] font-bold tracking-widest uppercase truncate max-w-[200px]" style={embossedStyle}>{cardName || "NAME ON CARD"}</span>
+        {/* Top Row: Chip & Logo */}
+        <div className="relative z-10 flex justify-between items-start">
+          {/* Minimal Flat Chip */}
+          <div className="w-[11cqw] h-[8cqw] rounded-[1.5cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[2cqw] py-[1cqw]">
+            <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
+            <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
+            <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
           </div>
           
-          <div className="flex items-end gap-6">
-            <div className="flex flex-col">
-              <span className="text-[8px] uppercase tracking-widest opacity-60 mb-1" style={{ textShadow: "0 1px 1px rgba(0,0,0,0.3)" }}>Valid Thru</span>
-              <span className="text-[15px] font-mono tracking-widest font-bold" style={embossedStyle}>{expiry || "MM/YY"}</span>
-            </div>
+          {/* Minimal Flat Logos */}
+          <div className="h-[8cqw] flex items-center justify-end">
+             {isVisa && <span className="text-[7cqw] font-bold italic tracking-tighter text-white">VISA</span>}
+             {isMC && <div className="flex relative items-center"><div className="w-[6cqw] h-[6cqw] rounded-full bg-white opacity-90" /><div className="w-[6cqw] h-[6cqw] rounded-full bg-white opacity-50 absolute right-[3.5cqw]" /></div>}
+             {isAmex && <span className="text-[4cqw] font-bold uppercase tracking-widest text-white">AMEX</span>}
+          </div>
+        </div>
 
-            {/* Logos */}
-            <div className="w-16 h-10 flex justify-end items-center relative z-10">
-               {isVisa && <span className="text-[32px] font-extrabold italic tracking-tighter" style={{ color: "white", textShadow: "0 2px 4px rgba(0,0,0,0.6)" }}>VISA</span>}
-               {isMC && <div className="flex relative items-center"><div className="w-9 h-9 rounded-full bg-[#eb001b] mix-blend-multiply opacity-90 relative z-10" /><div className="w-9 h-9 rounded-full bg-[#f79e1b] mix-blend-multiply opacity-90 absolute left-4.5" /></div>}
-               {isAmex && <span className="text-[14px] font-black uppercase tracking-widest text-blue-600 bg-white/20 px-2 py-1 rounded backdrop-blur-sm shadow-sm border border-white/30">AMEX</span>}
-            </div>
+        {/* Middle: Card Number */}
+        <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center">
+          <span className="text-[6.5cqw] font-mono tracking-[0.2em] font-medium leading-none whitespace-nowrap">
+            {formatted}
+          </span>
+        </div>
+
+        {/* Bottom Row: Name & Expiry */}
+        <div className="relative z-10 flex justify-between items-end">
+          <div className="flex flex-col min-w-0 pr-[4cqw]">
+            <span className="text-[2.5cqw] uppercase tracking-wider text-white/70 mb-[0.5cqw]">Cardholder Name</span>
+            <span className="text-[4cqw] font-semibold tracking-wide uppercase truncate">
+              {cardName || "Name"}
+            </span>
+          </div>
+          
+          <div className="flex flex-col shrink-0 text-right">
+            <span className="text-[2.5cqw] uppercase tracking-wider text-white/70 mb-[0.5cqw]">Expiry Date</span>
+            <span className="text-[4cqw] font-medium font-mono">
+              {expiry || "00/00"}
+            </span>
           </div>
         </div>
       </div>
