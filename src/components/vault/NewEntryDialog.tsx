@@ -147,102 +147,142 @@ function LiveTotpPreview({ secret }: { secret: string }) {
   );
 }
 
-function DetailedCardVisual({ cardNumber, cardName, expiry }: { cardNumber: string; cardName: string; expiry: string; }) {
+function DetailedCardVisual({ cardNumber, cardName, expiry, entryName }: { cardNumber: string; cardName: string; expiry: string; entryName: string; }) {
   const isVisa = cardNumber.startsWith("4");
   const isMC = /^5[1-5]/.test(cardNumber);
   const isAmex = /^3[47]/.test(cardNumber);
-  
-  let bgClass = "from-[#4b6cb7] to-[#182848]"; // Default dark blue
+  const num = cardNumber.replace(/\D/g, "");
+
+  let bgClass = "from-[#4b6cb7] to-[#182848]";
   let graphics = null;
+  let bankLogo = null;
   
-  if (isVisa) {
-    bgClass = "from-[#8E2DE2] to-[#4A00E0]"; // Sleek purple
+  const n = (entryName || "").toLowerCase();
+  
+  if (n.includes("chase")) {
+    bgClass = "from-[#117aca] to-[#005eb8]";
+    bankLogo = <span className="text-[4cqw] font-bold text-white tracking-wide">CHASE</span>;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M0 160 C 80 120, 160 200, 320 100 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
-        <path d="M0 120 C 120 180, 200 80, 320 140 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
-        <path d="M0 80 C 100 40, 220 140, 320 60 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-30" viewBox="0 0 320 200" preserveAspectRatio="none">
+         <path d="M0 200 L320 0 L320 200 Z" fill="rgba(255,255,255,0.1)"/>
       </svg>
     );
-  } else if (isMC) {
-    bgClass = "from-[#f12711] to-[#f5af19]"; // Vibrant warm
-    graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <circle cx="320" cy="0" r="150" fill="rgba(255,255,255,0.1)" />
-        <circle cx="0" cy="200" r="100" fill="rgba(255,255,255,0.1)" />
-      </svg>
-    );
-  } else if (isAmex) {
-    bgClass = "from-[#00c6ff] to-[#0072ff]"; // Bright blue
-    graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-40" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M -50 250 L 150 -50 L 200 -50 L 0 250 Z" fill="white" />
-        <path d="M 50 250 L 250 -50 L 300 -50 L 100 250 Z" fill="white" />
-      </svg>
-    );
-  } else {
-    bgClass = "from-[#11998e] to-[#38ef7d]"; // Mint green
+  } else if (n.includes("apple")) {
+    bgClass = "from-[#f5f5f7] to-[#e5e5ea]";
+    bankLogo = <span className="text-[5cqw] font-bold text-black tracking-tighter"> Card</span>;
+    graphics = null;
+  } else if (n.includes("citi")) {
+    bgClass = "from-[#003b70] to-[#002d54]";
+    bankLogo = <span className="text-[5cqw] font-bold text-white tracking-tighter">citi</span>;
     graphics = (
       <svg className="absolute inset-0 w-full h-full object-cover opacity-20" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M 0 0 L 320 200 M 320 0 L 0 200" stroke="white" strokeWidth="60" strokeLinecap="square" />
+        <path d="M100 0 Q 160 100 220 0" fill="none" stroke="red" strokeWidth="20" />
       </svg>
     );
+  } else if (n.includes("capital one")) {
+    bgClass = "from-[#002a4e] to-[#001d36]";
+    bankLogo = <span className="text-[4cqw] font-bold text-white">Capital One</span>;
+  } else if (n.includes("discover")) {
+    bgClass = "from-[#f58220] to-[#d45d00]";
+    bankLogo = <span className="text-[4cqw] font-bold text-white tracking-wider">DISCOVER</span>;
+  } else {
+    if (isVisa) {
+      bgClass = "from-[#8E2DE2] to-[#4A00E0]"; 
+      graphics = (
+        <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 320 200" preserveAspectRatio="none">
+          <path d="M0 160 C 80 120, 160 200, 320 100 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+          <path d="M0 120 C 120 180, 200 80, 320 140 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+        </svg>
+      );
+    } else if (isMC) {
+      bgClass = "from-[#f12711] to-[#f5af19]";
+      graphics = (
+        <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 320 200" preserveAspectRatio="none">
+          <circle cx="320" cy="0" r="150" fill="rgba(255,255,255,0.1)" />
+          <circle cx="0" cy="200" r="100" fill="rgba(255,255,255,0.1)" />
+        </svg>
+      );
+    } else if (isAmex) {
+      bgClass = "from-[#00c6ff] to-[#0072ff]";
+      graphics = (
+        <svg className="absolute inset-0 w-full h-full object-cover opacity-40" viewBox="0 0 320 200" preserveAspectRatio="none">
+          <path d="M -50 250 L 150 -50 L 200 -50 L 0 250 Z" fill="white" />
+        </svg>
+      );
+    } else {
+      bgClass = "from-[#11998e] to-[#38ef7d]";
+    }
   }
 
-  const num = cardNumber.replace(/\D/g, "");
-  // Mask everything except the last 4 digits
-  let formatted = "•••• •••• •••• ••••";
-  if (num) {
-    if (isAmex && num.length > 10) {
-      formatted = `•••• •••••• ${num.slice(-5)}`;
-    } else if (num.length >= 12) {
-      formatted = `•••• •••• •••• ${num.slice(-4)}`;
-    } else {
-      formatted = num.replace(/(\d{4})/g, "$1 ").trim();
+  const isLight = n.includes("apple");
+  const textColor = isLight ? "text-neutral-800" : "text-white";
+  const mutedColor = isLight ? "text-neutral-500" : "text-white/70";
+
+  // Animated digits rendering
+  const groups = isAmex ? [4, 6, 5] : [4, 4, 4, 4];
+  
+  const digitGroups = [];
+  let charIndex = 0;
+  for (let g = 0; g < groups.length; g++) {
+    let groupSpan = [];
+    for (let i = 0; i < groups[g]; i++) {
+      const idx = charIndex++;
+      const isEntered = idx < num.length;
+      const isVisibleBlock = g === groups.length - 1; 
+      
+      let char = "-";
+      let op = isLight ? "opacity-20" : "opacity-30";
+      let scale = "scale-90";
+      
+      if (isEntered) {
+        char = isVisibleBlock ? num[idx] : "•";
+        op = "opacity-100";
+        scale = "scale-100";
+      }
+      
+      groupSpan.push(
+        <span key={idx} className={`inline-block transition-all duration-300 transform ${op} ${scale} ${char === '•' ? 'translate-y-[-2px] text-[1.2em]' : ''} w-[4cqw] text-center`}>
+          {char}
+        </span>
+      );
     }
+    digitGroups.push(<div key={g} className="flex gap-[0.2cqw]">{groupSpan}</div>);
   }
 
   return (
     <div className="@container relative w-full max-w-[400px] mx-auto aspect-[1.586/1] select-none">
-      <div className={`absolute inset-0 rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between text-white p-[6cqw]`}>
-        {/* Background Vectors */}
+      <div className={`absolute inset-0 rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between ${textColor} p-[6cqw] transition-colors duration-500`}>
         {graphics}
         
-        {/* Top Row: Chip & Logo */}
-        <div className="relative z-10 flex justify-between items-start">
-          {/* Minimal Flat Chip */}
-          <div className="w-[11cqw] h-[8cqw] rounded-[1.5cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[2cqw] py-[1cqw]">
-            <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
-            <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
-            <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
+        {/* Top Row: Bank Logo left, Network right */}
+        <div className="relative z-10 flex justify-between items-start h-[8cqw]">
+          <div className="flex items-center h-full">
+            {bankLogo || <div className="w-[10cqw] h-[7cqw] rounded-[1cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[1.5cqw] py-[1cqw]"><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /></div>}
           </div>
           
-          {/* Minimal Flat Logos */}
-          <div className="h-[8cqw] flex items-center justify-end">
-             {isVisa && <span className="text-[7cqw] font-bold italic tracking-tighter text-white">VISA</span>}
-             {isMC && <div className="flex relative items-center"><div className="w-[6cqw] h-[6cqw] rounded-full bg-white opacity-90" /><div className="w-[6cqw] h-[6cqw] rounded-full bg-white opacity-50 absolute right-[3.5cqw]" /></div>}
-             {isAmex && <span className="text-[4cqw] font-bold uppercase tracking-widest text-white">AMEX</span>}
+          <div className="flex items-center justify-end">
+             {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
+             {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
+             {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
           </div>
         </div>
 
-        {/* Middle: Card Number */}
-        <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center">
-          <span className="text-[6.5cqw] font-mono tracking-[0.2em] font-medium leading-none whitespace-nowrap">
-            {formatted}
-          </span>
+        {/* Middle: Card Number Animated */}
+        <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap">
+          {digitGroups}
         </div>
 
-        {/* Bottom Row: Name & Expiry */}
+        {/* Bottom Row */}
         <div className="relative z-10 flex justify-between items-end">
           <div className="flex flex-col min-w-0 pr-[4cqw]">
-            <span className="text-[2.5cqw] uppercase tracking-wider text-white/70 mb-[0.5cqw]">Cardholder Name</span>
+            <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Cardholder Name</span>
             <span className="text-[4cqw] font-semibold tracking-wide uppercase truncate">
               {cardName || "Name"}
             </span>
           </div>
           
           <div className="flex flex-col shrink-0 text-right">
-            <span className="text-[2.5cqw] uppercase tracking-wider text-white/70 mb-[0.5cqw]">Expiry Date</span>
+            <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Expiry Date</span>
             <span className="text-[4cqw] font-medium font-mono">
               {expiry || "00/00"}
             </span>
@@ -596,10 +636,25 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
             {/* ── CARD ── */}
             {template === "card" && (
               <>
-                <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} />
+                <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} entryName={name} />
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div><FieldLabel>Cardholder Name</FieldLabel><Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Name on card" /></div>
-                  <div><FieldLabel>Card Number</FieldLabel><Input value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="•••• •••• •••• ••••" className="font-mono" /></div>
+                  <div><FieldLabel>Card Number</FieldLabel><Input value={cardNumber} onChange={e => {
+                    let val = e.target.value.replace(/\D/g, "");
+                    if (/^3[47]/.test(val)) {
+                      val = val.slice(0, 15);
+                      const parts = [];
+                      if (val.length > 0) parts.push(val.slice(0, 4));
+                      if (val.length > 4) parts.push(val.slice(4, 10));
+                      if (val.length > 10) parts.push(val.slice(10, 15));
+                      setCardNumber(parts.join(" "));
+                    } else {
+                      val = val.slice(0, 16);
+                      const parts = [];
+                      for (let i = 0; i < val.length; i += 4) parts.push(val.slice(i, i + 4));
+                      setCardNumber(parts.join(" "));
+                    }
+                  }} placeholder="•••• •••• •••• ••••" className="font-mono" /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div><FieldLabel>Expiry</FieldLabel><Input value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" /></div>
