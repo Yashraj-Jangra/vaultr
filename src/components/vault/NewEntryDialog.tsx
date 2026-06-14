@@ -147,37 +147,87 @@ function LiveTotpPreview({ secret }: { secret: string }) {
   );
 }
 
-function CompactCardVisual({ cardNumber, cardName, expiry }: { cardNumber: string; cardName: string; expiry: string; }) {
+function DetailedCardVisual({ cardNumber, cardName, expiry }: { cardNumber: string; cardName: string; expiry: string; }) {
   const isVisa = cardNumber.startsWith("4");
   const isMC = /^5[1-5]/.test(cardNumber);
   const isAmex = /^3[47]/.test(cardNumber);
   const isDiscover = /^6/.test(cardNumber);
   
-  let bgClass = "bg-[var(--surface-hover)]";
-  if (isVisa) bgClass = "bg-[#1a1f36]";
-  if (isMC) bgClass = "bg-[#2d2d2d]";
-  if (isAmex) bgClass = "bg-[#002663]";
-  if (isDiscover) bgClass = "bg-[#e55c20]";
+  let bgGradient = "from-neutral-800 to-neutral-900 border-neutral-700";
+  let textColor = "text-white/90";
+
+  if (isVisa) { bgGradient = "from-[#0f2027] via-[#203a43] to-[#2c5364] border-[#2c5364]"; }
+  if (isMC) { bgGradient = "from-[#1a1a1a] to-[#333333] border-[#444]"; } 
+  if (isAmex) { bgGradient = "from-[#d7e1ec] to-[#f5f7fa] border-[#c0d0e0]"; textColor = "text-slate-800"; } 
+  if (isDiscover) { bgGradient = "from-[#ff4b1f] to-[#ff9068] border-[#ff9068]"; }
 
   const num = cardNumber.replace(/\D/g, "");
   const formatted = num ? (isAmex ? num.replace(/(\d{4})(\d{6})?(\d{5})?/, "$1 $2 $3").trim() : num.replace(/(\d{4})/g, "$1 ").trim()) : "•••• •••• •••• ••••";
 
   return (
-    <div className={`w-full h-16 rounded-xl flex items-center justify-between px-4 overflow-hidden border border-[var(--border)] transition-colors duration-300 ${bgClass} shadow-sm`}>
-      <div className="flex flex-col text-white/90">
-        <span className="text-[9px] uppercase tracking-widest text-white/50">{cardName || "Cardholder Name"}</span>
-        <span className="font-mono font-semibold tracking-wider">{formatted}</span>
-      </div>
-      <div className="flex items-center gap-4 text-right">
-        <div className="flex flex-col text-white/90">
-          <span className="text-[8px] uppercase tracking-widest text-white/50">Exp</span>
-          <span className="font-mono text-sm">{expiry || "MM/YY"}</span>
+    <div className="relative w-full max-w-[360px] mx-auto aspect-[1.586/1] rounded-[18px] overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.25)] transition-all duration-500 hover:scale-[1.02] border" style={{ perspective: "1000px" }}>
+      {/* Base gradient */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${bgGradient} ${bgGradient.includes("border") ? bgGradient.split(" ").find(c => c.startsWith("border")) : ""}`} />
+      
+      {/* Noise / Frosted Texture */}
+      <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')" }} />
+      
+      {/* Glare / Lighting */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-60 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-[0.04] rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+
+      <div className={`relative h-full flex flex-col p-6 ${textColor}`}>
+        
+        {/* Top row */}
+        <div className="flex justify-between items-start">
+          {/* Contactless Icon */}
+          <svg className="w-6 h-6 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8.5 4c2.5 1.5 4.5 4 5.5 7s1 6-.5 8.5" />
+            <path d="M4.5 7c2 1.5 3.5 3.5 4 6s.5 5-.5 7" />
+            <path d="M12.5 2c3 2 5.5 5 7 8.5s2.5 7.5 1 11" />
+          </svg>
+          <span className="text-[10px] uppercase tracking-widest opacity-40 font-bold">{isAmex ? "American Express" : isVisa ? "Credit" : "Debit"}</span>
         </div>
-        <div className="w-10 flex justify-end">
-          {isVisa && <span className="text-white font-bold italic text-lg tracking-wider opacity-90">VISA</span>}
-          {isMC && <div className="flex"><div className="w-5 h-5 rounded-full bg-red-500 opacity-90" /><div className="w-5 h-5 rounded-full bg-amber-400 -ml-2.5 opacity-90" /></div>}
-          {isAmex && <span className="text-white font-bold text-xs tracking-[0.2em] opacity-90">AMEX</span>}
-          {!isVisa && !isMC && !isAmex && <div className="w-8 h-5 rounded-sm border border-white/20 bg-white/10" />}
+
+        {/* EMV Chip */}
+        <div className="mt-4 w-12 h-9 rounded-md bg-gradient-to-br from-[#f0d492] via-[#d4af37] to-[#b38b22] relative overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.1)] border border-[#a67b1e]">
+          <div className="absolute inset-0 grid grid-cols-3 gap-[1px] p-[1px] opacity-40 mix-blend-multiply">
+             <div className="border border-black/30 rounded-sm" />
+             <div className="border border-black/30 rounded-sm" />
+             <div className="border border-black/30 rounded-sm" />
+             <div className="border border-black/30 rounded-sm" />
+             <div className="border border-black/30 rounded-sm" />
+             <div className="border border-black/30 rounded-sm" />
+          </div>
+          <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-black/20" />
+          <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-black/20" />
+        </div>
+
+        {/* Card Number (Embossed look) */}
+        <div className="mt-auto mb-2 text-[22px] font-mono tracking-[0.15em] font-medium" style={{ textShadow: "0 1px 1px rgba(0,0,0,0.2)" }}>
+          {formatted}
+        </div>
+
+        {/* Bottom row */}
+        <div className="flex justify-between items-end">
+          <div className="flex flex-col">
+            <span className="text-[8px] uppercase tracking-widest opacity-60 mb-0.5">Cardholder</span>
+            <span className="text-[13px] font-semibold tracking-wider uppercase truncate max-w-[160px]" style={{ textShadow: "0 1px 1px rgba(0,0,0,0.2)" }}>{cardName || "NAME ON CARD"}</span>
+          </div>
+          
+          <div className="flex items-end gap-5">
+            <div className="flex flex-col">
+              <span className="text-[7px] uppercase tracking-widest opacity-60 mb-0.5">Valid Thru</span>
+              <span className="text-[13px] font-mono tracking-wider font-semibold" style={{ textShadow: "0 1px 1px rgba(0,0,0,0.2)" }}>{expiry || "MM/YY"}</span>
+            </div>
+
+            {/* Logos */}
+            <div className="w-14 h-8 flex justify-end items-center relative z-10">
+               {isVisa && <span className="text-[26px] font-bold italic tracking-tighter" style={{ color: "white", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>VISA</span>}
+               {isMC && <div className="flex relative items-center"><div className="w-7 h-7 rounded-full bg-[#eb001b] mix-blend-multiply opacity-90 relative z-10" /><div className="w-7 h-7 rounded-full bg-[#f79e1b] mix-blend-multiply opacity-90 absolute left-3.5" /></div>}
+               {isAmex && <span className="text-[12px] font-bold uppercase tracking-widest text-blue-600 bg-white/20 px-1.5 py-0.5 rounded backdrop-blur-sm">AMEX</span>}
+            </div>
+          </div>
         </div>
       </div>
     </div>
