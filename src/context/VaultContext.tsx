@@ -247,6 +247,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     lockTimerRef.current = setTimeout(() => {
       setCryptoKey(null);
       if (user?.id) clearVaultSession(user.id);
+      setIsNewEntryOpen(false);
     }, lockMs);
   }, [cryptoKey, user?.id, autoLockMinutes, clearTimers]);
 
@@ -292,6 +293,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setCryptoKey(null);
     if (user?.id) clearVaultSession(user.id);
     clearTimers();
+    setIsNewEntryOpen(false);
   }, [user?.id, clearTimers]);
 
   const saveItem = useCallback(async (
