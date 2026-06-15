@@ -1,6 +1,6 @@
 {
-  "id": "7999ff77-6cc0-47bc-bd36-6ded62da9442",
-  "prevId": "f9e18c30-34c0-4abf-a1db-be3ff6bf0fa2",
+  "id": "8c97046d-0374-4973-8fd0-010372e8f54a",
+  "prevId": "7999ff77-6cc0-47bc-bd36-6ded62da9442",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -896,6 +896,18 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'user'"
+        },
+        "deleted_by_admin": {
+          "name": "deleted_by_admin",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_by_admin_id": {
+          "name": "deleted_by_admin_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

@@ -37,6 +37,7 @@ export interface DecryptedPayload {
   // card
   cardName?: string;
   cardNumber?: string;
+  cardBrand?: string;
   expiry?: string;
   cvv?: string;
   pin?: string;

@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import { useSiteConfig } from "@/context/SiteConfigContext";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ export interface DecryptedPayload {
   _template?: Template;
   _folder?: string;
   username?: string; password?: string; url?: string; urls?: string[];
-  cardName?: string; cardNumber?: string; expiry?: string; cvv?: string; pin?: string;
+  cardName?: string; cardNumber?: string; expiry?: string; cvv?: string; pin?: string; cardBrand?: string;
   line1?: string; line2?: string; city?: string; state?: string; zip?: string; country?: string;
   fullName?: string; dob?: string; idNumber?: string; email?: string; phone?: string;
   note?: string;
@@ -147,74 +148,55 @@ function LiveTotpPreview({ secret }: { secret: string }) {
   );
 }
 
-function DetailedCardVisual({ cardNumber, cardName, expiry, entryName }: { cardNumber: string; cardName: string; expiry: string; entryName: string; }) {
-  const isVisa = cardNumber.startsWith("4");
-  const isMC = /^5[1-5]/.test(cardNumber);
-  const isAmex = /^3[47]/.test(cardNumber);
+function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fallbackBrand }: { cardNumber: string; cardName: string; expiry: string; cardBrand?: string; fallbackBrand?: string }) {
+  const isVisa = cardBrand?.toLowerCase() === "visa";
+  const isMC = cardBrand?.toLowerCase() === "mastercard";
+  const isAmex = cardBrand?.toLowerCase() === "amex";
+  const isDiscover = cardBrand?.toLowerCase() === "discover";
+  const isRuPay = cardBrand?.toLowerCase() === "rupay";
+  const isOther = cardBrand?.toLowerCase() === "other";
+  
   const num = cardNumber.replace(/\D/g, "");
 
   let bgClass = "from-[#4b6cb7] to-[#182848]";
   let graphics = null;
   let bankLogo = null;
   
-  const n = (entryName || "").toLowerCase();
-  
-  if (n.includes("chase")) {
-    bgClass = "from-[#117aca] to-[#005eb8]";
-    bankLogo = <span className="text-[4cqw] font-bold text-white tracking-wide">CHASE</span>;
+  if (isVisa) {
+    bgClass = "from-[#8E2DE2] to-[#4A00E0]"; 
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-30" viewBox="0 0 320 200" preserveAspectRatio="none">
-         <path d="M0 200 L320 0 L320 200 Z" fill="rgba(255,255,255,0.1)"/>
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <path d="M0 160 C 80 120, 160 200, 320 100 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+        <path d="M0 120 C 120 180, 200 80, 320 140 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
       </svg>
     );
-  } else if (n.includes("apple")) {
-    bgClass = "from-[#f5f5f7] to-[#e5e5ea]";
-    bankLogo = <span className="text-[5cqw] font-bold text-black tracking-tighter"> Card</span>;
-    graphics = null;
-  } else if (n.includes("citi")) {
-    bgClass = "from-[#003b70] to-[#002d54]";
-    bankLogo = <span className="text-[5cqw] font-bold text-white tracking-tighter">citi</span>;
+  } else if (isMC) {
+    bgClass = "from-[#f12711] to-[#f5af19]";
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-20" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M100 0 Q 160 100 220 0" fill="none" stroke="red" strokeWidth="20" />
+      <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <circle cx="320" cy="0" r="150" fill="rgba(255,255,255,0.1)" />
+        <circle cx="0" cy="200" r="100" fill="rgba(255,255,255,0.1)" />
       </svg>
     );
-  } else if (n.includes("capital one")) {
-    bgClass = "from-[#002a4e] to-[#001d36]";
-    bankLogo = <span className="text-[4cqw] font-bold text-white">Capital One</span>;
-  } else if (n.includes("discover")) {
+  } else if (isAmex) {
+    bgClass = "from-[#00c6ff] to-[#0072ff]";
+    graphics = (
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-40" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <path d="M -50 250 L 150 -50 L 200 -50 L 0 250 Z" fill="white" />
+      </svg>
+    );
+  } else if (isDiscover) {
     bgClass = "from-[#f58220] to-[#d45d00]";
-    bankLogo = <span className="text-[4cqw] font-bold text-white tracking-wider">DISCOVER</span>;
-  } else {
-    if (isVisa) {
-      bgClass = "from-[#8E2DE2] to-[#4A00E0]"; 
-      graphics = (
-        <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 320 200" preserveAspectRatio="none">
-          <path d="M0 160 C 80 120, 160 200, 320 100 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
-          <path d="M0 120 C 120 180, 200 80, 320 140 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
-        </svg>
-      );
-    } else if (isMC) {
-      bgClass = "from-[#f12711] to-[#f5af19]";
-      graphics = (
-        <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 320 200" preserveAspectRatio="none">
-          <circle cx="320" cy="0" r="150" fill="rgba(255,255,255,0.1)" />
-          <circle cx="0" cy="200" r="100" fill="rgba(255,255,255,0.1)" />
-        </svg>
-      );
-    } else if (isAmex) {
-      bgClass = "from-[#00c6ff] to-[#0072ff]";
-      graphics = (
-        <svg className="absolute inset-0 w-full h-full object-cover opacity-40" viewBox="0 0 320 200" preserveAspectRatio="none">
-          <path d="M -50 250 L 150 -50 L 200 -50 L 0 250 Z" fill="white" />
-        </svg>
-      );
-    } else {
-      bgClass = "from-[#11998e] to-[#38ef7d]";
-    }
+  } else if (isRuPay) {
+    bgClass = "from-[#e46420] to-[#b3400a]";
+  } else if (isOther) {
+    bgClass = "from-[#11998e] to-[#38ef7d]";
+  } else if (cardBrand) {
+    // Custom Admin BIN brand
+    bgClass = "from-[#2b5876] to-[#4e4376]";
   }
 
-  const isLight = n.includes("apple");
+  const isLight = false;
   const textColor = isLight ? "text-neutral-800" : "text-white";
   const mutedColor = isLight ? "text-neutral-500" : "text-white/70";
 
@@ -268,10 +250,14 @@ function DetailedCardVisual({ cardNumber, cardName, expiry, entryName }: { cardN
             {bankLogo || <div className="w-[10cqw] h-[7cqw] rounded-[1cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[1.5cqw] py-[1cqw]"><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /></div>}
           </div>
           
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end max-w-[50%]">
              {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
              {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
              {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
+             {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
+             {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
+             {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
+             {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
           </div>
         </div>
 
@@ -405,6 +391,40 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
   const [cvv,        setCvv]        = useState(initialData?.payload.cvv ?? "");
   const [pin,        setPin]        = useState(initialData?.payload.pin ?? "");
 
+  const [cardBrand, setCardBrand] = useState(initialData?.payload.cardBrand ?? "");
+  const [isManualBrand, setIsManualBrand] = useState(!!initialData?.payload.cardBrand);
+
+  const { config } = useSiteConfig();
+  const [fallbackIndex, setFallbackIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isManualBrand) return;
+    if (!cardNumber) {
+      setCardBrand("");
+      setFallbackIndex(null);
+      return;
+    }
+    const num = cardNumber.replace(/\D/g, "");
+    if (config?.cardBins && config.cardBins.length > 0) {
+      const sortedBins = [...config.cardBins].sort((a, b) => b.prefix.length - a.prefix.length);
+      let found = false;
+      for (const bin of sortedBins) {
+        if (num.startsWith(bin.prefix.trim())) {
+          setCardBrand(bin.brand);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        setCardBrand("Other");
+        setFallbackIndex(prev => prev === null ? Math.floor(Math.random() * 1000) : prev);
+      }
+    } else {
+      setCardBrand("Other");
+      setFallbackIndex(prev => prev === null ? Math.floor(Math.random() * 1000) : prev);
+    }
+  }, [cardNumber, config, isManualBrand]);
+
   // Address
   const [line1,    setLine1]    = useState(initialData?.payload.line1 ?? "");
   const [line2,    setLine2]    = useState(initialData?.payload.line2 ?? "");
@@ -483,7 +503,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
       entryNotes: entryNotes.trim() || undefined,
     };
     if (template === "login")   { const v = urls.map(u => u.trim()).filter(Boolean); Object.assign(payload, { username, password, url: v[0] ?? "", urls: v, totpSecret: totpSecret.trim() }); }
-    if (template === "card")    Object.assign(payload, { cardName, cardNumber, expiry: (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "", cvv, pin });
+    if (template === "card")    Object.assign(payload, { cardName, cardNumber, cardBrand, expiry: (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "", cvv, pin });
     if (template === "address") Object.assign(payload, { line1, line2, city, state: stateVal, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note")    Object.assign(payload, { note });
@@ -511,6 +531,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
   }, [cardNumber]);
 
   const displayExpiry = (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "";
+
+  if (!open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" aria-modal="true" role="dialog">
@@ -668,19 +690,52 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
             {/* ── CARD ── */}
             {template === "card" && (
               <>
-                <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={displayExpiry} entryName={name} />
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div><FieldLabel>Cardholder Name</FieldLabel><Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Name on card" /></div>
-                  <div>
-                    <FieldLabel>Card Number</FieldLabel>
-                    <Input 
-                      value={displayCardNumber} 
-                      onChange={e => setCardNumber(e.target.value.replace(/\D/g, ""))} 
-                      onCopy={e => { e.clipboardData.setData('text/plain', cardNumber); e.preventDefault(); }}
-                      placeholder="•••• •••• •••• ••••" className="font-mono" 
-                    />
-                  </div>
-                </div>
+                {(() => {
+                  const configuredEggs = config?.cardEasterEggs || [];
+                  const eggs = configuredEggs.length > 0 ? configuredEggs : ["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD"];
+                  const fallbackBrand = eggs.length > 0 && fallbackIndex !== null ? eggs[fallbackIndex % eggs.length] : undefined;
+                  
+                  const binBrands = Array.from(new Set((config?.cardBins || []).map((b: any) => b.brand)));
+                  const allBrands = new Set(["Visa", "Mastercard", "AMEX", "Discover", "RuPay"]);
+                  binBrands.forEach((b: any) => allBrands.add(b as string));
+                  
+                  const networkOptions = [{ value: "", label: "Auto-detect" }];
+                  allBrands.forEach(b => networkOptions.push({ value: b, label: b }));
+                  networkOptions.push({ value: "Other", label: "Other" });
+
+                  return (
+                    <>
+                      <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={displayExpiry} cardBrand={cardBrand} fallbackBrand={fallbackBrand} />
+                      <div className="grid grid-cols-5 gap-4 mt-6 mb-4">
+                        <div className="col-span-2"><FieldLabel>Cardholder Name</FieldLabel><Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Name on card" /></div>
+                        <div className="col-span-1">
+                          <FieldLabel>Network</FieldLabel>
+                          <Select
+                            value={cardBrand}
+                            onChange={(v) => {
+                              setCardBrand(v);
+                              setIsManualBrand(!!v);
+                              if (v === "Other" && fallbackIndex === null) {
+                                setFallbackIndex(Math.floor(Math.random() * 1000));
+                              }
+                            }}
+                            options={networkOptions}
+                            placeholder="Network"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <FieldLabel>Card Number</FieldLabel>
+                          <Input 
+                            value={displayCardNumber} 
+                            onChange={e => setCardNumber(e.target.value.replace(/\D/g, ""))} 
+                            onCopy={e => { e.clipboardData.setData('text/plain', cardNumber); e.preventDefault(); }}
+                            placeholder="•••• •••• •••• ••••" className="font-mono" 
+                          />
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="grid grid-cols-4 gap-4">
                   <div><FieldLabel>Exp Month</FieldLabel><Input value={expiryMonth} onChange={e => setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0,2))} placeholder="MM" /></div>
                   <div><FieldLabel>Exp Year</FieldLabel><Input value={expiryYear} onChange={e => setExpiryYear(e.target.value.replace(/\D/g, "").slice(0,4))} placeholder="YYYY" /></div>
@@ -744,7 +799,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
                 <div className="space-y-2">
                   {customFields.map(f => (
                     <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" className="w-[35%] shrink-0" />
+                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" className="w-[25%] min-w-[80px] shrink-0" />
                       <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" />
                       <button onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
                     </div>

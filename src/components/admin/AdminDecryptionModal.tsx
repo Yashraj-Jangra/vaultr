@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Lock, Unlock, X, Copy, Check } from "lucide-react";
 import { deriveKey, decrypt } from "@/hooks/useCrypto";
 
@@ -9,15 +9,22 @@ interface Props {
   onClose: () => void;
   encryptedBlob: string;
   itemId: string;
+  userId?: string;
 }
 
-export function AdminDecryptionModal({ isOpen, onClose, encryptedBlob, itemId }: Props) {
+export function AdminDecryptionModal({ isOpen, onClose, encryptedBlob, itemId, userId }: Props) {
   const [password, setPassword] = useState("");
   const [salt, setSalt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [decryptedData, setDecryptedData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      setSalt(userId);
+    }
+  }, [isOpen, userId]);
 
   if (!isOpen) return null;
 
@@ -81,14 +88,14 @@ export function AdminDecryptionModal({ isOpen, onClose, encryptedBlob, itemId }:
             <form onSubmit={handleDecrypt} className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-[var(--fg-muted)]">
-                  User&apos;s Email (salt)
+                  User ID (salt)
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={salt}
                   onChange={(e) => setSalt(e.target.value)}
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] p-2.5 text-[var(--fg)] focus:border-[var(--accent)] focus:outline-none mb-4"
-                  placeholder="user@example.com"
+                  placeholder="User ID..."
                   required
                 />
                 <label className="mb-2 block text-sm font-medium text-[var(--fg-muted)]">

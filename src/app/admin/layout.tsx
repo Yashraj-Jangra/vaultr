@@ -18,6 +18,7 @@ import {
   ServerCog,
   Menu,
   X,
+  CreditCard
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { name: "Templates",     href: "/admin/email/templates", icon: FileText    },
   { name: "Content",       href: "/admin/content",         icon: FileText    },
   { name: "SMTP Settings", href: "/admin/smtp",            icon: Settings    },
+  { name: "Card Settings", href: "/admin/cards",           icon: CreditCard  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

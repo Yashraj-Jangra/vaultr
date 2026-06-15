@@ -39,5 +39,18 @@
 - [x] Fixed ESM dynamic imports hoisting bug in `investigate.ts` to allow local database validation run
 - [x] Replaced inline new-entry form with a pop-up modal dialog (`NewEntryDialog.tsx`) — portal-based overlay with smooth transitions, all fields (login / card / address / profile / note), password generator, TOTP, custom fields, and matching dark theme
 - [x] Editing existing entries now uses the same dialog pop-up (clicking "Edit Entry" opens the dialog pre-filled)
-- [ ] Final testing of all new admin features and backup restoration routines
+- [x] Fixed issue where New Entry dialog was opened by default and persisted after session timeout due to missing return null check
+- [x] Final testing of all new admin features and backup restoration routines
+- [x] Rebuilt Admin Database Explorer (`src/app/admin/database/page.tsx`) with integrity scanning and unified inline deletion for wandering items
+- [x] Re-designed the Database Explorer UI to use modern split-pane grid with dynamic inline JSON/Record Editing via `RecordEditModal`
+- [x] Refactored `AdminDecryptionModal` to receive user IDs dynamically and auto-fetch email salt via internal API
+- [x] Restored `NewEntryDialog` to its previous state with `DetailedCardVisual` component at user request
+- [x] Re-integrated Network/Brand automatic detection and custom configuration API into `NewEntryDialog` while preserving the classic visual layout
+- [x] Fixed width scaling bug on Custom Fields labels within the entry dialog
+- [x] Restored "Other" network brand functionality and integrated custom easter eggs for brand visual styling
+- [x] Implemented stable random pseudo-hash fallback for auto-detect using custom Admin Panel Easter Eggs
+- [x] Fully integrated BIN logic with Admin Panel: eliminated hardcoded regexes, enabled custom network brand names via text input, and renamed Easter Eggs to Fallback Brands. Cleaned up legacy temp UI files.
+- [x] Fixed stale data bug where Admin Panel config updates were not syncing to Vault Dialog by adopting global context
+- [x] Fixed "Other" network layout rendering to properly position random network names alongside standard networks (Visa/Amex)
+- [x] Stabilized random Easter Egg assignments on Unmapped/Other cards to prevent flickering when typing
 - [ ] Proceed with any further user-requested feature additions or refinements

@@ -18,117 +18,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-// ─── Vault Items ──────────────────────────────────────────────────────────────
-// Each row holds one AES-256-GCM encrypted credential blob. The encrypted_blob
-// field is opaque to the server — only the client can decrypt it with the master key.
-
-export const vaultItems = pgTable("vault_items", {
-  id:             uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:         text("user_id").notNull(),
-  name:           text("name").notNull(),
-  encryptedBlob:  text("encrypted_blob").notNull(),
-  domain:         text("domain"),
-  folder:         text("folder"),
-  template:       text("template").default("login"),  // login | card | address | profile | note
-  createdAt:      timestamp("created_at",      { withTimezone: true }).defaultNow(),
-  updatedAt:      timestamp("updated_at",      { withTimezone: true }),
-  lastAccessedAt: timestamp("last_accessed_at",{ withTimezone: true }),
-  favorite:       boolean("favorite").default(false),
-  hasTotp:        boolean("has_totp").default(false),
-  tags:           text("tags").array().default(sql`'{}'::text[]`),
-  deletedAt:      timestamp("deleted_at",      { withTimezone: true }),
-});
-
-export type VaultItem    = typeof vaultItems.$inferSelect;
-export type NewVaultItem = typeof vaultItems.$inferInsert;
-
-
-// ─── User Profiles ────────────────────────────────────────────────────────────
-// Extends Better Auth's own user record with app-specific fields.
-
-export const userProfiles = pgTable("user_profiles", {
-  userId:                   text("user_id").primaryKey(),
-  displayName:              text("display_name"),
-  avatarUrl:                text("avatar_url"),
-  firstName:                text("first_name"),
-  lastName:                 text("last_name"),
-  phone:                    text("phone"),
-  lastPasswordChangedAt:    timestamp("last_password_changed_at", { withTimezone: true }),
-  newDeviceEmailAlert:      boolean("new_device_email_alert").default(true),
-  requireVerificationOnNew: boolean("require_verification_on_new").default(false),
-  clipboardClearSeconds:    integer("clipboard_clear_seconds").default(0),
-  autoLockMinutes:          integer("auto_lock_minutes").default(15),
-  disabled:                 boolean("disabled").default(false),
-  role:                     text("role").default("user"),  // "user" | "admin"
-});
-
-export type UserProfile    = typeof userProfiles.$inferSelect;
-export type NewUserProfile = typeof userProfiles.$inferInsert;
-
-// ─── Config: Site Settings ────────────────────────────────────────────────────
-// Singleton row (id = 1 always). Stores site name, logo, etc.
-
-export const configSite = pgTable("config_site", {
-  id:   integer("id").primaryKey().default(1),
-  data: jsonb("data").notNull().default({}),
-});
-
-// ─── Config: Themes ───────────────────────────────────────────────────────────
-
-export const configThemes = pgTable("config_themes", {
-  id:        text("id").primaryKey(),
-  data:      jsonb("data").notNull(),
-  published: boolean("published").default(false),
-  builtIn:   boolean("built_in").default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
-
-export type ConfigTheme    = typeof configThemes.$inferSelect;
-export type NewConfigTheme = typeof configThemes.$inferInsert;
-
-// ─── Config: Stats ────────────────────────────────────────────────────────────
-// Singleton row (id = 1). Stores aggregate counters like total vault entries.
-
-export const configStats = pgTable("config_stats", {
-  id:           integer("id").primaryKey().default(1),
-  totalEntries: integer("total_entries").default(0),
-});
-
-// ─── Admin: SMTP Settings ─────────────────────────────────────────────────────
-// Singleton row (id = 1). Written only by admin, read server-side for email sending.
-
-export const adminSmtp = pgTable("admin_smtp", {
-  id:   integer("id").primaryKey().default(1),
-  data: jsonb("data").notNull().default({}),
-});
-
-// ─── Admin: Email Templates ───────────────────────────────────────────────────
-// Singleton row (id = 1). Custom HTML per email type.
-
-export const adminEmailTemplates = pgTable("admin_email_templates", {
-  id:   integer("id").primaryKey().default(1),
-  data: jsonb("data").notNull().default({}),
-});
-
-// ─── Audit Logs ───────────────────────────────────────────────────────────────
-// Append-only security event log. Never update or delete rows.
-
-export const auditLogs = pgTable("audit_logs", {
-  id:         uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:     text("user_id"),
-  event:      text("event").notNull(),
-  sessionId:  text("session_id"),
-  ip:         text("ip"),
-  location:   text("location"),
-  deviceName: text("device_name"),
-  email:      text("email"),
-  meta:       jsonb("meta").default({}),
-  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
-
-export type AuditLog    = typeof auditLogs.$inferSelect;
-export type NewAuditLog = typeof auditLogs.$inferInsert;
-
 // ─── Better Auth Tables ───────────────────────────────────────────────────────
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -188,11 +77,124 @@ export const twoFactor = pgTable("twoFactor", {
   userId: text("userId").notNull().references(() => user.id)
 });
 
+// ─── Vault Items ──────────────────────────────────────────────────────────────
+// Each row holds one AES-256-GCM encrypted credential blob. The encrypted_blob
+// field is opaque to the server — only the client can decrypt it with the master key.
+
+export const vaultItems = pgTable("vault_items", {
+  id:             uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:         text("user_id").notNull().references(() => user.id, { onDelete: 'cascade' }),
+  name:           text("name").notNull(),
+  encryptedBlob:  text("encrypted_blob").notNull(),
+  domain:         text("domain"),
+  folder:         text("folder"),
+  template:       text("template").default("login"),  // login | card | address | profile | note
+  createdAt:      timestamp("created_at",      { withTimezone: true }).defaultNow(),
+  updatedAt:      timestamp("updated_at",      { withTimezone: true }),
+  lastAccessedAt: timestamp("last_accessed_at",{ withTimezone: true }),
+  favorite:       boolean("favorite").default(false),
+  hasTotp:        boolean("has_totp").default(false),
+  tags:           text("tags").array().default(sql`'{}'::text[]`),
+  deletedAt:      timestamp("deleted_at",      { withTimezone: true }),
+});
+
+export type VaultItem    = typeof vaultItems.$inferSelect;
+export type NewVaultItem = typeof vaultItems.$inferInsert;
+
+
+// ─── User Profiles ────────────────────────────────────────────────────────────
+// Extends Better Auth's own user record with app-specific fields.
+
+export const userProfiles = pgTable("user_profiles", {
+  userId:                   text("user_id").primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  displayName:              text("display_name"),
+  avatarUrl:                text("avatar_url"),
+  firstName:                text("first_name"),
+  lastName:                 text("last_name"),
+  phone:                    text("phone"),
+  lastPasswordChangedAt:    timestamp("last_password_changed_at", { withTimezone: true }),
+  newDeviceEmailAlert:      boolean("new_device_email_alert").default(true),
+  requireVerificationOnNew: boolean("require_verification_on_new").default(false),
+  clipboardClearSeconds:    integer("clipboard_clear_seconds").default(0),
+  autoLockMinutes:          integer("auto_lock_minutes").default(15),
+  disabled:                 boolean("disabled").default(false),
+  role:                     text("role").default("user"),  // "user" | "admin"
+  deletedByAdmin:           timestamp("deleted_by_admin", { withTimezone: true }),
+  deletedByAdminId:         text("deleted_by_admin_id"),
+});
+
+export type UserProfile    = typeof userProfiles.$inferSelect;
+export type NewUserProfile = typeof userProfiles.$inferInsert;
+
+// ─── Config: Site Settings ────────────────────────────────────────────────────
+// Singleton row (id = 1 always). Stores site name, logo, etc.
+
+export const configSite = pgTable("config_site", {
+  id:   integer("id").primaryKey().default(1),
+  data: jsonb("data").notNull().default({}),
+});
+
+// ─── Config: Themes ───────────────────────────────────────────────────────────
+
+export const configThemes = pgTable("config_themes", {
+  id:        text("id").primaryKey(),
+  data:      jsonb("data").notNull(),
+  published: boolean("published").default(false),
+  builtIn:   boolean("built_in").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type ConfigTheme    = typeof configThemes.$inferSelect;
+export type NewConfigTheme = typeof configThemes.$inferInsert;
+
+// ─── Config: Stats ────────────────────────────────────────────────────────────
+// Singleton row (id = 1). Stores aggregate counters like total vault entries.
+
+export const configStats = pgTable("config_stats", {
+  id:           integer("id").primaryKey().default(1),
+  totalEntries: integer("total_entries").default(0),
+});
+
+// ─── Admin: SMTP Settings ─────────────────────────────────────────────────────
+// Singleton row (id = 1). Written only by admin, read server-side for email sending.
+
+export const adminSmtp = pgTable("admin_smtp", {
+  id:   integer("id").primaryKey().default(1),
+  data: jsonb("data").notNull().default({}),
+});
+
+// ─── Admin: Email Templates ───────────────────────────────────────────────────
+// Singleton row (id = 1). Custom HTML per email type.
+
+export const adminEmailTemplates = pgTable("admin_email_templates", {
+  id:   integer("id").primaryKey().default(1),
+  data: jsonb("data").notNull().default({}),
+});
+
+// ─── Audit Logs ───────────────────────────────────────────────────────────────
+// Append-only security event log. Never update or delete rows.
+
+export const auditLogs = pgTable("audit_logs", {
+  id:         uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:     text("user_id").references(() => user.id, { onDelete: 'set null' }),
+  event:      text("event").notNull(),
+  sessionId:  text("session_id"),
+  ip:         text("ip"),
+  location:   text("location"),
+  deviceName: text("device_name"),
+  email:      text("email"),
+  meta:       jsonb("meta").default({}),
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type AuditLog    = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
+
 // ─── Support System ───────────────────────────────────────────────────────────
 
 export const supportTickets = pgTable("support_tickets", {
   id:         uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:     text("user_id").notNull(),
+  userId:     text("user_id").notNull().references(() => user.id, { onDelete: 'cascade' }),
   subject:    text("subject").notNull(),
   status:     text("status").default("open"), // open, pending, resolved, closed
   priority:   text("priority").default("normal"), // low, normal, high, urgent
