@@ -65,6 +65,16 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (body.discordWebhook !== undefined && existing[0]?.discordWebhook !== body.discordWebhook) {
+      if (body.discordWebhook) {
+        await sendDiscordWebhook(
+          "🔗 Discord Webhook Active", 
+          `This webhook has been successfully linked to the Vaultr system logs.\n\n**Status:** Connected & Active\n**Environment:** ${process.env.NODE_ENV || "development"}`,
+          0x5865F2
+        );
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof Response) return err;
