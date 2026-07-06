@@ -799,8 +799,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
                 <div className="space-y-2">
                   {customFields.map(f => (
                     <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" className="w-[25%] min-w-[80px] shrink-0" />
-                      <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" />
+                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" className="w-[30%] min-w-[100px] shrink-0" />
+                      <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" className="flex-1 min-w-0" />
                       <button onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
                     </div>
                   ))}
