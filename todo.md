@@ -53,4 +53,6 @@
 - [x] Fixed stale data bug where Admin Panel config updates were not syncing to Vault Dialog by adopting global context
 - [x] Fixed "Other" network layout rendering to properly position random network names alongside standard networks (Visa/Amex)
 - [x] Stabilized random Easter Egg assignments on Unmapped/Other cards to prevent flickering when typing
+- [x] Added manual encryption key option for local decryption in admin database explorer
 - [ ] Proceed with any further user-requested feature additions or refinements
+

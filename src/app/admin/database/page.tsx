@@ -384,7 +384,7 @@ export default function DatabaseExplorerPage() {
                             {headers.map(h => {
                               const val = row[h];
                               let displayVal = String(val);
-                              let isEncryptedPayload = h === "payload" && selectedTable === "vault_items";
+                              let isEncryptedPayload = (h === "encryptedBlob" || h === "payload") && selectedTable === "vault_items";
                               
                               if (val === null) displayVal = "null";
                               else if (typeof val === "object") displayVal = JSON.stringify(val);
