@@ -54,3 +54,10 @@ test-accounts.txt
 
 # security audit logs (local filesystem, never commit)
 /logs/
+
+# development helpers & test credentials
+test_users.md
+*creative*.md
+*plan*.md
+*idea*.md
+

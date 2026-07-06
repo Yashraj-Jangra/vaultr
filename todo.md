@@ -54,5 +54,10 @@
 - [x] Fixed "Other" network layout rendering to properly position random network names alongside standard networks (Visa/Amex)
 - [x] Stabilized random Easter Egg assignments on Unmapped/Other cards to prevent flickering when typing
 - [x] Added manual encryption key option for local decryption in admin database explorer
+- [x] Added Classic Split and Bento Grid Layout configurations for New Entry dialog, globally toggleable from Admin Settings page
+- [x] Created `DialogPreviews.tsx` to handle responsive preview rendering and detailed card visuals
+- [x] Enlarged dialog sizing (max-w-5xl/6xl) and preview canvas sizes to prevent layout overflow
+- [x] Integrated premium SVG illustrations inside the preview cards and bento dashboard cards
+- [x] Created `test_users.md` to persist local testing credentials
 - [ ] Proceed with any further user-requested feature additions or refinements
 

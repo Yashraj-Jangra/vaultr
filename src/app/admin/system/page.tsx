@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ServerCog, ShieldAlert, PauseCircle, Webhook, HardDrive, Save } from "lucide-react";
+import { useSiteConfig } from "@/context/SiteConfigContext";
 
 interface SystemConfig {
   pauseSignups: boolean;
@@ -17,6 +18,9 @@ interface BackupFile {
 }
 
 export default function SystemOpsPage() {
+  const { config: siteConfig, updateConfig } = useSiteConfig();
+  const [layout, setLayout] = useState<"split" | "bento">("split");
+
   const [config, setConfig] = useState<SystemConfig>({
     pauseSignups: false,
     maintenanceMode: false,
@@ -30,6 +34,12 @@ export default function SystemOpsPage() {
 
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [backingUp, setBackingUp] = useState(false);
+
+  useEffect(() => {
+    if (siteConfig?.vaultDialogLayout) {
+      setLayout(siteConfig.vaultDialogLayout);
+    }
+  }, [siteConfig]);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -77,6 +87,10 @@ export default function SystemOpsPage() {
       });
 
       if (!res.ok) throw new Error("Failed to save changes");
+
+      // Save global site config layout toggle too!
+      await updateConfig({ vaultDialogLayout: layout });
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
@@ -207,6 +221,50 @@ export default function SystemOpsPage() {
               <p className="text-xs text-[var(--fg-muted)] mt-2">
                 If set, Vaultr will post critical alerts (like panic button activations and new admin logins) directly to this Discord channel.
               </p>
+            </div>
+          </div>
+
+          {/* Vault Layout Customization */}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+            <div className="p-4 border-b border-[var(--border)] bg-[var(--bg)] flex items-center gap-2">
+              <ServerCog className="h-5 w-5 text-[var(--accent)]" />
+              <h3 className="font-semibold text-[var(--fg)]">Vault Layout Customization</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <label className="block text-sm font-medium text-[var(--fg-muted)]">
+                Entry Dialog Global Layout
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setLayout("split")}
+                  className={`flex flex-col items-start p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    layout === "split"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5 text-[var(--fg)] shadow-sm"
+                      : "border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--border-hover)]"
+                  }`}
+                >
+                  <span className="font-semibold text-sm">Split Preview Layout</span>
+                  <span className="text-[11px] text-[var(--fg-muted)] mt-1.5 leading-relaxed">
+                    Left-side live-updating mock badge previews (and card details) alongside a structured form list on the right.
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLayout("bento")}
+                  className={`flex flex-col items-start p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                    layout === "bento"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5 text-[var(--fg)] shadow-sm"
+                      : "border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--border-hover)]"
+                  }`}
+                >
+                  <span className="font-semibold text-sm">Bento Grid Dashboard</span>
+                  <span className="text-[11px] text-[var(--fg-muted)] mt-1.5 leading-relaxed">
+                    Modern card configuration arranging previews, inputs, password generators, and security metrics in clean bento blocks.
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div> {/* Closes first space-y-6 */}

@@ -11,12 +11,14 @@ export interface SiteConfig {
   maintenanceMessage?: string;
   cardBins?: { prefix: string; brand: string }[];
   cardEasterEggs?: string[];
+  vaultDialogLayout?: "split" | "bento";
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
   name: "_vaultr",
   tagline: "Zero-knowledge password manager",
   maintenanceMode: false,
+  vaultDialogLayout: "split",
   cardBins: [
     { prefix: "4", brand: "Visa" },
     { prefix: "51", brand: "Mastercard" },
