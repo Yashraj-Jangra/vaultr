@@ -22,11 +22,37 @@ type Action = {
   template?: "login" | "card" | "address" | "profile" | "note";
 };
 
-const PLACEHOLDERS = [
-  "Even the NSA couldn't find that.",
-  "Your secrets are safe from your own search.",
-  "Nothing. Zero. The void is vast.",
-  "404: Password not found in the simulation."
+const EMPTY_STATES = [
+  {
+    src: "/illustrations/taken_mshk.svg",
+    title: "Abducted by Aliens",
+    caption: "Your passwords have been taken. To a better planet.",
+  },
+  {
+    src: "/illustrations/page-not-found_6wni.svg",
+    title: "404 — Not Found",
+    caption: "We searched everywhere. It's simply not here.",
+  },
+  {
+    src: "/illustrations/lost_teip.svg",
+    title: "Completely Lost",
+    caption: "Even we don't know where that went.",
+  },
+  {
+    src: "/illustrations/the-search_cjxa.svg",
+    title: "Still Searching…",
+    caption: "Your secrets are safe from your own search.",
+  },
+  {
+    src: "/illustrations/data-thief_d66l.svg",
+    title: "Data? What Data?",
+    caption: "Someone got here before you did.",
+  },
+  {
+    src: "/illustrations/empty_4zx0.svg",
+    title: "The Void Stares Back",
+    caption: "Nothing. Zero. The void is vast.",
+  },
 ];
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
@@ -82,11 +108,11 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(t);
   }, []);
 
-  // Cycling placeholder text when empty results
+  // Cycling empty state illustration when no results
   useEffect(() => {
     const t = setInterval(() => {
-      setPlaceholderIndex(i => (i + 1) % PLACEHOLDERS.length);
-    }, 4500);
+      setPlaceholderIndex(i => (i + 1) % EMPTY_STATES.length);
+    }, 4000);
     return () => clearInterval(t);
   }, []);
 
@@ -359,86 +385,28 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              {/* Empty state — Minimal Incognito Detective */}
-              {allResults.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center select-none">
-                  <svg
-                    viewBox="0 0 100 80"
-                    className="w-[100px] h-[80px] mb-5 text-neutral-500"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <defs>
-                      <linearGradient id="lensGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#d97706" />
-                        <stop offset="100%" stopColor="#f59e0b" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Fedora Hat Crown */}
-                    <path
-                      d="M28 35 C28 15, 72 15, 72 35 Z"
-                      fill="#171717"
-                      stroke="#262626"
-                      strokeWidth="1.5"
+              {/* Empty state — cycling illustrations */}
+              {allResults.length === 0 && (() => {
+                const state = EMPTY_STATES[placeholderIndex];
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center py-6 px-6 text-center select-none">
+                    <img
+                      key={state.src}
+                      src={state.src}
+                      alt={state.title}
+                      className="w-52 h-52 object-contain mb-5 opacity-90"
                     />
+                    <p className="text-[13px] font-semibold text-neutral-200 tracking-tight mb-1">
+                      {state.title}
+                    </p>
+                    <p className="text-[11px] text-neutral-500 italic max-w-[220px] leading-relaxed">
+                      {state.caption}
+                    </p>
+                  </div>
+                );
+              })()}
 
-                    {/* Hat Band */}
-                    <path
-                      d="M29 34 Q50 31 71 34"
-                      stroke="#d97706"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
 
-                    {/* Hat Brim */}
-                    <path
-                      d="M15 36 C35 39, 65 39, 85 36"
-                      stroke="#262626"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-
-                    {/* Incognito Glasses */}
-                    <g className="incognito-glasses">
-                      {/* Left Lens */}
-                      <circle cx="37" cy="54" r="11" fill="#0d0d0d" stroke="#262626" strokeWidth="1.5" />
-                      {/* Right Lens */}
-                      <circle cx="63" cy="54" r="11" fill="#0d0d0d" stroke="#262626" strokeWidth="1.5" />
-                      {/* Bridge */}
-                      <path d="M48 54 H52" stroke="#262626" strokeWidth="2" strokeLinecap="round" />
-
-                      {/* Glowing Eye slits / shines inside lenses */}
-                      <path
-                        d="M32 54 L42 54"
-                        stroke="url(#lensGlow)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        className="eye-shine"
-                      />
-                      <path
-                        d="M58 54 L68 54"
-                        stroke="url(#lensGlow)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        className="eye-shine"
-                      />
-                    </g>
-                  </svg>
-
-                  <p className="text-[12px] font-semibold text-neutral-300 tracking-tight mb-1.5">
-                    Nothing here.
-                  </p>
-                  <p
-                    key={placeholderIndex}
-                    className="text-[11px] text-neutral-500 italic max-w-[240px] leading-relaxed placeholder-cycle"
-                  >
-                    &ldquo;{PLACEHOLDERS[placeholderIndex]}&rdquo;
-                  </p>
-                </div>
-              )}
 
             </div>
 
@@ -482,52 +450,10 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                   </div>
                 )
               ) : (
-                <div className="flex flex-col items-center gap-4 text-center">
-                  {/* Vault illustration */}
-                  <svg viewBox="0 0 80 80" className="w-16 h-16 opacity-80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <radialGradient id="vaultGlow" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stopColor="#d97706" stopOpacity="0.15" />
-                        <stop offset="100%" stopColor="#d97706" stopOpacity="0" />
-                      </radialGradient>
-                    </defs>
-                    {/* Outer glow */}
-                    <circle cx="40" cy="40" r="38" fill="url(#vaultGlow)" />
-                    {/* Vault door body */}
-                    <rect x="12" y="14" width="56" height="52" rx="6" fill="#111" stroke="#262626" strokeWidth="1.5" />
-                    {/* Vault hinges */}
-                    <rect x="12" y="22" width="6" height="8" rx="2" fill="#1f1f1f" stroke="#2a2a2a" strokeWidth="1" />
-                    <rect x="12" y="50" width="6" height="8" rx="2" fill="#1f1f1f" stroke="#2a2a2a" strokeWidth="1" />
-                    {/* Main dial ring */}
-                    <circle cx="42" cy="40" r="16" stroke="#262626" strokeWidth="2" />
-                    <circle cx="42" cy="40" r="12" stroke="#1f1f1f" strokeWidth="1.5" fill="#0d0d0d" />
-                    {/* Dial notches */}
-                    {[0,45,90,135,180,225,270,315].map((deg, i) => {
-                      const rad = (deg * Math.PI) / 180;
-                      const x1 = 42 + Math.cos(rad) * 13;
-                      const y1 = 40 + Math.sin(rad) * 13;
-                      const x2 = 42 + Math.cos(rad) * 15.5;
-                      const y2 = 40 + Math.sin(rad) * 15.5;
-                      return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#333" strokeWidth="1.2" strokeLinecap="round" />;
-                    })}
-                    {/* Dial pointer (amber accent) */}
-                    <line x1="42" y1="40" x2="42" y2="29" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" className="vault-dial" />
-                    {/* Center knob */}
-                    <circle cx="42" cy="40" r="3" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
-                    <circle cx="42" cy="40" r="1.2" fill="#d97706" opacity="0.7" />
-                    {/* Lock bolts */}
-                    <circle cx="62" cy="26" r="3.5" fill="none" stroke="#222" strokeWidth="1.5" />
-                    <circle cx="62" cy="54" r="3.5" fill="none" stroke="#222" strokeWidth="1.5" />
-                    {/* Handle */}
-                    <rect x="22" y="37" width="10" height="6" rx="3" fill="#161616" stroke="#2a2a2a" strokeWidth="1" />
-                  </svg>
-
-                  <div className="space-y-1">
-                    <p className="text-[12px] font-semibold text-neutral-400 tracking-tight">Vault Preview</p>
-                    <p className="text-[11px] text-neutral-600 leading-relaxed max-w-[180px]">
-                      Hover an entry to see a live secure preview
-                    </p>
-                  </div>
+                <div className="flex flex-col items-center gap-3 text-center px-4">
+                  <p className="text-[11px] text-neutral-600 leading-relaxed max-w-[160px]">
+                    Hover an entry to see a live preview
+                  </p>
                 </div>
               )}
             </div>
@@ -543,26 +469,6 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
       </div>
 
       <style>{`
-        @keyframes eyeGlow {
-          0%, 100% { opacity: 0.3; filter: drop-shadow(0 0 1px rgba(217, 119, 6, 0.4)); }
-          50% { opacity: 1; filter: drop-shadow(0 0 4px rgba(217, 119, 6, 0.8)); }
-        }
-        @keyframes eyeGlowHover {
-          0%, 100% { transform: scaleX(1); }
-          50% { transform: scaleX(0.1); }
-        }
-        .eye-shine {
-          animation: eyeGlow 2.5s infinite ease-in-out;
-          transform-origin: center;
-        }
-        @keyframes vaultDialSpin {
-          0%   { transform: rotate(0deg); transform-origin: 42px 40px; }
-          100% { transform: rotate(360deg); transform-origin: 42px 40px; }
-        }
-        .vault-dial {
-          transform-origin: 42px 40px;
-          animation: vaultDialSpin 8s linear infinite;
-        }
         .gold-glow {
           text-shadow: 0 0 6px rgba(251, 191, 36, 0.7);
           box-shadow: 0 1.5px 0 rgba(251, 191, 36, 0.8);
@@ -573,15 +479,6 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
         }
         .animate-fade-in {
           animation: fadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes placeholderFade {
-          0% { opacity: 0; transform: translateY(4px); }
-          12% { opacity: 1; transform: translateY(0); }
-          88% { opacity: 1; transform: translateY(0); }
-          100% { opacity: 0; transform: translateY(-4px); }
-        }
-        .placeholder-cycle {
-          animation: placeholderFade 4.5s ease-in-out;
         }
       `}</style>
     </>
