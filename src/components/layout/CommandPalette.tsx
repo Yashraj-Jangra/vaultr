@@ -49,7 +49,7 @@ const EMPTY_STATES = [
     caption: "Someone got here before you did.",
   },
   {
-    src: "/illustrations/empty_4zx0.svg",
+    src: "/illustrations/wilderness_218l.svg",
     title: "The Void Stares Back",
     caption: "Nothing. Zero. The void is vast.",
   },
@@ -112,7 +112,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const t = setInterval(() => {
       setPlaceholderIndex(i => (i + 1) % EMPTY_STATES.length);
-    }, 4000);
+    }, 7000);
     return () => clearInterval(t);
   }, []);
 
