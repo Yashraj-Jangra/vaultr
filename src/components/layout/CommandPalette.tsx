@@ -53,6 +53,11 @@ const EMPTY_STATES = [
     title: "The Void Stares Back",
     caption: "Nothing. Zero. The void is vast.",
   },
+  {
+    src: "/illustrations/peekaboo_5o8i.svg",
+    title: "Peekaboo!",
+    caption: "It's hiding. It knows you're looking.",
+  },
 ];
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
