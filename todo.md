@@ -59,5 +59,6 @@
 - [x] Enlarged dialog sizing (max-w-5xl/6xl) and preview canvas sizes to prevent layout overflow
 - [x] Integrated premium SVG illustrations inside the preview cards and bento dashboard cards
 - [x] Created `test_users.md` to persist local testing credentials
+- [x] Allowed 192.168.* subnet IPs in Better Auth trustedOrigins for local device testing
 - [ ] Proceed with any further user-requested feature additions or refinements
 

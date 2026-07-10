@@ -65,6 +65,8 @@ export const auth = betterAuth({
   // ── Trusted origins (CORS) ────────────────────────────────────────────────
   trustedOrigins: [
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    "http://192.168.*",
+    "http://192.168.*:*",
   ],
 });
 
