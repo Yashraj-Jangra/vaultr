@@ -61,5 +61,6 @@
 - [x] Created `test_users.md` to persist local testing credentials
 - [x] Allowed 192.168.* subnet IPs in Better Auth trustedOrigins for local device testing
 - [x] Configured dynamic client-side Better Auth client baseURL (window.location.origin fallback) to prevent mobile infinite spinning
+- [x] Optimized NewEntryDialog box size, responsiveness, and webkit-overflow-scrolling for mobile devices
 - [ ] Proceed with any further user-requested feature additions or refinements
 

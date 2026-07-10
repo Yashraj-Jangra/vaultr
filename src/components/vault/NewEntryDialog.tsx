@@ -843,13 +843,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-4" aria-modal="true" role="dialog">
       <div className="absolute inset-0 bg-[var(--bg)]/80 backdrop-blur-sm" onClick={onClose} />
       
       {/* Layout A: Classic Split Dynamic Preview */}
       {activeLayout === "split" && (
-        <div className="relative z-10 w-full max-w-5xl flex flex-col md:flex-row rounded-2xl overflow-hidden border border-[var(--border)] shadow-2xl bg-[var(--bg)]"
-          style={{ maxHeight: "92vh", animation: "dialogIn 280ms cubic-bezier(0.16,1,0.3,1) forwards" }}>
+        <div className="relative z-10 w-full max-w-5xl h-full md:h-auto max-h-full md:max-h-[92vh] flex flex-col md:flex-row rounded-none md:rounded-2xl overflow-hidden border-0 md:border border-[var(--border)] shadow-2xl bg-[var(--bg)]"
+          style={{ animation: "dialogIn 280ms cubic-bezier(0.16,1,0.3,1) forwards" }}>
           
           {/* Left Panel: Preview Canvas & Metadata */}
           <div className="w-full md:w-[420px] shrink-0 flex flex-col bg-[var(--surface)] border-r border-[var(--border)] overflow-y-auto">
@@ -949,8 +949,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
 
       {/* Layout B: Bento Grid Dashboard */}
       {activeLayout === "bento" && (
-        <div className="relative z-10 w-full max-w-6xl flex flex-col rounded-2xl border border-[var(--border)] shadow-2xl bg-[var(--bg)] overflow-hidden"
-          style={{ maxHeight: "92vh", animation: "dialogIn 280ms cubic-bezier(0.16,1,0.3,1) forwards" }}>
+        <div className="relative z-10 w-full max-w-6xl h-full md:h-auto max-h-full md:max-h-[92vh] flex flex-col rounded-none md:rounded-2xl border-0 md:border border-[var(--border)] shadow-2xl bg-[var(--bg)] overflow-hidden"
+          style={{ animation: "dialogIn 280ms cubic-bezier(0.16,1,0.3,1) forwards" }}>
           
           {/* Bento Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--surface)] shrink-0">
@@ -1136,7 +1136,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
         </div>
       )}
 
-      <style>{`@keyframes dialogIn { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } } @keyframes shake { 0%, 100% { transform: translateX(0); } 15%, 50%, 85% { transform: translateX(-4px); } 30%, 65% { transform: translateX(4px); } } .animate-shake { animation: shake 0.35s ease-in-out; }`}</style>
+      <style>{`@keyframes dialogIn { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } } @keyframes shake { 0%, 100% { transform: translateX(0); } 15%, 50%, 85% { transform: translateX(-4px); } 30%, 65% { transform: translateX(4px); } } .animate-shake { animation: shake 0.35s ease-in-out; } .overflow-y-auto { -webkit-overflow-scrolling: touch; }`}</style>
     </div>,
     document.body
   );
