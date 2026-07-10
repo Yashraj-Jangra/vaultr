@@ -34,9 +34,9 @@ const EMPTY_STATES = [
     caption: "We searched everywhere. It's simply not here.",
   },
   {
-    src: "/illustrations/lost_teip.svg",
-    title: "Completely Lost",
-    caption: "Even we don't know where that went.",
+    src: "/illustrations/treasure_a4j2.svg",
+    title: "Buried Somewhere Deep",
+    caption: "It's out there. Probably under an X on a map.",
   },
   {
     src: "/illustrations/the-search_cjxa.svg",
@@ -49,7 +49,7 @@ const EMPTY_STATES = [
     caption: "Someone got here before you did.",
   },
   {
-    src: "/illustrations/wilderness_218l.svg",
+    src: "/illustrations/the-void_i26b.svg",
     title: "The Void Stares Back",
     caption: "Nothing. Zero. The void is vast.",
   },
