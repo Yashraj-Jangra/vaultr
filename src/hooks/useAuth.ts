@@ -157,7 +157,7 @@ export const useAuth = () => {
     try {
       const result = await authClient.requestPasswordReset({
         email,
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+        redirectTo: `${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? "")}/auth/reset-password`,
       });
       if (result.error) {
         setError(friendly(result.error));
