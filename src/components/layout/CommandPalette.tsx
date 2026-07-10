@@ -48,7 +48,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [decryptedCache, setDecryptedCache] = useState<Record<string, any>>({});
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -92,14 +92,14 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
 
   // Actions list
   const ACTIONS: Action[] = useMemo(() => [
-    { id: "new-login",   label: "New Login",      icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=login"); onClose(); }, group: "action" },
-    { id: "new-card",    label: "New Credit Card", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=card"); onClose(); }, group: "action" },
-    { id: "new-note",    label: "New Secure Note", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=note"); onClose(); }, group: "action" },
-    { id: "lock",        label: "Lock Vault",      icon: <Lock className="w-4 h-4" />, run: () => { lock(); onClose(); }, group: "action" },
-    { id: "health",      label: "Password Health", icon: <Heart className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" }, // redirects to authenticator/health
-    { id: "auth",        label: "Authenticator",   icon: <Fingerprint className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" },
-    { id: "generator",   label: "Password Generator", icon: <Wand2 className="w-4 h-4" />, run: () => { router.push("/vault/generator"); onClose(); }, group: "action" },
-    { id: "settings",    label: "Settings",        icon: <Settings className="w-4 h-4" />, run: () => { router.push("/settings"); onClose(); }, group: "action" },
+    { id: "new-login", label: "New Login", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=login"); onClose(); }, group: "action" },
+    { id: "new-card", label: "New Credit Card", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=card"); onClose(); }, group: "action" },
+    { id: "new-note", label: "New Secure Note", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=note"); onClose(); }, group: "action" },
+    { id: "lock", label: "Lock Vault", icon: <Lock className="w-4 h-4" />, run: () => { lock(); onClose(); }, group: "action" },
+    { id: "health", label: "Password Health", icon: <Heart className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" }, // redirects to authenticator/health
+    { id: "auth", label: "Authenticator", icon: <Fingerprint className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" },
+    { id: "generator", label: "Password Generator", icon: <Wand2 className="w-4 h-4" />, run: () => { router.push("/vault/generator"); onClose(); }, group: "action" },
+    { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" />, run: () => { router.push("/settings"); onClose(); }, group: "action" },
   ], [router, lock, onClose]);
 
   // Vault entry results
@@ -158,7 +158,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
           try { parsed = JSON.parse(raw); } catch { parsed = { payload: raw }; }
           if (!parsed._template && (parsed.username || parsed.password)) parsed._template = "login";
           setDecryptedCache(prev => ({ ...prev, [targetId]: parsed }));
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   }, [hoveredItem, items, decryptItem, decryptedCache]);
@@ -256,7 +256,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="fixed inset-0 z-[150] bg-black/75 backdrop-blur-md flex items-center justify-center p-0 md:p-6" onClick={onClose}>
-        <div 
+        <div
           className="relative w-full max-w-4xl h-full md:h-[620px] flex flex-col rounded-none md:rounded-2xl border-0 md:border border-neutral-800 bg-neutral-950/90 shadow-[0_32px_64px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-2xl"
           onClick={e => e.stopPropagation()}
         >
@@ -281,7 +281,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
           <div className="flex-1 flex overflow-hidden">
             {/* Left Pane: Results */}
             <div ref={listRef} className="w-full md:w-[480px] shrink-0 border-r border-neutral-800/80 overflow-y-auto py-2 flex flex-col">
-              
+
               {/* History / Recent Queries */}
               {!query && searchHistory.length > 0 && (
                 <div className="px-4 py-2 border-b border-neutral-800/30 mb-2">
@@ -308,23 +308,23 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                   {Object.entries(groupedEntries).map(([tplName, itemsList]) => {
                     if (itemsList.length === 0) return null;
                     const displayGroupTitle = tplName === "login" ? "Logins" :
-                                              tplName === "card" ? "Credit Cards" :
-                                              tplName === "note" ? "Secure Notes" :
-                                              tplName === "address" ? "Addresses" : "Profiles";
+                      tplName === "card" ? "Credit Cards" :
+                        tplName === "note" ? "Secure Notes" :
+                          tplName === "address" ? "Addresses" : "Profiles";
                     return (
                       <div key={tplName}>
                         <p className="px-5 py-1.5 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">{displayGroupTitle}</p>
                         {itemsList.map(action => {
                           const idx = globalIndexTracker++;
                           return (
-                            <ResultRow 
-                              key={action.id} 
-                              action={action} 
-                              active={idx === cursor} 
+                            <ResultRow
+                              key={action.id}
+                              action={action}
+                              active={idx === cursor}
                               index={idx}
                               queryText={query}
                               fuzzyHighlight={fuzzyHighlight}
-                              onClick={() => action.run()} 
+                              onClick={() => action.run()}
                               onHover={() => setCursor(idx)}
                             />
                           );
@@ -344,14 +344,14 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                   {filteredActions.map(action => {
                     const idx = globalIndexTracker++;
                     return (
-                      <ResultRow 
-                        key={action.id} 
-                        action={action} 
-                        active={idx === cursor} 
+                      <ResultRow
+                        key={action.id}
+                        action={action}
+                        active={idx === cursor}
                         index={idx}
                         queryText={query}
                         fuzzyHighlight={fuzzyHighlight}
-                        onClick={() => action.run()} 
+                        onClick={() => action.run()}
                         onHover={() => setCursor(idx)}
                       />
                     );
@@ -359,33 +359,92 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              {/* Empty state shrugging character */}
+              {/* Empty state — Incognito Detective Silhouette */}
               {allResults.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 text-center">
-                  <svg className="w-20 h-20 text-neutral-600 mb-4" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
-                    {/* Detective Hat */}
-                    <path d="M12 28 C 16 16, 48 16, 52 28 Z" fill="currentColor" fillOpacity="0.05" />
-                    <path d="M8 28 H 56" strokeLinecap="round" />
-                    <path d="M22 20 C 22 20, 32 12, 42 20" strokeLinecap="round" />
-                    
-                    {/* Face / Shrugging */}
-                    <circle cx="24" cy="38" r="3" />
-                    <circle cx="40" cy="38" r="3" />
-                    <line x1="27" y1="38" x2="37" y2="38" />
-                    
-                    {/* Detective Shrug Arms */}
-                    <path d="M6 46 C 12 36, 18 38, 20 44" strokeLinecap="round" />
-                    <path d="M58 46 C 52 36, 46 38, 44 44" strokeLinecap="round" />
-                    
-                    {/* Magnifying Glass */}
-                    <g>
-                      <circle cx="34" cy="46" r="6" stroke="currentColor" fill="currentColor" fillOpacity="0.1" />
-                      <line x1="38" y1="50" x2="45" y2="57" strokeWidth="2.5" strokeLinecap="round" />
-                      <path d="M31 43 A 3 3 0 0 1 36 44" stroke="#fbbf24" strokeWidth="1.5" className="reflection-line" />
+                <div className="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center select-none">
+                  <svg
+                    viewBox="0 0 100 120"
+                    className="w-[110px] h-[132px] mb-5"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <defs>
+                      <radialGradient id="glassGrad" cx="35%" cy="35%" r="65%">
+                        <stop offset="0%" stopColor="#1e293b" />
+                        <stop offset="100%" stopColor="#0a0f1a" />
+                      </radialGradient>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                      </filter>
+                    </defs>
+
+                    {/* Ground shadow */}
+                    <ellipse cx="50" cy="118" rx="22" ry="3.5" fill="black" opacity="0.3" />
+
+                    {/* Trench coat body */}
+                    <path d="M28 78 Q22 100 20 116 L80 116 Q78 100 72 78 Q61 84 50 84 Q39 84 28 78Z" fill="#141414" />
+                    <line x1="50" y1="84" x2="50" y2="116" stroke="#222" strokeWidth="0.8" />
+                    <path d="M50 84 L43 96 L47 116" stroke="#1f1f1f" strokeWidth="0.8" fill="none" />
+                    <path d="M50 84 L57 96 L53 116" stroke="#1f1f1f" strokeWidth="0.8" fill="none" />
+
+                    {/* Left raised shrug arm + hand */}
+                    <path d="M32 80 Q18 74 12 62" stroke="#141414" strokeWidth="7" strokeLinecap="round" className="shrug-arm" />
+                    <ellipse cx="11" cy="59" rx="5" ry="3.5" fill="#2a2a2a" transform="rotate(30 11 59)" />
+                    <line x1="8" y1="56" x2="5" y2="52" stroke="#2a2a2a" strokeWidth="1.8" strokeLinecap="round" />
+                    <line x1="10" y1="55" x2="9" y2="50" stroke="#2a2a2a" strokeWidth="1.8" strokeLinecap="round" />
+                    <line x1="13" y1="55" x2="14" y2="50" stroke="#2a2a2a" strokeWidth="1.8" strokeLinecap="round" />
+
+                    {/* Right arm — magnifier */}
+                    <path d="M68 80 Q80 72 84 62" stroke="#141414" strokeWidth="7" strokeLinecap="round" />
+
+                    {/* Magnifying glass */}
+                    <g filter="url(#glow)">
+                      <line x1="82" y1="66" x2="94" y2="80" stroke="#5c3d1e" strokeWidth="3.5" strokeLinecap="round" />
+                      <line x1="84" y1="68" x2="87" y2="72" stroke="#78350f" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                      <line x1="88" y1="73" x2="91" y2="77" stroke="#78350f" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                      <circle cx="76" cy="58" r="12" stroke="#78350f" strokeWidth="2.5" fill="none" />
+                      <circle cx="76" cy="58" r="10" fill="url(#glassGrad)" />
+                      <path d="M69 52 A8 8 0 0 1 79 49" stroke="#fbbf24" strokeWidth="1.8" strokeLinecap="round" fill="none" className="lens-shine" />
+                      <path d="M71 51 A3 3 0 0 1 75 50" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.5" className="lens-shine-2" />
                     </g>
+
+                    {/* Neck */}
+                    <rect x="45" y="64" width="10" height="8" rx="3" fill="#232323" />
+
+                    {/* Head */}
+                    <ellipse cx="50" cy="50" rx="18" ry="16" fill="#1a1a1a" />
+
+                    {/* Incognito glasses */}
+                    <rect x="32" y="46" width="14" height="10" rx="5" fill="#0d0d0d" stroke="#333" strokeWidth="1" />
+                    <rect x="54" y="46" width="14" height="10" rx="5" fill="#0d0d0d" stroke="#333" strokeWidth="1" />
+                    <line x1="46" y1="51" x2="54" y2="51" stroke="#333" strokeWidth="1.2" />
+                    <line x1="32" y1="51" x2="28" y2="50" stroke="#2a2a2a" strokeWidth="1.2" strokeLinecap="round" />
+                    <line x1="68" y1="51" x2="72" y2="50" stroke="#2a2a2a" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M34 48 Q36 47 38 48" stroke="#374151" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+                    <path d="M56 48 Q58 47 60 48" stroke="#374151" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+
+                    {/* Mouth — deadpan */}
+                    <path d="M44 59 Q50 57 56 59" stroke="#2e2e2e" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+
+                    {/* Fedora brim */}
+                    <ellipse cx="50" cy="33" rx="24" ry="4.5" fill="#0d0d0d" />
+                    {/* Crown */}
+                    <path d="M30 33 Q29 16 50 14 Q71 16 70 33Z" fill="#0a0a0a" />
+                    {/* Crease */}
+                    <path d="M38 20 Q50 17 62 20" stroke="#141414" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M39 20 Q50 18 61 20" stroke="#1c1c1c" strokeWidth="1" strokeLinecap="round" />
+                    {/* Hat band — amber */}
+                    <path d="M31 32 Q50 29 69 32" stroke="#d97706" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.8" />
                   </svg>
-                  <p className="text-[12px] text-neutral-400 font-semibold mb-1">No matches found</p>
-                  <p className="text-[11px] text-neutral-500 max-w-[240px] italic leading-normal transition-all duration-300">
+
+                  <p className="text-[12px] font-semibold text-neutral-300 tracking-tight mb-1.5">
+                    Nothing here.
+                  </p>
+                  <p
+                    key={placeholderIndex}
+                    className="text-[11px] text-neutral-500 italic max-w-[240px] leading-relaxed placeholder-cycle"
+                  >
                     &ldquo;{PLACEHOLDERS[placeholderIndex]}&rdquo;
                   </p>
                 </div>
@@ -402,7 +461,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                       <Sparkles className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
                       Live Vault Preview
                     </div>
-                    
+
                     <div className="relative rounded-2xl overflow-hidden shadow-2xl p-1 bg-neutral-900/30 border border-neutral-800">
                       <DynamicPreviewCanvas
                         template={hoveredItem.template}
@@ -433,12 +492,52 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                   </div>
                 )
               ) : (
-                <div className="text-center text-neutral-600 max-w-[200px] space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-500 mx-auto">
-                    <Sparkles className="w-5 h-5" />
+                <div className="flex flex-col items-center gap-4 text-center">
+                  {/* Vault illustration */}
+                  <svg viewBox="0 0 80 80" className="w-16 h-16 opacity-80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <radialGradient id="vaultGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor="#d97706" stopOpacity="0.15" />
+                        <stop offset="100%" stopColor="#d97706" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                    {/* Outer glow */}
+                    <circle cx="40" cy="40" r="38" fill="url(#vaultGlow)" />
+                    {/* Vault door body */}
+                    <rect x="12" y="14" width="56" height="52" rx="6" fill="#111" stroke="#262626" strokeWidth="1.5" />
+                    {/* Vault hinges */}
+                    <rect x="12" y="22" width="6" height="8" rx="2" fill="#1f1f1f" stroke="#2a2a2a" strokeWidth="1" />
+                    <rect x="12" y="50" width="6" height="8" rx="2" fill="#1f1f1f" stroke="#2a2a2a" strokeWidth="1" />
+                    {/* Main dial ring */}
+                    <circle cx="42" cy="40" r="16" stroke="#262626" strokeWidth="2" />
+                    <circle cx="42" cy="40" r="12" stroke="#1f1f1f" strokeWidth="1.5" fill="#0d0d0d" />
+                    {/* Dial notches */}
+                    {[0,45,90,135,180,225,270,315].map((deg, i) => {
+                      const rad = (deg * Math.PI) / 180;
+                      const x1 = 42 + Math.cos(rad) * 13;
+                      const y1 = 40 + Math.sin(rad) * 13;
+                      const x2 = 42 + Math.cos(rad) * 15.5;
+                      const y2 = 40 + Math.sin(rad) * 15.5;
+                      return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#333" strokeWidth="1.2" strokeLinecap="round" />;
+                    })}
+                    {/* Dial pointer (amber accent) */}
+                    <line x1="42" y1="40" x2="42" y2="29" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" className="vault-dial" />
+                    {/* Center knob */}
+                    <circle cx="42" cy="40" r="3" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
+                    <circle cx="42" cy="40" r="1.2" fill="#d97706" opacity="0.7" />
+                    {/* Lock bolts */}
+                    <circle cx="62" cy="26" r="3.5" fill="none" stroke="#222" strokeWidth="1.5" />
+                    <circle cx="62" cy="54" r="3.5" fill="none" stroke="#222" strokeWidth="1.5" />
+                    {/* Handle */}
+                    <rect x="22" y="37" width="10" height="6" rx="3" fill="#161616" stroke="#2a2a2a" strokeWidth="1" />
+                  </svg>
+
+                  <div className="space-y-1">
+                    <p className="text-[12px] font-semibold text-neutral-400 tracking-tight">Vault Preview</p>
+                    <p className="text-[11px] text-neutral-600 leading-relaxed max-w-[180px]">
+                      Hover an entry to see a live secure preview
+                    </p>
                   </div>
-                  <p className="text-[12px] font-medium text-neutral-400">Spotlight Dashboard</p>
-                  <p className="text-[11px] leading-normal">Hover over any vault entry to render a live secure preview panel in real-time.</p>
                 </div>
               )}
             </div>
@@ -454,13 +553,37 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
       </div>
 
       <style>{`
-        @keyframes reflectionScan {
-          0% { transform: translate(-3px, -3px); opacity: 0.3; }
-          50% { transform: translate(3px, 3px); opacity: 1; }
-          100% { transform: translate(-3px, -3px); opacity: 0.3; }
+        @keyframes lensShine {
+          0%   { opacity: 0.15; stroke-dashoffset: 0; }
+          45%  { opacity: 1; }
+          100% { opacity: 0.15; stroke-dashoffset: -14; }
         }
-        .reflection-line {
-          animation: reflectionScan 2.5s infinite ease-in-out;
+        @keyframes lensShine2 {
+          0%, 100% { opacity: 0; }
+          35%, 65%  { opacity: 0.6; }
+        }
+        @keyframes shrugBob {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-4px); }
+        }
+        @keyframes vaultDialSpin {
+          0%   { transform: rotate(0deg); transform-origin: 42px 40px; }
+          100% { transform: rotate(360deg); transform-origin: 42px 40px; }
+        }
+        .lens-shine {
+          stroke-dasharray: 14;
+          animation: lensShine 3s ease-in-out infinite;
+        }
+        .lens-shine-2 {
+          animation: lensShine2 3s ease-in-out infinite 0.6s;
+        }
+        .shrug-arm {
+          transform-origin: 32px 80px;
+          animation: shrugBob 2.5s ease-in-out infinite;
+        }
+        .vault-dial {
+          transform-origin: 42px 40px;
+          animation: vaultDialSpin 8s linear infinite;
         }
         .gold-glow {
           text-shadow: 0 0 6px rgba(251, 191, 36, 0.7);
@@ -473,29 +596,35 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
         .animate-fade-in {
           animation: fadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        .command-palette-preview {
-          /* Add high-tech details if needed */
+        @keyframes placeholderFade {
+          0% { opacity: 0; transform: translateY(4px); }
+          12% { opacity: 1; transform: translateY(0); }
+          88% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-4px); }
+        }
+        .placeholder-cycle {
+          animation: placeholderFade 4.5s ease-in-out;
         }
       `}</style>
     </>
   );
 }
 
-function ResultRow({ 
-  action, 
-  active, 
-  index, 
-  queryText, 
-  fuzzyHighlight, 
-  onClick, 
-  onHover 
-}: { 
-  action: Action; 
-  active: boolean; 
+function ResultRow({
+  action,
+  active,
+  index,
+  queryText,
+  fuzzyHighlight,
+  onClick,
+  onHover
+}: {
+  action: Action;
+  active: boolean;
   index: number;
   queryText: string;
   fuzzyHighlight: (t: string, q: string) => React.ReactNode;
-  onClick: () => void; 
+  onClick: () => void;
   onHover: () => void;
 }) {
   return (
@@ -503,9 +632,8 @@ function ResultRow({
       onClick={onClick}
       onMouseEnter={onHover}
       data-index={index}
-      className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
-        active ? "bg-neutral-900 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900/40 hover:text-neutral-300"
-      }`}
+      className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${active ? "bg-neutral-900 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900/40 hover:text-neutral-300"
+        }`}
     >
       <span className={`shrink-0 transition-transform ${active ? "scale-110 text-[var(--accent)]" : "text-neutral-500"}`}>{action.icon}</span>
       <span className="flex-1 text-[13px] truncate">
