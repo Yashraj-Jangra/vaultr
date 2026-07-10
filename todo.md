@@ -62,5 +62,10 @@
 - [x] Allowed 192.168.* subnet IPs in Better Auth trustedOrigins for local device testing
 - [x] Configured dynamic client-side Better Auth client baseURL (window.location.origin fallback) to prevent mobile infinite spinning
 - [x] Optimized NewEntryDialog box size, responsiveness, and webkit-overflow-scrolling for mobile devices
+- [x] Overhauled Command Palette into a dual-pane Cmd+K Spotlight search overlay with grouped results and search history
+- [x] Integrated right-pane live previews with secure client-side obfuscation of credentials
+- [x] Implemented fuzzy matching highlighted with dynamic individual letter golden underline glow
+- [x] Added SVG shrugging detective empty state with magnifying glass reflection and cycling placeholder phrases
+- [x] Fixed Quick Actions by implementing query parameter listeners (`?new=...` and `?reveal=...`) inside main vault page
 - [ ] Proceed with any further user-requested feature additions or refinements
 

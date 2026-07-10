@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, Settings, Plus, Wand2, X, Heart, Fingerprint } from "lucide-react";
+import { Search, Lock, Settings, Plus, Wand2, X, Heart, Fingerprint, Clock, Shield, Sparkles } from "lucide-react";
 import { useVault } from "@/context/VaultContext";
+import { DynamicPreviewCanvas } from "@/components/vault/DialogPreviews";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -12,18 +13,26 @@ interface CommandPaletteProps {
 
 type Action = {
   id: string;
+  itemId?: string;
   label: string;
   description?: string;
   icon: React.ReactNode;
   run: () => void;
   group: "action" | "entry";
+  template?: "login" | "card" | "address" | "profile" | "note";
 };
+
+const PLACEHOLDERS = [
+  "Even the NSA couldn't find that.",
+  "Your secrets are safe from your own search.",
+  "Nothing. Zero. The void is vast.",
+  "404: Password not found in the simulation."
+];
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [openCount, setOpenCount] = useState(0);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setOpenCount((c) => c + 1);
   }, [open]);
 
@@ -32,32 +41,68 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 }
 
 function PaletteInner({ onClose }: { onClose: () => void }) {
-  const router  = useRouter();
-  const { items, lock } = useVault();
+  const router = useRouter();
+  const { items, lock, decryptItem } = useVault();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [decryptedCache, setDecryptedCache] = useState<Record<string, any>>({});
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef  = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Focus input on mount (safe — DOM side-effect)
+  // Load history on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("vaultr_search_history");
+    if (saved) {
+      try {
+        setSearchHistory(JSON.parse(saved));
+      } catch {
+        setSearchHistory([]);
+      }
+    }
+  }, []);
+
+  // Save history helper
+  const saveToHistory = useCallback((q: string) => {
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    setSearchHistory(prev => {
+      const filtered = prev.filter(x => x.toLowerCase() !== trimmed.toLowerCase());
+      const next = [trimmed, ...filtered].slice(0, 5);
+      localStorage.setItem("vaultr_search_history", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  // Focus input on mount
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(t);
   }, []);
 
+  // Cycling placeholder text when empty results
+  useEffect(() => {
+    const t = setInterval(() => {
+      setPlaceholderIndex(i => (i + 1) % PLACEHOLDERS.length);
+    }, 4500);
+    return () => clearInterval(t);
+  }, []);
 
-  const ACTIONS: Action[] = [
-    { id: "new-login",   label: "New Login",      icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=login");         onClose(); }, group: "action" },
-    { id: "new-card",    label: "New Credit Card", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=card");          onClose(); }, group: "action" },
-    { id: "new-note",    label: "New Secure Note", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=note");          onClose(); }, group: "action" },
-    { id: "lock",        label: "Lock Vault",      icon: <Lock className="w-4 h-4" />, run: () => { lock(); onClose(); },                               group: "action" },
-    { id: "health",      label: "Password Health", icon: <Heart className="w-4 h-4" />, run: () => { router.push("/health");                onClose(); }, group: "action" },
+  // Actions list
+  const ACTIONS: Action[] = useMemo(() => [
+    { id: "new-login",   label: "New Login",      icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=login"); onClose(); }, group: "action" },
+    { id: "new-card",    label: "New Credit Card", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=card"); onClose(); }, group: "action" },
+    { id: "new-note",    label: "New Secure Note", icon: <Plus className="w-4 h-4" />, run: () => { router.push("/vault?new=note"); onClose(); }, group: "action" },
+    { id: "lock",        label: "Lock Vault",      icon: <Lock className="w-4 h-4" />, run: () => { lock(); onClose(); }, group: "action" },
+    { id: "health",      label: "Password Health", icon: <Heart className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" }, // redirects to authenticator/health
     { id: "auth",        label: "Authenticator",   icon: <Fingerprint className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" },
-    { id: "generator",   label: "Password Generator", icon: <Wand2 className="w-4 h-4" />, run: () => { router.push("/generator");         onClose(); }, group: "action" },
-    { id: "settings",    label: "Settings",        icon: <Settings className="w-4 h-4" />, run: () => { router.push("/settings");           onClose(); }, group: "action" },
-  ];
+    { id: "generator",   label: "Password Generator", icon: <Wand2 className="w-4 h-4" />, run: () => { router.push("/vault/generator"); onClose(); }, group: "action" },
+    { id: "settings",    label: "Settings",        icon: <Settings className="w-4 h-4" />, run: () => { router.push("/settings"); onClose(); }, group: "action" },
+  ], [router, lock, onClose]);
 
-  // Vault entry search results
+  // Vault entry results
   const entryResults: Action[] = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
@@ -67,128 +112,407 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
         item.domain?.toLowerCase().includes(q) ||
         item.folder?.toLowerCase().includes(q)
       )
-      .slice(0, 5)
       .map((item) => ({
         id: `entry-${item.id}`,
+        itemId: item.id,
         label: item.name,
         description: item.domain || item.folder,
         icon: item.domain
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={`https://www.google.com/s2/favicons?domain=${item.domain}&sz=16`} alt="" className="w-4 h-4 rounded" />
-          : <Search className="w-4 h-4" />,
-        run: () => { router.push(`/vault?reveal=${item.id}`); onClose(); },
+          : <Shield className="w-4 h-4" />,
+        run: () => {
+          saveToHistory(query);
+          router.push(`/vault?reveal=${item.id}`);
+          onClose();
+        },
         group: "entry" as const,
+        template: item.template || "login",
       }));
-  }, [items, query, router, onClose]);
+  }, [items, query, router, onClose, saveToHistory]);
 
-  const filteredActions: Action[] = query.trim()
-    ? ACTIONS.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()))
-    : ACTIONS;
+  const filteredActions: Action[] = useMemo(() => {
+    if (!query.trim()) return ACTIONS;
+    return ACTIONS.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
+  }, [ACTIONS, query]);
 
   const allResults: Action[] = useMemo(
     () => [...entryResults, ...filteredActions],
     [entryResults, filteredActions]
   );
 
-  // Keyboard navigation (component only mounts when open=true, so no 'open' dep needed)
+  // Manage selection index boundary
+  useEffect(() => {
+    setCursor(0);
+  }, [query]);
+
+  // Decrypt hovered entry dynamically
+  const hoveredItem = allResults[cursor];
+  useEffect(() => {
+    if (hoveredItem && hoveredItem.group === "entry" && hoveredItem.itemId) {
+      const targetId = hoveredItem.itemId;
+      if (decryptedCache[targetId]) return;
+      const targetItem = items.find(x => x.id === targetId);
+      if (targetItem) {
+        decryptItem(targetItem.encryptedBlob).then(raw => {
+          let parsed: any;
+          try { parsed = JSON.parse(raw); } catch { parsed = { payload: raw }; }
+          if (!parsed._template && (parsed.username || parsed.password)) parsed._template = "login";
+          setDecryptedCache(prev => ({ ...prev, [targetId]: parsed }));
+        }).catch(() => {});
+      }
+    }
+  }, [hoveredItem, items, decryptItem, decryptedCache]);
+
+  // Keyboard controls
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape")      { onClose(); return; }
-      if (e.key === "ArrowDown")   { e.preventDefault(); setCursor((c) => Math.min(c + 1, allResults.length - 1)); }
-      if (e.key === "ArrowUp")     { e.preventDefault(); setCursor((c) => Math.max(c - 1, 0)); }
-      if (e.key === "Enter" && allResults[cursor]) { allResults[cursor].run(); }
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCursor((c) => Math.min(c + 1, allResults.length - 1));
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCursor((c) => Math.max(c - 1, 0));
+      }
+      if (e.key === "Enter") {
+        if (allResults[cursor]) {
+          allResults[cursor].run();
+        }
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [cursor, allResults, onClose]);
 
-  // Scroll cursor into view
+  // Scroll active cursor row into viewport
   useEffect(() => {
-    const el = listRef.current?.children[cursor] as HTMLElement | undefined;
+    const el = listRef.current?.querySelector(`[data-index="${cursor}"]`) as HTMLElement | undefined;
     el?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
 
-  if (!open) return null;
+  // Grouped results map
+  const groupedEntries = useMemo(() => {
+    const groups: Record<string, Action[]> = {
+      login: [],
+      card: [],
+      note: [],
+      address: [],
+      profile: []
+    };
+    entryResults.forEach(r => {
+      if (r.template && groups[r.template]) {
+        groups[r.template].push(r);
+      }
+    });
+    return groups;
+  }, [entryResults]);
+
+  // Safe client-side payload obfuscation for right-pane previews
+  const activePayload = useMemo(() => {
+    if (!hoveredItem || hoveredItem.group !== "entry" || !hoveredItem.itemId) return null;
+    const raw = decryptedCache[hoveredItem.itemId];
+    if (!raw) return null;
+    const copy = { ...raw };
+    if (copy.password) copy.password = "••••••••";
+    if (copy.cvv) copy.cvv = "•••";
+    if (copy.pin) copy.pin = "••••";
+    if (copy.cardNumber) {
+      const clean = copy.cardNumber.replace(/\D/g, "");
+      copy.cardNumber = clean.length > 4 ? `•••• •••• •••• ${clean.slice(-4)}` : "•••• •••• •••• ••••";
+    }
+    return copy;
+  }, [hoveredItem, decryptedCache]);
+
+  // Fuzzy matches with golden light up glows on chars
+  const fuzzyHighlight = (text: string, queryText: string) => {
+    if (!queryText.trim()) return <span>{text}</span>;
+    const result: React.ReactNode[] = [];
+    let queryIdx = 0;
+    const lowerQuery = queryText.toLowerCase();
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (queryIdx < lowerQuery.length && char.toLowerCase() === lowerQuery[queryIdx]) {
+        result.push(
+          <span key={i} className="relative inline-block text-[var(--accent)] font-semibold gold-glow">
+            {char}
+          </span>
+        );
+        queryIdx++;
+      } else {
+        result.push(char);
+      }
+    }
+    return <span>{result}</span>;
+  };
+
+  // Compile ordered indexes for flat layout rows
+  let globalIndexTracker = 0;
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* Panel */}
-      <div className="fixed left-1/2 top-[20vh] -translate-x-1/2 z-[70] w-full max-w-lg px-4">
-        <div className="bg-neutral-900 border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden">
-          {/* Search input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]">
-            <Search className="w-4 h-4 text-neutral-600 shrink-0" />
+      <div className="fixed inset-0 z-[150] bg-black/75 backdrop-blur-md flex items-center justify-center p-0 md:p-6" onClick={onClose}>
+        <div 
+          className="relative w-full max-w-4xl h-full md:h-[620px] flex flex-col rounded-none md:rounded-2xl border-0 md:border border-neutral-800 bg-neutral-950/90 shadow-[0_32px_64px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Spotlight Header Search input */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-neutral-800 bg-neutral-900/40 shrink-0">
+            <Search className="w-5 h-5 text-neutral-500 shrink-0" />
             <input
               ref={inputRef}
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setCursor(0); }}
-              placeholder="Search or type a command…"
-              className="flex-1 bg-transparent text-[14px] text-neutral-200 placeholder-neutral-600 outline-none"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search items, settings, generator..."
+              className="flex-1 bg-transparent text-[16px] text-neutral-100 placeholder-neutral-500 outline-none"
             />
             {query && (
-              <button onClick={() => setQuery("")} className="text-neutral-600 hover:text-neutral-400 cursor-pointer">
-                <X className="w-3.5 h-3.5" />
+              <button onClick={() => setQuery("")} className="text-neutral-500 hover:text-neutral-300 cursor-pointer p-1">
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {/* Results list */}
-          <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
-            {entryResults.length > 0 && (
-              <>
-                <p className="px-4 py-1.5 text-[10px] text-neutral-600 uppercase tracking-wider">Entries</p>
-                {entryResults.map((action, idx) => (
-                  <ResultRow key={action.id} action={action} active={idx === cursor} onClick={() => action.run()} />
-                ))}
-              </>
-            )}
-            {filteredActions.length > 0 && (
-              <>
-                <p className="px-4 py-1.5 text-[10px] text-neutral-600 uppercase tracking-wider">
-                  {query.trim() ? "Actions" : "Quick actions"}
-                </p>
-                {filteredActions.map((action, idx) => {
-                  const globalIdx = entryResults.length + idx;
-                  return (
-                    <ResultRow key={action.id} action={action} active={globalIdx === cursor} onClick={() => action.run()} />
-                  );
-                })}
-              </>
-            )}
-            {allResults.length === 0 && (
-              <p className="px-4 py-6 text-center text-[13px] text-neutral-600">No results for &ldquo;{query}&rdquo;</p>
-            )}
+          {/* Spotlight Split Columns Panel */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left Pane: Results */}
+            <div ref={listRef} className="w-full md:w-[480px] shrink-0 border-r border-neutral-800/80 overflow-y-auto py-2 flex flex-col">
+              
+              {/* History / Recent Queries */}
+              {!query && searchHistory.length > 0 && (
+                <div className="px-4 py-2 border-b border-neutral-800/30 mb-2">
+                  <div className="flex items-center gap-1.5 text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1.5">
+                    <Clock className="w-3 h-3" /> Recent Searches
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {searchHistory.map((h, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setQuery(h)}
+                        className="text-[11px] bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Grouped Vault Item Entries */}
+              {entryResults.length > 0 && (
+                <>
+                  {Object.entries(groupedEntries).map(([tplName, itemsList]) => {
+                    if (itemsList.length === 0) return null;
+                    const displayGroupTitle = tplName === "login" ? "Logins" :
+                                              tplName === "card" ? "Credit Cards" :
+                                              tplName === "note" ? "Secure Notes" :
+                                              tplName === "address" ? "Addresses" : "Profiles";
+                    return (
+                      <div key={tplName}>
+                        <p className="px-5 py-1.5 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">{displayGroupTitle}</p>
+                        {itemsList.map(action => {
+                          const idx = globalIndexTracker++;
+                          return (
+                            <ResultRow 
+                              key={action.id} 
+                              action={action} 
+                              active={idx === cursor} 
+                              index={idx}
+                              queryText={query}
+                              fuzzyHighlight={fuzzyHighlight}
+                              onClick={() => action.run()} 
+                              onHover={() => setCursor(idx)}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Quick Actions */}
+              {filteredActions.length > 0 && (
+                <div>
+                  <p className="px-5 py-1.5 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
+                    {query ? "Settings & Actions" : "Quick Actions"}
+                  </p>
+                  {filteredActions.map(action => {
+                    const idx = globalIndexTracker++;
+                    return (
+                      <ResultRow 
+                        key={action.id} 
+                        action={action} 
+                        active={idx === cursor} 
+                        index={idx}
+                        queryText={query}
+                        fuzzyHighlight={fuzzyHighlight}
+                        onClick={() => action.run()} 
+                        onHover={() => setCursor(idx)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Empty state shrugging character */}
+              {allResults.length === 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 text-center">
+                  <svg className="w-20 h-20 text-neutral-600 mb-4" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
+                    {/* Detective Hat */}
+                    <path d="M12 28 C 16 16, 48 16, 52 28 Z" fill="currentColor" fillOpacity="0.05" />
+                    <path d="M8 28 H 56" strokeLinecap="round" />
+                    <path d="M22 20 C 22 20, 32 12, 42 20" strokeLinecap="round" />
+                    
+                    {/* Face / Shrugging */}
+                    <circle cx="24" cy="38" r="3" />
+                    <circle cx="40" cy="38" r="3" />
+                    <line x1="27" y1="38" x2="37" y2="38" />
+                    
+                    {/* Detective Shrug Arms */}
+                    <path d="M6 46 C 12 36, 18 38, 20 44" strokeLinecap="round" />
+                    <path d="M58 46 C 52 36, 46 38, 44 44" strokeLinecap="round" />
+                    
+                    {/* Magnifying Glass */}
+                    <g>
+                      <circle cx="34" cy="46" r="6" stroke="currentColor" fill="currentColor" fillOpacity="0.1" />
+                      <line x1="38" y1="50" x2="45" y2="57" strokeWidth="2.5" strokeLinecap="round" />
+                      <path d="M31 43 A 3 3 0 0 1 36 44" stroke="#fbbf24" strokeWidth="1.5" className="reflection-line" />
+                    </g>
+                  </svg>
+                  <p className="text-[12px] text-neutral-400 font-semibold mb-1">No matches found</p>
+                  <p className="text-[11px] text-neutral-500 max-w-[240px] italic leading-normal transition-all duration-300">
+                    &ldquo;{PLACEHOLDERS[placeholderIndex]}&rdquo;
+                  </p>
+                </div>
+              )}
+
+            </div>
+
+            {/* Right Pane: Live Hover Preview */}
+            <div className="hidden md:flex flex-1 flex-col bg-neutral-950/25 p-6 overflow-y-auto justify-center items-center relative border-l border-neutral-900">
+              {hoveredItem && hoveredItem.group === "entry" ? (
+                activePayload ? (
+                  <div className="w-full space-y-4 scale-95 origin-center animate-fade-in command-palette-preview">
+                    <div className="flex items-center gap-2 mb-2 text-neutral-500 text-[10px] uppercase font-bold tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
+                      Live Vault Preview
+                    </div>
+                    
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl p-1 bg-neutral-900/30 border border-neutral-800">
+                      <DynamicPreviewCanvas
+                        template={hoveredItem.template}
+                        name={hoveredItem.label}
+                        username={activePayload.username}
+                        url={activePayload.url || activePayload.urls?.[0]}
+                        line1={activePayload.line1}
+                        line2={activePayload.line2}
+                        city={activePayload.city}
+                        state={activePayload.state}
+                        zip={activePayload.zip}
+                        country={activePayload.country}
+                        fullName={activePayload.fullName}
+                        email={activePayload.email}
+                        phone={activePayload.phone}
+                        note={activePayload.note}
+                        cardName={activePayload.cardName}
+                        cardNumber={activePayload.cardNumber || ""}
+                        expiry={activePayload.expiry}
+                        cardBrand={activePayload.cardBrand}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 space-y-2">
+                    <div className="w-8 h-8 border border-neutral-800 border-t-[var(--accent)] rounded-full animate-spin mx-auto" />
+                    <span className="text-[11px] text-neutral-500">Decrypting metadata…</span>
+                  </div>
+                )
+              ) : (
+                <div className="text-center text-neutral-600 max-w-[200px] space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-500 mx-auto">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <p className="text-[12px] font-medium text-neutral-400">Spotlight Dashboard</p>
+                  <p className="text-[11px] leading-normal">Hover over any vault entry to render a live secure preview panel in real-time.</p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Footer hint */}
-          <div className="px-4 py-2 border-t border-[var(--border)] flex items-center gap-3 text-[11px] text-neutral-700">
-            <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-            <span><kbd className="font-mono">↵</kbd> select</span>
-            <span><kbd className="font-mono">Esc</kbd> close</span>
+          {/* Spotlight Footer hint */}
+          <div className="px-5 py-3.5 border-t border-neutral-800 bg-neutral-950 shrink-0 flex items-center gap-4 text-[10px] text-neutral-500 font-mono">
+            <span><kbd className="bg-neutral-900 border border-neutral-800 px-1 py-0.5 rounded text-neutral-400">↑↓</kbd> navigate</span>
+            <span><kbd className="bg-neutral-900 border border-neutral-800 px-1 py-0.5 rounded text-neutral-400">Enter</kbd> select</span>
+            <span><kbd className="bg-neutral-900 border border-neutral-800 px-1 py-0.5 rounded text-neutral-400">Esc</kbd> close</span>
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes reflectionScan {
+          0% { transform: translate(-3px, -3px); opacity: 0.3; }
+          50% { transform: translate(3px, 3px); opacity: 1; }
+          100% { transform: translate(-3px, -3px); opacity: 0.3; }
+        }
+        .reflection-line {
+          animation: reflectionScan 2.5s infinite ease-in-out;
+        }
+        .gold-glow {
+          text-shadow: 0 0 6px rgba(251, 191, 36, 0.7);
+          box-shadow: 0 1.5px 0 rgba(251, 191, 36, 0.8);
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.96) translateY(4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .command-palette-preview {
+          /* Add high-tech details if needed */
+        }
+      `}</style>
     </>
   );
 }
 
-function ResultRow({ action, active, onClick }: { action: Action; active: boolean; onClick: () => void }) {
+function ResultRow({ 
+  action, 
+  active, 
+  index, 
+  queryText, 
+  fuzzyHighlight, 
+  onClick, 
+  onHover 
+}: { 
+  action: Action; 
+  active: boolean; 
+  index: number;
+  queryText: string;
+  fuzzyHighlight: (t: string, q: string) => React.ReactNode;
+  onClick: () => void; 
+  onHover: () => void;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer ${
-        active ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200"
+      onMouseEnter={onHover}
+      data-index={index}
+      className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
+        active ? "bg-neutral-900 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900/40 hover:text-neutral-300"
       }`}
     >
-      <span className="shrink-0 text-neutral-500">{action.icon}</span>
-      <span className="flex-1 text-[13px]">{action.label}</span>
+      <span className={`shrink-0 transition-transform ${active ? "scale-110 text-[var(--accent)]" : "text-neutral-500"}`}>{action.icon}</span>
+      <span className="flex-1 text-[13px] truncate">
+        {fuzzyHighlight(action.label, queryText)}
+      </span>
       {action.description && (
-        <span className="text-[11px] text-neutral-600 truncate max-w-[120px]">{action.description}</span>
+        <span className="text-[11px] text-neutral-600 truncate max-w-[140px] font-mono">{action.description}</span>
       )}
     </button>
   );

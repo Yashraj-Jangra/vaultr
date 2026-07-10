@@ -38,6 +38,7 @@ export interface NewEntryDialogProps {
   onSave: (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editId?: string) => Promise<void>;
   onClose: () => void;
   initialData?: { id: string; name: string; folder?: string; tags?: string[]; template: Template; payload: DecryptedPayload; };
+  defaultTemplate?: Template;
 }
 
 // ── Template config (Theme Aware) ─────────────────────────────────────────────
@@ -229,8 +230,8 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
 
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 
-export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: NewEntryDialogProps) {
-  const [template, setTemplate] = useState<Template>(initialData?.template ?? "login");
+export function NewEntryDialog({ open, folders, onSave, onClose, initialData, defaultTemplate }: NewEntryDialogProps) {
+  const [template, setTemplate] = useState<Template>(initialData?.template ?? defaultTemplate ?? "login");
   const [name,     setName]     = useState(initialData?.name ?? "");
   const [folder,   setFolder]   = useState(initialData?.folder ?? "");
   const [newFolder,setNewFolder]= useState("");
@@ -353,7 +354,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData }: 
 
   useEffect(() => {
     if (!open) return;
-    setTemplate(initialData?.template ?? "login");
+    setTemplate(initialData?.template ?? defaultTemplate ?? "login");
     setName(initialData?.name ?? "");
     setFolder(initialData?.folder ?? "");
     setNewFolder("");

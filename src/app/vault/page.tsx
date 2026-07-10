@@ -858,6 +858,36 @@ export default function VaultPage() {
     setSelectedIds(new Set());
   }, [activeFolder, activeFilter, activeTag, activeType]);
 
+  const [defaultTemplate, setDefaultTemplate] = useState<Template>("login");
+
+  useEffect(() => {
+    const newParam = searchParams.get("new");
+    const revealParam = searchParams.get("reveal");
+
+    if (newParam && ["login", "card", "address", "profile", "note"].includes(newParam)) {
+      setDefaultTemplate(newParam as Template);
+      setIsNewEntryOpen(true);
+      window.history.replaceState(null, "", "/vault");
+    } else if (revealParam && items.length > 0) {
+      const targetItem = items.find(x => x.id === revealParam);
+      if (targetItem) {
+        decryptItem(targetItem.encryptedBlob).then(raw => {
+          let parsed: DecryptedPayload;
+          try { parsed = JSON.parse(raw); } catch { parsed = { payload: raw }; }
+          if (!parsed._template && (parsed.username || parsed.password)) parsed._template = "login";
+          setEditDialogItem({
+            id: targetItem.id,
+            name: targetItem.name,
+            folder: targetItem.folder,
+            tags: targetItem.tags,
+            template: targetItem.template || "login",
+            payload: parsed,
+          });
+        }).catch(() => {});
+      }
+      window.history.replaceState(null, "", "/vault");
+    }
+  }, [searchParams, items, decryptItem, setIsNewEntryOpen]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -1480,6 +1510,7 @@ export default function VaultPage() {
           folders={folders}
           onSave={handleSave}
           onClose={() => setIsNewEntryOpen(false)}
+          defaultTemplate={defaultTemplate}
         />
 
         {/* Edit entry dialog (portal) */}
