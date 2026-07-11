@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import {
   X, Lock, CreditCard, FileText, User, Wand2, Plus, Minus,
   RefreshCw, Copy, Check, Folder, Shield, Eye, EyeOff,
@@ -857,7 +858,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div className="p-5 flex-1 space-y-6">
               <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[var(--accent)]" />
+                  <Image
+                    src="/brand/logo-mark.png"
+                    alt=""
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 object-contain shrink-0"
+                  />
                   <span className="text-[11px] font-bold text-[var(--fg)] uppercase tracking-wider">
                     {initialData ? "Edit Entry" : "New Entry"}
                   </span>
@@ -956,8 +963,14 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
           {/* Bento Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--surface)] shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center text-[var(--accent)]">
-                <Shield className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center">
+                <Image
+                  src="/brand/logo-mark.png"
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="w-4 h-4 object-contain shrink-0"
+                />
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-[var(--fg)]">{name || `New ${currentTpl.label}`}</h2>

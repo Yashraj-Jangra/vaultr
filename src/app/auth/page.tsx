@@ -288,11 +288,15 @@ export default function AuthPage() {
         </div>
 
         {/* ── Logo */}
-        <div className="flex items-center gap-2.5 relative z-10">
-          <div className="w-8 h-8 rounded-lg bg-white/8 border border-white/10 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-[15px] font-semibold text-white tracking-tight">{config.name}</span>
+        <div className="flex items-center relative z-10">
+          <Image
+            src="/brand/logo-dark.png"
+            alt={config.name}
+            width={120}
+            height={24}
+            className="h-6 w-auto object-contain"
+            priority
+          />
         </div>
 
         {/* ── Center content — crossfades using CSS */}
@@ -346,10 +350,16 @@ export default function AuthPage() {
 
         <div className="w-full max-w-[360px] animate-auth-panel-in relative z-10">
 
-          <div className="flex items-center justify-between mb-8 lg:hidden">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-neutral-500" />
-              <span className="text-[14px] font-semibold text-neutral-300">{config.name}</span>
+          <div className="flex items-center mb-8 lg:hidden">
+            <div className="flex items-center">
+              <Image
+                src="/brand/logo-dark.png"
+                alt={config.name}
+                width={100}
+                height={20}
+                className="h-5 w-auto object-contain"
+                priority
+              />
             </div>
             <Link href="/" className="text-[12px] text-neutral-600 hover:text-neutral-400 transition-colors">← Home</Link>
           </div>
