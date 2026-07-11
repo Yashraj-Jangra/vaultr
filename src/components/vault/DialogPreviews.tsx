@@ -46,13 +46,6 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
     );
   } else if (isDiscover) {
     bgClass = "from-[#f58220] to-[#d45d00]";
-    logoImg = <img src="/logos/Discover.svg" className="h-[10cqw] w-auto object-contain" alt="Discover" />;
-    graphics = (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute right-[-10cqw] top-[20cqw] w-[50cqw] h-[50cqw] rounded-full border border-white/10" />
-        <div className="absolute right-[-5cqw] top-[25cqw] w-[40cqw] h-[40cqw] rounded-full border border-white/5" />
-      </div>
-    );
   } else if (isRuPay) {
     bgClass = "from-[#081e2b] via-[#041018] to-[#02070a]";
     logoImg = <img src="/logos/Rupay.svg" className="h-[10cqw] w-auto object-contain" alt="RuPay" />;
