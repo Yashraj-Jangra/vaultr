@@ -859,7 +859,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
                   <Image
-                    src="/brand/logo-mark.png"
+                    src="/brand/lock-brand.png"
                     alt=""
                     width={16}
                     height={16}
@@ -922,7 +922,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
 
             <div className="px-5 py-4 border-t border-[var(--border)] flex justify-between items-center bg-[var(--bg)]/40 text-[10px] text-[var(--fg-muted)]">
               <div className="flex items-center gap-1.5 font-mono">
-                <Shield className="w-3 h-3 text-[var(--accent)]" />
+                <Image
+                  src="/brand/lock-brand.png"
+                  alt=""
+                  width={12}
+                  height={12}
+                  className="w-3 h-3 object-contain shrink-0"
+                />
                 <span>Zero-Knowledge Encryption</span>
               </div>
             </div>
@@ -965,7 +971,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center">
                 <Image
-                  src="/brand/logo-mark.png"
+                  src="/brand/lock-brand.png"
                   alt=""
                   width={16}
                   height={16}
@@ -1059,11 +1065,23 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     <img src="/illustrations/security-on_3ykb.svg" className="absolute right-4 bottom-4 w-24 h-24 opacity-5 pointer-events-none select-none" alt="" />
                     <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative z-10">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--fg-muted)]">Security Audit</span>
-                      <Shield className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      <Image
+                        src="/brand/lock-brand.png"
+                        alt=""
+                        width={14}
+                        height={14}
+                        className="w-3.5 h-3.5 object-contain shrink-0"
+                      />
                     </div>
                     <div className="space-y-3.5 text-xs text-[var(--fg-muted)] leading-relaxed py-2 text-left">
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--fg)]">
-                        <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <Image
+                          src="/brand/lock-brand.png"
+                          alt=""
+                          width={16}
+                          height={16}
+                          className="w-4 h-4 object-contain shrink-0"
+                        />
                         <span>Zero-knowledge encryption active.</span>
                       </div>
                       <p className="text-[11px]">
