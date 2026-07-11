@@ -77,5 +77,6 @@
 - [x] Wired brand logo assets to the authentication (login/signup) page and add/edit entry dialog headers (split and bento layouts)
 - [x] Distinguished brand-name and security branding: set lock-brand logo for secure context headers (dialog split/bento headers), encryption footers, and security audit metrics
 - [x] Created assets_manifest.md detailing dimensions, paths, and codebase references for all brand assets, lock screen logos, and UI illustrations
+- [x] Increased the size of the breathing brand lock icon and its halo container on the master password lock screen
 - [ ] Proceed with any further user-requested feature additions or refinements
 
