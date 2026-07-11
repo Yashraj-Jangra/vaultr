@@ -67,5 +67,10 @@
 - [x] Implemented fuzzy matching highlighted with dynamic individual letter golden underline glow
 - [x] Added SVG shrugging detective empty state with magnifying glass reflection and cycling placeholder phrases
 - [x] Fixed Quick Actions by implementing query parameter listeners (`?new=...` and `?reveal=...`) inside main vault page
+- [x] Redesigned Visa, AMEX, Discover, and RuPay card backgrounds with premium custom styles
+- [x] Removed trademark (TM/®) symbols from Mastercard, AMEX, and RuPay SVGs
+- [x] Made AMEX logo transparent (text borders only, transparent fill, no outer card boundary)
+- [x] Cropped all SVG logos to eliminate unnecessary empty spacing/padding
+- [x] Proportional resizing of card brand logos in detailed card visual previews
 - [ ] Proceed with any further user-requested feature additions or refinements
 
