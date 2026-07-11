@@ -19,6 +19,7 @@ import {
 import { SiteIcon } from "@/components/vault/SiteIcon";
 import { PasswordHealth } from "@/components/vault/PasswordHealth";
 import { NewEntryDialog } from "@/components/vault/NewEntryDialog";
+import { DetailedCardVisual } from "@/components/vault/DialogPreviews";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -797,70 +798,14 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 
 
 function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
-  const brand = data.cardBrand || "";
-  const nameLower = (data.cardName || "").toLowerCase();
-  const isVisa = brand.toLowerCase() === "visa" || nameLower.includes("visa");
-  const isMastercard = brand.toLowerCase() === "mastercard" || nameLower.includes("mastercard") || nameLower.includes("mc") || nameLower.includes("master card");
-  const isAmex = brand.toLowerCase() === "amex" || brand.toLowerCase() === "american express" || nameLower.includes("amex") || nameLower.includes("american express");
-  const isDiscover = brand.toLowerCase() === "discover" || nameLower.includes("discover");
-
-  // Format card number: group of 4 digits
-  const rawNum = data.cardNumber || "";
-  const formattedNum = rawNum ? rawNum.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim() : "•••• •••• •••• ••••";
-
   return (
-    <div className="relative w-full max-w-[280px] h-[160px] rounded-xl bg-gradient-to-br from-neutral-800 via-neutral-900 to-neutral-950 border border-neutral-700/60 p-4 text-white flex flex-col justify-between font-mono shadow-lg overflow-hidden select-none mb-3 mx-auto">
-      {/* Background glare */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
-
-      {/* Top row: chip & brand logo */}
-      <div className="flex items-start justify-between">
-        {/* EMV Chip */}
-        <div className="w-8 h-6 rounded bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 border border-amber-600/40 relative flex flex-col justify-between p-0.5 shadow-inner">
-          <div className="w-full h-[1px] bg-amber-700/30" />
-          <div className="w-full h-[1px] bg-amber-700/30" />
-          <div className="w-full h-[1px] bg-amber-700/30" />
-        </div>
-
-        {/* Brand Logo */}
-        {isVisa && (
-          <span className="text-[12px] font-black italic tracking-tighter text-sky-400 drop-shadow">VISA</span>
-        )}
-        {isMastercard && (
-          <div className="flex items-center gap-0.5">
-            <div className="w-4 h-4 rounded-full bg-red-500 opacity-90" />
-            <div className="w-4 h-4 rounded-full bg-amber-500 opacity-90 -ml-2" />
-          </div>
-        )}
-        {isAmex && (
-          <span className="text-[10px] font-bold bg-cyan-700 px-1 py-0.5 rounded text-white tracking-widest">AMEX</span>
-        )}
-        {isDiscover && (
-          <span className="text-[10px] font-extrabold italic text-orange-400">DISCOVER</span>
-        )}
-        {!isVisa && !isMastercard && !isAmex && !isDiscover && (
-          <CreditCard className="w-5 h-5 text-neutral-500" />
-        )}
-      </div>
-
-      {/* Middle row: Card Number */}
-      <div className="my-2">
-        <p className="text-[13px] tracking-widest text-neutral-200 text-center font-bold">
-          {formattedNum}
-        </p>
-      </div>
-
-      {/* Bottom row: Expiry & Cardholder */}
-      <div className="flex items-end justify-between">
-        <div className="min-w-0 flex-1 mr-2 text-left">
-          <p className="text-[7px] text-neutral-500 uppercase tracking-wider mb-0.5">Cardholder</p>
-          <p className="text-[10px] text-neutral-300 truncate font-semibold uppercase">{data.cardName || "Your Name"}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[7px] text-neutral-500 uppercase tracking-wider mb-0.5">Expires</p>
-          <p className="text-[10px] text-neutral-300 font-semibold">{data.expiry || "MM/YY"}</p>
-        </div>
-      </div>
+    <div className="w-full max-w-[280px] mx-auto mb-4 scale-95 origin-center">
+      <DetailedCardVisual
+        cardNumber={data.cardNumber || ""}
+        cardName={data.cardName || ""}
+        expiry={data.expiry || ""}
+        cardBrand={data.cardBrand}
+      />
     </div>
   );
 }
@@ -1767,7 +1712,7 @@ export default function VaultPage() {
             {collapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </button>
           {!collapsed && grpItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4" : "border border-[var(--border)] rounded-lg overflow-hidden mb-4"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4 mb-4" : "border border-[var(--border)] rounded-lg overflow-hidden mb-4"}>
               {grpItems.map(renderItem)}
             </div>
           )}
@@ -1786,7 +1731,7 @@ export default function VaultPage() {
           {folders.length > 0 && (
             <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-1 py-2">Uncategorized</div>
           )}
-          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
+          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
             {loose.map(renderItem)}
           </div>
         </div>
@@ -1937,7 +1882,7 @@ export default function VaultPage() {
 
           {/* Filtered (single-folder view) */}
           {!grouped && visibleItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
               {visibleItems.map(renderItem)}
             </div>
           )}
