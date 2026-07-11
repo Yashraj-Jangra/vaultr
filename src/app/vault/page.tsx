@@ -109,10 +109,32 @@ function extractDomain(url: string): string {
 
 const TEMPLATE_META: Record<Template, { label: string; icon: React.ReactNode }> = {
   login: { label: "Login", icon: <Lock className="w-3.5 h-3.5" /> },
-  card: { label: "Credit Card", icon: <CreditCard className="w-3.5 h-3.5" /> },
-  address: { label: "Address", icon: <FileText className="w-3.5 h-3.5" /> },
+  card: { 
+    label: "Credit Card", 
+    icon: (
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+        <line x1="1" y1="10" x2="23" y2="10" />
+      </svg>
+    ) 
+  },
+  address: { 
+    label: "Address", 
+    icon: (
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="3 11 22 2 13 21 11 13 3 11" />
+      </svg>
+    ) 
+  },
   profile: { label: "Profile", icon: <User className="w-3.5 h-3.5" /> },
-  note: { label: "Secure Note", icon: <FileText className="w-3.5 h-3.5" /> },
+  note: { 
+    label: "Secure Note", 
+    icon: (
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ) 
+  },
 };
 
 // ─── Small components ─────────────────────────────────────────────────────────
@@ -657,10 +679,13 @@ function TotpDisplay({ secret }: { secret: string }) {
   );
 }
 
-function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void }) {
+function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean }) {
   const t = data._template ?? "login";
   return (
-    <div className="px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)] text-sm">
+    <div className={inGrid 
+      ? "space-y-2.5 text-sm" 
+      : "px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)] text-sm"
+    }>
       {t === "login" && <>
         <DetailRow label="User" value={data.username || ""} />
         <DetailRow label="Password" value={data.password || ""} masked />
@@ -680,6 +705,7 @@ function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, r
       </>}
 
       {t === "card" && <>
+        <CreditCardGraphic data={data} />
         <DetailRow label="Name" value={data.cardName || ""} />
         <DetailRow label="Number" value={data.cardNumber || ""} masked />
         <DetailRow label="Expiry" value={data.expiry || ""} />
@@ -767,6 +793,158 @@ function ExpandedDetails({ data, readOnly, onEdit }: { data: DecryptedPayload, r
       )}
     </div>
   );
+}
+
+
+function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
+  const brand = data.cardBrand || "";
+  const nameLower = (data.cardName || "").toLowerCase();
+  const isVisa = brand.toLowerCase() === "visa" || nameLower.includes("visa");
+  const isMastercard = brand.toLowerCase() === "mastercard" || nameLower.includes("mastercard") || nameLower.includes("mc") || nameLower.includes("master card");
+  const isAmex = brand.toLowerCase() === "amex" || brand.toLowerCase() === "american express" || nameLower.includes("amex") || nameLower.includes("american express");
+  const isDiscover = brand.toLowerCase() === "discover" || nameLower.includes("discover");
+
+  // Format card number: group of 4 digits
+  const rawNum = data.cardNumber || "";
+  const formattedNum = rawNum ? rawNum.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim() : "•••• •••• •••• ••••";
+
+  return (
+    <div className="relative w-full max-w-[280px] h-[160px] rounded-xl bg-gradient-to-br from-neutral-800 via-neutral-900 to-neutral-950 border border-neutral-700/60 p-4 text-white flex flex-col justify-between font-mono shadow-lg overflow-hidden select-none mb-3 mx-auto">
+      {/* Background glare */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
+
+      {/* Top row: chip & brand logo */}
+      <div className="flex items-start justify-between">
+        {/* EMV Chip */}
+        <div className="w-8 h-6 rounded bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 border border-amber-600/40 relative flex flex-col justify-between p-0.5 shadow-inner">
+          <div className="w-full h-[1px] bg-amber-700/30" />
+          <div className="w-full h-[1px] bg-amber-700/30" />
+          <div className="w-full h-[1px] bg-amber-700/30" />
+        </div>
+
+        {/* Brand Logo */}
+        {isVisa && (
+          <span className="text-[12px] font-black italic tracking-tighter text-sky-400 drop-shadow">VISA</span>
+        )}
+        {isMastercard && (
+          <div className="flex items-center gap-0.5">
+            <div className="w-4 h-4 rounded-full bg-red-500 opacity-90" />
+            <div className="w-4 h-4 rounded-full bg-amber-500 opacity-90 -ml-2" />
+          </div>
+        )}
+        {isAmex && (
+          <span className="text-[10px] font-bold bg-cyan-700 px-1 py-0.5 rounded text-white tracking-widest">AMEX</span>
+        )}
+        {isDiscover && (
+          <span className="text-[10px] font-extrabold italic text-orange-400">DISCOVER</span>
+        )}
+        {!isVisa && !isMastercard && !isAmex && !isDiscover && (
+          <CreditCard className="w-5 h-5 text-neutral-500" />
+        )}
+      </div>
+
+      {/* Middle row: Card Number */}
+      <div className="my-2">
+        <p className="text-[13px] tracking-widest text-neutral-200 text-center font-bold">
+          {formattedNum}
+        </p>
+      </div>
+
+      {/* Bottom row: Expiry & Cardholder */}
+      <div className="flex items-end justify-between">
+        <div className="min-w-0 flex-1 mr-2 text-left">
+          <p className="text-[7px] text-neutral-500 uppercase tracking-wider mb-0.5">Cardholder</p>
+          <p className="text-[10px] text-neutral-300 truncate font-semibold uppercase">{data.cardName || "Your Name"}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[7px] text-neutral-500 uppercase tracking-wider mb-0.5">Expires</p>
+          <p className="text-[10px] text-neutral-300 font-semibold">{data.expiry || "MM/YY"}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getItemIcon(item: VaultItem) {
+  const template = item.template || "login";
+  
+  if (template === "card") {
+    const nameLower = item.name.toLowerCase();
+    let isVisa = nameLower.includes("visa");
+    let isMastercard = nameLower.includes("mastercard") || nameLower.includes("master card") || nameLower.includes("mc");
+    let isAmex = nameLower.includes("amex") || nameLower.includes("american express");
+    let isDiscover = nameLower.includes("discover");
+
+    if (isVisa) {
+      return (
+        <div className="w-7 h-5 rounded bg-blue-700 flex items-center justify-center text-[7px] font-black text-white italic tracking-tighter shadow-sm border border-blue-600 select-none shrink-0">
+          VISA
+        </div>
+      );
+    }
+    if (isMastercard) {
+      return (
+        <div className="w-7 h-5 rounded bg-[#1c1917] flex items-center justify-center gap-0.5 shadow-sm border border-neutral-800 relative select-none shrink-0">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-90 translate-x-0.5" />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 opacity-90 -translate-x-0.5" />
+        </div>
+      );
+    }
+    if (isAmex) {
+      return (
+        <div className="w-7 h-5 rounded bg-sky-700 flex items-center justify-center text-[6px] font-bold text-white shadow-sm border border-sky-600 select-none shrink-0">
+          AMEX
+        </div>
+      );
+    }
+    if (isDiscover) {
+      return (
+        <div className="w-7 h-5 rounded bg-orange-700 flex items-center justify-center text-[6px] font-extrabold text-white shadow-sm border border-orange-600 select-none shrink-0">
+          DISC
+        </div>
+      );
+    }
+    // Generic sleek card icon
+    return (
+      <div className="w-7 h-5 rounded bg-neutral-900 border border-neutral-700 relative shadow-sm flex items-center p-0.5 select-none shrink-0">
+        <div className="w-1 h-1 rounded bg-amber-500 absolute left-0.5 top-1.5" />
+        <div className="w-2 h-1 border border-neutral-600 absolute right-0.5 bottom-0.5 rounded-sm" />
+      </div>
+    );
+  }
+
+  if (template === "profile") {
+    return (
+      <div className="w-7 h-7 rounded-full bg-indigo-950/40 border border-indigo-900/40 flex items-center justify-center text-indigo-400 shrink-0">
+        <User className="w-3.5 h-3.5" />
+      </div>
+    );
+  }
+
+  if (template === "note") {
+    return (
+      <div className="w-7 h-7 rounded-lg bg-teal-950/40 border border-teal-900/40 flex items-center justify-center text-teal-400 relative shrink-0">
+        <FileText className="w-3.5 h-3.5" />
+        <div className="absolute -bottom-0.5 -right-0.5 bg-neutral-950 rounded-full p-0.5 border border-teal-900">
+          <svg className="w-1.5 h-1.5 text-teal-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  if (template === "address") {
+    return (
+      <div className="w-7 h-7 rounded-lg bg-emerald-950/40 border border-emerald-900/40 flex items-center justify-center text-emerald-400 shrink-0">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </svg>
+      </div>
+    );
+  }
+
+  return <SiteIcon domain={item.domain} name={item.name} />;
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -1328,11 +1506,142 @@ export default function VaultPage() {
 
   const renderItem = (item: VaultItem) => {
     const isSelected = selectedIds.has(item.id);
+    const itemIcon = getItemIcon(item);
+
+    if (viewMode === "grid") {
+      return (
+        <div 
+          key={item.id} 
+          className={`group border border-[var(--border)] rounded-2xl transition-all duration-300 bg-neutral-900/10 hover:bg-neutral-900/30 hover:border-neutral-800 flex flex-col justify-between overflow-hidden relative ${
+            isSelected ? "ring-1 ring-[var(--accent)] bg-neutral-900/20 border-neutral-700" : ""
+          }`}
+        >
+          {/* Top Header info */}
+          <div className="p-4 flex-1 flex flex-col justify-between min-h-[110px]">
+            <div className="flex items-start justify-between gap-2.5">
+              {/* Custom Icon */}
+              <div className="shrink-0">{itemIcon}</div>
+              
+              {/* Type Badge / Domain */}
+              <div className="flex flex-col items-end text-[10px] text-neutral-600 truncate max-w-[120px]">
+                {item.template && item.template !== "login" ? (
+                  <span className="px-1.5 py-0.5 rounded-full bg-neutral-900/80 border border-neutral-800 text-[9px] uppercase font-semibold tracking-wider text-neutral-400">
+                    {TEMPLATE_META[item.template]?.label}
+                  </span>
+                ) : (
+                  <span className="truncate text-neutral-500 font-mono text-[9px]">
+                    {item.domain || "Login"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Title / Name */}
+            <div className="mt-4 cursor-pointer" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
+              <h3 className="text-[13.5px] font-semibold text-neutral-200 group-hover:text-white transition-colors truncate text-left">
+                {item.name}
+              </h3>
+              
+              {/* Sub-text preview */}
+              {revealedId === item.id && revealedData?.username ? (
+                <p className="text-[11px] text-neutral-400 mt-1 font-mono truncate text-left">{revealedData.username}</p>
+              ) : revealedId === item.id && item.template === "card" && revealedData?.cardNumber ? (
+                <p className="text-[11px] text-neutral-400 mt-1 font-mono text-left">
+                  •••• •••• •••• {revealedData.cardNumber.slice(-4)}
+                </p>
+              ) : (
+                <p className="text-[10px] text-neutral-700 mt-1 group-hover:text-neutral-500 transition-colors text-left">Click to decrypt & open</p>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Action strip */}
+          <div className="px-4 py-2 border-t border-[var(--border)]/40 bg-neutral-950/20 flex items-center justify-between gap-2">
+            {/* Left side checkbox / selection */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
+                className={`w-3.5 h-3.5 rounded border-[var(--border)] accent-neutral-500 cursor-pointer bg-neutral-900 transition-opacity ${
+                  isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                }`}
+              />
+              {item.createdAt && (
+                <span className="text-[9px] text-neutral-700 font-mono">
+                  {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+            </div>
+
+            {/* Right side item action buttons */}
+            <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity duration-200">
+              {(!activeFilter || activeFilter !== "trash") && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
+                  className={`hover:text-amber-400 transition-colors p-1 cursor-pointer ${item.favorite ? "text-amber-400" : "text-neutral-700"}`}
+                  title={item.favorite ? "Remove favorite" : "Add favorite"}
+                >
+                  <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
+                </button>
+              )}
+
+              {revealedId === item.id && revealedData?.url && (
+                <a
+                  href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
+                  title="Open URL"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+
+              {activeFilter === "trash" ? (
+                <>
+                  <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="text-neutral-600 hover:text-green-400 transition-colors p-1 cursor-pointer" title="Restore"><RefreshCw className="w-3.5 h-3.5" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item.id); }} className="text-neutral-600 hover:text-red-500 transition-colors p-1 cursor-pointer" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
+                </>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
+                  className="text-neutral-700 hover:text-red-500 transition-colors p-1 cursor-pointer"
+                  title="Move to Trash"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Expanded detail for grid card */}
+          {revealedId === item.id && revealedData && (
+            <div className="border-t border-[var(--border)]/40 bg-neutral-950/40 p-4">
+              <ExpandedDetails
+                data={revealedData}
+                readOnly={activeFilter === "trash"}
+                inGrid
+                onEdit={() =>
+                  setEditDialogItem({
+                    id: item.id,
+                    name: item.name,
+                    folder: item.folder,
+                    tags: item.tags,
+                    template: item.template || "login",
+                    payload: revealedData,
+                  })
+                }
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // LIST VIEW
     return (
-      <div key={item.id} className={viewMode === "grid" 
-        ? `border border-[var(--border)] rounded-lg transition-colors bg-neutral-950/20 flex flex-col ${isSelected ? "ring-1 ring-neutral-500 bg-neutral-900/50" : ""}`
-        : `border-t border-[var(--border)] first:border-t-0 transition-colors ${isSelected ? "bg-neutral-900/50" : ""}`
-      }>
+      <div key={item.id} className={`border-t border-[var(--border)] first:border-t-0 transition-colors ${isSelected ? "bg-neutral-900/50" : ""}`}>
         <div className="flex items-center gap-3 px-4 py-2.5 group">
           {/* Selection Checkbox */}
           <div className={`shrink-0 flex items-center justify-center transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
@@ -1345,7 +1654,7 @@ export default function VaultPage() {
           </div>
 
           {/* Icon */}
-          <SiteIcon domain={item.domain} name={item.name} />
+          {itemIcon}
 
           {/* Name + meta */}
           <div
@@ -1458,7 +1767,7 @@ export default function VaultPage() {
             {collapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </button>
           {!collapsed && grpItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4" : "border border-[var(--border)] rounded-lg overflow-hidden mb-4"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4" : "border border-[var(--border)] rounded-lg overflow-hidden mb-4"}>
               {grpItems.map(renderItem)}
             </div>
           )}
@@ -1477,7 +1786,7 @@ export default function VaultPage() {
           {folders.length > 0 && (
             <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-1 py-2">Uncategorized</div>
           )}
-          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
+          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
             {loose.map(renderItem)}
           </div>
         </div>
@@ -1490,7 +1799,7 @@ export default function VaultPage() {
   return (
     <div>
 
-      <main className="max-w-2xl mx-auto px-5 py-8 space-y-6">
+      <main className={`${viewMode === "grid" ? "max-w-5xl" : "max-w-2xl"} mx-auto px-5 py-8 space-y-6 transition-all duration-300`}>
 
         {/* Add new entry button */}
         <button
@@ -1628,7 +1937,7 @@ export default function VaultPage() {
 
           {/* Filtered (single-folder view) */}
           {!grouped && visibleItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
               {visibleItems.map(renderItem)}
             </div>
           )}
