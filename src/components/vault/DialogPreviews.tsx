@@ -18,17 +18,24 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
   let logoImg = null;
   
   if (isVisa) {
-    bgClass = "from-[#0d1430] via-[#090d22] to-[#03050c]";
-    logoImg = <img src="/logos/Visa.svg" className="h-[15cqw] w-auto object-contain" alt="Visa" />;
+    bgClass = "from-[#0A0D1A] via-[#151233] to-[#2B1B54]";
+    logoImg = <img src="/logos/Visa.svg" className="h-[7cqw] w-auto object-contain" alt="Visa" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M0 80 Q100 40 200 120 T320 100" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" />
-        <path d="M0 120 Q120 70 240 160 T320 130" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="visaWave" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#8E2DE2" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#4A00E0" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M-20,100 C80,40 180,160 340,80 L340,200 L-20,200 Z" fill="url(#visaWave)" />
+        <path d="M-20,130 C120,70 160,180 340,110 L340,200 L-20,200 Z" fill="url(#visaWave)" opacity="0.6" />
+        <circle cx="280" cy="40" r="80" fill="#4A00E0" opacity="0.15" filter="blur(20px)" />
       </svg>
     );
   } else if (isMC) {
     bgClass = "from-[#1a1a1c] via-[#141415] to-[#0a0a0b]";
-    logoImg = <img src="/logos/Mastercard.svg" className="h-[8cqw] w-auto object-contain" alt="Mastercard" />;
+    logoImg = <img src="/logos/Mastercard.svg" className="h-[11cqw] w-auto object-contain" alt="Mastercard" />;
     graphics = (
       <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
         <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-red-500/20 blur-xl" />
@@ -36,34 +43,40 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
       </div>
     );
   } else if (isAmex) {
-    bgClass = "from-[#0d0d0d] via-[#050505] to-[#000000]";
-    logoImg = <img src="/logos/AMEX.svg" className="h-[13cqw] w-auto object-contain" alt="Amex" />;
+    bgClass = "from-[#141414] via-[#090909] to-[#000000]";
+    logoImg = <img src="/logos/AMEX.svg" className="h-[12cqw] w-auto object-contain" alt="Amex" />;
     graphics = (
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-[3.5cqw] border border-amber-500/20 rounded-[3cqw]" />
-        <div className="absolute right-0 bottom-0 w-48 h-48 bg-gradient-to-tr from-amber-500/5 to-transparent blur-2xl" />
+        <div className="absolute inset-[4cqw] border border-amber-500/10 rounded-[2.5cqw]" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-transparent" />
       </div>
     );
   } else if (isDiscover) {
-    bgClass = "from-[#2e1d16] via-[#1a100c] to-[#0c0705]";
-    logoImg = <img src="/logos/Discover.svg" className="h-[13cqw] w-auto object-contain" alt="Discover" />;
+    bgClass = "from-[#1F0F07] via-[#0C0603] to-[#020101]";
+    logoImg = <img src="/logos/Discover.svg" className="h-[5.5cqw] w-auto object-contain" alt="Discover" />;
     graphics = (
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute right-[-10cqw] top-[20cqw] w-[50cqw] h-[50cqw] rounded-full border border-orange-500/20" />
-        <div className="absolute right-[-5cqw] top-[25cqw] w-[40cqw] h-[40cqw] rounded-full border border-orange-500/10" />
-        <div className="absolute right-[0cqw] top-[30cqw] w-[30cqw] h-[30cqw] rounded-full border border-orange-500/5" />
+        <div className="absolute right-[-15cqw] top-[-10cqw] w-[60cqw] h-[60cqw] rounded-full border-[1.5px] border-orange-500/15" />
+        <div className="absolute right-[-10cqw] top-[25cqw] w-[50cqw] h-[50cqw] rounded-full border border-orange-500/10" />
+        <div className="absolute right-[-5cqw] top-[0cqw] w-[40cqw] h-[40cqw] rounded-full border border-orange-500/5" />
+        <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-orange-500/[0.03] rounded-full blur-2xl" />
       </div>
     );
   } else if (isRuPay) {
-    bgClass = "from-[#081e2b] via-[#041018] to-[#02070a]";
-    logoImg = <img src="/logos/Rupay.svg" className="h-[13cqw] w-auto object-contain" alt="RuPay" />;
+    bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
+    logoImg = <img src="/logos/Rupay.svg" className="h-[6.5cqw] w-auto object-contain" alt="RuPay" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <line x1="0" y1="50" x2="320" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-        <line x1="0" y1="100" x2="320" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-        <line x1="0" y1="150" x2="320" y2="150" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-        <line x1="100" y1="0" x2="100" y2="200" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-        <line x1="200" y1="0" x2="200" y2="200" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="rupayGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#004e92" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#000428" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M0,40 L320,40 M0,80 L320,80 M0,120 L320,120 M0,160 L320,160" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
+        <path d="M60,0 L60,200 M120,0 L120,200 M180,0 L180,200 M240,0 L240,200" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
+        <path d="M0,100 L120,100 L140,120 L320,120" fill="none" stroke="url(#rupayGrad)" strokeWidth="2" opacity="0.5" />
       </svg>
     );
   } else if (isOther) {
