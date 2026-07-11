@@ -72,5 +72,7 @@
 - [x] Made AMEX logo transparent (text borders only, transparent fill, no outer card boundary)
 - [x] Cropped all SVG logos to eliminate unnecessary empty spacing/padding
 - [x] Proportional resizing of card brand logos in detailed card visual previews
+- [x] Generated dummy PNG placeholders for brand assets (logo, mark, apple-touch-icon, lock, OG images)
+- [x] Integrated brand assets into layout SEO/OG metadata, homepage nav, footer, sidebar header, topbar, and lock screen
 - [ ] Proceed with any further user-requested feature additions or refinements
 
