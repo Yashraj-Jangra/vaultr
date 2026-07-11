@@ -1267,11 +1267,11 @@ export default function VaultPage() {
           <div className="flex flex-col items-center gap-5 animate-auth-panel-in">
             <div className="relative flex items-center justify-center mb-2">
               <div
-                className="absolute w-24 h-24 rounded-full opacity-20 animate-pulse-ring"
+                className="absolute w-28 h-28 rounded-full opacity-20 animate-pulse-ring"
                 style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
               />
               <div
-                className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 relative z-10 ${unlocking
+                className={`w-20 h-20 rounded-2xl border flex items-center justify-center transition-all duration-300 relative z-10 ${unlocking
                   ? "bg-neutral-800 border-neutral-600 scale-105"
                   : "bg-[#0d0d0d] border-[var(--border)]"
                   }`}
@@ -1279,9 +1279,9 @@ export default function VaultPage() {
                 <Image
                   src="/brand/lock-brand.png"
                   alt="_vaultr"
-                  width={32}
-                  height={32}
-                  className={`w-8 h-8 object-contain transition-all duration-300 ${unlocking ? "opacity-100" : "opacity-60"}`}
+                  width={48}
+                  height={48}
+                  className={`w-12 h-12 object-contain transition-all duration-300 ${unlocking ? "opacity-100" : "opacity-60"}`}
                 />
               </div>
             </div>
