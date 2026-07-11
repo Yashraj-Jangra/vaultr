@@ -12,42 +12,63 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
   
   const num = cardNumber.replace(/\D/g, "");
 
-  let bgClass = "from-[#4b6cb7] to-[#182848]";
+  let bgClass = "from-[#22252c] to-[#0f1013]";
   let graphics = null;
   let bankLogo = null;
+  let logoImg = null;
   
   if (isVisa) {
-    bgClass = "from-[#8E2DE2] to-[#4A00E0]"; 
+    bgClass = "from-[#0d1430] via-[#090d22] to-[#03050c]";
+    logoImg = <img src="/logos/Visa.svg" className="h-[12cqw] w-auto object-contain" alt="Visa" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-60" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M0 160 C 80 120, 160 200, 320 100 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
-        <path d="M0 120 C 120 180, 200 80, 320 140 L 320 200 L 0 200 Z" fill="rgba(255,255,255,0.05)" />
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <path d="M0 80 Q100 40 200 120 T320 100" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" />
+        <path d="M0 120 Q120 70 240 160 T320 130" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
       </svg>
     );
   } else if (isMC) {
-    bgClass = "from-[#f12711] to-[#f5af19]";
+    bgClass = "from-[#1a1a1c] via-[#141415] to-[#0a0a0b]";
+    logoImg = <img src="/logos/Mastercard.svg" className="h-[12cqw] w-auto object-contain" alt="Mastercard" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <circle cx="320" cy="0" r="150" fill="rgba(255,255,255,0.1)" />
-        <circle cx="0" cy="200" r="100" fill="rgba(255,255,255,0.1)" />
-      </svg>
+      <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
+        <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-red-500/20 blur-xl" />
+        <div className="absolute -right-20 -top-5 w-32 h-32 rounded-full bg-amber-500/20 blur-xl" />
+      </div>
     );
   } else if (isAmex) {
-    bgClass = "from-[#00c6ff] to-[#0072ff]";
+    bgClass = "from-[#0d0d0d] via-[#050505] to-[#000000]";
+    logoImg = <img src="/logos/AMEX.svg" className="h-[10cqw] w-auto object-contain" alt="Amex" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-40" viewBox="0 0 320 200" preserveAspectRatio="none">
-        <path d="M -50 250 L 150 -50 L 200 -50 L 0 250 Z" fill="white" />
-      </svg>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-[3.5cqw] border border-amber-500/20 rounded-[3cqw]" />
+        <div className="absolute right-0 bottom-0 w-48 h-48 bg-gradient-to-tr from-amber-500/5 to-transparent blur-2xl" />
+      </div>
     );
   } else if (isDiscover) {
     bgClass = "from-[#f58220] to-[#d45d00]";
+    logoImg = <img src="/logos/Discover.svg" className="h-[10cqw] w-auto object-contain" alt="Discover" />;
+    graphics = (
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute right-[-10cqw] top-[20cqw] w-[50cqw] h-[50cqw] rounded-full border border-white/10" />
+        <div className="absolute right-[-5cqw] top-[25cqw] w-[40cqw] h-[40cqw] rounded-full border border-white/5" />
+      </div>
+    );
   } else if (isRuPay) {
-    bgClass = "from-[#e46420] to-[#b3400a]";
+    bgClass = "from-[#081e2b] via-[#041018] to-[#02070a]";
+    logoImg = <img src="/logos/Rupay.svg" className="h-[10cqw] w-auto object-contain" alt="RuPay" />;
+    graphics = (
+      <svg className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
+        <line x1="0" y1="50" x2="320" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+        <line x1="0" y1="100" x2="320" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+        <line x1="0" y1="150" x2="320" y2="150" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+        <line x1="100" y1="0" x2="100" y2="200" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+        <line x1="200" y1="0" x2="200" y2="200" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+      </svg>
+    );
   } else if (isOther) {
-    bgClass = "from-[#11998e] to-[#38ef7d]";
+    bgClass = "from-[#0f1d1a] via-[#08100e] to-[#030605]";
   } else if (cardBrand) {
-    // Custom Admin BIN brand
-    bgClass = "from-[#2b5876] to-[#4e4376]";
+    bgClass = "from-[#1f1a30] via-[#100d1a] to-[#05040d]";
   }
 
   const isLight = false;
@@ -108,13 +129,17 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
           </div>
           
           <div className="flex items-center justify-end max-w-[50%]">
-             {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
-             {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
-             {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
-             {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
-             {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
-             {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
-             {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
+             {logoImg || (
+               <>
+                 {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
+                 {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
+                 {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
+                 {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
+                 {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
+                 {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
+                 {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
+               </>
+             )}
           </div>
         </div>
 
