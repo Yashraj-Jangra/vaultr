@@ -1276,14 +1276,25 @@ export default function VaultPage() {
                   : "bg-[#0d0d0d] border-[var(--border)]"
                   }`}
               >
-                <Lock className={`w-6 h-6 transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-500"}`} />
+                <Image
+                  src="/brand/lock-brand.png"
+                  alt="_vaultr"
+                  width={32}
+                  height={32}
+                  className={`w-8 h-8 object-contain transition-all duration-300 ${unlocking ? "opacity-100" : "opacity-60"}`}
+                />
               </div>
             </div>
 
             <div className="text-center space-y-1.5 mb-2">
-              <div className="flex items-center justify-center gap-1.5 opacity-40">
-                <Lock className="w-3 h-3" />
-                <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">SecureVault</span>
+              <div className="flex items-center justify-center mb-1 opacity-60">
+                <Image
+                  src="/brand/logo-dark.png"
+                  alt="_vaultr"
+                  width={100}
+                  height={20}
+                  className="h-5 w-auto object-contain"
+                />
               </div>
               <h1 className="text-[18px] font-semibold text-neutral-100 tracking-tight">
                 {unlocking ? "Decrypting vault…" : "Unlock your vault"}

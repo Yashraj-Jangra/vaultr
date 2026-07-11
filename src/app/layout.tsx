@@ -21,9 +21,34 @@ export const metadata: Metadata = {
     default: "_vaultr — Zero-Knowledge Password Manager",
     template: "%s — _vaultr",
   },
-  description: " is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
-  keywords: ["password manager", "zero knowledge", "AES-256", "encrypted", "secure"],
+  description: "_vaultr is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
+  keywords: ["password manager", "zero knowledge", "AES-256", "encrypted", "secure", "vaultr"],
+  icons: {
+    icon: "/brand/favicon.ico",
+    shortcut: "/brand/favicon.ico",
+    apple: "/brand/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "_vaultr — Zero-Knowledge Password Manager",
+    description: "_vaultr is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
+    type: "website",
+    images: [
+      {
+        url: "/brand/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "_vaultr",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "_vaultr — Zero-Knowledge Password Manager",
+    description: "_vaultr is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
+    images: ["/brand/og-image.png"],
+  },
 };
+
 
 export default function RootLayout({
   children,

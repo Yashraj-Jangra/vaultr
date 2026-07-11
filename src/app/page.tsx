@@ -69,10 +69,14 @@ export default function LandingPage() {
       <nav className={`sticky top-0 z-50 border-b transition-all duration-300 ${scrolled ? "border-[var(--border)] bg-[var(--bg)]/95 backdrop-blur-xl" : "border-transparent bg-transparent"}`}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-neutral-900 border border-[var(--border)] flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-neutral-400" />
-            </div>
-            <span className="text-[14px] font-semibold text-neutral-200 tracking-tight">{config.name}</span>
+            <Image
+              src="/brand/logo-dark.png"
+              alt={config.name}
+              width={120}
+              height={24}
+              className="h-6 w-auto object-contain"
+              priority
+            />
           </Link>
           <div className="hidden sm:flex items-center gap-7 text-[13px] text-neutral-500">
             <a href="#features" className="hover:text-neutral-200 transition-colors">Features</a>
@@ -343,9 +347,14 @@ export default function LandingPage() {
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-[var(--border)]">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-neutral-700" />
-            <span className="text-[13px] text-neutral-700">{config.name}</span>
+          <div className="flex items-center">
+            <Image
+              src="/brand/logo-dark.png"
+              alt={config.name}
+              width={100}
+              height={20}
+              className="h-5 w-auto object-contain opacity-40"
+            />
           </div>
           <div className="flex flex-wrap items-center justify-center gap-5 text-[12px] text-neutral-600">
             <a href="#features" className="hover:text-neutral-400 transition-colors">Features</a>

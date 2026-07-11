@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
@@ -45,6 +46,15 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
       </button>
+
+      {/* Mobile brand mark — only shown when sidebar is hidden */}
+      <Image
+        src="/brand/logo-mark.png"
+        alt="_vaultr"
+        width={24}
+        height={24}
+        className="md:hidden w-6 h-6 object-contain shrink-0"
+      />
 
       {/* Search bar */}
       <button

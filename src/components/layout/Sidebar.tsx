@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Shield, KeyRound, Folder, Star, Settings,
@@ -123,7 +124,13 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           {/* Header */}
           <div className="flex items-center h-14 border-b border-[var(--border)] px-[18px] shrink-0 overflow-hidden">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <Shield className="w-5 h-5 text-neutral-300 shrink-0" />
+              <Image
+                src="/brand/logo-mark.png"
+                alt={config.name}
+                width={20}
+                height={20}
+                className="w-5 h-5 object-contain shrink-0"
+              />
               <span className={`text-[14px] font-semibold text-neutral-200 truncate transition-opacity duration-200 whitespace-nowrap ${
                 collapsed ? "opacity-0 pointer-events-none" : "opacity-100"
               }`}>
