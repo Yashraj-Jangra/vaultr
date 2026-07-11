@@ -19,7 +19,7 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
   
   if (isVisa) {
     bgClass = "from-[#0d1430] via-[#090d22] to-[#03050c]";
-    logoImg = <img src="/logos/Visa.svg" className="h-[12cqw] w-auto object-contain" alt="Visa" />;
+    logoImg = <img src="/logos/Visa.svg" className="h-[15cqw] w-auto object-contain" alt="Visa" />;
     graphics = (
       <svg className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
         <path d="M0 80 Q100 40 200 120 T320 100" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" />
@@ -28,7 +28,7 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
     );
   } else if (isMC) {
     bgClass = "from-[#1a1a1c] via-[#141415] to-[#0a0a0b]";
-    logoImg = <img src="/logos/Mastercard.svg" className="h-[12cqw] w-auto object-contain" alt="Mastercard" />;
+    logoImg = <img src="/logos/Mastercard.svg" className="h-[8cqw] w-auto object-contain" alt="Mastercard" />;
     graphics = (
       <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
         <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-red-500/20 blur-xl" />
@@ -37,7 +37,7 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
     );
   } else if (isAmex) {
     bgClass = "from-[#0d0d0d] via-[#050505] to-[#000000]";
-    logoImg = <img src="/logos/AMEX.svg" className="h-[10cqw] w-auto object-contain" alt="Amex" />;
+    logoImg = <img src="/logos/AMEX.svg" className="h-[13cqw] w-auto object-contain" alt="Amex" />;
     graphics = (
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-[3.5cqw] border border-amber-500/20 rounded-[3cqw]" />
@@ -45,10 +45,18 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
       </div>
     );
   } else if (isDiscover) {
-    bgClass = "from-[#f58220] to-[#d45d00]";
+    bgClass = "from-[#2e1d16] via-[#1a100c] to-[#0c0705]";
+    logoImg = <img src="/logos/Discover.svg" className="h-[13cqw] w-auto object-contain" alt="Discover" />;
+    graphics = (
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute right-[-10cqw] top-[20cqw] w-[50cqw] h-[50cqw] rounded-full border border-orange-500/20" />
+        <div className="absolute right-[-5cqw] top-[25cqw] w-[40cqw] h-[40cqw] rounded-full border border-orange-500/10" />
+        <div className="absolute right-[0cqw] top-[30cqw] w-[30cqw] h-[30cqw] rounded-full border border-orange-500/5" />
+      </div>
+    );
   } else if (isRuPay) {
     bgClass = "from-[#081e2b] via-[#041018] to-[#02070a]";
-    logoImg = <img src="/logos/Rupay.svg" className="h-[10cqw] w-auto object-contain" alt="RuPay" />;
+    logoImg = <img src="/logos/Rupay.svg" className="h-[13cqw] w-auto object-contain" alt="RuPay" />;
     graphics = (
       <svg className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
         <line x1="0" y1="50" x2="320" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
