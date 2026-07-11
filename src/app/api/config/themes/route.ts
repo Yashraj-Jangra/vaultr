@@ -27,10 +27,22 @@ export async function GET() {
         .onConflictDoNothing();
         
       const allThemes = await db.select().from(configThemes);
-      return NextResponse.json({ themes: allThemes });
+      const formatted = allThemes.map((t) => ({
+        ...(t.data as any),
+        id: t.id,
+        published: t.published,
+        builtIn: t.builtIn,
+      }));
+      return NextResponse.json({ themes: formatted });
     }
 
-    return NextResponse.json({ themes: dbThemes });
+    const formatted = dbThemes.map((t) => ({
+      ...(t.data as any),
+      id: t.id,
+      published: t.published,
+      builtIn: t.builtIn,
+    }));
+    return NextResponse.json({ themes: formatted });
   } catch (err) {
     console.error("[GET /api/config/themes]", err);
     return NextResponse.json({ themes: [] });

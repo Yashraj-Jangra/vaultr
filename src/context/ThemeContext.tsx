@@ -107,8 +107,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch("/api/config/themes", { credentials: "include" })
       .then((r) => r.json())
-      .then((data: { themes?: ThemeConfig[] }) => {
-        const dbThemes: ThemeConfig[] = data.themes ?? [];
+      .then((data: { themes?: any[] }) => {
+        const rawThemes = data.themes ?? [];
+        const dbThemes: ThemeConfig[] = rawThemes.map((t) => {
+          if (t.data && typeof t.data === "object") {
+            return {
+              ...t.data,
+              id: t.id,
+              published: t.published,
+              builtIn: t.builtIn,
+            };
+          }
+          return t;
+        });
         const dbIds = new Set(dbThemes.map((t) => t.id));
         const merged: ThemeConfig[] = [
           ...BUILT_IN_THEMES.filter((t) => !dbIds.has(t.id)),
@@ -175,8 +186,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Refresh list
     const data = await fetch("/api/config/themes", { credentials: "include" }).then((r) => r.json());
     if (data.themes) {
-      const ids = new Set(data.themes.map((t: ThemeConfig) => t.id));
-      setAllThemes([...BUILT_IN_THEMES.filter((t) => !ids.has(t.id)), ...data.themes]);
+      const rawThemes = data.themes ?? [];
+      const dbThemes: ThemeConfig[] = rawThemes.map((t: any) => {
+        if (t.data && typeof t.data === "object") {
+          return {
+            ...t.data,
+            id: t.id,
+            published: t.published,
+            builtIn: t.builtIn,
+          };
+        }
+        return t;
+      });
+      const ids = new Set(dbThemes.map((t) => t.id));
+      setAllThemes([...BUILT_IN_THEMES.filter((t) => !ids.has(t.id)), ...dbThemes]);
     }
   }, []);
 

@@ -78,5 +78,7 @@
 - [x] Distinguished brand-name and security branding: set lock-brand logo for secure context headers (dialog split/bento headers), encryption footers, and security audit metrics
 - [x] Created assets_manifest.md detailing dimensions, paths, and codebase references for all brand assets, lock screen logos, and UI illustrations
 - [x] Increased the size of the breathing brand lock icon and its halo container on the master password lock screen
+- [x] Restructured logo-mark and lock-brand to exactly 2 versions each (dark/light theme) and wired them dynamically into Sidebar, TopBar, lock screen, and entry dialog components
+- [x] Fixed custom database themes lookup by mapping nested JSONB details with row columns in themes API route and ThemeContext
 - [ ] Proceed with any further user-requested feature additions or refinements
 

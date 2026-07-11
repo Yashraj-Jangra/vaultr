@@ -14,6 +14,7 @@ import {
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useVault } from "@/context/VaultContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/context/ThemeContext";
 
 const TYPE_ITEMS = [
   { filter: "type=login",   label: "Logins",   icon: <Lock    className="w-3.5 h-3.5" />, template: "login"   },
@@ -41,6 +42,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { config }   = useSiteConfig();
   const { folders, items, setIsNewEntryOpen } = useVault();
   const { isImpersonating, stopImpersonating } = useAuth();
+  const { activeTheme } = useTheme();
   const [collapsed, setCollapsed]       = useState(false);
   const [foldersOpen, setFoldersOpen]   = useState(true);
   const [typesOpen, setTypesOpen]       = useState(true);
@@ -125,7 +127,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           <div className="flex items-center h-14 border-b border-[var(--border)] px-[18px] shrink-0 overflow-hidden">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <Image
-                src="/brand/logo-mark.png"
+                src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
                 alt={config.name}
                 width={20}
                 height={20}

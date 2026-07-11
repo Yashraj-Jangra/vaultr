@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -896,6 +897,7 @@ function getItemIcon(item: VaultItem) {
 
 export default function VaultPage() {
   const { user, logout } = useAuth();
+  const { activeTheme } = useTheme();
   const router = useRouter();
 
 
@@ -1277,7 +1279,7 @@ export default function VaultPage() {
                   }`}
               >
                 <Image
-                  src="/brand/lock-brand.png"
+                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
                   alt="_vaultr"
                   width={48}
                   height={48}

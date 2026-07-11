@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useSiteConfig } from "@/context/SiteConfigContext";
+import { useTheme } from "@/context/ThemeContext";
 import { DynamicPreviewCanvas } from "./DialogPreviews";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -232,6 +233,7 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 
 export function NewEntryDialog({ open, folders, onSave, onClose, initialData, defaultTemplate }: NewEntryDialogProps) {
+  const { activeTheme } = useTheme();
   const [template, setTemplate] = useState<Template>(initialData?.template ?? defaultTemplate ?? "login");
   const [name,     setName]     = useState(initialData?.name ?? "");
   const [folder,   setFolder]   = useState(initialData?.folder ?? "");
@@ -859,7 +861,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
                   <Image
-                    src="/brand/lock-brand.png"
+                    src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
                     alt=""
                     width={16}
                     height={16}
@@ -923,7 +925,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div className="px-5 py-4 border-t border-[var(--border)] flex justify-between items-center bg-[var(--bg)]/40 text-[10px] text-[var(--fg-muted)]">
               <div className="flex items-center gap-1.5 font-mono">
                 <Image
-                  src="/brand/lock-brand.png"
+                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
                   alt=""
                   width={12}
                   height={12}
@@ -971,7 +973,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center">
                 <Image
-                  src="/brand/lock-brand.png"
+                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
                   alt=""
                   width={16}
                   height={16}
@@ -1066,7 +1068,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative z-10">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--fg-muted)]">Security Audit</span>
                       <Image
-                        src="/brand/lock-brand.png"
+                        src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
                         alt=""
                         width={14}
                         height={14}
@@ -1076,7 +1078,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     <div className="space-y-3.5 text-xs text-[var(--fg-muted)] leading-relaxed py-2 text-left">
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--fg)]">
                         <Image
-                          src="/brand/lock-brand.png"
+                          src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
                           alt=""
                           width={16}
                           height={16}

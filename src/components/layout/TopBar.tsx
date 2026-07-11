@@ -49,7 +49,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
 
       {/* Mobile brand mark — only shown when sidebar is hidden */}
       <Image
-        src="/brand/logo-mark.png"
+        src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
         alt="_vaultr"
         width={24}
         height={24}
