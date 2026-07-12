@@ -15,7 +15,6 @@ import { db } from "@/db";
 import { admin, twoFactor } from "better-auth/plugins";
 import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { sendTemplatedEmail } from "@/lib/emailTemplates";
 
 // ── Trusted Origins ──────────────────────────────────────────────────────────
 // Only explicitly listed origins are trusted. No wildcards.
@@ -42,6 +41,7 @@ export const auth = betterAuth({
             console.log(`[DEV] Send OTP to ${user.email}: ${otp}`);
           }
           try {
+            const { sendTemplatedEmail } = await import("@/lib/emailTemplates");
             await sendTemplatedEmail({
               templateKey: "device_verification",
               to: user.email,
@@ -92,6 +92,7 @@ export const auth = betterAuth({
 
       // Toggle ON: send the real verification email.
       try {
+        const { sendTemplatedEmail } = await import("@/lib/emailTemplates");
         await sendTemplatedEmail({
           templateKey: "email_verification",
           to: user.email,
