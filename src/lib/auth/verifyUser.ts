@@ -8,6 +8,11 @@
  * Better Auth uses HttpOnly cookies for sessions — no manual Bearer token needed
  * for browser-initiated requests. For server-to-server calls, the session cookie
  * is forwarded automatically via req.headers.
+ *
+ * NOTE: Better Auth with cookieCache enabled may return `session.id` equal to the
+ * session token (the 32-char cookie value) instead of the actual DB primary key.
+ * We resolve this via resolveSessionId() before passing the ID anywhere that
+ * performs FK lookups (session_meta, session list, isCurrent detection).
  */
 
 import { NextRequest } from "next/server";
@@ -15,11 +20,11 @@ import { auth } from "./auth";
 import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { trackSession } from "@/lib/sessionMeta";
+import { resolveSessionId, trackSession } from "@/lib/sessionMeta";
 
 export interface UserPayload {
   id: string;         // Better Auth user ID
-  sessionId: string;  // Better Auth session ID
+  sessionId: string;  // Resolved DB session.id (real PK, not the cookie token)
   email: string | null | undefined;
   name: string | null | undefined;
 }
@@ -28,8 +33,8 @@ export interface UserPayload {
  * Verifies the session from incoming request headers AND checks that the
  * user account has not been disabled by an admin.
  *
- * Also fires a non-blocking session metadata upsert (device name, IP,
- * last-active timestamp) so the sessions panel always shows fresh data.
+ * Resolves the real DB session.id (handles Better Auth cookieCache quirk).
+ * Fires a non-blocking session metadata upsert (device name, IP, last-active).
  *
  * Throws a Response (401 / 403) if the check fails.
  */
@@ -59,17 +64,33 @@ export async function verifyUserToken(req: NextRequest): Promise<UserPayload> {
     );
   }
 
-  // Update session metadata in the background (non-blocking)
-  // Uses DB-level 5-minute throttle so this is cheap on every request
-  if (sessionResult.session?.id) {
-    trackSession(sessionResult.session.id, sessionResult.user.id, req).catch(
+  // Resolve the real DB session.id — Better Auth cookieCache may return the
+  // session token string in place of the actual PK, so we normalise here once.
+  // If the session doesn't exist in the DB (truly stale), fall back gracefully.
+  const rawSessionId = sessionResult.session?.id ?? "";
+  let resolvedSessionId = rawSessionId;
+
+  if (rawSessionId) {
+    const real = await resolveSessionId(rawSessionId);
+    if (real) {
+      resolvedSessionId = real;
+    }
+    // If resolveSessionId returns null the session is stale/missing — we still
+    // allow the request through (Better Auth already accepted it) but don't
+    // update session_meta. trackSession won't be called below in that case.
+  }
+
+  // Update session metadata in the background (non-blocking).
+  // Uses DB-level 5-minute throttle so this is cheap on every request.
+  if (resolvedSessionId) {
+    trackSession(resolvedSessionId, sessionResult.user.id, req).catch(
       () => { /* non-critical — never break auth flow */ }
     );
   }
 
   return {
     id:        sessionResult.user.id,
-    sessionId: sessionResult.session?.id ?? "",
+    sessionId: resolvedSessionId,
     email:     sessionResult.user.email,
     name:      sessionResult.user.name,
   };

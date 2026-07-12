@@ -14,7 +14,7 @@
 import { UAParser } from "ua-parser-js";
 import { db } from "@/db";
 import { session, sessionMeta, user } from "@/db/schema";
-import { eq, and, sql, lt, inArray } from "drizzle-orm";
+import { eq, and, sql, lt, inArray, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { getClientIp } from "@/lib/getClientIp";
 
@@ -60,6 +60,21 @@ export function parseDeviceName(userAgent: string | null | undefined): {
   };
 }
 
+// ── Resolve real session ID ─────────────────────────────────────────────────────
+// Better Auth with cookieCache returns `session.id` = the session token value
+// (the 32-char cookie string) instead of the actual DB primary key. This query
+// handles both cases in one round-trip so callers always get the real FK-safe id.
+
+export async function resolveSessionId(idOrToken: string): Promise<string | null> {
+  if (!idOrToken) return null;
+  const [found] = await db
+    .select({ id: session.id })
+    .from(session)
+    .where(or(eq(session.id, idOrToken), eq(session.token, idOrToken)))
+    .limit(1);
+  return found?.id ?? null;
+}
+
 // ── Geo-lookup via ip-api.com ─────────────────────────────────────────────────
 async function lookupGeo(ip: string): Promise<{ country: string; city: string } | null> {
   if (!ip || isPrivateIp(ip)) return null;
@@ -86,7 +101,7 @@ async function lookupGeo(ip: string): Promise<{ country: string; city: string } 
 // at the DB level so concurrent requests don't all write.
 
 export async function trackSession(
-  sessionId: string,
+  realSessionId: string,
   userId: string,
   req: NextRequest
 ): Promise<void> {
@@ -98,19 +113,18 @@ export async function trackSession(
     await db
       .insert(sessionMeta)
       .values({
-        sessionId,
+        sessionId:    realSessionId,
         userId,
         deviceName,
         browser,
         os,
-        ipAddress: ip,
+        ipAddress:    ip,
         lastActiveAt: sql`NOW()`,
         createdAt:    sql`NOW()`,
       })
       .onConflictDoUpdate({
         target: sessionMeta.sessionId,
         set: {
-          // Only update last_active_at if it's older than 5 minutes
           lastActiveAt: sql`CASE WHEN ${sessionMeta.lastActiveAt} < NOW() - INTERVAL '5 minutes' THEN NOW() ELSE ${sessionMeta.lastActiveAt} END`,
         },
       });
@@ -120,22 +134,20 @@ export async function trackSession(
       const [existing] = await db
         .select({ country: sessionMeta.country })
         .from(sessionMeta)
-        .where(eq(sessionMeta.sessionId, sessionId))
+        .where(eq(sessionMeta.sessionId, realSessionId))
         .limit(1);
 
       if (!existing?.country) {
-        // Don't await — fire-and-forget so request isn't delayed
         lookupGeo(ip).then(async (geo) => {
           if (!geo) return;
           await db
             .update(sessionMeta)
             .set({ country: geo.country, city: geo.city })
-            .where(eq(sessionMeta.sessionId, sessionId));
+            .where(eq(sessionMeta.sessionId, realSessionId));
         }).catch(() => { /* non-critical */ });
       }
     }
   } catch (err) {
-    // Non-critical — never let session tracking break auth
     console.error("[sessionMeta] trackSession failed:", err);
   }
 }
