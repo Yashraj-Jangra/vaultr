@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { auditLog } from "@/lib/auditLog";
+import { getClientIp } from "@/lib/getClientIp";
 
 const tableMap: Record<string, any> = {
   "vault_items": schema.vaultItems,
@@ -118,7 +119,7 @@ export async function PATCH(
       event: "admin.record.updated",
       uid: admin.id,
       email: admin.email || "",
-      ip: req.headers.get("x-forwarded-for") || undefined,
+      ip: getClientIp(req),
       meta: {
         table,
         rowId: id,
@@ -166,7 +167,7 @@ export async function DELETE(
       event: "admin.record.deleted",
       uid: admin.id,
       email: admin.email || "",
-      ip: req.headers.get("x-forwarded-for") || undefined,
+      ip: getClientIp(req),
       meta: {
         table,
         rowId: id,

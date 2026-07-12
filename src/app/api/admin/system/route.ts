@@ -5,7 +5,7 @@ import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { db } from "@/db";
 import { configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { sendDiscordWebhook } from "@/lib/webhook";
+import { sendDiscordWebhook, invalidateWebhookCache } from "@/lib/webhook";
 
 export async function GET(req: NextRequest) {
   try {
@@ -63,6 +63,11 @@ export async function PATCH(req: NextRequest) {
         `**Maintenance Mode:** ${body.maintenanceMode ? "ENABLED (System Down)" : "DISABLED (Online)"}`,
         body.maintenanceMode ? 0xff0000 : 0x00ff00
       );
+    }
+
+    // Invalidate cached webhook URL so the new value is used immediately
+    if (body.discordWebhook !== undefined) {
+      invalidateWebhookCache();
     }
 
     if (body.discordWebhook !== undefined && existing[0]?.discordWebhook !== body.discordWebhook) {

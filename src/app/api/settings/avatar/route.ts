@@ -8,6 +8,19 @@ import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/auth";
 
+// ── Allowlists ────────────────────────────────────────────────────────────────
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+
+const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyUserToken(req);
@@ -18,20 +31,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Limit avatar size to 5MB
-    if (file.size > 5 * 1024 * 1024) {
+    // ── Size check ──────────────────────────────────────────────────────────
+    if (file.size > MAX_SIZE_BYTES) {
       return NextResponse.json({ error: "File exceeds 5MB size limit" }, { status: 400 });
+    }
+
+    // ── MIME type check (reject attacker-controlled MIME) ───────────────────
+    const mimeType = file.type?.toLowerCase();
+    if (!mimeType || !ALLOWED_MIME_TYPES.has(mimeType)) {
+      return NextResponse.json(
+        { error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF" },
+        { status: 400 }
+      );
+    }
+
+    // ── Extension check ─────────────────────────────────────────────────────
+    const rawExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!rawExt || !ALLOWED_EXTENSIONS.has(rawExt)) {
+      return NextResponse.json(
+        { error: "Invalid file extension. Allowed: jpg, jpeg, png, webp, gif" },
+        { status: 400 }
+      );
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Infer content-type and extension
-    const contentType = file.type || "image/webp";
-    const extension = file.name.split(".").pop() || "webp";
-
-    // Upload to MinIO
-    const avatarUrl = await uploadAvatar(user.id, buffer, contentType, extension);
+    // Upload to MinIO using the validated extension
+    const avatarUrl = await uploadAvatar(user.id, buffer, mimeType, rawExt);
 
     // Save to user profiles DB table
     await db
