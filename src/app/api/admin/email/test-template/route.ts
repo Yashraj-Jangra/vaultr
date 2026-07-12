@@ -26,6 +26,9 @@ const TEST_VARS: Record<string, Record<string, string>> = {
     SECURITY_URL: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://vaultr.app"}/settings/security`,
   },
   account_deleted: {},
+  email_verification: {
+    VERIFICATION_URL: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/verify-email?token=test_token`,
+  },
 };
 
 export async function POST(req: NextRequest) {

@@ -46,7 +46,8 @@ export type TemplateKey =
   | "password_changed"
   | "account_deleted"
   | "support_reply"
-  | "new_ticket_alert";
+  | "new_ticket_alert"
+  | "email_verification";
 
 // ─── Default templates ────────────────────────────────────────────────────────
 
@@ -191,6 +192,20 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, EmailTemplate> = {
       </div>
       <a href="{{APP_URL}}/admin/support" style="display:inline-block;padding:11px 22px;background:#dc2626;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">View Inbox</a>`),
     bodyText: "New support ticket from {{USER_EMAIL}}.\nPriority: {{PRIORITY}}\nSubject: {{TICKET_SUBJECT}}\n\nView Inbox: {{APP_URL}}/admin/support",
+  },
+  email_verification: {
+    subject: "Verify your email address for Vaultr 🔐",
+    bodyHtml: WRAPPER(`
+      <h2 style="margin:0 0 8px;font-size:22px;color:#f5f5f5;font-weight:700;">Verify your email</h2>
+      <p style="color:#a3a3a3;font-size:14px;margin:0 0 24px;line-height:1.6;">
+        Thanks for signing up! Please verify your email address to active your Vaultr account.
+      </p>
+      <a href="{{VERIFICATION_URL}}" style="display:inline-block;padding:11px 22px;background:#6366f1;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:24px;">Verify Email</a>
+      <p style="font-size:13px;color:#737373;line-height:1.6;">
+        If the button doesn't work, copy and paste this URL into your browser:<br/>
+        <span style="word-break:break-all;color:#6366f1;">{{VERIFICATION_URL}}</span>
+      </p>`),
+    bodyText: "Verify your email address for Vaultr.\n\nClick the link below to verify your email:\n{{VERIFICATION_URL}}",
   },
 };
 

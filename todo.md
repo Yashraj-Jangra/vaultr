@@ -54,14 +54,14 @@
 ## 🔜 Next Steps / Open Issues
 
 ### High Priority
-- [ ] Wire up real email sending for email verification (currently just `console.log` in dev, no email sent in prod when toggle is ON)
-- [ ] Wire up real OTP email sender for 2FA (same issue — OTP not emailed in production)
+- [x] Wire up real email sending for email verification (using templated email dispatch)
+- [x] Wire up real OTP email sender for 2FA (using templated email dispatch)
 - [ ] Replace in-memory rate limiter with Redis/Upstash for multi-process/edge deployments
 
 ### Medium Priority
 - [ ] Encrypt SMTP password at rest in DB (M-7 — deferred)
-- [ ] Add `HSTS` header (`Strict-Transport-Security`) for production HTTPS deployments
-- [ ] Add magic bytes verification to avatar upload (MIME type check is good but not foolproof — check first bytes of buffer)
+- [x] Add `HSTS` header (`Strict-Transport-Security`) for production HTTPS deployments
+- [x] Add magic bytes verification to avatar upload (checked for jpeg, png, gif, webp signature headers)
 
 ### Low Priority
 - [ ] Audit log retention policy (auto-delete logs older than N days)

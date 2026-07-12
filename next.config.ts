@@ -33,27 +33,36 @@ const nextConfig: NextConfig = {
       "object-src 'none'",
     ].join("; ");
 
+    const headersList = [
+      // Prevent clickjacking
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      // Prevent MIME sniffing
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      // Limit referrer information
+      {
+        key: "Referrer-Policy",
+        value: "strict-origin-when-cross-origin",
+      },
+      // Restrict browser feature access
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=()",
+      },
+      // Content Security Policy
+      { key: "Content-Security-Policy", value: csp },
+    ];
+
+    if (process.env.NODE_ENV === "production") {
+      headersList.push({
+        key: "Strict-Transport-Security",
+        value: "max-age=63072000; includeSubDomains; preload",
+      });
+    }
+
     return [
       {
         source: "/(.*)",
-        headers: [
-          // Prevent clickjacking
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          // Prevent MIME sniffing
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          // Limit referrer information
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          // Restrict browser feature access
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          // Content Security Policy
-          { key: "Content-Security-Policy", value: csp },
-        ],
+        headers: headersList,
       },
     ];
   },

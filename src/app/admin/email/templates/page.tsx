@@ -55,6 +55,13 @@ const TEMPLATE_DEFS = [
     description: "Sent after a user permanently deletes their account.",
     vars: [],
   },
+  {
+    key: "email_verification",
+    label: "Email Verification",
+    icon: Mail,
+    description: "Sent when a user needs to verify their email address.",
+    vars: ["{{VERIFICATION_URL}}"],
+  },
 ] as const;
 
 type TemplateKey = (typeof TEMPLATE_DEFS)[number]["key"];

@@ -21,6 +21,57 @@ const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
+function checkMagicBytes(buffer: Buffer, extension: string): boolean {
+  if (buffer.length < 12) return false;
+
+  switch (extension) {
+    case "jpg":
+    case "jpeg":
+      // JPEG magic bytes: FF D8 FF
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+
+    case "png":
+      // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
+      return (
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a
+      );
+
+    case "gif":
+      // GIF magic bytes: GIF87a or GIF89a
+      return (
+        buffer[0] === 0x47 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x38 &&
+        (buffer[4] === 0x37 || buffer[4] === 0x39) &&
+        buffer[5] === 0x61
+      );
+
+    case "webp":
+      // WebP starts with RIFF (52 49 46 46) and has WEBP (57 45 42 50) at offset 8
+      return (
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      );
+
+    default:
+      return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyUserToken(req);
@@ -56,6 +107,14 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // ── Magic Bytes check ───────────────────────────────────────────────────
+    if (!checkMagicBytes(buffer, rawExt)) {
+      return NextResponse.json(
+        { error: "File content does not match its image extension" },
+        { status: 400 }
+      );
+    }
 
     // Upload to MinIO using the validated extension
     const avatarUrl = await uploadAvatar(user.id, buffer, mimeType, rawExt);

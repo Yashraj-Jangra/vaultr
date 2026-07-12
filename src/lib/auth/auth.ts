@@ -15,6 +15,7 @@ import { db } from "@/db";
 import { admin, twoFactor } from "better-auth/plugins";
 import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { sendTemplatedEmail } from "@/lib/emailTemplates";
 
 // ── Trusted Origins ──────────────────────────────────────────────────────────
 // Only explicitly listed origins are trusted. No wildcards.
@@ -40,8 +41,18 @@ export const auth = betterAuth({
           if (process.env.NODE_ENV !== "production") {
             console.log(`[DEV] Send OTP to ${user.email}: ${otp}`);
           }
-          // TODO: wire up real email sender for production OTP delivery
-          // await sendOtpEmail(user.email, otp);
+          try {
+            await sendTemplatedEmail({
+              templateKey: "device_verification",
+              to: user.email,
+              vars: {
+                OTP: otp,
+                DEVICE_NAME: "Vaultr Secure Session",
+              },
+            });
+          } catch (err) {
+            console.error("Failed to send OTP email:", err);
+          }
         },
       },
     }),
@@ -80,9 +91,19 @@ export const auth = betterAuth({
       }
 
       // Toggle ON: send the real verification email.
-      // TODO: replace with real email sender using the SMTP config
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[DEV] Email verification link for ${user.email}: ${url}`);
+      try {
+        await sendTemplatedEmail({
+          templateKey: "email_verification",
+          to: user.email,
+          vars: {
+            VERIFICATION_URL: url,
+          },
+        });
+      } catch (err) {
+        console.error("Failed to send verification email:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[DEV] Email verification link for ${user.email}: ${url}`);
+        }
       }
     },
   },
