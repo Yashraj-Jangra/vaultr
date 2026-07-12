@@ -1,7 +1,7 @@
 /**
- * src/middleware.ts
+ * src/proxy.ts
  *
- * Next.js Edge Middleware — runs before every request.
+ * Next.js Proxy — runs before every request.
  *
  * Responsibilities:
  *  1. In-memory per-IP rate limiting for API routes
@@ -120,9 +120,9 @@ function maybePrune() {
   }
 }
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+// ── Proxy Function ───────────────────────────────────────────────────────────
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Only rate-limit API routes
