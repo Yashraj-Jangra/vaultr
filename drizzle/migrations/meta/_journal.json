@@ -36,6 +36,13 @@
       "when": 1781458815804,
       "tag": "0004_talented_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783869945411,
+      "tag": "0005_awesome_dust",
+      "breakpoints": true
     }
   ]
 }

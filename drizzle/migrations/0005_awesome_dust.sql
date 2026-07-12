@@ -1,0 +1,1 @@
+ALTER TABLE "config_system" ADD COLUMN "require_email_verification" boolean DEFAULT false;

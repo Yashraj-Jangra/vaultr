@@ -41,10 +41,11 @@ export async function PATCH(req: NextRequest) {
     await db
       .update(configSystem)
       .set({
-        pauseSignups: body.pauseSignups,
-        maintenanceMode: body.maintenanceMode,
-        discordWebhook: body.discordWebhook,
-        backupCron: body.backupCron,
+        pauseSignups:             body.pauseSignups,
+        maintenanceMode:          body.maintenanceMode,
+        discordWebhook:           body.discordWebhook,
+        backupCron:               body.backupCron,
+        requireEmailVerification: body.requireEmailVerification,
       })
       .where(eq(configSystem.id, 1));
 

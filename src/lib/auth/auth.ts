@@ -13,7 +13,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import { admin, twoFactor } from "better-auth/plugins";
-import { user as userTable } from "@/db/schema";
+import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // ── Trusted Origins ──────────────────────────────────────────────────────────
@@ -50,9 +50,41 @@ export const auth = betterAuth({
   // ── Email + Password ────────────────────────────────────────────────────────
   emailAndPassword: {
     enabled: true,
-    // requireEmailVerification is runtime-controlled via configSystem.requireEmailVerification.
-    // Phase 4 will set this to true and add an after-signup auto-verify hook.
-    requireEmailVerification: false,
+    // Always require email verification at the Better Auth level.
+    // The admin panel toggle in configSystem.requireEmailVerification controls
+    // whether new users are auto-verified immediately (toggle OFF) or must click
+    // the email link (toggle ON). See the hooks section below.
+    requireEmailVerification: true,
+  },
+
+  // ── Email Verification ───────────────────────────────────────────────────────
+  emailVerification: {
+    async sendVerificationEmail({ user, url }) {
+      // Check the admin panel toggle from the database
+      const [config] = await db
+        .select({ requireEmailVerification: configSystem.requireEmailVerification })
+        .from(configSystem)
+        .where(eq(configSystem.id, 1))
+        .limit(1);
+
+      const required = config?.requireEmailVerification ?? false;
+
+      if (!required) {
+        // Toggle OFF: auto-verify the user immediately by marking them as verified
+        // so they can sign in right away without any email interaction.
+        await db
+          .update(userTable)
+          .set({ emailVerified: true })
+          .where(eq(userTable.id, user.id));
+        return;
+      }
+
+      // Toggle ON: send the real verification email.
+      // TODO: replace with real email sender using the SMTP config
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[DEV] Email verification link for ${user.email}: ${url}`);
+      }
+    },
   },
 
   // ── Google OAuth ────────────────────────────────────────────────────────────

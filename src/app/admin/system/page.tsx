@@ -9,6 +9,7 @@ interface SystemConfig {
   maintenanceMode: boolean;
   discordWebhook: string | null;
   backupCron: string | null;
+  requireEmailVerification: boolean;
 }
 
 interface BackupFile {
@@ -26,6 +27,7 @@ export default function SystemOpsPage() {
     maintenanceMode: false,
     discordWebhook: "",
     backupCron: "",
+    requireEmailVerification: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,10 +50,11 @@ export default function SystemOpsPage() {
         if (!res.ok) throw new Error("Failed to load system config");
         const data = await res.json();
         setConfig({
-          pauseSignups: data.pauseSignups || false,
-          maintenanceMode: data.maintenanceMode || false,
-          discordWebhook: data.discordWebhook || "",
-          backupCron: data.backupCron || "",
+          pauseSignups:             data.pauseSignups || false,
+          maintenanceMode:          data.maintenanceMode || false,
+          discordWebhook:           data.discordWebhook || "",
+          backupCron:               data.backupCron || "",
+          requireEmailVerification: data.requireEmailVerification || false,
         });
       } catch (err: any) {
         setError(err.message);
@@ -196,6 +199,27 @@ export default function SystemOpsPage() {
                     onChange={(e) => setConfig({ ...config, maintenanceMode: e.target.checked })}
                   />
                   <div className="w-11 h-6 bg-[var(--bg)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--danger)]"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-6 border-t border-[var(--border)]">
+                <div>
+                  <h4 className="font-medium text-[var(--fg)] flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-amber-500" />
+                    Require Email Verification
+                  </h4>
+                  <p className="text-sm text-[var(--fg-muted)] mt-1">
+                    When enabled, new users must click a verification link in their email before they can sign in. When disabled, accounts are auto-verified on signup.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={config.requireEmailVerification}
+                    onChange={(e) => setConfig({ ...config, requireEmailVerification: e.target.checked })}
+                  />
+                  <div className="w-11 h-6 bg-[var(--bg)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
               </div>
             </div>

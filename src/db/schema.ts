@@ -230,9 +230,10 @@ export const emailLogs = pgTable("email_logs", {
 // ─── Config: System Operations ────────────────────────────────────────────────
 
 export const configSystem = pgTable("config_system", {
-  id:               integer("id").primaryKey().default(1),
-  pauseSignups:     boolean("pause_signups").default(false),
-  maintenanceMode:  boolean("maintenance_mode").default(false),
-  discordWebhook:   text("discord_webhook"),
-  backupCron:       text("backup_cron"), // e.g. "0 0 * * *"
+  id:                       integer("id").primaryKey().default(1),
+  pauseSignups:             boolean("pause_signups").default(false),
+  maintenanceMode:          boolean("maintenance_mode").default(false),
+  discordWebhook:           text("discord_webhook"),
+  backupCron:               text("backup_cron"), // e.g. "0 0 * * *"
+  requireEmailVerification: boolean("require_email_verification").default(false),
 });
