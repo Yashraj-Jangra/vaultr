@@ -1,84 +1,101 @@
-# Project Migration Progress
+# todo.md — _vaultr Session Log
 
-## What has been done:
-- [x] Docker environment set up with PostgreSQL 16 and MinIO (`docker-compose.yml`)
-- [x] Installed Drizzle ORM and initialized `drizzle.config.ts`, `src/db/schema.ts`, and `src/db/index.ts`
-- [x] Installed Better Auth, created client/server configurations, catch-all API, and verify helpers
-- [x] Rewrote `VaultContext.tsx` to use REST and SSE endpoints (`/api/vault/stream` and `/api/vault/items`)
-- [x] Rewrote `SiteConfigContext.tsx` and `ThemeContext.tsx` to query PostgreSQL config tables
-- [x] Rewrote `useSessionManager.ts` to replace Firestore-based active sessions with DB-backed REST / SSE
-- [x] Created config routes (`/api/config/site`, `/api/config/themes`, etc.)
-- [x] Cleaned up all remaining legacy code compiler/type errors:
-  - [x] Resolved Better Auth client forgetPassword issues
-  - [x] Migrated admin analytics, email, SMTP, user settings pages, and logs page to use PostgreSQL-backed REST APIs
-  - [x] Updated all admin and user API routes to run on Drizzle and Better Auth
-  - [x] Refactored settings account, data, and security pages to utilize Postgres endpoints
-  - [x] Refactored main vault page and authenticator page to leverage the new real-time SSE VaultContext
-- [x] Implemented file upload capability for user profile avatars to local MinIO S3 bucket (`/api/settings/avatar`)
-- [x] Created a robust Firestore to PostgreSQL database migration script (`scripts/migrate-firebase-to-postgres.mjs`)
-- [x] Deleted all legacy Firebase files and config files (`src/lib/firebase`, `firebase.json`, `firestore.rules`, etc.)
-- [x] Validated production build compiles cleanly without any errors or warning failures (`npm run build`)
+## Last Updated: 2026-07-12
 
-## Next Steps:
-- [x] Run the database migration script with live exported Firestore data to verify end-to-end data integrity
-- [x] Document the docker compose database backup and restore commands in a setup guide
-- [x] Performed full codebase scan, cleaned up stale Firestore/Legacy Backend references, and fixed TS compilation errors
-- [x] Removed stale lint dumps and draft migration documents
-- [x] Implemented robust Admin Panel features (Database Explorer, Support system, Audit Logs, Remote Session Revocation)
-- [x] Implemented Login As User (Impersonation) capability
-- [x] Implemented Automated PostgreSQL Backups to local directory using Node.js zlib compression
-- [x] Fixed "Flash of Unstyled Content" (FOUC) bug where master password screen flashed on page refresh
-- [x] Redesigned User Settings UI with Stark Minimal aesthetic using Symmetric Split-Pane Cardless Grid
-- [x] Fixed Support System message attribution logic with dedicated Admin / User APIs
-- [x] Overhauled Admin Support Inbox UI and added bidirectional Email Notifications via SMTP
+---
 
-## Next Steps:
-- [x] Overhauled desktop sidebar transitions using pure CSS masking (eliminating layout snapping, wrapping, and React unmounting)
-- [x] Overhauled "Enter Master Password" page to completely hide vault layout shell (sidebar, top bar, bottom nav) when locked
-- [x] Fixed database audit logging typescript check compilation errors in `auditLog.ts` and `src/app/admin/logs/page.tsx`
-- [x] Fixed ESM dynamic imports hoisting bug in `investigate.ts` to allow local database validation run
-- [x] Replaced inline new-entry form with a pop-up modal dialog (`NewEntryDialog.tsx`) — portal-based overlay with smooth transitions, all fields (login / card / address / profile / note), password generator, TOTP, custom fields, and matching dark theme
-- [x] Editing existing entries now uses the same dialog pop-up (clicking "Edit Entry" opens the dialog pre-filled)
-- [x] Fixed issue where New Entry dialog was opened by default and persisted after session timeout due to missing return null check
-- [x] Final testing of all new admin features and backup restoration routines
-- [x] Rebuilt Admin Database Explorer (`src/app/admin/database/page.tsx`) with integrity scanning and unified inline deletion for wandering items
-- [x] Re-designed the Database Explorer UI to use modern split-pane grid with dynamic inline JSON/Record Editing via `RecordEditModal`
-- [x] Refactored `AdminDecryptionModal` to receive user IDs dynamically and auto-fetch email salt via internal API
-- [x] Restored `NewEntryDialog` to its previous state with `DetailedCardVisual` component at user request
-- [x] Re-integrated Network/Brand automatic detection and custom configuration API into `NewEntryDialog` while preserving the classic visual layout
-- [x] Fixed width scaling bug on Custom Fields labels within the entry dialog
-- [x] Restored "Other" network brand functionality and integrated custom easter eggs for brand visual styling
-- [x] Implemented stable random pseudo-hash fallback for auto-detect using custom Admin Panel Easter Eggs
-- [x] Fully integrated BIN logic with Admin Panel: eliminated hardcoded regexes, enabled custom network brand names via text input, and renamed Easter Eggs to Fallback Brands. Cleaned up legacy temp UI files.
-- [x] Fixed stale data bug where Admin Panel config updates were not syncing to Vault Dialog by adopting global context
-- [x] Fixed "Other" network layout rendering to properly position random network names alongside standard networks (Visa/Amex)
-- [x] Stabilized random Easter Egg assignments on Unmapped/Other cards to prevent flickering when typing
-- [x] Added manual encryption key option for local decryption in admin database explorer
-- [x] Added Classic Split and Bento Grid Layout configurations for New Entry dialog, globally toggleable from Admin Settings page
-- [x] Created `DialogPreviews.tsx` to handle responsive preview rendering and detailed card visuals
-- [x] Enlarged dialog sizing (max-w-5xl/6xl) and preview canvas sizes to prevent layout overflow
-- [x] Integrated premium SVG illustrations inside the preview cards and bento dashboard cards
-- [x] Created `test_users.md` to persist local testing credentials
-- [x] Allowed 192.168.* subnet IPs in Better Auth trustedOrigins for local device testing
-- [x] Configured dynamic client-side Better Auth client baseURL (window.location.origin fallback) to prevent mobile infinite spinning
-- [x] Optimized NewEntryDialog box size, responsiveness, and webkit-overflow-scrolling for mobile devices
-- [x] Overhauled Command Palette into a dual-pane Cmd+K Spotlight search overlay with grouped results and search history
-- [x] Integrated right-pane live previews with secure client-side obfuscation of credentials
-- [x] Implemented fuzzy matching highlighted with dynamic individual letter golden underline glow
-- [x] Added SVG shrugging detective empty state with magnifying glass reflection and cycling placeholder phrases
-- [x] Fixed Quick Actions by implementing query parameter listeners (`?new=...` and `?reveal=...`) inside main vault page
-- [x] Redesigned Visa, AMEX, Discover, and RuPay card backgrounds with premium custom styles
-- [x] Removed trademark (TM/®) symbols from Mastercard, AMEX, and RuPay SVGs
-- [x] Made AMEX logo transparent (text borders only, transparent fill, no outer card boundary)
-- [x] Cropped all SVG logos to eliminate unnecessary empty spacing/padding
-- [x] Proportional resizing of card brand logos in detailed card visual previews
-- [x] Generated dummy PNG placeholders for brand assets (logo, mark, apple-touch-icon, lock, OG images)
-- [x] Integrated brand assets into layout SEO/OG metadata, homepage nav, footer, sidebar header, topbar, and lock screen
-- [x] Wired brand logo assets to the authentication (login/signup) page and add/edit entry dialog headers (split and bento layouts)
-- [x] Distinguished brand-name and security branding: set lock-brand logo for secure context headers (dialog split/bento headers), encryption footers, and security audit metrics
-- [x] Created assets_manifest.md detailing dimensions, paths, and codebase references for all brand assets, lock screen logos, and UI illustrations
-- [x] Increased the size of the breathing brand lock icon and its halo container on the master password lock screen
-- [x] Restructured logo-mark and lock-brand to exactly 2 versions each (dark/light theme) and wired them dynamically into Sidebar, TopBar, lock screen, and entry dialog components
-- [x] Fixed custom database themes lookup by mapping nested JSONB details with row columns in themes API route and ThemeContext
-- [ ] Proceed with any further user-requested feature additions or refinements
+## ✅ Completed This Session
 
+### Security Audit + Fixes (Full Pass)
+
+**Phase 1 — Critical Infrastructure**
+- [x] M-1: Added full HTTP security headers to `next.config.ts` (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+- [x] L-1: Added `test_credentials.md` to `.gitignore`
+- [x] L-6: Created `public/robots.txt` blocking `/admin`, `/vault`, `/settings`, `/api/`
+- [x] L-4: Renamed `db:push --force` → `db:push:dev` in `package.json`
+- [x] L-5: Created `src/lib/safeError.ts` + patched 4 API routes that leaked raw error messages in production
+- [x] C-4: Fixed wildcard CORS — removed `"http://192.168.*"` patterns, replaced with `TRUSTED_ORIGINS` env var
+- [x] H-4: OTP log wrapped in `NODE_ENV !== "production"` guard
+- [x] L-2: Session reduced from 30 days → 7 days
+
+**Phase 2 — API Hardening**
+- [x] H-1: Added Zod validation to `POST /api/vault/items` and `PATCH /api/vault/items/[id]`
+- [x] H-2: Fixed reencrypt DoS — max 5000 items, UUID validation, 500-item batch chunking
+- [x] H-3: Avatar upload now enforces MIME type + extension allowlist (jpeg/png/webp/gif only)
+- [x] M-5: Admin user list capped at 200 results, profile fetch optimized to page-only via inArray
+- [x] M-4: Created `src/lib/getClientIp.ts` — validated IP extraction, patched admin DB route
+- [x] L-3: Webhook URL cached in-module with 5-min TTL, invalidated on admin config save
+- [x] L-7: `verifyUserToken` now checks `userProfiles.disabled` flag — disabled users get 403
+
+**Phase 3 — Rate Limiting**
+- [x] C-1: Created `src/middleware.ts` — per-IP in-memory rate limiter:
+  - Sign-in: 10 req/15min
+  - Sign-up: 5 req/hr
+  - OTP/2FA: 5 req/10min
+  - General API: 120 req/min
+  - Returns 429 with `Retry-After` and `X-RateLimit-*` headers
+
+**Phase 4 — DB Migration + Admin UI**
+- [x] C-2: Added `require_email_verification` boolean to `config_system` table (migration applied)
+- [x] C-2: `auth.ts` — `requireEmailVerification: true` permanently; `sendVerificationEmail` hook auto-verifies when DB toggle is OFF
+- [x] C-2: Admin system API reads/writes `requireEmailVerification`
+- [x] C-2: Admin panel System Operations page has new "Require Email Verification" toggle
+
+**Decisions / Intentionally Skipped:**
+- C-3: Admin can read account/session tables (owner-only access, intentional)
+- H-5: Disabled admin check not added (single-owner deployment)
+- M-2: Filesystem audit logs are kept (intentional for this project)
+- M-3: Session tokens in DB browser left as-is (owner-only access)
+- M-6: No password confirmation on account delete (intentional UX decision)
+- M-7: SMTP credentials not encrypted at rest (deferred)
+
+---
+
+## 🔜 Next Steps / Open Issues
+
+### High Priority
+- [ ] Wire up real email sending for email verification (currently just `console.log` in dev, no email sent in prod when toggle is ON)
+- [ ] Wire up real OTP email sender for 2FA (same issue — OTP not emailed in production)
+- [ ] Replace in-memory rate limiter with Redis/Upstash for multi-process/edge deployments
+
+### Medium Priority
+- [ ] Encrypt SMTP password at rest in DB (M-7 — deferred)
+- [ ] Add `HSTS` header (`Strict-Transport-Security`) for production HTTPS deployments
+- [ ] Add magic bytes verification to avatar upload (MIME type check is good but not foolproof — check first bytes of buffer)
+
+### Low Priority
+- [ ] Audit log retention policy (auto-delete logs older than N days)
+- [ ] Add `npm audit fix` to CI to track known dependency vulnerabilities (10 found during zod install)
+- [ ] Add E2E tests for rate limiting, Zod validation responses, disabled user flow
+
+---
+
+## Files Modified This Session
+
+| File | Change |
+|------|--------|
+| `next.config.ts` | HTTP security headers |
+| `.gitignore` | test_credentials.md |
+| `public/robots.txt` | NEW — crawler exclusions |
+| `package.json` | db:push renamed |
+| `src/lib/safeError.ts` | NEW |
+| `src/lib/getClientIp.ts` | NEW |
+| `src/lib/webhook.ts` | webhook URL caching |
+| `src/lib/auth/auth.ts` | CORS, OTP guard, session TTL, email verification hook |
+| `src/lib/auth/verifyUser.ts` | disabled flag check |
+| `src/middleware.ts` | NEW — rate limiting |
+| `src/db/schema.ts` | requireEmailVerification column |
+| `src/app/api/vault/items/route.ts` | Zod validation |
+| `src/app/api/vault/items/[id]/route.ts` | Zod validation |
+| `src/app/api/vault/items/reencrypt/route.ts` | array limits + batching |
+| `src/app/api/settings/avatar/route.ts` | MIME allowlist |
+| `src/app/api/settings/set-password/route.ts` | safeError |
+| `src/app/api/settings/delete-account/route.ts` | safeError |
+| `src/app/api/admin/users/route.ts` | pagination cap + inArray fix |
+| `src/app/api/admin/email/route.ts` | safeError |
+| `src/app/api/admin/email/broadcast/route.ts` | safeError |
+| `src/app/api/admin/system/route.ts` | requireEmailVerification + cache invalidation |
+| `src/app/api/admin/database/[table]/[id]/route.ts` | getClientIp |
+| `src/app/admin/system/page.tsx` | email verification toggle UI |
+| `drizzle/migrations/0005_awesome_dust.sql` | NEW — DB migration |
+| `.env.example` | TRUSTED_ORIGINS documented |
