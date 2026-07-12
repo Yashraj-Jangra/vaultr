@@ -1,0 +1,16 @@
+User-agent: *
+
+# Block crawlers from authenticated/admin areas
+Disallow: /admin
+Disallow: /vault
+Disallow: /settings
+Disallow: /api/
+
+# Allow brand assets and public pages
+Allow: /brand/
+Allow: /privacy
+Allow: /terms
+Allow: /security
+Allow: /generator
+
+Sitemap: /sitemap.xml

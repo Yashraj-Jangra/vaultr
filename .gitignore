@@ -51,6 +51,8 @@ next-env.d.ts
 
 # test credentials
 test-accounts.txt
+test_credentials.md
+test_credentials*.md
 
 # security audit logs (local filesystem, never commit)
 /logs/

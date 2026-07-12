@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { auth } from "@/lib/auth/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
+import { safeError } from "@/lib/safeError";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +27,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[set-password POST]", err);
-    return NextResponse.json({ error: (err as Error).message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: safeError(err) }, { status: 500 });
   }
 }

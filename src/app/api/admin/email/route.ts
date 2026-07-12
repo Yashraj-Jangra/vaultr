@@ -5,6 +5,7 @@ import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { createTransporter } from "@/lib/emailTemplates";
 import { auditLog } from "@/lib/auditLog";
 import nodemailer from "nodemailer";
+import { safeError } from "@/lib/safeError";
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,6 +61,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[admin/email POST]", err);
-    return NextResponse.json({ error: (err as Error).message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: safeError(err) }, { status: 500 });
   }
 }

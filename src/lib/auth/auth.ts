@@ -13,6 +13,18 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import { admin, twoFactor } from "better-auth/plugins";
+import { user as userTable } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+// ── Trusted Origins ──────────────────────────────────────────────────────────
+// Only explicitly listed origins are trusted. No wildcards.
+// Add extra origins via TRUSTED_ORIGINS env var (comma-separated).
+const trustedOrigins: string[] = [
+  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  ...(process.env.TRUSTED_ORIGINS
+    ? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+    : []),
+];
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -24,17 +36,23 @@ export const auth = betterAuth({
     twoFactor({
       otpOptions: {
         async sendOTP({ user, otp }) {
-          // This will be replaced with our actual email sending logic later
-          console.log(`[DEV] Send OTP to ${user.email}: ${otp}`);
-        }
-      }
+          // Guard: never log OTP codes in production — this is a 2FA secret
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[DEV] Send OTP to ${user.email}: ${otp}`);
+          }
+          // TODO: wire up real email sender for production OTP delivery
+          // await sendOtpEmail(user.email, otp);
+        },
+      },
     }),
   ],
 
   // ── Email + Password ────────────────────────────────────────────────────────
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,  // set to true if you want email verification on signup
+    // requireEmailVerification is runtime-controlled via configSystem.requireEmailVerification.
+    // Phase 4 will set this to true and add an after-signup auto-verify hook.
+    requireEmailVerification: false,
   },
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
@@ -50,7 +68,7 @@ export const auth = betterAuth({
 
   // ── Session ─────────────────────────────────────────────────────────────────
   session: {
-    expiresIn:  60 * 60 * 24 * 30,   // 30 days
+    expiresIn:  60 * 60 * 24 * 7,    // 7 days (was 30 — reduced for security)
     updateAge:  60 * 60 * 24,         // refresh token if older than 1 day
     cookieCache: {
       enabled: true,
@@ -63,11 +81,9 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
 
   // ── Trusted origins (CORS) ────────────────────────────────────────────────
-  trustedOrigins: [
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-    "http://192.168.*",
-    "http://192.168.*:*",
-  ],
+  // Wildcard patterns are NOT supported — list origins explicitly.
+  // Use TRUSTED_ORIGINS env var for additional origins (e.g. LAN IPs for dev).
+  trustedOrigins,
 });
 
 export type Session = typeof auth.$Infer.Session;
