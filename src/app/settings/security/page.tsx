@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
 import { deriveKey, reEncryptBlobs } from "@/hooks/useCrypto";
@@ -19,9 +19,17 @@ import {
   Trash2,
   Loader2,
   CheckCircle2,
+  Globe,
+  Clock,
+  LogIn,
+  RefreshCw,
+  Smartphone,
+  MapPin,
 } from "lucide-react";
 import { useSession } from "@/lib/auth/auth-client";
 import { saveVaultSession } from "@/hooks/useVaultSession";
+
+// ── Shared sub-components ────────────────────────────────────────────────────
 
 function StatusMsg({ text, ok }: { text: string; ok: boolean }) {
   if (!text) return null;
@@ -120,7 +128,139 @@ function PasswordInput({
   );
 }
 
+// ── Session types ────────────────────────────────────────────────────────────
+
+interface SessionData {
+  sessionId:    string;
+  isCurrent:    boolean;
+  deviceName:   string;
+  browser:      string;
+  os:           string;
+  ipAddress:    string | null;
+  country:      string | null;
+  city:         string | null;
+  lastActiveAt: string | null;
+  createdAt:    string;
+  expiresAt:    string;
+}
+
+// ── Time helpers ─────────────────────────────────────────────────────────────
+
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60)  return "just now";
+  if (s < 3600)  return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
+}
+
+// ── Session card ─────────────────────────────────────────────────────────────
+
+function SessionCard({
+  s,
+  onRevoke,
+  revoking,
+}: {
+  s: SessionData;
+  onRevoke: (id: string) => void;
+  revoking: string | null;
+}) {
+  const location = [s.city, s.country].filter(Boolean).join(", ");
+  const isRevoking = revoking === s.sessionId;
+
+  return (
+    <div
+      className={`relative flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl border transition-all ${
+        s.isCurrent
+          ? "border-emerald-800/60 bg-emerald-950/20"
+          : "border-neutral-800/60 bg-neutral-900/30 hover:border-neutral-700/80"
+      }`}
+    >
+      {/* Device icon */}
+      <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+        s.isCurrent ? "bg-emerald-900/40" : "bg-neutral-800/60"
+      }`}>
+        {s.os.toLowerCase().includes("iphone") || s.os.toLowerCase().includes("android") || s.os.toLowerCase().includes("mobile")
+          ? <Smartphone className={`w-5 h-5 ${s.isCurrent ? "text-emerald-400" : "text-neutral-400"}`} />
+          : <Monitor className={`w-5 h-5 ${s.isCurrent ? "text-emerald-400" : "text-neutral-400"}`} />
+        }
+      </div>
+
+      {/* Session info */}
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className={`text-[13px] font-semibold ${s.isCurrent ? "text-emerald-300" : "text-neutral-200"}`}>
+            {s.deviceName}
+          </p>
+          {s.isCurrent && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400 border border-emerald-800/50">
+              <ShieldCheck className="w-2.5 h-2.5" /> THIS DEVICE
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {s.ipAddress && (
+            <span className="flex items-center gap-1.5 text-[12px] text-neutral-500 font-mono">
+              <Globe className="w-3 h-3 text-neutral-600" />
+              {s.ipAddress}
+            </span>
+          )}
+          {location && (
+            <span className="flex items-center gap-1.5 text-[12px] text-neutral-500">
+              <MapPin className="w-3 h-3 text-neutral-600" />
+              {location}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span className="flex items-center gap-1.5 text-[11px] text-neutral-600">
+            <LogIn className="w-3 h-3" />
+            Signed in {formatDate(s.createdAt)}
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-neutral-600">
+            <Clock className="w-3 h-3" />
+            Active {relativeTime(s.lastActiveAt ?? s.createdAt)}
+          </span>
+        </div>
+      </div>
+
+      {/* Revoke button */}
+      {!s.isCurrent && (
+        <div className="flex-shrink-0 self-start">
+          <button
+            onClick={() => onRevoke(s.sessionId)}
+            disabled={!!revoking}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-neutral-500 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isRevoking ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+            {isRevoking ? "Revoking…" : "Revoke"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const CLIPBOARD_KEY = (uid: string) => `vaultr_clipboard_clear_s_${uid}`;
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SecuritySettingsPage() {
   const { user } = useAuth();
@@ -142,6 +282,14 @@ export default function SecuritySettingsPage() {
     if (typeof window === "undefined" || !user?.uid) return 0;
     return Number(localStorage.getItem(CLIPBOARD_KEY(user.uid)) ?? 0);
   });
+
+  // Session state
+  const [sessions, setSessions] = useState<SessionData[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsError, setSessionsError] = useState("");
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokingAll, setRevokingAll] = useState(false);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
 
   // Load profile settings
   useEffect(() => {
@@ -171,11 +319,58 @@ export default function SecuritySettingsPage() {
     }).catch(() => {});
   }, [user]);
 
+  // Load sessions
+  const loadSessions = useCallback(async () => {
+    setSessionsLoading(true);
+    setSessionsError("");
+    try {
+      const res = await fetch("/api/settings/sessions");
+      if (!res.ok) throw new Error("Failed to load sessions");
+      const data = await res.json();
+      setSessions(data.sessions ?? []);
+    } catch {
+      setSessionsError("Could not load sessions. Try refreshing.");
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) loadSessions();
+  }, [user, loadSessions]);
+
   const saveClipboard = (secs: number) => {
     setClipboardSecs(secs);
     if (user?.uid) {
       if (secs === 0) localStorage.removeItem(CLIPBOARD_KEY(user.uid));
       else localStorage.setItem(CLIPBOARD_KEY(user.uid), String(secs));
+    }
+  };
+
+  const handleRevoke = async (sessionId: string) => {
+    setRevokingId(sessionId);
+    try {
+      const res = await fetch(`/api/settings/sessions/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to revoke session");
+      }
+      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+    } catch (err) {
+      console.error("Revoke error:", err);
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const handleRevokeAll = async () => {
+    setConfirmRevokeAll(false);
+    setRevokingAll(true);
+    try {
+      await fetch("/api/settings/sessions", { method: "DELETE" });
+      await loadSessions();
+    } finally {
+      setRevokingAll(false);
     }
   };
 
@@ -242,10 +437,6 @@ export default function SecuritySettingsPage() {
   const liveCount = items.filter((i) => !i.deletedAt).length;
   const isVaultLocked = !cryptoKey;
 
-  const { data: currentSession } = useSession();
-  const [revokeAllBusy, setRevokeAllBusy] = useState(false);
-  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
-
   const [newDeviceEmailAlert, setNewDeviceEmailAlert] = useState(true);
   const [requireVerifOnNew, setRequireVerifOnNew] = useState(false);
   const [notifSaving, setNotifSaving] = useState(false);
@@ -265,12 +456,8 @@ export default function SecuritySettingsPage() {
     }
   };
 
-  const handleRevokeAllConfirmed = async () => {
-    setConfirmRevokeAll(false);
-    setRevokeAllBusy(true);
-    await authClient.revokeOtherSessions();
-    setRevokeAllBusy(false);
-  };
+  const otherSessions = sessions.filter((s) => !s.isCurrent);
+  const currentSession = sessions.find((s) => s.isCurrent);
 
   return (
     <div className="pb-20 max-w-5xl mx-auto">
@@ -279,6 +466,7 @@ export default function SecuritySettingsPage() {
         <p className="text-[14px] text-neutral-500 mt-1">Change your master password, configure auto-lock, and manage sessions.</p>
       </div>
 
+      {/* ── Master Password ─────────────────────────────────────────────── */}
       <Section title="Master Password" description="Re-derives your AES-256-GCM key and re-encrypts all vault blobs atomically.">
         <FieldBox>
           <div className="space-y-5">
@@ -325,6 +513,7 @@ export default function SecuritySettingsPage() {
         </FieldBox>
       </Section>
 
+      {/* ── Behavior ────────────────────────────────────────────────────── */}
       <Section title="Behavior" description="Automatically lock your vault or clear your clipboard to prevent unauthorized access.">
         <div className="space-y-6">
           <FieldBox>
@@ -355,6 +544,7 @@ export default function SecuritySettingsPage() {
         </div>
       </Section>
 
+      {/* ── Two-Factor Auth ──────────────────────────────────────────────── */}
       <Section title="Two-Factor Auth" description="Protect your account login with an additional factor.">
         <FieldBox>
           <div className="space-y-4">
@@ -372,78 +562,136 @@ export default function SecuritySettingsPage() {
         </FieldBox>
       </Section>
 
-      <Section title="Sessions & Devices" description="Review active devices and manage notification preferences.">
-        <div className="space-y-6">
-          <FieldBox>
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[12px] font-semibold text-neutral-400 uppercase tracking-widest flex items-center gap-2">
-                  <Monitor className="w-3.5 h-3.5" /> Active Sessions
-                </h3>
-                <button onClick={() => setConfirmRevokeAll(true)} disabled={revokeAllBusy} className="text-[13px] font-medium text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors">
-                  <Trash2 className="w-4 h-4" /> Sign out other devices
-                </button>
-              </div>
+      {/* ── Sessions & Devices ───────────────────────────────────────────── */}
+      <Section
+        title="Sessions & Devices"
+        description="All active sessions for your account. Sessions idle for more than 14 days are auto-removed."
+      >
+        <div className="space-y-4">
+          {/* Header row with actions */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] text-neutral-500">
+                {sessionsLoading ? "Loading…" : `${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`}
+              </span>
+              <button
+                onClick={loadSessions}
+                disabled={sessionsLoading}
+                className="text-neutral-600 hover:text-neutral-300 transition-colors disabled:opacity-40"
+                title="Refresh sessions"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${sessionsLoading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
 
-              {confirmRevokeAll && (
-                <div className="p-5 rounded-xl border border-red-900/30 bg-red-950/20 space-y-4">
-                  <p className="text-[13px] text-red-400 font-medium">Revoke all other sessions? You will be signed out from all devices except this one.</p>
-                  <div className="flex gap-3">
-                    <Button onClick={handleRevokeAllConfirmed} variant="danger" disabled={revokeAllBusy}>
-                      {revokeAllBusy ? "Revoking…" : "Yes, revoke all"}
-                    </Button>
-                    <Button onClick={() => setConfirmRevokeAll(false)} variant="ghost">Cancel</Button>
-                  </div>
+            {otherSessions.length > 0 && (
+              <button
+                onClick={() => setConfirmRevokeAll(true)}
+                disabled={revokingAll}
+                className="flex items-center gap-1.5 text-[12px] font-medium text-red-500 hover:text-red-400 transition-colors disabled:opacity-40"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Sign out all other devices ({otherSessions.length})
+              </button>
+            )}
+          </div>
+
+          {/* Confirm revoke all dialog */}
+          {confirmRevokeAll && (
+            <div className="p-5 rounded-xl border border-red-900/30 bg-red-950/20 space-y-4">
+              <p className="text-[13px] text-red-400 font-medium">
+                This will sign you out from {otherSessions.length} other device{otherSessions.length !== 1 ? "s" : ""}. Are you sure?
+              </p>
+              <div className="flex gap-3">
+                <Button onClick={handleRevokeAll} variant="danger" disabled={revokingAll}>
+                  {revokingAll ? "Revoking…" : "Yes, sign out all"}
+                </Button>
+                <Button onClick={() => setConfirmRevokeAll(false)} variant="ghost">Cancel</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Error state */}
+          {sessionsError && (
+            <div className="flex items-center gap-2 text-[13px] text-red-400 bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {sessionsError}
+            </div>
+          )}
+
+          {/* Loading skeleton */}
+          {sessionsLoading && !sessionsError && (
+            <div className="space-y-3">
+              {[0, 1].map((i) => (
+                <div key={i} className="h-24 rounded-xl border border-neutral-800/60 bg-neutral-900/30 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {/* Session list */}
+          {!sessionsLoading && !sessionsError && (
+            <div className="space-y-3">
+              {/* Current session always first */}
+              {currentSession && (
+                <SessionCard
+                  s={currentSession}
+                  onRevoke={handleRevoke}
+                  revoking={revokingId}
+                />
+              )}
+              {otherSessions.map((s) => (
+                <SessionCard
+                  key={s.sessionId}
+                  s={s}
+                  onRevoke={handleRevoke}
+                  revoking={revokingId}
+                />
+              ))}
+              {sessions.length === 0 && (
+                <div className="text-center py-8 text-[13px] text-neutral-600">
+                  No active sessions found.
                 </div>
               )}
-
-              <div className="flex items-center gap-4 p-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20">
-                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-[13px] font-semibold text-emerald-400">Current Device</p>
-                  {currentSession?.session?.ipAddress && (
-                    <p className="text-[12px] text-emerald-500/70 font-mono">IP: {currentSession.session.ipAddress}</p>
-                  )}
-                </div>
-              </div>
             </div>
-          </FieldBox>
-
-          <FieldBox>
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[12px] font-semibold text-neutral-400 uppercase tracking-widest">Security Alerts</h3>
-                {notifSaving && <span className="text-[11px] text-neutral-500 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />Saving</span>}
-              </div>
-              
-              <div className="space-y-4">
-                {[
-                  { label: "Email alerts for new sign-ins", key: "newDeviceEmailAlert" as const, val: newDeviceEmailAlert, set: setNewDeviceEmailAlert },
-                  { label: "Require email verification for new devices", key: "requireVerificationOnNew" as const, val: requireVerifOnNew, set: setRequireVerifOnNew },
-                ].map(({ label, key, val, set }) => (
-                  <label key={key} className="flex items-center gap-4 cursor-pointer group">
-                    <input type="checkbox" checked={val} onChange={(e) => { set(e.target.checked); saveNotifPrefs(key, e.target.checked); }} className="sr-only" />
-                    
-                    {/* Improved Sleek Toggle Design */}
-                    <div className={`w-[36px] h-[20px] rounded-full transition-colors relative border ${
-                      val 
-                        ? "bg-[var(--accent)] border-[var(--accent)]" 
-                        : "bg-neutral-900 border-neutral-700 group-hover:border-neutral-500"
-                    }`}>
-                      <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all shadow-sm ${
-                        val 
-                          ? "bg-white left-[18px]" 
-                          : "bg-neutral-500 left-[2px] group-hover:bg-neutral-300"
-                      }`} />
-                    </div>
-                    
-                    <span className="text-[13px] text-neutral-300 group-hover:text-neutral-100 transition-colors font-medium">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </FieldBox>
+          )}
         </div>
+      </Section>
+
+      {/* ── Security Alerts ──────────────────────────────────────────────── */}
+      <Section title="Security Alerts" description="Get notified when your account is accessed from a new device.">
+        <FieldBox>
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[12px] font-semibold text-neutral-400 uppercase tracking-widest">Notifications</h3>
+              {notifSaving && <span className="text-[11px] text-neutral-500 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />Saving</span>}
+            </div>
+            
+            <div className="space-y-4">
+              {[
+                { label: "Email alerts for new sign-ins", key: "newDeviceEmailAlert" as const, val: newDeviceEmailAlert, set: setNewDeviceEmailAlert },
+                { label: "Require email verification for new devices", key: "requireVerificationOnNew" as const, val: requireVerifOnNew, set: setRequireVerifOnNew },
+              ].map(({ label, key, val, set }) => (
+                <label key={key} className="flex items-center gap-4 cursor-pointer group">
+                  <input type="checkbox" checked={val} onChange={(e) => { set(e.target.checked); saveNotifPrefs(key, e.target.checked); }} className="sr-only" />
+                  
+                  <div className={`w-[36px] h-[20px] rounded-full transition-colors relative border ${
+                    val 
+                      ? "bg-[var(--accent)] border-[var(--accent)]" 
+                      : "bg-neutral-900 border-neutral-700 group-hover:border-neutral-500"
+                  }`}>
+                    <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all shadow-sm ${
+                      val 
+                        ? "bg-white left-[18px]" 
+                        : "bg-neutral-500 left-[2px] group-hover:bg-neutral-300"
+                    }`} />
+                  </div>
+                  
+                  <span className="text-[13px] text-neutral-300 group-hover:text-neutral-100 transition-colors font-medium">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </FieldBox>
       </Section>
     </div>
   );

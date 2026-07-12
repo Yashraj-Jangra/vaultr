@@ -43,6 +43,13 @@
       "when": 1783869945411,
       "tag": "0005_awesome_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783874529979,
+      "tag": "0006_broad_rafael_vega",
+      "breakpoints": true
     }
   ]
 }

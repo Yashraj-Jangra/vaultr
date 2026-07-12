@@ -237,3 +237,27 @@ export const configSystem = pgTable("config_system", {
   backupCron:               text("backup_cron"), // e.g. "0 0 * * *"
   requireEmailVerification: boolean("require_email_verification").default(false),
 });
+
+// ─── Session Meta ──────────────────────────────────────────────────────────────
+// Shadow table we fully own. Better Auth's session table is the source of truth —
+// this adds device name, parsed UA, geo-data, and last-active tracking per session.
+// Cascade-deletes when the session is revoked in Better Auth's session table.
+
+export const sessionMeta = pgTable("session_meta", {
+  sessionId:    text("session_id").primaryKey()
+                  .references(() => session.id, { onDelete: "cascade" }),
+  userId:       text("user_id").notNull()
+                  .references(() => user.id,    { onDelete: "cascade" }),
+  deviceName:   text("device_name"),   // e.g. "Chrome 125 on Windows 11"
+  browser:      text("browser"),       // e.g. "Chrome 125"
+  os:           text("os"),            // e.g. "Windows 11"
+  ipAddress:    text("ip_address"),    // real client IP
+  country:      text("country"),       // from ip-api.com
+  city:         text("city"),          // from ip-api.com
+  lastActiveAt: timestamp("last_active_at", { withTimezone: true }).defaultNow(),
+  createdAt:    timestamp("created_at",     { withTimezone: true }).defaultNow(),
+});
+
+export type SessionMeta    = typeof sessionMeta.$inferSelect;
+export type NewSessionMeta = typeof sessionMeta.$inferInsert;
+

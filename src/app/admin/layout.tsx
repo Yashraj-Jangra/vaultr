@@ -18,7 +18,8 @@ import {
   ServerCog,
   Menu,
   X,
-  CreditCard
+  CreditCard,
+  Activity
 } from "lucide-react";
 import { useState } from "react";
 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { name: "Support",       href: "/admin/support",         icon: LifeBuoy    },
   { name: "Themes",        href: "/admin/theme",           icon: Palette     },
   { name: "Users",         href: "/admin/users",           icon: Users       },
+  { name: "Sessions",      href: "/admin/sessions",        icon: Activity    },
   { name: "System Ops",    href: "/admin/system",          icon: ServerCog   },
   { name: "Security Logs", href: "/admin/logs",            icon: ScrollText  },
   { name: "Send Email",    href: "/admin/email",           icon: Mail        },
