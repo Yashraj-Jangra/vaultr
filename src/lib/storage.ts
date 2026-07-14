@@ -83,8 +83,8 @@ export const s3 = new S3Client({
   requestChecksumCalculation: "WHEN_REQUIRED", // Disable default CRC32 checksums for MinIO/S3-compatible compatibility
 });
 
-const AVATAR_BUCKET      = process.env.MINIO_BUCKET_AVATARS      ?? "avatars";
-const ATTACHMENTS_BUCKET = process.env.MINIO_BUCKET_ATTACHMENTS  ?? "attachments";
+export const AVATAR_BUCKET      = process.env.MINIO_BUCKET_AVATARS      ?? "avatars";
+export const ATTACHMENTS_BUCKET = process.env.MINIO_BUCKET_ATTACHMENTS  ?? "attachments";
 
 // Trigger self-healing initialization for both buckets immediately
 ensureBucketExists(AVATAR_BUCKET, true).catch((e) =>

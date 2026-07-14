@@ -107,7 +107,8 @@
 - [x] Secure local proxy downloads for encrypted attachments (no CORS/S3 public access needed)
 - [x] Resolved S3 bucket existence checking log spam & silenced NotImplemented warnings
 - [x] Dynamically render user profile avatar inside top navigation account dropdown button
-- [x] Built interactive modern cyberpunk telemetry diagnostic console card in admin layout sidebar
+- [x] Built interactive modern cyberpunk branding capsule card in admin layout sidebar
+- [x] Implemented live backend connection diagnostics (DB ping, storage ping, RTT network latency, node timezone location) in admin analytics dashboard
 
 ---
 
@@ -115,9 +116,11 @@
 
 | File | Change |
 |------|--------|
-| `src/lib/storage.ts` | Silenced bucket CORS policies, resolved NoSuchBucket on startup |
+| `src/lib/storage.ts` | Silenced bucket CORS policies, resolved NoSuchBucket on startup, exported bucket constants |
 | `src/components/layout/TopBar.tsx` | Dynamic profile photo url image rendering |
-| `src/app/admin/layout.tsx` | Cyberpunk bracket card, SVG mesh network float, scrolling diagnostics |
+| `src/app/admin/layout.tsx` | Cyberpunk bracket card, SVG mesh network float, exit return trigger |
+| `src/app/admin/analytics/page.tsx` | Custom diagnostics gauges showing active latencies, ping timers, and locations |
+| `src/app/api/admin/stats/route.ts` | Measure active DB query times, S3 connection pings, and resolved timezone zones |
 | `src/app/api/vault/attachments/[id]/download/route.ts` | Proxy download streaming + custom decryption pipeline |
 | `src/app/api/vault/attachments/[id]/route.ts` | Database query adjustments for attachments |
 | `src/app/api/vault/attachments/route.ts` | Attachment metadata file uploads |

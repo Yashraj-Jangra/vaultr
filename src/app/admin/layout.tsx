@@ -61,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-50 w-64 flex-shrink-0 border-r border-[var(--border)] bg-[var(--surface)] flex flex-col transition-transform duration-300 md:relative md:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <div className="flex flex-col p-4 border border-[var(--border)] bg-neutral-950/80 rounded-2xl mx-3 my-4 select-none gap-4 relative overflow-hidden group">
+          <div className="flex flex-col p-4 border border-[var(--border)] bg-neutral-950/80 rounded-2xl mx-3 my-4 select-none gap-3 relative overflow-hidden group">
             {/* Tech Corner Crosshairs */}
             <div className="absolute top-1.5 left-1.5 text-[8px] font-mono text-[var(--accent)]/45 leading-none pointer-events-none select-none">+</div>
             <div className="absolute top-1.5 right-1.5 text-[8px] font-mono text-[var(--accent)]/45 leading-none pointer-events-none select-none">+</div>
@@ -166,20 +166,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <circle cx="300" cy="110" r="14" fill="url(#adminNodeGlow)" />
                   <circle cx="300" cy="110" r="2" fill="var(--accent)" />
                   <circle cx="300" cy="110" r="6" stroke="var(--accent)" strokeWidth="0.5" strokeOpacity="0.4" className="animate-ping" style={{ animationDuration: "4.5s" }} />
-                  
-                  {/* Grid Junction Nodes */}
-                  <circle cx="90" cy="80" r="1.5" fill="var(--fg)" />
-                  <circle cx="240" cy="40" r="1.5" fill="var(--fg)" />
-                  <circle cx="40" cy="30" r="1" fill="var(--fg)" />
-                  <circle cx="140" cy="20" r="1" fill="var(--fg)" />
-                  <circle cx="70" cy="150" r="1" fill="var(--fg)" />
-                  <circle cx="360" cy="60" r="1" fill="var(--fg)" />
-                  <circle cx="330" cy="140" r="1" fill="var(--fg)" />
                 </g>
               </svg>
             </div>
 
-            {/* Title Block & Diagnostic Indicators */}
+            {/* Title Block & Exit Trigger */}
             <div className="flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -209,50 +200,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </div>
 
-            {/* Diagnostic Terminal HUD & Signals */}
-            <div className="space-y-2 z-10">
-              {/* Telemetry Status Line */}
-              <div className="flex items-center justify-between text-[9px] font-mono border-b border-neutral-900 pb-1.5">
-                <div className="flex items-center gap-1.5 text-emerald-400">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                  </span>
-                  <span>NODE // ONLINE</span>
-                </div>
-                {/* 5-bar connection status HUD */}
-                <div className="flex gap-0.5 items-end h-2">
-                  <span className="w-[2px] h-[3px] bg-emerald-500 rounded-2xs" />
-                  <span className="w-[2px] h-[5px] bg-emerald-500 rounded-2xs" />
-                  <span className="w-[2px] h-[6px] bg-emerald-500 rounded-2xs" />
-                  <span className="w-[2px] h-[8px] bg-emerald-500 rounded-2xs" />
-                  <span className="w-[2px] h-[9px] bg-emerald-500 rounded-2xs" />
-                </div>
+            {/* Sub-Branding Tag: Secured by lock emblem */}
+            <div className="flex items-center gap-2 z-10 bg-neutral-950/45 border border-neutral-900/50 rounded-lg p-2">
+              <div className="relative flex items-center justify-center shrink-0 w-6 h-6 rounded bg-[var(--accent)]/5 border border-[var(--accent)]/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                  alt="Lock Icon"
+                  className="w-4 h-4 object-contain"
+                />
               </div>
-
-              {/* Scrolling Log Monitor */}
-              <div className="bg-black/60 border border-neutral-900 rounded p-1.5 h-10 overflow-hidden flex flex-col font-mono text-[7px] text-neutral-500 leading-normal select-none">
-                <div className="animate-[adminLogScroll_14s_linear_infinite] space-y-0.5">
-                  <style>{`
-                    @keyframes adminLogScroll {
-                      0%, 10% { transform: translateY(0px); }
-                      15%, 25% { transform: translateY(-9px); }
-                      30%, 40% { transform: translateY(-18px); }
-                      45%, 55% { transform: translateY(-27px); }
-                      60%, 70% { transform: translateY(-36px); }
-                      75%, 85% { transform: translateY(-45px); }
-                      90%, 100% { transform: translateY(-54px); }
-                    }
-                  `}</style>
-                  <p className="text-[var(--accent)]/70 font-semibold">[BOOT] SECURE CONSOLE INITIALIZED</p>
-                  <p>[INFO] SHIELD PROTOCOL ENABLED (AES_256)</p>
-                  <p>[INFO] DRIZZLE CONNECTOR ACTIVE (SQLITE)</p>
-                  <p>[INFO] DECRYPTION VAULT INTEGRITY OK</p>
-                  <p>[BOOT] STORAGE DIRECTORIES VERIFIED</p>
-                  <p className="text-emerald-500/80">[OK] SYSTEM FULLY OPERATIONAL</p>
-                  <p>[SYNC] LOCAL TIME: {new Date().toLocaleTimeString()}</p>
-                  <p>[BOOT] SECURE CONSOLE INITIALIZED</p>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] text-neutral-400 font-semibold tracking-wide uppercase leading-none">Secured System</p>
+                <p className="text-[8px] text-neutral-500 font-mono truncate leading-none mt-1">AES-256 / Zero-Knowledge</p>
               </div>
             </div>
           </div>
