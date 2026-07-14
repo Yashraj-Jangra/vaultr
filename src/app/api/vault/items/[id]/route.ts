@@ -10,9 +10,11 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
-import { vaultItems, configStats } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { vaultItems, configStats, vaultAttachments, userProfiles } from "@/db/schema";
+import { eq, and, sql, sum } from "drizzle-orm";
 import { z } from "zod";
+import { deleteAttachmentsByVaultItem } from "@/lib/storage";
+
 
 // ── Validation schema for PATCH ───────────────────────────────────────────────
 const PatchVaultItemSchema = z.object({
@@ -93,6 +95,35 @@ export async function DELETE(
 
     if (deleted.length === 0)
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+    // ── Cascade: delete all S3 attachments for this vault item ───────────────
+    // Sum up the sizes first so we can decrement storageUsedBytes accurately
+    const [sizeRow] = await db
+      .select({ total: sum(vaultAttachments.sizeBytes) })
+      .from(vaultAttachments)
+      .where(
+        and(
+          eq(vaultAttachments.vaultItemId, id),
+          eq(vaultAttachments.userId, user.id)
+        )
+      );
+
+    const totalAttachmentBytes = Number(sizeRow?.total ?? 0);
+
+    // Delete from S3 (the DB rows cascade-delete when vault_items row is gone,
+    // but we delete S3 objects ourselves since ON DELETE CASCADE doesn't reach S3)
+    await deleteAttachmentsByVaultItem(user.id, id).catch(() => {});
+
+    // Decrement user storage counter if there were attachments
+    if (totalAttachmentBytes > 0) {
+      await db
+        .update(userProfiles)
+        .set({
+          storageUsedBytes: sql`GREATEST(${userProfiles.storageUsedBytes} - ${totalAttachmentBytes}, 0)`,
+        })
+        .where(eq(userProfiles.userId, user.id))
+        .catch(() => {});
+    }
 
     // Decrement stats counter
     await db

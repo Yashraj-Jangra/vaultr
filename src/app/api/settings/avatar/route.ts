@@ -143,3 +143,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await verifyUserToken(req);
+
+    // Get current avatar from profile
+    const [profile] = await db
+      .select({ avatarUrl: userProfiles.avatarUrl })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, user.id))
+      .limit(1);
+
+    if (profile?.avatarUrl) {
+      const { deleteAvatar } = await import("@/lib/storage");
+      const ext = profile.avatarUrl.split(".").pop()?.toLowerCase() ?? "webp";
+      await deleteAvatar(user.id, ext).catch(() => {});
+    }
+
+    // Set avatarUrl to null in DB
+    await db
+      .update(userProfiles)
+      .set({ avatarUrl: null })
+      .where(eq(userProfiles.userId, user.id));
+
+    // Update Better Auth user image
+    await auth.api.updateUser({
+      body: {
+        image: null,
+      },
+      headers: req.headers,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    if (err instanceof Response) return err;
+    console.error("[DELETE /api/settings/avatar]", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

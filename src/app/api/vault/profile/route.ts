@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
       autoLockMinutes: profile?.autoLockMinutes ?? 15,
       disabled: profile?.disabled ?? false,
       role: profile?.role ?? "user",
+      storageUsedBytes: profile?.storageUsedBytes ?? 0,
+      storageQuotaBytes: profile?.storageQuotaBytes ?? 104_857_600, // 100 MB default
     });
   } catch (err) {
     if (err instanceof Response) return err;

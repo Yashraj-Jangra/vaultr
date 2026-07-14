@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   X, Lock, CreditCard, FileText, User, Wand2, Plus, Minus,
   RefreshCw, Copy, Check, Folder, Shield, Eye, EyeOff,
   Globe, ShieldAlert, ShieldCheck, Hash, StickyNote,
-  MapPin, ChevronRight, Clock,
+  MapPin, ChevronRight, Clock, Download, Trash, Paperclip, UploadCloud
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useVault } from "@/context/VaultContext";
 import { DynamicPreviewCanvas } from "./DialogPreviews";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ export interface DecryptedPayload {
 export interface NewEntryDialogProps {
   open: boolean;
   folders: string[];
-  onSave: (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editId?: string) => Promise<void>;
+  onSave: (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editId?: string) => Promise<string | void>;
   onClose: () => void;
   initialData?: { id: string; name: string; folder?: string; tags?: string[]; template: Template; payload: DecryptedPayload; };
   defaultTemplate?: Template;
@@ -97,6 +98,334 @@ function base32ToBuffer(base32: string): Uint8Array {
     if (bits >= 8) { output[index++] = (value >>> (bits - 8)) & 255; bits -= 8; }
   }
   return output.slice(0, index);
+}
+
+// ── Attachments Client Helpers ───────────────────────────────────────────────
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64String = (reader.result as string).split(",")[1];
+      resolve(base64String);
+    };
+    reader.onerror = error => reject(error);
+  });
+};
+
+const base64ToBlob = (base64: string, mimeType: string): Blob => {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+};
+
+function getFileIcon(mimeType: string) {
+  if (mimeType.startsWith("image/")) {
+    return (
+      <svg className="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+    );
+  }
+  if (mimeType === "application/pdf") {
+    return (
+      <svg className="w-4 h-4 text-red-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    );
+  }
+  return <FileText className="w-4 h-4 text-neutral-400 shrink-0" />;
+}
+
+function AttachmentRow({
+  attachment,
+  decryptItem,
+  onDelete,
+}: {
+  attachment: any;
+  decryptItem: (blob: string) => Promise<string>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [name, setName] = useState<string>("Decrypting...");
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    decryptItem(attachment.encryptedName)
+      .then(setName)
+      .catch(() => setName("Error decrypting name"));
+  }, [attachment.encryptedName, decryptItem]);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      // Download the encrypted content directly from our Next.js API (bypasses all S3 CORS blocks)
+      const res = await fetch(`/api/vault/attachments/${attachment.id}/download`);
+      if (!res.ok) throw new Error("Download failed");
+      const encryptedContent = await res.text();
+
+      // Decrypt it
+      const base64 = await decryptItem(encryptedContent);
+      const blob = base64ToBlob(base64, attachment.mimeType);
+
+      // Trigger download
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (err: any) {
+      alert(err.message || "Failed to download file");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[12px] text-[var(--fg)]">
+      <div className="flex items-center gap-2 truncate">
+        {getFileIcon(attachment.mimeType)}
+        <span className="truncate font-medium" title={name}>{name}</span>
+        <span className="text-[10px] text-[var(--fg-muted)] shrink-0 font-mono">
+          ({(attachment.sizeBytes / 1024 / 1024).toFixed(2)} MB)
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={downloading}
+          className="p-1 hover:text-[var(--accent)] text-[var(--fg-muted)] transition-colors cursor-pointer"
+          title="Download file"
+        >
+          {downloading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(attachment.id)}
+          className="p-1 hover:text-red-400 text-[var(--fg-muted)] transition-colors cursor-pointer"
+          title="Delete file"
+        >
+          <Trash className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AttachmentsPanel({
+  vaultItemId,
+  attachments,
+  setAttachments,
+  pendingFiles,
+  setPendingFiles,
+  cryptoKey,
+  encryptData,
+  decryptItem,
+}: {
+  vaultItemId?: string;
+  attachments: any[];
+  setAttachments: React.Dispatch<React.SetStateAction<any[]>>;
+  pendingFiles: File[];
+  setPendingFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  cryptoKey: CryptoKey | null;
+  encryptData: (data: string) => Promise<string>;
+  decryptItem: (blob: string) => Promise<string>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const processFiles = (files: FileList) => {
+    const validFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (f.size > 25 * 1024 * 1024) {
+        alert(`File ${f.name} exceeds the 25 MB limit.`);
+        continue;
+      }
+      validFiles.push(f);
+    }
+
+    if (vaultItemId) {
+      // Upload immediately
+      uploadFilesSequentially(validFiles, vaultItemId);
+    } else {
+      // Queue for later
+      setPendingFiles(prev => [...prev, ...validFiles]);
+    }
+  };
+
+  const uploadFilesSequentially = async (files: File[], itemId: string) => {
+    setUploading(true);
+    for (const file of files) {
+      try {
+        const base64 = await fileToBase64(file);
+        const encBytes = await encryptData(base64);
+        const encName = await encryptData(file.name);
+
+        const encBlob = new Blob([encBytes], { type: "application/octet-stream" });
+        const fd = new FormData();
+        fd.append("vaultItemId", itemId);
+        fd.append("encryptedFile", encBlob, "file.enc");
+        fd.append("encryptedName", encName);
+        fd.append("mimeType", file.type || "application/octet-stream");
+
+        const res = await fetch("/api/vault/attachments", {
+          method: "POST",
+          body: fd,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Upload failed");
+        }
+
+        const data = await res.json();
+        setAttachments(prev => [...prev, data.attachment]);
+      } catch (err: any) {
+        alert(`Failed to upload ${file.name}: ${err.message}`);
+      }
+    }
+    setUploading(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processFiles(e.target.files);
+    }
+  };
+
+  const handleDeleteAttachment = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this attachment?")) return;
+    try {
+      const res = await fetch(`/api/vault/attachments/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Delete failed");
+      }
+      setAttachments(prev => prev.filter(a => a.id !== id));
+    } catch (err: any) {
+      alert(err.message || "Failed to delete file");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <FieldLabel>File Attachments</FieldLabel>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--accent)] hover:underline cursor-pointer"
+        >
+          <Paperclip className="w-3.5 h-3.5" /> Attach Files
+        </button>
+      </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        multiple
+      />
+
+      {/* Drag & drop zone */}
+      <div
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+        className={`border border-dashed rounded-xl p-5 text-center flex flex-col items-center justify-center gap-1.5 transition-all select-none cursor-pointer ${
+          dragActive
+            ? "border-[var(--accent)] bg-[var(--accent)]/5 text-[var(--accent)]"
+            : "border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--fg-muted)]"
+        }`}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <UploadCloud className="w-6 h-6 text-[var(--fg-muted)] animate-pulse" />
+        <p className="text-[12px] font-medium">Drag & drop files here, or click to browse</p>
+        <p className="text-[10px] text-[var(--fg-muted)]">Max 25 MB per file. Zero-knowledge encrypted.</p>
+      </div>
+
+      {/* File list */}
+      {(attachments.length > 0 || pendingFiles.length > 0 || uploading) && (
+        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+          {uploading && (
+            <div className="flex items-center justify-center gap-2 p-2 text-[11px] text-[var(--fg-muted)]">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>Uploading attachment...</span>
+            </div>
+          )}
+
+          {attachments.map(att => (
+            <AttachmentRow
+              key={att.id}
+              attachment={att}
+              decryptItem={decryptItem}
+              onDelete={handleDeleteAttachment}
+            />
+          ))}
+
+          {pendingFiles.map((file, idx) => (
+            <div
+              key={`pending-${idx}`}
+              className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--surface)] border border-dashed border-[var(--border)] text-[12px] text-[var(--fg)]"
+            >
+              <div className="flex items-center gap-2 truncate">
+                {getFileIcon(file.type)}
+                <span className="truncate font-medium opacity-80" title={file.name}>
+                  {file.name}
+                </span>
+                <span className="text-[10px] text-[var(--fg-muted)] shrink-0 font-mono">
+                  ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                </span>
+                <span className="text-[9px] font-bold text-[var(--accent)] uppercase tracking-wider bg-[var(--accent)]/10 px-1.5 py-0.5 rounded border border-[var(--accent)]/20 shrink-0">
+                  Pending
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingFiles(prev => prev.filter((_, i) => i !== idx))}
+                className="p-1 hover:text-red-400 text-[var(--fg-muted)] transition-colors cursor-pointer shrink-0"
+                title="Remove file"
+              >
+                <Trash className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -234,6 +563,10 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
 
 export function NewEntryDialog({ open, folders, onSave, onClose, initialData, defaultTemplate }: NewEntryDialogProps) {
   const { activeTheme } = useTheme();
+  const { cryptoKey, encryptData, decryptItem } = useVault();
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+
   const [template, setTemplate] = useState<Template>(initialData?.template ?? defaultTemplate ?? "login");
   const [name,     setName]     = useState(initialData?.name ?? "");
   const [folder,   setFolder]   = useState(initialData?.folder ?? "");
@@ -350,9 +683,57 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
     if (initialData?.payload.password && initialData.payload.password !== password) { payload.passwordHistory = [...(initialData.payload.passwordHistory ?? []), initialData.payload.password].slice(-5); }
     else if (initialData?.payload.passwordHistory) { payload.passwordHistory = initialData.payload.passwordHistory; }
-    await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id);
+    const itemId = await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id);
+
+    const targetItemId = initialData?.id || itemId;
+    if (targetItemId && pendingFiles.length > 0) {
+      for (const file of pendingFiles) {
+        try {
+          const base64 = await fileToBase64(file);
+          const encBytes = await encryptData(base64);
+          const encName = await encryptData(file.name);
+
+          const encBlob = new Blob([encBytes], { type: "application/octet-stream" });
+          const fd = new FormData();
+          fd.append("vaultItemId", targetItemId);
+          fd.append("encryptedFile", encBlob, "file.enc");
+          fd.append("encryptedName", encName);
+          fd.append("mimeType", file.type || "application/octet-stream");
+
+          const res = await fetch("/api/vault/attachments", {
+            method: "POST",
+            body: fd,
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Upload failed");
+          }
+        } catch (err: any) {
+          alert(`Failed to upload ${file.name} post-save: ${err.message}`);
+        }
+      }
+    }
+
     setSaving(false);
-  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave]);
+  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave, pendingFiles, encryptData]);
+
+  // Load attachments if editing
+  useEffect(() => {
+    if (open && initialData?.id) {
+      fetch(`/api/vault/attachments?vaultItemId=${initialData.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.attachments) {
+            setAttachments(data.attachments);
+          }
+        })
+        .catch((err) => console.error("Failed to load attachments:", err));
+    } else {
+      setAttachments([]);
+      setPendingFiles([]);
+    }
+  }, [open, initialData]);
 
 
   useEffect(() => {
@@ -947,6 +1328,18 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
               {renderForm()}
+              <div className="pt-6 border-t border-[var(--border)]">
+                <AttachmentsPanel
+                  vaultItemId={initialData?.id}
+                  attachments={attachments}
+                  setAttachments={setAttachments}
+                  pendingFiles={pendingFiles}
+                  setPendingFiles={setPendingFiles}
+                  cryptoKey={cryptoKey}
+                  encryptData={encryptData}
+                  decryptItem={decryptItem}
+                />
+              </div>
             </div>
 
             {/* Footer */}
@@ -1150,6 +1543,20 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                         <input value={tags} onChange={e => setTags(e.target.value)} placeholder="work, personal…" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg pl-7 pr-3 py-2 text-[12px] text-[var(--fg)] outline-none focus:border-[var(--accent)] transition-colors" />
                       </div>
                     </div>
+                  </div>
+
+                  {/* File Attachments */}
+                  <div className="pt-4 border-t border-[var(--border)]">
+                    <AttachmentsPanel
+                      vaultItemId={initialData?.id}
+                      attachments={attachments}
+                      setAttachments={setAttachments}
+                      pendingFiles={pendingFiles}
+                      setPendingFiles={setPendingFiles}
+                      cryptoKey={cryptoKey}
+                      encryptData={encryptData}
+                      decryptItem={decryptItem}
+                    />
                   </div>
                 </div>
               </div>

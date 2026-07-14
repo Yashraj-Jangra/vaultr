@@ -15,8 +15,61 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
+  CreateBucketCommand,
+  HeadBucketCommand,
+  PutBucketPolicyCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+/**
+ * Ensure a bucket exists in S3/MinIO. If it does not, create it.
+ * If isPublic is true, set bucket policy to allow public reads.
+ */
+async function ensureBucketExists(bucket: string, isPublic = false): Promise<void> {
+  let created = false;
+  try {
+    await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+  } catch (err: any) {
+    // NotFound error or 404 status indicates bucket does not exist
+    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
+      try {
+        await s3.send(new CreateBucketCommand({ Bucket: bucket }));
+        console.log(`[Storage] Created bucket: "${bucket}"`);
+        created = true;
+      } catch (createErr) {
+        console.error(`[Storage] Failed to automatically create bucket "${bucket}":`, createErr);
+      }
+    }
+  }
+
+  // If public bucket was just created, configure the policy
+  if (isPublic && created) {
+    try {
+      const policy = {
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Sid: "PublicRead",
+            Effect: "Allow",
+            Principal: "*",
+            Action: ["s3:GetObject"],
+            Resource: [`arn:aws:s3:::${bucket}/*`],
+          },
+        ],
+      };
+      await s3.send(
+        new PutBucketPolicyCommand({
+          Bucket: bucket,
+          Policy: JSON.stringify(policy),
+        })
+      );
+      console.log(`[Storage] Configured public read policy for bucket: "${bucket}"`);
+    } catch (policyErr) {
+      // Catch silently to avoid cluttering startup logs on S3-compatible environments with limited permissions
+    }
+  }
+}
 
 // S3 client configured to talk to local MinIO instance
 export const s3 = new S3Client({
@@ -27,9 +80,21 @@ export const s3 = new S3Client({
     secretAccessKey: process.env.MINIO_ROOT_PASSWORD ?? "",
   },
   forcePathStyle: true,          // Required for MinIO (vs AWS S3 virtual-hosted style)
+  requestChecksumCalculation: "WHEN_REQUIRED", // Disable default CRC32 checksums for MinIO/S3-compatible compatibility
 });
 
-const AVATAR_BUCKET = process.env.MINIO_BUCKET_AVATARS ?? "avatars";
+const AVATAR_BUCKET      = process.env.MINIO_BUCKET_AVATARS      ?? "avatars";
+const ATTACHMENTS_BUCKET = process.env.MINIO_BUCKET_ATTACHMENTS  ?? "attachments";
+
+// Trigger self-healing initialization for both buckets immediately
+ensureBucketExists(AVATAR_BUCKET, true).catch((e) =>
+  console.error(`[Storage] Error initializing avatar bucket:`, e)
+);
+ensureBucketExists(ATTACHMENTS_BUCKET, false).catch((e) =>
+  console.error(`[Storage] Error initializing attachments bucket:`, e)
+);
+
+// ─── Avatars ──────────────────────────────────────────────────────────────────
 
 /**
  * Upload a user's profile avatar.
@@ -45,6 +110,8 @@ export async function uploadAvatar(
   extension = "webp"
 ): Promise<string> {
   const key = `${userId}/avatar.${extension}`;
+
+  await ensureBucketExists(AVATAR_BUCKET, true);
 
   await s3.send(
     new PutObjectCommand({
@@ -67,8 +134,81 @@ export async function deleteAvatar(userId: string, extension = "webp"): Promise<
   await s3.send(new DeleteObjectCommand({ Bucket: AVATAR_BUCKET, Key: key }));
 }
 
+// ─── Attachments ──────────────────────────────────────────────────────────────
+// Files are AES-GCM encrypted client-side before upload.
+// The server stores opaque encrypted bytes — it never sees plaintext content.
+// Key pattern: {userId}/{vaultItemId}/{attachmentId}.enc
+
 /**
- * Generate a short-lived pre-signed URL for a private file (if needed in future).
+ * Upload an encrypted file attachment to MinIO.
+ * Returns the S3 key (stored in the vault_attachments DB row).
+ */
+export async function uploadAttachment(
+  userId: string,
+  vaultItemId: string,
+  attachmentId: string,
+  encryptedBytes: Buffer,
+  mimeType: string
+): Promise<string> {
+  const key = `${userId}/${vaultItemId}/${attachmentId}.enc`;
+
+  await ensureBucketExists(ATTACHMENTS_BUCKET, false);
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket:      ATTACHMENTS_BUCKET,
+      Key:         key,
+      Body:        encryptedBytes,
+      ContentType: "application/octet-stream",
+      Metadata:    { "x-original-mime": mimeType },
+    })
+  );
+
+  return key;
+}
+
+/**
+ * Delete a single attachment by its S3 key.
+ */
+export async function deleteAttachment(s3Key: string): Promise<void> {
+  await s3.send(new DeleteObjectCommand({ Bucket: ATTACHMENTS_BUCKET, Key: s3Key }));
+}
+
+/**
+ * Bulk-delete all attachments belonging to a vault item.
+ * Called when a vault item is hard-deleted so no orphaned S3 objects remain.
+ */
+export async function deleteAttachmentsByVaultItem(
+  userId: string,
+  vaultItemId: string
+): Promise<void> {
+  const prefix = `${userId}/${vaultItemId}/`;
+  const listed = await s3.send(
+    new ListObjectsV2Command({ Bucket: ATTACHMENTS_BUCKET, Prefix: prefix })
+  );
+
+  const keys = (listed.Contents ?? []).map((obj) => obj.Key).filter(Boolean) as string[];
+  await Promise.all(keys.map((k) => deleteAttachment(k)));
+}
+
+/**
+ * Generate a short-lived pre-signed URL so the browser can download
+ * an encrypted attachment directly from MinIO (bypassing Next.js).
+ * Default TTL: 5 minutes. The client decrypts the file after download.
+ */
+export async function getAttachmentPresignedUrl(
+  s3Key: string,
+  ttlSeconds = 300
+): Promise<string> {
+  return getSignedUrl(
+    s3,
+    new GetObjectCommand({ Bucket: ATTACHMENTS_BUCKET, Key: s3Key }),
+    { expiresIn: ttlSeconds }
+  );
+}
+
+/**
+ * Generate a short-lived pre-signed URL for any private file (generic helper).
  */
 export async function getPresignedUrl(
   bucket: string,
@@ -80,4 +220,18 @@ export async function getPresignedUrl(
     new GetObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn: expiresInSeconds }
   );
+}
+
+/**
+ * Retrieve the raw encrypted text contents of an attachment directly from S3.
+ */
+export async function getAttachmentContent(s3Key: string): Promise<string> {
+  const response = await s3.send(
+    new GetObjectCommand({ Bucket: ATTACHMENTS_BUCKET, Key: s3Key })
+  );
+  const data = await response.Body?.transformToString();
+  if (data === undefined) {
+    throw new Error("Failed to read S3 object body");
+  }
+  return data;
 }

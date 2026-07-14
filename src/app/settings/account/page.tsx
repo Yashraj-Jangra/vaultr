@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
@@ -85,6 +85,13 @@ function ThemeCard({ theme, selected, onSelect }: { theme: ThemeConfig; selected
     </button>
   );
 }
+function formatBytes(bytes: number) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
 
 export default function AccountSettingsPage() {
   const { user } = useAuth();
@@ -97,24 +104,137 @@ export default function AccountSettingsPage() {
   const [authMsg, setAuthMsg] = useState({ text: "", ok: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [avatarDragActive, setAvatarDragActive] = useState(false);
 
-  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Storage Stats
+  const [storageUsed, setStorageUsed] = useState(0);
+  const [storageQuota, setStorageQuota] = useState(104_857_600);
+
+  // Personal Details
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [detailsSaving, setDetailsSaving] = useState(false);
+  const [detailsMsg, setDetailsMsg] = useState({ text: "", ok: true });
+  const [detailsLoaded, setDetailsLoaded] = useState(false);
+
+  const fetchPersonalData = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/vault/profile");
+      if (res.ok) {
+        const data = await res.json();
+        setFirstName(data.firstName || "");
+        setLastName(data.lastName || "");
+        setPhone(data.phone || "");
+        setStorageUsed(data.storageUsedBytes || 0);
+        setStorageQuota(data.storageQuotaBytes || 104_857_600);
+      }
+    } catch (err) {
+      console.error("Could not fetch personal profile:", err);
+    } finally {
+      setDetailsLoaded(true);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchPersonalData();
+  }, [fetchPersonalData]);
+
+  const uploadAvatarFile = (file: File) => {
+    setUploadingAvatar(true);
+    setUploadProgress(0);
+    setAuthMsg({ text: "", ok: true });
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/settings/avatar", true);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setUploadProgress(percent);
+      }
+    };
+
+    xhr.onload = async () => {
+      setUploadingAvatar(false);
+      setUploadProgress(null);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setPhotoURL(data.avatarUrl);
+          setAuthMsg({ text: "Avatar uploaded successfully.", ok: true });
+          fetchPersonalData();
+        } catch {
+          setAuthMsg({ text: "Failed to parse upload response.", ok: false });
+        }
+      } else {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setAuthMsg({ text: data.error || "Failed to upload avatar.", ok: false });
+        } catch {
+          setAuthMsg({ text: `Failed to upload avatar (status ${xhr.status}).`, ok: false });
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      setUploadingAvatar(false);
+      setUploadProgress(null);
+      setAuthMsg({ text: "Network error during upload.", ok: false });
+    };
+
+    xhr.send(fd);
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    uploadAvatarFile(file);
+  };
+
+  const removeAvatarFile = async () => {
+    if (!window.confirm("Are you sure you want to remove your profile picture?")) return;
     setUploadingAvatar(true);
     setAuthMsg({ text: "", ok: true });
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/settings/avatar", { method: "POST", body: fd });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to upload avatar.");
-      const data = await res.json();
-      setPhotoURL(data.avatarUrl);
-      setAuthMsg({ text: "Avatar uploaded successfully.", ok: true });
-    } catch (err) {
-      setAuthMsg({ text: (err as Error).message, ok: false });
+      const res = await fetch("/api/settings/avatar", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove avatar");
+      setPhotoURL("");
+      setAuthMsg({ text: "Profile picture removed.", ok: true });
+      fetchPersonalData();
+    } catch (err: any) {
+      setAuthMsg({ text: err.message, ok: false });
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setAvatarDragActive(true);
+    } else if (e.type === "dragleave" || e.type === "drop") {
+      setAvatarDragActive(false);
+    }
+  };
+
+  const handleAvatarDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAvatarDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        uploadAvatarFile(file);
+      } else {
+        setAuthMsg({ text: "Only image files are allowed for avatars.", ok: false });
+      }
     }
   };
 
@@ -133,33 +253,7 @@ export default function AccountSettingsPage() {
     }
   };
 
-  // Personal Details
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [detailsSaving, setDetailsSaving] = useState(false);
-  const [detailsMsg, setDetailsMsg] = useState({ text: "", ok: true });
-  const [detailsLoaded, setDetailsLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchPersonal = async () => {
-      try {
-        const res = await fetch("/api/vault/profile");
-        if (res.ok) {
-          const data = await res.json();
-          setFirstName(data.firstName || "");
-          setLastName(data.lastName || "");
-          setPhone(data.phone || "");
-        }
-      } catch (err) {
-        console.error("Could not fetch personal profile:", err);
-      } finally {
-        setDetailsLoaded(true);
-      }
-    };
-    fetchPersonal();
-  }, [user]);
+  // Personal details states, storage hooks, and fetching effects have been unified at the top.
 
   const savePersonalDetails = async () => {
     if (!user) return;
@@ -256,28 +350,71 @@ export default function AccountSettingsPage() {
 
       <Section title="Primary Profile" description="Publicly visible information tied to your authentication record.">
         <FieldBox>
-          <div className="flex items-start gap-6">
-            <div className="relative group shrink-0 mt-1">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            <div
+              onDragEnter={handleAvatarDrag}
+              onDragOver={handleAvatarDrag}
+              onDragLeave={handleAvatarDrag}
+              onDrop={handleAvatarDrop}
+              className={`relative group shrink-0 mt-1 w-20 h-20 rounded-full border-2 transition-all flex items-center justify-center overflow-hidden ${
+                avatarDragActive ? "border-[var(--accent)] bg-[var(--accent)]/10 scale-105" : "border-neutral-700 bg-neutral-800"
+              }`}
+            >
               {photoURL ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photoURL} alt="Avatar" className="w-16 h-16 rounded-full object-cover border border-neutral-700" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <img src={photoURL} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-16 h-16 rounded-full border border-neutral-700 bg-neutral-800 flex items-center justify-center text-lg font-bold text-neutral-300">{initials}</div>
+                <div className="text-xl font-bold text-neutral-300 select-none">{initials}</div>
               )}
-              <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[11px] text-white cursor-pointer backdrop-blur-sm">
-                {uploadingAvatar ? "..." : "Change"}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white cursor-pointer backdrop-blur-sm"
+              >
+                <span>{uploadingAvatar ? "Uploading" : "Drop or Click"}</span>
+                {uploadProgress !== null && <span className="font-mono mt-0.5">{uploadProgress}%</span>}
               </button>
               <input type="file" ref={fileInputRef} onChange={handleAvatarFileChange} accept="image/*" className="hidden" />
             </div>
-            <div className="flex-1 max-w-md space-y-4">
+
+            <div className="flex-1 w-full max-w-md space-y-4 text-left">
               <FieldRow label="Display Name">
                 <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your full name" className="bg-neutral-900 border-neutral-800" />
               </FieldRow>
+              {uploadProgress !== null && (
+                <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-[var(--accent)] h-full transition-all duration-150" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              )}
               <div className="flex items-center gap-3 pt-1">
-                <Button onClick={saveAuthProfile} disabled={authSaving} variant="primary">
+                <Button onClick={saveAuthProfile} disabled={authSaving || uploadingAvatar} variant="primary">
                   {authSaving ? "Saving…" : "Save Profile"}
                 </Button>
+                {photoURL && (
+                  <Button onClick={removeAvatarFile} disabled={uploadingAvatar} variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-950/20 border border-transparent hover:border-red-900/30">
+                    Remove Photo
+                  </Button>
+                )}
                 <StatusMsg {...authMsg} />
+              </div>
+
+              {/* Storage usage stats */}
+              <div className="pt-4 border-t border-neutral-800/60 space-y-2">
+                <div className="flex justify-between items-center text-[11px] text-neutral-400">
+                  <span>Vault Storage Usage</span>
+                  <span className="font-mono">{formatBytes(storageUsed)} / {formatBytes(storageQuota)}</span>
+                </div>
+                <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      (storageUsed / storageQuota) >= 0.9 ? "bg-red-500" : (storageUsed / storageQuota) >= 0.7 ? "bg-amber-500" : "bg-[var(--accent)]"
+                    }`}
+                    style={{ width: `${Math.min(100, Math.round((storageUsed / storageQuota) * 100))}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-neutral-500">
+                  Includes encrypted vault file attachments and custom avatars.
+                </p>
               </div>
             </div>
           </div>

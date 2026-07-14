@@ -87,9 +87,14 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
           onClick={() => setMenuOpen((v) => !v)}
           className="flex items-center gap-1.5 text-[12px] text-neutral-500 hover:text-neutral-200 transition-colors cursor-pointer"
         >
-          <span className="w-7 h-7 rounded-full bg-neutral-800 border border-[var(--border)] flex items-center justify-center text-[11px] font-medium text-neutral-300">
-            {initials}
-          </span>
+          <div className="w-7 h-7 rounded-full bg-neutral-800 border border-[var(--border)] flex items-center justify-center text-[11px] font-medium text-neutral-300 overflow-hidden shrink-0">
+            {user?.photoURL ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span>{initials}</span>
+            )}
+          </div>
           <ChevronDown className="w-3 h-3" />
         </button>
 

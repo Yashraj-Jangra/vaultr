@@ -101,6 +101,30 @@ export const vaultItems = pgTable("vault_items", {
 export type VaultItem    = typeof vaultItems.$inferSelect;
 export type NewVaultItem = typeof vaultItems.$inferInsert;
 
+// ─── Vault Attachments ────────────────────────────────────────────────────────
+// One encrypted file per row. The file content is AES-GCM encrypted client-side
+// before upload — the server stores an opaque blob and never sees plaintext.
+// The filename is also encrypted; only mimeType is stored in clear.
+
+export const vaultAttachments = pgTable("vault_attachments", {
+  id:            uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  vaultItemId:   uuid("vault_item_id").notNull()
+                   .references(() => vaultItems.id, { onDelete: "cascade" }),
+  userId:        text("user_id").notNull()
+                   .references(() => user.id, { onDelete: "cascade" }),
+  // Encrypted original filename — only the vault owner can decrypt this
+  encryptedName: text("encrypted_name").notNull(),
+  // Clear MIME type — reveals format but not content (acceptable)
+  mimeType:      text("mime_type").notNull().default("application/octet-stream"),
+  // Size of the encrypted blob in bytes (slightly > original due to IV + GCM tag)
+  sizeBytes:     integer("size_bytes").notNull(),
+  // S3/MinIO object key in the attachments bucket
+  s3Key:         text("s3_key").notNull().unique(),
+  createdAt:     timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type VaultAttachment    = typeof vaultAttachments.$inferSelect;
+export type NewVaultAttachment = typeof vaultAttachments.$inferInsert;
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
 // Extends Better Auth's own user record with app-specific fields.
@@ -121,6 +145,9 @@ export const userProfiles = pgTable("user_profiles", {
   role:                     text("role").default("user"),  // "user" | "admin"
   deletedByAdmin:           timestamp("deleted_by_admin", { withTimezone: true }),
   deletedByAdminId:         text("deleted_by_admin_id"),
+  // ── Storage ──────────────────────────────────────────────────────────────
+  storageUsedBytes:         integer("storage_used_bytes").default(0),
+  storageQuotaBytes:        integer("storage_quota_bytes").default(104857600), // 100 MB
 });
 
 export type UserProfile    = typeof userProfiles.$inferSelect;

@@ -49,7 +49,7 @@ export interface VaultContextValue {
   unlock: (masterPassword: string) => Promise<string | void>;
   lock: () => void;
   setAutoLockMinutes: (minutes: number) => void;
-  saveItem: (item: Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt"> & { encryptedBlob: string }) => Promise<void>;
+  saveItem: (item: Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt"> & { encryptedBlob: string }) => Promise<any>;
   updateItem: (id: string, payload: Partial<VaultItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   hardDeleteItem: (id: string) => Promise<void>;
@@ -300,12 +300,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     item: Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt">
   ) => {
     if (!user?.id) return;
-    await apiFetch("/api/vault/items", {
+    const res = await apiFetch("/api/vault/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
     fetchItems();
+    return res.item;
   }, [user, fetchItems]);
 
   const updateItem = useCallback(async (id: string, payload: Partial<VaultItem>) => {

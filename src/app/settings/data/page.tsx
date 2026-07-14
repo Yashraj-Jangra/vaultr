@@ -323,19 +323,20 @@ export default function DataSettingsPage() {
       <Section title="Export Vault" description="Download an encrypted JSON snapshot of your vault.">
         <FieldBox>
           <div className="space-y-4 max-w-md">
-            <label className="flex items-center gap-4 cursor-pointer group">
-              <input type="checkbox" checked={useExportPassphrase} onChange={(e) => setUseExportPassphrase(e.target.checked)} className="sr-only" />
-              
-              <div className={`w-[36px] h-[20px] rounded-full transition-colors relative border ${
-                useExportPassphrase 
-                  ? "bg-[var(--accent)] border-[var(--accent)]" 
-                  : "bg-neutral-900 border-neutral-700 group-hover:border-neutral-500"
-              }`}>
-                <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all shadow-sm ${
+            <label className="flex items-center gap-4 cursor-pointer group relative">
+              <div className="relative w-[36px] h-[20px]">
+                <input type="checkbox" checked={useExportPassphrase} onChange={(e) => setUseExportPassphrase(e.target.checked)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                <div className={`w-[36px] h-[20px] rounded-full transition-colors relative border ${
                   useExportPassphrase 
-                    ? "bg-white left-[18px]" 
-                    : "bg-neutral-500 left-[2px] group-hover:bg-neutral-300"
-                }`} />
+                    ? "bg-[var(--accent)] border-[var(--accent)]" 
+                    : "bg-neutral-900 border-neutral-700 group-hover:border-neutral-500"
+                }`}>
+                  <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all shadow-sm ${
+                    useExportPassphrase 
+                      ? "bg-[var(--bg)] left-[18px]" 
+                      : "bg-neutral-500 left-[2px] group-hover:bg-neutral-300"
+                  }`} />
+                </div>
               </div>
               <span className="text-[13px] text-neutral-300 font-medium group-hover:text-neutral-100 transition-colors">Protect with passphrase</span>
             </label>

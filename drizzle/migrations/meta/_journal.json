@@ -50,6 +50,13 @@
       "when": 1783874529979,
       "tag": "0006_broad_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784043114188,
+      "tag": "0007_shiny_moonstone",
+      "breakpoints": true
     }
   ]
 }

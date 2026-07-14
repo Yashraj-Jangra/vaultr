@@ -1029,8 +1029,8 @@ export default function VaultPage() {
     setUnlocking(false);
   };
 
-  const handleSave = async (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editIdParams?: string) => {
-    if (!cryptoKey || !user?.uid) return;
+  const handleSave = async (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editIdParams?: string): Promise<string | undefined> => {
+    if (!cryptoKey || !user) return;
     const blob = await encryptData(JSON.stringify(payload));
     const domain = payload.url ? extractDomain(payload.url) : "";
 
@@ -1051,6 +1051,7 @@ export default function VaultPage() {
       if (revealedId === editIdParams) {
         setRevealedData(payload);
       }
+      return editIdParams;
     } else {
       const doc_ = {
         name,
@@ -1061,8 +1062,9 @@ export default function VaultPage() {
         folder: folder || undefined,
         domain: domain || undefined,
       };
-      await saveItem(doc_);
+      const saved = await saveItem(doc_);
       setIsNewEntryOpen(false);
+      return saved?.id;
     }
   };
 
