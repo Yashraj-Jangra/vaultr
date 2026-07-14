@@ -103,39 +103,25 @@
 - [ ] Add `npm audit fix` to CI to track known dependency vulnerabilities
 - [ ] Add E2E tests for session revocation, rate limiting, Zod validation responses, disabled user flow
 
+### Phase 6 — File Attachments & Cyberpunk UI Overhaul
+- [x] Secure local proxy downloads for encrypted attachments (no CORS/S3 public access needed)
+- [x] Resolved S3 bucket existence checking log spam & silenced NotImplemented warnings
+- [x] Dynamically render user profile avatar inside top navigation account dropdown button
+- [x] Built interactive modern cyberpunk telemetry diagnostic console card in admin layout sidebar
+
 ---
 
 ## Files Modified This Session
 
 | File | Change |
 |------|--------|
-| `next.config.ts` | HTTP security headers |
-| `.gitignore` | test_credentials.md |
-| `public/robots.txt` | NEW — crawler exclusions |
-| `package.json` | db:push renamed |
-| `src/lib/safeError.ts` | NEW |
-| `src/lib/getClientIp.ts` | NEW |
-| `src/lib/sessionMeta.ts` | NEW — session tracking library |
-| `src/lib/webhook.ts` | webhook URL caching |
-| `src/lib/auth/auth.ts` | CORS, OTP guard, session TTL, email verification hook |
-| `src/lib/auth/verifyUser.ts` | disabled flag check + session tracking call |
-| `src/middleware.ts` | NEW — rate limiting |
-| `src/db/schema.ts` | requireEmailVerification + session_meta table |
-| `src/app/settings/security/page.tsx` | Full session list UI rebuild |
-| `src/app/admin/sessions/page.tsx` | NEW — admin session management page |
-| `src/app/admin/layout.tsx` | Sessions nav link added |
-| `src/app/api/settings/sessions/route.ts` | NEW |
-| `src/app/api/settings/sessions/[id]/route.ts` | NEW |
-| `src/app/api/admin/sessions/route.ts` | NEW |
-| `src/app/api/admin/sessions/[id]/route.ts` | NEW |
-| `src/app/api/admin/sessions/user/[uid]/route.ts` | NEW |
-| `src/app/api/vault/items/route.ts` | Zod validation |
-| `src/app/api/vault/items/[id]/route.ts` | Zod validation |
-| `src/app/api/vault/items/reencrypt/route.ts` | array limits + batching |
-| `src/app/api/settings/avatar/route.ts` | MIME allowlist |
-| `src/app/api/admin/users/route.ts` | pagination cap + inArray fix |
-| `src/app/api/admin/system/route.ts` | requireEmailVerification + cache invalidation |
-| `src/app/admin/system/page.tsx` | email verification toggle UI |
-| `drizzle/migrations/0005_awesome_dust.sql` | NEW — email verification migration |
-| `drizzle/migrations/0006_broad_rafael_vega.sql` | NEW — session_meta migration |
-| `.env.example` | TRUSTED_ORIGINS documented |
+| `src/lib/storage.ts` | Silenced bucket CORS policies, resolved NoSuchBucket on startup |
+| `src/components/layout/TopBar.tsx` | Dynamic profile photo url image rendering |
+| `src/app/admin/layout.tsx` | Cyberpunk bracket card, SVG mesh network float, scrolling diagnostics |
+| `src/app/api/vault/attachments/[id]/download/route.ts` | Proxy download streaming + custom decryption pipeline |
+| `src/app/api/vault/attachments/[id]/route.ts` | Database query adjustments for attachments |
+| `src/app/api/vault/attachments/route.ts` | Attachment metadata file uploads |
+| `src/components/vault/NewEntryDialog.tsx` | Secure file attachments UI integration |
+| `src/app/settings/account/page.tsx` | Avatar profile image uploads |
+| `src/components/vault/PasswordHealth.tsx` | Graceful catch for intercepted HaveIBeenPwned network errors |
+
