@@ -6,7 +6,7 @@ version: "3.9"
 
 services:
   app:
-    build: .
+    image: ghcr.io/yashraj-jangra/_vaultr:latest
     container_name: vaultr_app
     restart: always
     ports:

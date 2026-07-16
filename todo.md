@@ -10,6 +10,8 @@
 - [x] Created `Dockerfile` with multi-stage build running Next.js and auto-migrating DB schema via `drizzle-kit` on startup.
 - [x] Configured `docker-compose.yml` to include Next.js application container with dependencies on Postgres/MinIO.
 - [x] Customized host-bound ports (Next.js app: `3005`, Postgres: `5435`, MinIO API: `9005`, MinIO Console: `9011`) to prevent host conflicts on the user's server.
+- [x] Set up GitHub Actions CI/CD workflow to compile code and automatically build/push the Docker container image to GitHub Container Registry (GHCR) to resolve Portainer HTTP/2 framing errors.
+
 
 ### Security Audit + Fixes (Full Pass)
 
@@ -137,4 +139,5 @@
 | `README.md` | Rewrote Getting Started guide for Docker & Local setup with secret generation steps |
 | `.env.example` | Updated default ports and template variables for Docker container setup |
 | `.env` | Configured connection string, host addresses, and multi-domain instructions |
+| `.github/workflows/docker-publish.yml` | Added GitHub Actions pipeline to compile code and push Docker images to GHCR |
 
