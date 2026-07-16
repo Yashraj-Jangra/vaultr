@@ -21,9 +21,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 3000
 ENV PORT=3000
 
 # Run database migrations on container startup, then start the web server
-CMD npx drizzle-kit migrate && npm run start
+CMD npx tsx scripts/migrate-production.ts && npm run start

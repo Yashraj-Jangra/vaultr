@@ -134,10 +134,11 @@
 | `src/components/vault/NewEntryDialog.tsx` | Secure file attachments UI integration |
 | `src/app/settings/account/page.tsx` | Avatar profile image uploads |
 | `src/components/vault/PasswordHealth.tsx` | Graceful catch for intercepted HaveIBeenPwned network errors |
-| `Dockerfile` | Created new multi-stage build script with database schema migrations |
+| `Dockerfile` | Updated container boot to run custom programmatic migrations |
 | `docker-compose.yml` | Updated ports and configured app container service |
 | `README.md` | Rewrote Getting Started guide for Docker & Local setup with secret generation steps |
 | `.env.example` | Updated default ports and template variables for Docker container setup |
 | `.env` | Configured connection string, host addresses, and multi-domain instructions |
 | `.github/workflows/docker-publish.yml` | Added GitHub Actions pipeline to compile code and push Docker images to GHCR |
+| `scripts/migrate-production.ts` | Created programmatic database migration script with explicit error logs |
 
