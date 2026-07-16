@@ -6,9 +6,11 @@ ENV NODE_ENV=production
 # Install openssl for DB connectivity
 RUN apk add --no-cache openssl
 
-# Copy package config and node_modules (pre-installed on the runner)
+# Copy package config
 COPY package*.json ./
-COPY node_modules ./node_modules
+
+# Install only production dependencies natively on the target architecture
+RUN npm ci --omit=dev
 
 # Copy pre-compiled Next.js build assets
 COPY .next ./.next
@@ -24,4 +26,4 @@ EXPOSE 3000
 ENV PORT=3000
 
 # Run database migrations on container startup, then start the web server
-CMD npx tsx scripts/migrate-production.ts && npm run start
+CMD node scripts/migrate-production.js && npm run start

@@ -1,9 +1,7 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Client } from "pg";
-import * as dotenv from "dotenv";
-
-dotenv.config();
+const { drizzle } = require("drizzle-orm/node-postgres");
+const { migrate } = require("drizzle-orm/node-postgres/migrator");
+const { Client } = require("pg");
+require("dotenv").config();
 
 async function runMigration() {
   console.log("[Migration] Checking database connection...");
@@ -35,7 +33,7 @@ async function runMigration() {
     
     await migrate(db, { migrationsFolder: "./drizzle/migrations" });
     console.log("✅ [Migration] Migrations completed successfully!");
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ [Migration] Migration failed with error:");
     console.error(error.stack || error.message || error);
     process.exit(1);

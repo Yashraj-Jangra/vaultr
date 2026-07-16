@@ -140,5 +140,5 @@
 | `.env.example` | Updated default ports and template variables for Docker container setup |
 | `.env` | Configured connection string, host addresses, and multi-domain instructions |
 | `.github/workflows/docker-publish.yml` | Added GitHub Actions pipeline to compile code and push Docker images to GHCR |
-| `scripts/migrate-production.ts` | Created programmatic database migration script with explicit error logs |
+| `scripts/migrate-production.js` | Created programmatic database migration script in plain JavaScript to prevent esbuild platform mismatch |
 
