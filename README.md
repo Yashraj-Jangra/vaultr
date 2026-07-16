@@ -91,75 +91,110 @@ src/
 
 ## Getting Started
 
-### 1. Clone and install
-
-```bash
-git clone <repo>
-cd skillbox-coder
-npm install
-```
-
-### 2. Configure Better Auth / Postgres
-
-Copy `.env.example` to `.env.local` and fill in your Better Auth / Postgres project credentials:
-
-```bash
-cp .env.example .env.local
-```
-
-```env
-NEXT_PUBLIC_Better Auth / Postgres_API_KEY=...
-NEXT_PUBLIC_Better Auth / Postgres_AUTH_DOMAIN=...
-NEXT_PUBLIC_Better Auth / Postgres_PROJECT_ID=...
-NEXT_PUBLIC_Better Auth / Postgres_STORAGE_BUCKET=...
-NEXT_PUBLIC_Better Auth / Postgres_MESSAGING_SENDER_ID=...
-NEXT_PUBLIC_Better Auth / Postgres_APP_ID=...
-```
-
-### 3. Deploy PostgreSQL rules
-
-```bash
-Better Auth / Postgres deploy --only PostgreSQL:rules
-```
-
-### 4. Run locally
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### 5. Accessing the Admin Panel
-
-The Admin Panel (`/admin`) is strictly protected by Better Auth / Postgres Custom Claims. Normal users are completely blocked via client-side routing (`AdminGuard`) and server-side middleware. 
-
-To bootstrap your *first* admin user, you must manually inject the `admin: true` claim to an existing user's ID token.
-
-We have included a utility script to make this easy. Once you have created your first account through the web UI, run:
-
-```bash
-node scripts/setAdmin.js your.email@example.com
-```
-
-*(Ensure you have `Better Auth / Postgres_PROJECT_ID`, `Better Auth / Postgres_CLIENT_EMAIL`, and `Better Auth / Postgres_PRIVATE_KEY` populated in `.env.local` for this script to work).*
-
-After running the script, **log out and log back in** to refresh your Better Auth / Postgres ID Token. You can then navigate to [http://localhost:3000/admin](http://localhost:3000/admin) to manage themes, users, and global analytics.
+This project supports running in two environments: **Docker** (recommended for production/self-hosting) and **Local Development** (hybrid Docker + local node process).
 
 ---
 
-## PostgreSQL Security Rules
+### Prerequisites
+* **Docker** and **Docker Compose** installed.
+* **Node.js 20+** installed (if running in local development mode).
 
+---
+
+### Step 1: Configure Environment Variables
+Copy `.env.example` to `.env` (or `.env.local` for local development):
+
+```bash
+cp .env.example .env
 ```
-rules_version = '2';
-service cloud.PostgreSQL {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
+
+Open `.env` in an editor and fill in the required variables:
+
+#### 1. Generate Auth Secrets
+Better Auth requires a strong, random key. You can generate a 64-byte Base64-encoded secret by running either of the following commands:
+* **Using Openssl** (macOS, Linux, Git Bash):
+  ```bash
+  openssl rand -base64 64
+  ```
+* **Using Node.js** (Cross-platform):
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
+  ```
+Copy the generated string and paste it into the `BETTER_AUTH_SECRET` field.
+
+#### 2. Set App URLs
+Change the URLs to point to your deployment IP and port (default for Docker is `3005`):
+```env
+BETTER_AUTH_URL=http://localhost:3005
+NEXT_PUBLIC_APP_URL=http://localhost:3005
 ```
+
+#### 3. Update Database and Storage Credentials
+Set strong passwords for Postgres and MinIO:
+```env
+DB_USER=vaultr
+DB_PASSWORD=YOUR_STRONG_POSTGRES_PASSWORD
+DB_NAME=vaultr_db
+DATABASE_URL=postgresql://vaultr:YOUR_STRONG_POSTGRES_PASSWORD@localhost:5432/vaultr_db
+
+MINIO_ROOT_USER=vaultr
+MINIO_ROOT_PASSWORD=YOUR_STRONG_MINIO_PASSWORD
+```
+
+---
+
+### Step 2: Deploy & Run
+
+#### Option A: Running with Docker (Recommended)
+This starts the Next.js app, PostgreSQL, and MinIO storage in the background. Schema migrations will run automatically on startup.
+
+1. Build and launch the containers:
+   ```bash
+   docker compose up -d --build
+   ```
+2. The web application is now running at `http://localhost:3005`.
+3. MinIO S3 Console is running at `http://localhost:9011`.
+
+#### Option B: Local Development Mode (Hybrid)
+In this mode, databases run in Docker, and the Next.js app runs directly on your local node environment:
+
+1. Spin up only the backing databases:
+   ```bash
+   docker compose up -d postgres minio
+   ```
+2. Install local Node dependencies:
+   ```bash
+   npm install
+   ```
+3. Run database migrations to prepare the database schema:
+   ```bash
+   npm run db:migrate
+   ```
+4. Start the Next.js development server:
+   ```bash
+   npm run dev
+   ```
+5. The local dev app is now running at `http://localhost:3000`.
+
+---
+
+### Step 3: Bootstrapping the Admin Panel
+
+The Admin Panel (`/admin`) is protected and requires an account with the `admin` role. To bootstrap your first admin account:
+
+1. Open the web interface (`http://localhost:3005` for Docker, or `http://localhost:3000` for Local Dev).
+2. Go to the sign-up page and register a new user account.
+3. Grant admin status to your registered account:
+   * **If running in Docker**:
+     ```bash
+     docker compose exec app npx tsx make-admin.ts your.email@example.com
+     ```
+   * **If running in Local Development**:
+     ```bash
+     npx tsx make-admin.ts your.email@example.com
+     ```
+4. Log out of your account on the web page, then log back in to refresh your authentication claims.
+5. You can now access the Admin Dashboard at `/admin`.
 
 ---
 

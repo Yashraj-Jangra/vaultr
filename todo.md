@@ -134,4 +134,5 @@
 | `src/components/vault/PasswordHealth.tsx` | Graceful catch for intercepted HaveIBeenPwned network errors |
 | `Dockerfile` | Created new multi-stage build script with database schema migrations |
 | `docker-compose.yml` | Updated ports and configured app container service |
+| `README.md` | Rewrote Getting Started guide for Docker & Local setup with secret generation steps |
 
