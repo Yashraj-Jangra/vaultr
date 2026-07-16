@@ -135,4 +135,6 @@
 | `Dockerfile` | Created new multi-stage build script with database schema migrations |
 | `docker-compose.yml` | Updated ports and configured app container service |
 | `README.md` | Rewrote Getting Started guide for Docker & Local setup with secret generation steps |
+| `.env.example` | Updated default ports and template variables for Docker container setup |
+| `.env` | Configured connection string, host addresses, and multi-domain instructions |
 
