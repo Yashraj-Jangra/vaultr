@@ -1,12 +1,42 @@
 version: "3.9"
 
-# _vaultr — local infrastructure
+# _vaultr — local infrastructure with containerized app
 # Run: docker compose up -d
 # Stop: docker compose down  (data in named volumes is preserved)
-# Backup: docker compose exec -T postgres pg_dump -U vaultr vaultr_db | gzip > backup.sql.gz
-# Restore: gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U vaultr vaultr_db
 
 services:
+  app:
+    build: .
+    container_name: vaultr_app
+    restart: always
+    ports:
+      - "3005:3000" # Access Vaultr at http://<host-ip>:3005
+    environment:
+      # Database Connection Details (points to postgres service on the same network)
+      - DB_USER=${DB_USER:-vaultr}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - DB_NAME=${DB_NAME:-vaultr_db}
+      - DATABASE_URL=postgresql://${DB_USER:-vaultr}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-vaultr_db}
+      
+      # MinIO Configuration
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-vaultr}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      - MINIO_BUCKET_AVATARS=${MINIO_BUCKET_AVATARS:-avatars}
+      
+      # Better Auth & URL Configuration
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - vaultr_net
+
   postgres:
     image: postgres:16-alpine
     container_name: vaultr_postgres
@@ -16,11 +46,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       POSTGRES_DB: ${DB_NAME:-vaultr_db}
     volumes:
-      # Named volume — survives docker compose down, image upgrades, container recreation
       - pgdata:/var/lib/postgresql/data
     ports:
-      # Bind to localhost only — never expose raw postgres to the internet
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5435:5432" # Bound to localhost on a unique port (5435) to avoid conflict
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vaultr} -d ${DB_NAME:-vaultr_db}"]
       interval: 10s
@@ -39,11 +67,10 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-vaultr}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
     volumes:
-      # Named volume — just copy this directory to back up all stored files
       - miniodata:/data
     ports:
-      - "127.0.0.1:9005:9000"   # S3-compatible API
-      - "127.0.0.1:9001:9001"   # MinIO web console (http://localhost:9001)
+      - "9005:9000"   # Exposed unique port (9005) for S3 API
+      - "9011:9001"   # Exposed unique port (9011) for MinIO web console
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -54,8 +81,6 @@ services:
       - vaultr_net
 
 volumes:
-  # Named volumes — data persists independently of containers
-  # To find the actual path: docker volume inspect vaultr_pgdata
   pgdata:
     name: vaultr_pgdata
   miniodata:

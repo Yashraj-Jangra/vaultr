@@ -6,6 +6,11 @@
 
 ## ✅ Completed This Session
 
+### Docker & CasaOS Containerization
+- [x] Created `Dockerfile` with multi-stage build running Next.js and auto-migrating DB schema via `drizzle-kit` on startup.
+- [x] Configured `docker-compose.yml` to include Next.js application container with dependencies on Postgres/MinIO.
+- [x] Customized host-bound ports (Next.js app: `3005`, Postgres: `5435`, MinIO API: `9005`, MinIO Console: `9011`) to prevent host conflicts on the user's server.
+
 ### Security Audit + Fixes (Full Pass)
 
 **Phase 1 — Critical Infrastructure**
@@ -127,4 +132,6 @@
 | `src/components/vault/NewEntryDialog.tsx` | Secure file attachments UI integration |
 | `src/app/settings/account/page.tsx` | Avatar profile image uploads |
 | `src/components/vault/PasswordHealth.tsx` | Graceful catch for intercepted HaveIBeenPwned network errors |
+| `Dockerfile` | Created new multi-stage build script with database schema migrations |
+| `docker-compose.yml` | Updated ports and configured app container service |
 
