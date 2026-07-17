@@ -7,32 +7,37 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  # ─── Determine the lowercase image name once ──────────────────────────
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - name: Set lowercase image name
+        id: name
+        run: |
+          echo "image=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/\/_/\//')" >> "$GITHUB_OUTPUT"
+
+  # ─── Build AMD64 image natively on an x64 runner ──────────────────────
+  build-amd64:
+    needs: prepare
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Pre-install Linux Musl SWC native binaries (x64 and arm64)
-        run: |
-          npm install --no-save --os=linux --cpu=x64 @next/swc-linux-x64-musl@16.2.2
-          npm install --no-save --os=linux --cpu=arm64 @next/swc-linux-arm64-musl@16.2.2
 
       - name: Build Next.js app
         run: npm run build
@@ -43,29 +48,90 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           MINIO_ENDPOINT: http://localhost:9000
 
-      - name: Lowercase image name
-        run: |
-          echo "IMAGE_NAME_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | sed 's/\/_/\//')" >> $GITHUB_ENV
-
-      - name: Log in to the Container registry
+      - name: Log in to Container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Docker image
+      - name: Build and push amd64 image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          tags: ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image }}:latest-amd64
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+
+  # ─── Build ARM64 image natively on a real arm64 runner ────────────────
+  build-arm64:
+    needs: prepare
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          BETTER_AUTH_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          BETTER_AUTH_URL: http://localhost:3000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          MINIO_ENDPOINT: http://localhost:9000
+
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push arm64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/arm64
+          tags: ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image }}:latest-arm64
+          cache-from: type=gha,scope=arm64
+          cache-to: type=gha,mode=max,scope=arm64
+
+  # ─── Combine both into a single multi-arch manifest ───────────────────
+  merge-manifest:
+    needs: [prepare, build-amd64, build-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image }}:latest \
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image }}:latest-amd64 \
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image }}:latest-arm64

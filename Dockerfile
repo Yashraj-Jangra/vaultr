@@ -1,4 +1,6 @@
 # Production-ready runner stage
+# node_modules are NOT copied — npm ci runs natively inside the container
+# on whatever arch this image is being built for.
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
@@ -6,11 +8,11 @@ ENV NODE_ENV=production
 # Install openssl for DB connectivity
 RUN apk add --no-cache openssl
 
-# Copy package config and node_modules pre-installed on the runner
+# Install production dependencies natively for this architecture
 COPY package*.json ./
-COPY node_modules ./node_modules
+RUN npm ci --omit=dev
 
-# Copy pre-compiled Next.js build assets
+# Copy pre-compiled Next.js build assets (built on the matching-arch runner)
 COPY .next ./.next
 COPY public ./public
 
