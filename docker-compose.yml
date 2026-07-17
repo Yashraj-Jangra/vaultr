@@ -29,6 +29,20 @@ services:
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
       - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
+
+      # Google OAuth (optional — leave unset to disable Google sign-in)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+      # Email / SMTP (optional)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+
+      # MinIO Attachments bucket
+      - MINIO_BUCKET_ATTACHMENTS=${MINIO_BUCKET_ATTACHMENTS:-attachments}
     depends_on:
       postgres:
         condition: service_healthy
