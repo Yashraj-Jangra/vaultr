@@ -114,31 +114,48 @@ ensureBucketExists(ATTACHMENTS_BUCKET, false).catch((e) =>
 
 // ─── URL rewriter ─────────────────────────────────────────────────────────────
 
-/**
- * Rewrites any internal MinIO hostname stored in a URL to the public-facing base.
- *
- * Handles URLs saved before MINIO_PUBLIC_URL was configured, e.g.:
- *   http://minio:9000/avatars/…  →  https://api.example.com/avatars/…
- *   http://localhost:9000/avatars/… →  https://api.example.com/avatars/…
- *
- * Safe to call with null / undefined — returns null in that case.
- * Pass-through for already-public URLs (Google avatars, etc.).
- */
-const INTERNAL_PREFIXES = [
-  MINIO_S3_ENDPOINT.replace(/\/$/, ""),
+// All known MinIO hostnames/bases that might appear in stored URLs (legacy or current)
+const MINIO_AVATAR_PREFIXES = [
+  // Internal Docker hostname
   "http://minio:9000",
+  // Configured internal S3 endpoint (could be different in some setups)
+  MINIO_S3_ENDPOINT.replace(/\/$/, ""),
+  // Configured public MinIO URL (old approach before proxy)
+  MINIO_PUBLIC_BASE,
+  // Common local dev variants
   "http://localhost:9000",
   "http://localhost:9005",
 ];
 
+/**
+ * Rewrites any stored MinIO avatar URL to the app-side proxy path.
+ *
+ * New format:  {APP_URL}/api/avatars/{userId}/avatar.{ext}
+ * Old formats: http://minio:9000/avatars/…  →  /api/avatars/…
+ *              https://apivaultr.example.com/avatars/… →  /api/avatars/…
+ *
+ * Safe to call with null / undefined — returns null in that case.
+ * Pass-through for already-proxied or external URLs (Google avatars, etc.).
+ */
 export function toPublicUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  for (const prefix of INTERNAL_PREFIXES) {
-    if (url.startsWith(prefix)) {
-      return MINIO_PUBLIC_BASE + url.slice(prefix.length);
+
+  const appBase = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  const AVATAR_PATH_PREFIX = `/avatars/`;
+
+  // Already an app-proxy URL — leave as-is
+  if (url.includes("/api/avatars/")) return url;
+
+  for (const prefix of MINIO_AVATAR_PREFIXES) {
+    if (!prefix) continue;
+    const full = prefix.replace(/\/$/, "") + AVATAR_PATH_PREFIX;
+    if (url.startsWith(full)) {
+      const key = url.slice(full.length); // e.g. "userId/avatar.webp"
+      return `${appBase}/api/avatars/${key}`;
     }
   }
-  return url; // already a public / external URL — leave as-is
+
+  return url; // external URL (Google avatars, etc.) — leave as-is
 }
 
 
@@ -170,8 +187,10 @@ export async function uploadAvatar(
     })
   );
 
-  // Return the PUBLIC URL (browser-facing) — NOT the internal S3 endpoint
-  return `${MINIO_PUBLIC_BASE}/${AVATAR_BUCKET}/${key}`;
+  // Return the app-proxy URL — browser calls /api/avatars/{key} which fetches
+  // from MinIO server-side using S3 credentials. No public bucket policy needed.
+  const appBase = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  return `${appBase}/api/avatars/${key}`;
 }
 
 /**
