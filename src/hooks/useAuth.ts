@@ -43,13 +43,22 @@ function rewriteAvatarUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   // Google OAuth avatars — always valid external URLs, leave alone
   if (url.includes("googleusercontent.com")) return url;
-  // Already using the app proxy — nothing to do
-  if (url.includes("/api/avatars/")) return url;
+  
+  // Already relative proxy path — leave as-is
+  if (url.startsWith("/api/avatars/")) return url;
+
+  // If it's an absolute proxy URL (containing /api/avatars/), make it relative
+  if (url.includes("/api/avatars/")) {
+    const match = url.match(/\/api\/avatars\/(.+)$/);
+    if (match) {
+      return `/api/avatars/${match[1]}`;
+    }
+  }
+
   // Any URL whose path contains /avatars/ (old MinIO direct or public-URL format)
   const match = url.match(/\/avatars\/(.+)$/);
   if (match) {
-    const appBase = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-    return `${appBase}/api/avatars/${match[1]}`;
+    return `/api/avatars/${match[1]}`;
   }
   return url;
 }

@@ -1,11 +1,9 @@
 const { Client } = require("pg");
 require("dotenv").config();
 
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const NEW_PREFIX = `${APP_URL}/api/avatars/`;
+const NEW_PREFIX = `/api/avatars/`;
 
-console.log(`[fix-avatar-urls] APP_URL = ${APP_URL}`);
-console.log(`[fix-avatar-urls] Will rewrite avatar URLs to: ${NEW_PREFIX}{key}`);
+console.log(`[fix-avatar-urls] Will rewrite avatar URLs to relative proxy path: ${NEW_PREFIX}{key}`);
 console.log();
 
 async function main() {
@@ -40,12 +38,12 @@ async function main() {
 }
 
 async function fixTable(client, tableName, column, pkColumn) {
-  // Find rows with old MinIO-style /avatars/ URLs
+  // Find rows with old direct MinIO URLs or absolute proxy URLs (anything not starting with relative /api/avatars/)
   const query = `
     SELECT "${pkColumn}", "${column}"
     FROM "${tableName}"
-    WHERE "${column}" LIKE '%/avatars/%'
-      AND "${column}" NOT LIKE '%/api/avatars/%'
+    WHERE ("${column}" LIKE '%/avatars/%' OR "${column}" LIKE '%/api/avatars/%')
+      AND "${column}" NOT LIKE '/api/avatars/%'
       AND "${column}" NOT LIKE '%googleusercontent.com%'
   `;
   

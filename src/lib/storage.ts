@@ -131,7 +131,7 @@ const MINIO_AVATAR_PREFIXES = [
 /**
  * Rewrites any stored MinIO avatar URL to the app-side proxy path.
  *
- * New format:  {APP_URL}/api/avatars/{userId}/avatar.{ext}
+ * New format:  /api/avatars/{userId}/avatar.{ext}
  * Old formats: http://minio:9000/avatars/…  →  /api/avatars/…
  *              https://apivaultr.example.com/avatars/… →  /api/avatars/…
  *
@@ -141,18 +141,25 @@ const MINIO_AVATAR_PREFIXES = [
 export function toPublicUrl(url: string | null | undefined): string | null {
   if (!url) return null;
 
-  const appBase = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-  const AVATAR_PATH_PREFIX = `/avatars/`;
+  // Already relative proxy path — leave as-is
+  if (url.startsWith("/api/avatars/")) return url;
 
-  // Already an app-proxy URL — leave as-is
-  if (url.includes("/api/avatars/")) return url;
+  // If it contains the proxy endpoint as an absolute path, rewrite it to relative
+  if (url.includes("/api/avatars/")) {
+    const match = url.match(/\/api\/avatars\/(.+)$/);
+    if (match) {
+      return `/api/avatars/${match[1]}`;
+    }
+  }
+
+  const AVATAR_PATH_PREFIX = `/avatars/`;
 
   for (const prefix of MINIO_AVATAR_PREFIXES) {
     if (!prefix) continue;
     const full = prefix.replace(/\/$/, "") + AVATAR_PATH_PREFIX;
     if (url.startsWith(full)) {
       const key = url.slice(full.length); // e.g. "userId/avatar.webp"
-      return `${appBase}/api/avatars/${key}`;
+      return `/api/avatars/${key}`;
     }
   }
 
@@ -188,10 +195,8 @@ export async function uploadAvatar(
     })
   );
 
-  // Return the app-proxy URL — browser calls /api/avatars/{key} which fetches
-  // from MinIO server-side using S3 credentials. No public bucket policy needed.
-  const appBase = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-  return `${appBase}/api/avatars/${key}`;
+  // Return the relative app-proxy URL — browser calls /api/avatars/{key} relative to origin.
+  return `/api/avatars/${key}`;
 }
 
 /**
