@@ -31,9 +31,10 @@ async function ensureBucketExists(bucket: string, isPublic = false): Promise<voi
   try {
     await s3.send(new HeadBucketCommand({ Bucket: bucket }));
     bucketReady = true; // already exists
-  } catch (err: any) {
+  } catch (err: unknown) {
     // NotFound error or 404 status indicates bucket does not exist
-    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
+    const error = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+    if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
       try {
         await s3.send(new CreateBucketCommand({ Bucket: bucket }));
         console.log(`[Storage] Created bucket: "${bucket}"`);
@@ -68,7 +69,7 @@ async function ensureBucketExists(bucket: string, isPublic = false): Promise<voi
         })
       );
       console.log(`[Storage] Applied public read policy for bucket: "${bucket}"`);
-    } catch (policyErr) {
+    } catch {
       // Catch silently — some S3-compatible environments restrict PutBucketPolicy
     }
   }

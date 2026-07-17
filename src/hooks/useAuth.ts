@@ -139,7 +139,13 @@ export const useAuth = () => {
   }, []);
 
   const register = useCallback(
-    async (email: string, pass: string, firstName?: string, _username?: string) => {
+    async (
+      email: string,
+      pass: string,
+      firstName?: string,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _username?: string
+    ) => {
       setIsAuthenticating(true);
       setError(null);
       try {
