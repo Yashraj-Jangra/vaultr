@@ -80,9 +80,9 @@ async function ensureBucketExists(bucket: string, isPublic = false): Promise<voi
 //                        Set this to your public-facing domain, e.g. https://api.example.com
 //                        Falls back to MINIO_ENDPOINT if not set (fine for local dev).
 //
-const MINIO_S3_ENDPOINT  = process.env.MINIO_ENDPOINT   ?? "http://localhost:9000";
+const MINIO_S3_ENDPOINT  = process.env.MINIO_ENDPOINT   || "http://localhost:9000";
 export const MINIO_PUBLIC_BASE = (
-  process.env.MINIO_PUBLIC_URL ?? MINIO_S3_ENDPOINT
+  process.env.MINIO_PUBLIC_URL || MINIO_S3_ENDPOINT
 ).replace(/\/$/, ""); // strip trailing slash
 
 // S3 client configured to talk to local MinIO instance
