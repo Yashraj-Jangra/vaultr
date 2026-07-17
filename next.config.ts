@@ -2,12 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async headers() {
-    // Public-facing MinIO URL used in CSP img-src
-    // Use MINIO_PUBLIC_URL if set (production), fall back to MINIO_ENDPOINT (local dev)
-    const minioPublicUrl = (
-      process.env.MINIO_PUBLIC_URL ?? process.env.MINIO_ENDPOINT ?? "http://localhost:9000"
-    ).replace(/\/$/, "");
-
     const csp = [
       "default-src 'self'",
       // Scripts: only self + inline for Next.js hydration
@@ -16,8 +10,11 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       // Fonts: self + Google Fonts CDN
       "font-src 'self' https://fonts.gstatic.com",
-      // Images: self + data URIs + MinIO public bucket + Google avatar CDN
-      `img-src 'self' data: blob: ${minioPublicUrl} https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://lh5.googleusercontent.com https://lh6.googleusercontent.com`,
+      // Images:
+      //   'self'                        — avatars via /api/avatars/ proxy (same domain)
+      //   data: blob:                   — inline images / canvas
+      //   lh[3-6].googleusercontent.com — Google OAuth profile pictures
+      "img-src 'self' data: blob: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://lh5.googleusercontent.com https://lh6.googleusercontent.com",
       // API / SSE connections
       "connect-src 'self'",
       // Media: none needed
