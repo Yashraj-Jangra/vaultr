@@ -116,6 +116,9 @@
 - [x] Dynamically render user profile avatar inside top navigation account dropdown button
 - [x] Built interactive modern cyberpunk branding capsule card in admin layout sidebar
 - [x] Implemented live backend connection diagnostics (DB ping, storage ping, RTT network latency, node timezone location) in admin analytics dashboard
+- [x] Fixed Google OAuth "Provider not found" runtime bug by forwarding OAuth credentials to the docker app container environment
+- [x] Resolved Content Security Policy avatar load blocks by proxying all S3/MinIO avatars through `src/app/api/avatars/[...slug]/route.ts` and adding Google profile image hosts to the CSP whitelist
+- [x] Implemented database migration script to repair legacy direct MinIO URLs to app-relative proxy URLs across all user accounts
 
 ---
 
@@ -123,7 +126,15 @@
 
 | File | Change |
 |------|--------|
-| `src/lib/storage.ts` | Silenced bucket CORS policies, resolved NoSuchBucket on startup, exported bucket constants |
+| `src/lib/storage.ts` | Refined public URLs to use proxy path, decoupled backend S3 endpoint from frontend domain, added URL rewriter |
+| `src/hooks/useAuth.ts` | Added client-side rewriter to `photoURL` session object mapping |
+| `src/app/settings/account/page.tsx` | Added state synchronization effect for async profile loading |
+| `src/app/api/avatars/[...slug]/route.ts` | Created secure avatar file proxy endpoint that retrieves and streams images using server-side S3 client |
+| `scripts/fix-avatar-urls.js` | Created pure Node.js migration script to clean up legacy MinIO URLs across database rows |
+| `next.config.ts` | Updated CSP directives to allow Google avatar CDNs and use origin-relative image loading |
+| `docker-compose.yml` | Added Google OAuth credentials, SMTP variables, and `MINIO_PUBLIC_URL` variable forwarding |
+| `.env` | Configured production `MINIO_PUBLIC_URL` |
+| `.env.example` | Documented and configured internal vs. public MinIO parameters |
 | `src/components/layout/TopBar.tsx` | Dynamic profile photo url image rendering |
 | `src/app/admin/layout.tsx` | Cyberpunk bracket card, SVG mesh network float, exit return trigger |
 | `src/app/admin/analytics/page.tsx` | Custom diagnostics gauges showing active latencies, ping timers, and locations |
@@ -132,13 +143,10 @@
 | `src/app/api/vault/attachments/[id]/route.ts` | Database query adjustments for attachments |
 | `src/app/api/vault/attachments/route.ts` | Attachment metadata file uploads |
 | `src/components/vault/NewEntryDialog.tsx` | Secure file attachments UI integration |
-| `src/app/settings/account/page.tsx` | Avatar profile image uploads |
 | `src/components/vault/PasswordHealth.tsx` | Graceful catch for intercepted HaveIBeenPwned network errors |
 | `Dockerfile` | Updated container boot to run custom programmatic migrations |
-| `docker-compose.yml` | Updated ports and configured app container service |
 | `README.md` | Rewrote Getting Started guide for Docker & Local setup with secret generation steps |
-| `.env.example` | Updated default ports and template variables for Docker container setup |
-| `.env` | Configured connection string, host addresses, and multi-domain instructions |
 | `.github/workflows/docker-publish.yml` | Added GitHub Actions pipeline to compile code and push Docker images to GHCR |
 | `scripts/migrate-production.js` | Created programmatic database migration script in plain JavaScript to prevent esbuild platform mismatch |
+
 

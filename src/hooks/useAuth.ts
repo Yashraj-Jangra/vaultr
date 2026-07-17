@@ -35,6 +35,25 @@ function friendly(err: unknown): string {
   return "Something went wrong. Try again.";
 }
 
+// ─── Avatar URL rewriter (client-side) ────────────────────────────────────────
+// session.user.image may contain old internal MinIO URLs (http://minio:9000/...)
+// or a previous public MinIO domain. Rewrite them to the app proxy path so the
+// browser fetches via /api/avatars/ instead of hitting MinIO directly.
+function rewriteAvatarUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  // Google OAuth avatars — always valid external URLs, leave alone
+  if (url.includes("googleusercontent.com")) return url;
+  // Already using the app proxy — nothing to do
+  if (url.includes("/api/avatars/")) return url;
+  // Any URL whose path contains /avatars/ (old MinIO direct or public-URL format)
+  const match = url.match(/\/avatars\/(.+)$/);
+  if (match) {
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+    return `${appBase}/api/avatars/${match[1]}`;
+  }
+  return url;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 // Expose a shape compatible with what the rest of the app expects.
@@ -65,7 +84,7 @@ export const useAuth = () => {
           uid:         session.user.id,   // alias — keeps old code working
           email:       session.user.email ?? null,
           displayName: session.user.name  ?? null,
-          photoURL:    session.user.image ?? null,
+          photoURL:    rewriteAvatarUrl(session.user.image),
         }
       : null;
   }, [session?.user]);

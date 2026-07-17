@@ -107,6 +107,14 @@ export default function AccountSettingsPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [avatarDragActive, setAvatarDragActive] = useState(false);
 
+  // Sync state with loaded user profile
+  useEffect(() => {
+    if (user) {
+      if (!displayName) setDisplayName(user.displayName ?? "");
+      if (!photoURL) setPhotoURL(user.photoURL ?? "");
+    }
+  }, [user, displayName, photoURL]);
+
   // Storage Stats
   const [storageUsed, setStorageUsed] = useState(0);
   const [storageQuota, setStorageQuota] = useState(104_857_600);
