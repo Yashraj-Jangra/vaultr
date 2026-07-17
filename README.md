@@ -187,11 +187,11 @@ The Admin Panel (`/admin`) is protected and requires an account with the `admin`
 3. Grant admin status to your registered account:
    * **If running in Docker**:
      ```bash
-     docker compose exec app npx tsx make-admin.ts your.email@example.com
+     docker compose exec app node scripts/make-admin.js your.email@example.com
      ```
    * **If running in Local Development**:
      ```bash
-     npx tsx make-admin.ts your.email@example.com
+     node scripts/make-admin.js your.email@example.com
      ```
 4. Log out of your account on the web page, then log back in to refresh your authentication claims.
 5. You can now access the Admin Dashboard at `/admin`.
