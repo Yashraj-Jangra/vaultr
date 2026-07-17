@@ -29,6 +29,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Pre-install Linux Musl SWC native binaries (x64 and arm64)
+        run: |
+          npm install --no-save --os=linux --cpu=x64 @next/swc-linux-x64-musl@16.2.2
+          npm install --no-save --os=linux --cpu=arm64 @next/swc-linux-arm64-musl@16.2.2
+
       - name: Build Next.js app
         run: npm run build
         env:

@@ -6,11 +6,9 @@ ENV NODE_ENV=production
 # Install openssl for DB connectivity
 RUN apk add --no-cache openssl
 
-# Copy package config
+# Copy package config and node_modules pre-installed on the runner
 COPY package*.json ./
-
-# Install only production dependencies natively on the target architecture
-RUN npm ci --omit=dev
+COPY node_modules ./node_modules
 
 # Copy pre-compiled Next.js build assets
 COPY .next ./.next
