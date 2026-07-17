@@ -71,9 +71,23 @@ async function ensureBucketExists(bucket: string, isPublic = false): Promise<voi
   }
 }
 
+// ─── Two separate endpoint references ───────────────────────────────────────
+//
+// MINIO_ENDPOINT       — used by the S3 SDK for server-side operations.
+//                        In Docker this is the internal hostname: http://minio:9000
+//
+// MINIO_PUBLIC_URL     — used when building URLs that are returned to browsers.
+//                        Set this to your public-facing domain, e.g. https://api.example.com
+//                        Falls back to MINIO_ENDPOINT if not set (fine for local dev).
+//
+const MINIO_S3_ENDPOINT  = process.env.MINIO_ENDPOINT   ?? "http://localhost:9000";
+export const MINIO_PUBLIC_BASE = (
+  process.env.MINIO_PUBLIC_URL ?? MINIO_S3_ENDPOINT
+).replace(/\/$/, ""); // strip trailing slash
+
 // S3 client configured to talk to local MinIO instance
 export const s3 = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT ?? "http://localhost:9000",
+  endpoint: MINIO_S3_ENDPOINT,
   region: "us-east-1",          // MinIO requires any string here; value is ignored
   credentials: {
     accessKeyId:     process.env.MINIO_ROOT_USER     ?? "vaultr",
@@ -122,8 +136,8 @@ export async function uploadAvatar(
     })
   );
 
-  // Return the public URL (bucket must be set to public read in MinIO console)
-  return `${process.env.MINIO_ENDPOINT}/${AVATAR_BUCKET}/${key}`;
+  // Return the PUBLIC URL (browser-facing) — NOT the internal S3 endpoint
+  return `${MINIO_PUBLIC_BASE}/${AVATAR_BUCKET}/${key}`;
 }
 
 /**
