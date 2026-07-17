@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
-import { uploadAvatar } from "@/lib/storage";
+import { uploadAvatar, toPublicUrl } from "@/lib/storage";
 import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -117,7 +117,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload to MinIO using the validated extension
-    const avatarUrl = await uploadAvatar(user.id, buffer, mimeType, rawExt);
+    const rawAvatarUrl = await uploadAvatar(user.id, buffer, mimeType, rawExt);
+    // Always rewrite through toPublicUrl in case MINIO_PUBLIC_URL wasn't set at upload time
+    const avatarUrl = toPublicUrl(rawAvatarUrl) ?? rawAvatarUrl;
 
     // Save to user profiles DB table
     await db

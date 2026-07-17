@@ -14,6 +14,7 @@ import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { toPublicUrl } from "@/lib/storage";
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
       id:          user.id,
       email:       user.email,
       displayName: profile.displayName,
-      avatarUrl:   profile.avatarUrl,
+      avatarUrl:   toPublicUrl(profile.avatarUrl),
       role:        profile.role,
       disabled:    profile.disabled,
     });

@@ -108,6 +108,36 @@ ensureBucketExists(ATTACHMENTS_BUCKET, false).catch((e) =>
   console.error(`[Storage] Error initializing attachments bucket:`, e)
 );
 
+// ─── URL rewriter ─────────────────────────────────────────────────────────────
+
+/**
+ * Rewrites any internal MinIO hostname stored in a URL to the public-facing base.
+ *
+ * Handles URLs saved before MINIO_PUBLIC_URL was configured, e.g.:
+ *   http://minio:9000/avatars/…  →  https://api.example.com/avatars/…
+ *   http://localhost:9000/avatars/… →  https://api.example.com/avatars/…
+ *
+ * Safe to call with null / undefined — returns null in that case.
+ * Pass-through for already-public URLs (Google avatars, etc.).
+ */
+const INTERNAL_PREFIXES = [
+  MINIO_S3_ENDPOINT.replace(/\/$/, ""),
+  "http://minio:9000",
+  "http://localhost:9000",
+  "http://localhost:9005",
+];
+
+export function toPublicUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  for (const prefix of INTERNAL_PREFIXES) {
+    if (url.startsWith(prefix)) {
+      return MINIO_PUBLIC_BASE + url.slice(prefix.length);
+    }
+  }
+  return url; // already a public / external URL — leave as-is
+}
+
+
 // ─── Avatars ──────────────────────────────────────────────────────────────────
 
 /**

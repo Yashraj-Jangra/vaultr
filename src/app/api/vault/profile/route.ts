@@ -5,6 +5,7 @@ import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { toPublicUrl } from "@/lib/storage";
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
       lastName: profile?.lastName ?? "",
       phone: profile?.phone ?? "",
       displayName: profile?.displayName ?? "",
-      avatarUrl: profile?.avatarUrl ?? "",
+      avatarUrl: toPublicUrl(profile?.avatarUrl) ?? "",
       lastPasswordChangedAt: profile?.lastPasswordChangedAt ? profile.lastPasswordChangedAt.toISOString() : null,
       newDeviceEmailAlert: profile?.newDeviceEmailAlert ?? true,
       requireVerificationOnNew: profile?.requireVerificationOnNew ?? false,
