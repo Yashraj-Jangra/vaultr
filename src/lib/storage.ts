@@ -27,24 +27,27 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  * If isPublic is true, set bucket policy to allow public reads.
  */
 async function ensureBucketExists(bucket: string, isPublic = false): Promise<void> {
-  let created = false;
+  let bucketReady = false;
   try {
     await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+    bucketReady = true; // already exists
   } catch (err: any) {
     // NotFound error or 404 status indicates bucket does not exist
     if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
       try {
         await s3.send(new CreateBucketCommand({ Bucket: bucket }));
         console.log(`[Storage] Created bucket: "${bucket}"`);
-        created = true;
+        bucketReady = true;
       } catch (createErr) {
         console.error(`[Storage] Failed to automatically create bucket "${bucket}":`, createErr);
       }
     }
   }
 
-  // If public bucket was just created, configure the policy
-  if (isPublic && created) {
+  // Always (re)apply the public-read policy for public buckets.
+  // This ensures existing buckets that were created before the policy was added
+  // also get the correct permissions on container startup.
+  if (isPublic && bucketReady) {
     try {
       const policy = {
         Version: "2012-10-17",
@@ -64,14 +67,15 @@ async function ensureBucketExists(bucket: string, isPublic = false): Promise<voi
           Policy: JSON.stringify(policy),
         })
       );
-      console.log(`[Storage] Configured public read policy for bucket: "${bucket}"`);
+      console.log(`[Storage] Applied public read policy for bucket: "${bucket}"`);
     } catch (policyErr) {
-      // Catch silently to avoid cluttering startup logs on S3-compatible environments with limited permissions
+      // Catch silently — some S3-compatible environments restrict PutBucketPolicy
     }
   }
 }
 
 // ─── Two separate endpoint references ───────────────────────────────────────
+
 //
 // MINIO_ENDPOINT       — used by the S3 SDK for server-side operations.
 //                        In Docker this is the internal hostname: http://minio:9000
