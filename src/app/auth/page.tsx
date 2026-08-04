@@ -256,10 +256,10 @@ export default function AuthPage() {
   const isSignUp = tab === "signup";
 
   return (
-    <div className="min-h-screen flex bg-[var(--bg)] text-[var(--fg)]">
+    <div className="h-screen overflow-hidden flex bg-[var(--bg)] text-[var(--fg)]">
 
       {/* ══════════════════════ LEFT BRAND PANEL ══════════════════════ */}
-      <div className="hidden lg:flex w-[46%] flex-col justify-between p-12 relative overflow-hidden bg-[#080808] border-r border-[var(--border)]">
+      <div className="hidden lg:flex w-[44%] xl:w-[42%] 2xl:w-[40%] shrink-0 h-screen sticky top-0 flex-col justify-between p-12 relative overflow-hidden bg-[#080808] border-r border-[var(--border)]">
         <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{
           backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
           backgroundSize: "40px 40px",
@@ -342,7 +342,7 @@ export default function AuthPage() {
       </div>
 
       {/* ══════════════════════ RIGHT FORM PANEL ══════════════════════ */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 relative overflow-hidden">
+      <div className="flex-1 h-screen overflow-y-auto flex items-center justify-center p-6 sm:p-10 relative">
 
         <div className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none select-none lg:hidden opacity-[0.04]">
           <Image src={lc.illustration} priority alt="" width={192} height={192} className="object-contain w-auto h-auto" style={{ height: "100%", width: "auto" }} />
@@ -507,19 +507,30 @@ export default function AuthPage() {
                 }}
               >
                 {view === "sent" ? (
-                  <div className="space-y-4 animate-auth-success">
-                    <div className="flex flex-col items-center text-center gap-3 py-4">
-                      <div className="w-14 h-14 rounded-2xl bg-emerald-950/50 border border-emerald-900/40 flex items-center justify-center">
-                        <CheckCircle2 className="w-7 h-7 text-emerald-400" />
-                      </div>
-                      <div>
-                        <h2 className="text-[16px] font-semibold text-neutral-100">Check your inbox</h2>
-                        <p className="text-[12px] text-neutral-500 mt-1 leading-relaxed">
-                          Reset link sent to <br /><span className="text-neutral-300 font-medium">{email}</span>
-                        </p>
-                      </div>
+                  <div className="space-y-5 animate-auth-success text-center">
+                    <div className="relative w-full h-[140px] flex justify-center items-center pointer-events-none select-none my-1">
+                      <Image
+                        src="/illustrations/message-sent_iyz6.svg"
+                        alt="Reset link sent"
+                        width={180}
+                        height={180}
+                        priority
+                        className="w-[140px] h-auto object-contain opacity-90 filter drop-shadow(0 10px 20px rgba(0,0,0,0.5))"
+                      />
                     </div>
-                    <AuthBtn onClick={closeForgot} variant="ghost">← Back to sign in</AuthBtn>
+                    <div className="space-y-1.5">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Reset Link Sent
+                      </div>
+                      <h2 className="text-[18px] font-bold text-neutral-100 pt-1">Check your inbox</h2>
+                      <p className="text-[12px] text-neutral-400 leading-relaxed max-w-xs mx-auto">
+                        We&apos;ve sent a password reset link to <br />
+                        <span className="text-neutral-200 font-semibold">{email}</span>
+                      </p>
+                    </div>
+                    <div className="pt-2">
+                      <AuthBtn onClick={closeForgot} variant="ghost">← Back to sign in</AuthBtn>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">

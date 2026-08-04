@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
-import { createTransporter } from "@/lib/emailTemplates";
+import { createTransporter, WRAPPER, getBrandLogoAttachment } from "@/lib/emailTemplates";
 import { db } from "@/db";
 import { user, emailLogs } from "@/db/schema";
 import { auditLog } from "@/lib/auditLog";
@@ -41,8 +41,13 @@ export async function POST(req: NextRequest) {
           from: fromAddress,
           to: u.email,
           subject,
-          html: message.replace(/\n/g, "<br>"),
+          html: WRAPPER(`
+            <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">${subject}</h2>
+            <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:22px 24px;margin-bottom:16px;">
+              <p style="margin:0;font-size:14px;color:#f4f4f5;line-height:1.6;white-space:pre-wrap;">${message}</p>
+            </div>`, "SYSTEM ANNOUNCEMENT"),
           text: message,
+          attachments: getBrandLogoAttachment(),
         });
 
         // Insert success log

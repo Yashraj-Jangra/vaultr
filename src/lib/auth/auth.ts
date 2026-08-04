@@ -61,11 +61,25 @@ export const auth = betterAuth({
   // ── Email + Password ────────────────────────────────────────────────────────
   emailAndPassword: {
     enabled: true,
-    // Always require email verification at the Better Auth level.
-    // The admin panel toggle in configSystem.requireEmailVerification controls
-    // whether new users are auto-verified immediately (toggle OFF) or must click
-    // the email link (toggle ON). See the hooks section below.
     requireEmailVerification: true,
+    async sendResetPassword({ user, url }) {
+      try {
+        const { sendTemplatedEmail } = await import("@/lib/emailTemplates");
+        await sendTemplatedEmail({
+          templateKey: "password_reset",
+          to: user.email,
+          vars: {
+            RESET_URL: url,
+            USER_EMAIL: user.email,
+          },
+        });
+      } catch (err) {
+        console.error("[BetterAuth] Failed to send reset password email:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[DEV] Password reset link for ${user.email}: ${url}`);
+        }
+      }
+    },
   },
 
   // ── Email Verification ───────────────────────────────────────────────────────

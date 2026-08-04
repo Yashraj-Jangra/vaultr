@@ -63,7 +63,9 @@ export interface VaultContextValue {
   folders: string[];
   filteredItems: VaultItem[];
   /** Bulk action on multiple items via a single API call. Returns number of updated items. */
-  batchAction: (action: "trash" | "restore" | "favorite" | "unfavorite" | "move", ids: string[], payload?: string) => Promise<number>;
+  batchAction: (action: "trash" | "restore" | "favorite" | "unfavorite" | "move" | "purge", ids: string[], payload?: string) => Promise<number>;
+  /** Permanently delete all items currently in trash. */
+  emptyTrash: () => Promise<number>;
   /** Add a folder (and its ancestors) to custom persisted folders list. */
   addCustomFolder: (folderPath: string) => void;
   /** Rename a folder across all items that have it. */
@@ -361,7 +363,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchItems]);
 
   const batchAction = useCallback(async (
-    action: "trash" | "restore" | "favorite" | "unfavorite" | "move",
+    action: "trash" | "restore" | "favorite" | "unfavorite" | "move" | "purge",
     ids: string[],
     payload?: string
   ): Promise<number> => {
@@ -374,6 +376,15 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     fetchItems();
     return res.updated ?? 0;
   }, [user, fetchItems]);
+
+  const emptyTrash = useCallback(async (): Promise<number> => {
+    if (!user?.id) return 0;
+    const trashItems = items.filter(i => !!i.deletedAt);
+    if (trashItems.length === 0) return 0;
+    const ids = trashItems.map(i => i.id);
+    const count = await batchAction("purge", ids);
+    return count;
+  }, [user, items, batchAction]);
 
   // ── Custom / empty folders state (persisted per user)
   const CUSTOM_FOLDERS_KEY = user?.id ? `vaultr_custom_folders_${user.id}` : null;
@@ -515,6 +526,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       restoreItem,
       toggleFavorite,
       batchAction,
+      emptyTrash,
       addCustomFolder,
       renameFolder,
       deleteFolder,

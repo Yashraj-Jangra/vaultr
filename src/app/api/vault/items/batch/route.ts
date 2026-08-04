@@ -4,25 +4,26 @@ export const runtime = "nodejs";
  * POST /api/vault/items/batch
  *
  * Executes a bulk action on multiple vault items in a single DB transaction.
- * Replaces the old pattern of N parallel individual PATCH calls.
  *
  * Actions:
- *  - trash    → set deletedAt = now() for all ids
- *  - restore  → set deletedAt = null for all ids
- *  - favorite → set favorite = true for all ids
- *  - unfavorite → set favorite = false for all ids
- *  - move     → set folder = payload for all ids (payload = "" = uncategorized)
+ *  - trash        → set deletedAt = now() for all ids
+ *  - restore      → set deletedAt = null for all ids
+ *  - favorite     → set favorite = true for all ids
+ *  - unfavorite   → set favorite = false for all ids
+ *  - move         → set folder = payload for all ids (payload = "" = uncategorized)
+ *  - purge        → permanently delete items + attachments from S3
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
-import { vaultItems } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { vaultItems, configStats } from "@/db/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import { deleteAttachmentsByVaultItem } from "@/lib/storage";
 import { z } from "zod";
 
 const BatchSchema = z.object({
-  action: z.enum(["trash", "restore", "favorite", "unfavorite", "move"]),
+  action: z.enum(["trash", "restore", "favorite", "unfavorite", "move", "purge"]),
   ids: z.array(z.string().uuid()).min(1).max(500),
   payload: z.string().max(100).optional(), // folder name for "move"
 });
@@ -62,9 +63,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ updated: 0 });
     }
 
+    // Handle Permanent Deletion / Purge
+    if (action === "purge") {
+      // 1. Cascade: delete all S3 attachments for these items
+      await Promise.all(ownedIds.map((id) => deleteAttachmentsByVaultItem(user.id, id).catch(() => {})));
+
+      // 2. Hard delete from DB
+      const deleted = await db
+        .delete(vaultItems)
+        .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, ownedIds)))
+        .returning({ id: vaultItems.id });
+
+      // 3. Decrement global stats counter
+      if (deleted.length > 0) {
+        await db
+          .update(configStats)
+          .set({ totalEntries: sql`GREATEST(0, ${configStats.totalEntries} - ${deleted.length})` })
+          .catch(() => {});
+      }
+
+      return NextResponse.json({ updated: deleted.length });
+    }
+
     const now = new Date();
 
-    // Execute action in a single bulk update
+    // Execute standard bulk update
     let updatePayload: Partial<typeof vaultItems.$inferInsert> = {
       updatedAt: now,
     };

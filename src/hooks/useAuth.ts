@@ -19,19 +19,32 @@ import { authClient } from "@/lib/auth/auth-client";
 // ─── Friendly error messages ──────────────────────────────────────────────────
 
 function friendly(err: unknown): string {
-  if (err && typeof err === "object" && "message" in err) {
-    const msg = (err as { message: string }).message.toLowerCase();
-    if (msg.includes("invalid email") || msg.includes("invalid credentials"))
-      return "Incorrect email or password.";
-    if (msg.includes("user not found"))
-      return "No account with that email.";
-    if (msg.includes("email already"))
-      return "An account with this email already exists.";
-    if (msg.includes("password"))
-      return "Password must be at least 8 characters.";
-    if (msg.includes("network") || msg.includes("fetch"))
-      return "Network error — check your connection.";
+  if (!err) return "An unexpected error occurred.";
+
+  let rawMessage = "";
+  if (typeof err === "string") {
+    rawMessage = err;
+  } else if (typeof err === "object" && "message" in err) {
+    rawMessage = String((err as { message: unknown }).message || "");
+  } else if (typeof err === "object" && "error" in err) {
+    const e = (err as { error: unknown }).error;
+    if (typeof e === "string") rawMessage = e;
+    else if (typeof e === "object" && e && "message" in e) rawMessage = String((e as { message: unknown }).message || "");
   }
+
+  const msg = rawMessage.toLowerCase();
+  if (msg.includes("invalid email") || msg.includes("invalid credentials"))
+    return "Incorrect email or password.";
+  if (msg.includes("user not found"))
+    return "No account found with that email address.";
+  if (msg.includes("email already"))
+    return "An account with this email address already exists.";
+  if (msg.includes("password must be") || msg.includes("password is too short") || msg.includes("password at least") || msg.includes("at least 8"))
+    return "Password must be at least 8 characters.";
+  if (msg.includes("network") || msg.includes("fetch"))
+    return "Network error — check your connection.";
+
+  if (rawMessage.trim()) return rawMessage;
   return "Something went wrong. Try again.";
 }
 
