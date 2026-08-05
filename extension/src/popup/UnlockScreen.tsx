@@ -51,35 +51,54 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
 
   if (isUnauthorized) {
     return (
-      <div className="unlock-wrap" style={{ justifyContent: "center", gap: 24 }}>
+      <div className="unlock-wrap" style={{ justifyContent: "space-between", padding: "24px 20px" }}>
         <div className="unlock-bg-grid" />
         <div className="unlock-bg-radial" />
 
-        <div style={{ textAlign: "center", position: "relative", zIndex: 10 }}>
-          <div className="lock-halo-wrap">
-            <div className="lock-halo" style={{ background: "radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%)" }} />
-            <div className="lock-box" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.02)" }}>
-              <LogIn size={32} className="text-red-400" />
-            </div>
+        {/* Top Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", zIndex: 10, opacity: 0.7 }}>
+          <img
+            src="brand/logo-dark.png"
+            alt="Vaultr"
+            style={{ height: 20, width: "auto", objectFit: "contain" }}
+          />
+        </div>
+
+        {/* Hero Illustration & Text */}
+        <div style={{ textAlign: "center", position: "relative", zIndex: 10, width: "100%", margin: "16px 0" }}>
+          <div style={{ position: "relative", width: "100%", height: 160, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+            <div className="lock-halo" style={{ width: 160, height: 160, background: "radial-gradient(circle, rgba(124,106,250,0.2) 0%, transparent 70%)" }} />
+            <img
+              src="illustrations/authentication_1evl.svg"
+              alt="Sign in required"
+              style={{ width: "100%", height: "100%", maxHeight: 155, objectFit: "contain", position: "relative", zIndex: 10 }}
+            />
           </div>
 
-          <h2 className="unlock-title" style={{ fontSize: 16 }}>Unauthorized</h2>
-          <p className="unlock-email" style={{ color: "var(--neutral-500)", marginTop: 6, padding: "0 12px", fontFamily: "inherit" }}>
-            Please sign in to your Vaultr account in the browser to unlock the extension.
+          <h2 className="unlock-title" style={{ fontSize: 18, fontWeight: 600, color: "var(--neutral-100)", letterSpacing: "-0.02em" }}>
+            Sign in required
+          </h2>
+          <p className="unlock-email" style={{ color: "var(--neutral-400)", fontSize: 12, lineHeight: 1.5, marginTop: 6, padding: "0 8px", fontFamily: "inherit" }}>
+            Your browser session is not authenticated with Vaultr. Please sign in to unlock your end-to-end encrypted passwords.
           </p>
         </div>
 
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, zIndex: 10 }}>
-          <button className="btn btn-primary" style={{ width: "100%", padding: "12px" }} onClick={openLoginPage}>
-            <ExternalLink size={14} style={{ marginRight: 4 }} />
+        {/* Actions */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, zIndex: 10 }}>
+          <button
+            className="btn btn-primary"
+            style={{ width: "100%", height: 44, borderRadius: 12, fontSize: 13, fontWeight: 600, justifyContent: "center", gap: 8 }}
+            onClick={openLoginPage}
+          >
+            <ExternalLink size={15} />
             Open Vaultr & Sign In
           </button>
           <button
             className="btn btn-ghost"
-            style={{ width: "100%", padding: "10px" }}
+            style={{ width: "100%", height: 38, borderRadius: 10, fontSize: 12, color: "var(--neutral-500)" }}
             onClick={() => { setIsUnauthorized(false); setError(""); }}
           >
-            ← Back
+            ← Back to unlock
           </button>
         </div>
       </div>

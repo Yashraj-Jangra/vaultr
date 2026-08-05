@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { VaultItem } from "@vaultr/core";
+import { VaultItem, isWebPageUrl } from "@vaultr/core";
 import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
@@ -105,17 +105,32 @@ export function App() {
       });
     });
 
-  const handleDecryptItem = (encryptedBlob: string, itemId?: string): Promise<any> =>
+  const handleDecryptItem = (encryptedBlobOrItem: string | { id?: string; encryptedBlob?: string }, itemId?: string): Promise<any> =>
     new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ type: "DECRYPT_ITEM", encryptedBlob, itemId }, (res) => {
-        if (res?.payload) resolve(res.payload);
-        else reject(new Error(res?.error || "Failed to decrypt"));
+      let blob = "";
+      let id = itemId;
+
+      if (typeof encryptedBlobOrItem === "object" && encryptedBlobOrItem !== null) {
+        blob = encryptedBlobOrItem.encryptedBlob || "";
+        id = encryptedBlobOrItem.id || itemId;
+      } else {
+        blob = encryptedBlobOrItem;
+      }
+
+      chrome.runtime.sendMessage({ type: "DECRYPT_ITEM", encryptedBlob: blob, itemId: id }, (res) => {
+        const payload = res?.decrypted ?? res?.payload;
+        if (payload) {
+          resolve(payload);
+        } else {
+          reject(new Error(res?.error || "Failed to decrypt item"));
+        }
       });
     });
 
   const handleAutofill = (cred: { username?: string; password?: string }) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]?.id) return;
+      if (!tabs[0]?.id || !tabs[0]?.url) return;
+      if (!isWebPageUrl(tabs[0].url)) return;
       chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred });
     });
     window.close();

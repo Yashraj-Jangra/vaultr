@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Server, Lock, Info, Check, ExternalLink, ChevronRight } from "lucide-react";
+import { Lock, Info, ExternalLink, ChevronRight } from "lucide-react";
 import { AccountInfo } from "./App";
 
 interface SettingsScreenProps {
@@ -13,7 +13,6 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [url, setUrl] = useState(serverUrl);
   const [saved, setSaved] = useState(false);
   
-  // Local settings persisted via chrome.storage.local
   const [autofillEnabled, setAutofillEnabled] = useState(true);
   const [autofillSubmit, setAutofillSubmit] = useState(false);
   const [autoLockMinutes, setAutoLockMinutes] = useState("15");
@@ -50,9 +49,8 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.set({ autolock_minutes: val });
     }
-    // Inform background script of auto-lock changes
     if (typeof chrome !== "undefined" && chrome.runtime) {
-      chrome.runtime.sendMessage({ type: "SET_AUTO_LOCK", minutes: Number(val) });
+      chrome.runtime.sendMessage({ type: "SET_AUTO_LOCK", minutes: val });
     }
   };
 
@@ -80,37 +78,64 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     : "VA";
 
   return (
-    <div className="screen-body">
+    <div className="screen-body" style={{ padding: "8px 16px" }}>
 
-      {/* Account Info */}
+      {/* Account Info - Circular Profile Avatar & Manage Account Button */}
       <div className="settings-section">
-        <div className="settings-section-title">Account</div>
+        <div className="settings-section-title">ACCOUNT</div>
         <div
-          className="account-card"
           onClick={() => openSite("/settings")}
-          style={{ marginBottom: 8 }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            padding: "8px 4px",
+            cursor: "pointer"
+          }}
         >
           {accountInfo.image ? (
-            <div className="avatar-circle" style={{ width: 36, height: 36, borderRadius: 10 }}>
-              <img src={accountInfo.image} alt="" />
-            </div>
+            <img
+              src={accountInfo.image}
+              alt=""
+              style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+            />
           ) : (
-            <div className="account-avatar">{initials}</div>
+            <div
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: "50%",
+                background: "#1c1c1e",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 15,
+                fontWeight: 700,
+                color: "var(--neutral-200)",
+                flexShrink: 0,
+                letterSpacing: "-0.5px"
+              }}
+            >
+              {initials}
+            </div>
           )}
-          <div className="account-meta">
-            <div className="account-name">
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div className="account-name" style={{ fontSize: 14, fontWeight: 600, color: "var(--neutral-100)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {accountInfo.name || accountInfo.email || "Vaultr User"}
             </div>
             {accountInfo.email && (
-              <div className="account-email">{accountInfo.email}</div>
+              <div className="account-email" style={{ fontSize: 12, color: "var(--neutral-500)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                {accountInfo.email}
+              </div>
             )}
           </div>
-          <ChevronRight size={14} style={{ color: "var(--neutral-600)" }} />
+          <ChevronRight size={16} style={{ color: "var(--neutral-600)", flexShrink: 0 }} />
         </div>
 
         <button
           className="btn btn-ghost"
-          style={{ width: "100%", justifyContent: "center", fontSize: 12, padding: "8px" }}
+          style={{ width: "100%", height: 36, justifyContent: "center", fontSize: 12, borderRadius: 10, marginTop: 10 }}
           onClick={() => openSite("/settings")}
         >
           <ExternalLink size={13} style={{ marginRight: 4 }} />
@@ -120,7 +145,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
       {/* Autofill Preferences */}
       <div className="settings-section">
-        <div className="settings-section-title">Autofill</div>
+        <div className="settings-section-title">AUTOFILL PREFERENCES</div>
 
         <div className="settings-row">
           <div>
@@ -137,10 +162,10 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           </label>
         </div>
 
-        <div className="settings-row">
+        <div className="settings-row" style={{ marginTop: 4 }}>
           <div>
-            <div className="settings-row-label">Auto-submit after fill</div>
-            <div className="settings-row-sub">Automatically submit login forms</div>
+            <div className="settings-row-label">Auto-submit form</div>
+            <div className="settings-row-sub">Automatically submit form after fill</div>
           </div>
           <label className="toggle">
             <input
@@ -153,32 +178,34 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         </div>
       </div>
 
-      {/* Security Actions */}
+      {/* Security & Auto-Lock */}
       <div className="settings-section">
-        <div className="settings-section-title">Security</div>
+        <div className="settings-section-title">SECURITY & TIMEOUTS</div>
 
-        <div className="settings-row" style={{ marginBottom: 8 }}>
+        <div className="settings-row" style={{ marginBottom: 12 }}>
           <div>
             <div className="settings-row-label">Auto-lock timeout</div>
-            <div className="settings-row-sub">Lock vault when inactive</div>
+            <div className="settings-row-sub">Lock vault automatically</div>
           </div>
           <select
             className="form-select"
-            style={{ width: "auto", fontSize: 12, padding: "6px 10px" }}
+            style={{ width: "auto", fontSize: 12, padding: "6px 10px", background: "#0d0d0d", borderRadius: 10 }}
             value={autoLockMinutes}
             onChange={(e) => handleAutolockChange(e.target.value)}
           >
-            <option value="5">5 min</option>
-            <option value="15">15 min</option>
-            <option value="30">30 min</option>
+            <option value="5">5 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
             <option value="60">1 hour</option>
+            <option value="browser_close">On browser close</option>
+            <option value="device_logout">On device logout</option>
             <option value="0">Never</option>
           </select>
         </div>
 
         <button
           className="btn btn-danger"
-          style={{ width: "100%", justifyContent: "center", padding: "10px" }}
+          style={{ width: "100%", height: 38, justifyContent: "center", borderRadius: 10, fontSize: 12, fontWeight: 500 }}
           onClick={onLock}
         >
           <Lock size={13} style={{ marginRight: 4 }} />
@@ -186,25 +213,24 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         </button>
       </div>
 
-      {/* Connection & Server URL */}
+      {/* Server Connection */}
       <div className="settings-section">
-        <div className="settings-section-title">Connection</div>
+        <div className="settings-section-title">SERVER CONNECTION</div>
         <form onSubmit={handleSaveUrl}>
           <div className="form-group" style={{ marginBottom: 8 }}>
-            <label className="form-label">Vaultr Server URL</label>
-            <div className="server-input-row">
+            <div className="server-input-row" style={{ display: "flex", gap: 6 }}>
               <input
                 type="text"
                 className="form-input"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="http://localhost:3000"
-                style={{ fontSize: 12 }}
+                style={{ flex: 1, height: 38, fontSize: 12, background: "#0d0d0d", borderRadius: 10 }}
               />
               <button
                 type="submit"
                 className={`btn btn-primary${saved ? " btn-success" : ""}`}
-                style={{ padding: "8px 12px" }}
+                style={{ height: 38, padding: "0 14px", borderRadius: 10, fontSize: 12 }}
               >
                 {saved ? "Saved" : "Save"}
               </button>
@@ -214,7 +240,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
         <button
           className="btn btn-ghost"
-          style={{ width: "100%", justifyContent: "center", fontSize: 12 }}
+          style={{ width: "100%", height: 36, justifyContent: "center", fontSize: 12, borderRadius: 10, marginTop: 4 }}
           onClick={() => openSite()}
         >
           <ExternalLink size={12} style={{ marginRight: 4 }} />
@@ -222,17 +248,18 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         </button>
       </div>
 
-      {/* About Box */}
-      <div className="settings-section" style={{ borderBottom: "none" }}>
-        <div className="info-row" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px" }}>
-          <Info size={14} style={{ color: "var(--neutral-500)" }} />
-          <span style={{ color: "var(--neutral-400)" }}>
+      {/* About Section */}
+      <div className="settings-section" style={{ borderBottom: "none", paddingTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <Info size={14} style={{ color: "var(--neutral-500)", marginTop: 2, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
             <strong style={{ color: "var(--neutral-200)" }}>Vaultr Extension v1.0.0</strong>
             <br />
             Zero-knowledge AES-256-GCM client-side encryption. Your master password never leaves your device.
           </span>
         </div>
       </div>
+
     </div>
   );
 }

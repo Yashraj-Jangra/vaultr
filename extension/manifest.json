@@ -4,9 +4,21 @@
   "short_name": "Vaultr",
   "version": "1.0.0",
   "description": "Self-hosted, end-to-end encrypted password manager browser extension.",
+  "icons": {
+    "16": "brand/lock-brand-dark.png",
+    "32": "brand/lock-brand-dark.png",
+    "48": "brand/lock-brand-dark.png",
+    "128": "brand/lock-brand-dark.png"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Vaultr"
+    "default_title": "Vaultr",
+    "default_icon": {
+      "16": "brand/lock-brand-dark.png",
+      "32": "brand/lock-brand-dark.png",
+      "48": "brand/lock-brand-dark.png",
+      "128": "brand/lock-brand-dark.png"
+    }
   },
   "background": {
     "service_worker": "background.js",
@@ -29,5 +41,11 @@
   "host_permissions": [
     "http://*/*",
     "https://*/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["brand/*", "illustrations/*"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }
