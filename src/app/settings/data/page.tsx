@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useRef, ChangeEvent } from "react";
+import React, { useState, useRef, useEffect, ChangeEvent } from "react";
 import Papa from "papaparse";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
+import { useCrypto, deriveKey } from "@/hooks/useCrypto";
 import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -17,6 +18,8 @@ import {
   Loader2,
   ShieldAlert,
   Database,
+  Clock,
+  Lock,
 } from "lucide-react";
 import type { DecryptedPayload } from "@/app/vault/page";
 
@@ -118,11 +121,32 @@ export default function DataSettingsPage() {
 
   // Danger zone state
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [masterPasswordInput, setMasterPasswordInput] = useState("");
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteMsg, setDeleteMsg] = useState({ text: "", ok: true });
   const [accountDeleteMsg, setAccountDeleteMsg] = useState({ text: "", ok: true });
+
+  const [scheduledDeleteAt, setScheduledDeleteAt] = useState<string | null>(null);
+  const [fetchingSchedule, setFetchingSchedule] = useState(true);
+
+  const { decrypt } = useCrypto();
+
+  const fetchScheduleStatus = async () => {
+    try {
+      const res = await fetch("/api/vault/schedule-delete");
+      if (res.ok) {
+        const data = await res.json();
+        setScheduledDeleteAt(data.scheduledDeleteAt);
+      }
+    } catch { /* ignore */ }
+    finally { setFetchingSchedule(false); }
+  };
+
+  useEffect(() => {
+    if (user?.id) fetchScheduleStatus();
+  }, [user?.id]);
 
   const liveItems = items.filter((i) => !i.deletedAt);
 
@@ -283,17 +307,64 @@ export default function DataSettingsPage() {
 
   // ─── Deletion ────────────────────────────────────────────────────
 
-  const handleDeleteVault = async () => {
-    if (deleteConfirm !== "DELETE" || !user?.uid) return;
+  const handleScheduleDeleteVault = async () => {
+    if (deleteConfirm !== "DELETE" || !masterPasswordInput || !user?.id) return;
     setDeleting(true);
     setDeleteMsg({ text: "", ok: true });
     try {
-      const res = await fetch("/api/vault/items", { method: "DELETE" });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to clear vault data");
+      // 1. Double-gate: Verify Master Password
+      if (items.length > 0) {
+        try {
+          const derived = await deriveKey(masterPasswordInput, user.id);
+          await decrypt(derived, items[0].encryptedBlob);
+        } catch {
+          throw new Error("Wrong master password. Unable to schedule vault deletion.");
+        }
+      }
+
+      // 2. Schedule deletion
+      const res = await fetch("/api/vault/schedule-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to schedule vault deletion");
+
+      setScheduledDeleteAt(data.scheduledDeleteAt);
       setDeleteConfirm("");
-      setDeleteMsg({ text: `All vault data deleted successfully.`, ok: true });
+      setMasterPasswordInput("");
+      setDeleteMsg({ text: "Vault deletion scheduled for 24 hours from now. An alert email was dispatched.", ok: true });
     } catch (err) {
-      setDeleteMsg({ text: (err as Error).message || "Delete failed.", ok: false });
+      setDeleteMsg({ text: (err as Error).message || "Scheduling failed.", ok: false });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelScheduledDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/vault/schedule-delete", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to cancel scheduled deletion");
+      setScheduledDeleteAt(null);
+      setDeleteMsg({ text: "Scheduled vault deletion canceled.", ok: true });
+    } catch (err) {
+      setDeleteMsg({ text: (err as Error).message || "Cancel failed.", ok: false });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleExecuteWipe = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/vault/items", { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to execute vault wipe");
+      setScheduledDeleteAt(null);
+      setDeleteMsg({ text: "All vault items permanently deleted.", ok: true });
+    } catch (err) {
+      setDeleteMsg({ text: (err as Error).message || "Wipe failed.", ok: false });
     } finally {
       setDeleting(false);
     }
@@ -450,18 +521,69 @@ export default function DataSettingsPage() {
           <FieldBox className="border-red-900/30 bg-red-950/10">
             <div className="space-y-5 max-w-md">
               <div className="space-y-1">
-                <h3 className="text-[13px] font-semibold text-red-500 flex items-center gap-2"><Database className="w-3.5 h-3.5" /> Delete Vault Data</h3>
-                <p className="text-[12px] text-red-500/70">Wipe all {liveItems.length} item(s) from your vault. Your account remains.</p>
+                <h3 className="text-[13px] font-semibold text-red-500 flex items-center gap-2">
+                  <Database className="w-3.5 h-3.5" /> Delete Vault Data
+                </h3>
+                <p className="text-[12px] text-red-500/70">
+                  Wipe all {liveItems.length} item(s) from your vault. Your account remains.
+                </p>
               </div>
-              <div className="space-y-3">
-                <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder='Type "DELETE" to confirm' className="font-mono bg-red-950/20 border-red-900/40 text-red-400 focus:border-red-500/50" />
-                <div className="flex items-center gap-4">
-                  <Button onClick={handleDeleteVault} variant="danger" disabled={deleteConfirm !== "DELETE" || deleting}>
-                    {deleting ? "Deleting…" : "Delete Vault Data"}
-                  </Button>
-                  <StatusMsg {...deleteMsg} />
+
+              {scheduledDeleteAt ? (
+                <div className="space-y-4 p-4 border border-amber-900/50 bg-amber-950/20 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-[13px] font-semibold text-amber-200">
+                        {new Date() >= new Date(scheduledDeleteAt)
+                          ? "24-Hour Cooldown Elapsed"
+                          : "Vault Deletion Scheduled"}
+                      </p>
+                      <p className="text-[12px] text-amber-400/80 leading-relaxed">
+                        {new Date() >= new Date(scheduledDeleteAt)
+                          ? "The 24-hour waiting period has completed. You may now permanently wipe all vault data."
+                          : `Scheduled for ${new Date(scheduledDeleteAt).toLocaleString()}. An alert email was dispatched. You can cancel this request anytime before the timer completes.`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-1">
+                    {new Date() >= new Date(scheduledDeleteAt) && (
+                      <Button onClick={handleExecuteWipe} variant="danger" disabled={deleting}>
+                        {deleting ? "Executing Wipe…" : "Execute Final Vault Wipe"}
+                      </Button>
+                    )}
+                    <Button onClick={handleCancelScheduledDelete} variant="default" disabled={deleting}>
+                      {deleting ? "Canceling…" : "Cancel Deletion Request"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  <Input
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder='Type "DELETE" to confirm'
+                    className="font-mono bg-red-950/20 border-red-900/40 text-red-400 focus:border-red-500/50"
+                  />
+                  <Input
+                    type="password"
+                    value={masterPasswordInput}
+                    onChange={(e) => setMasterPasswordInput(e.target.value)}
+                    placeholder="Enter Master Password to confirm"
+                    className="bg-red-950/20 border-red-900/40 text-neutral-200 focus:border-red-500/50"
+                  />
+                  <div className="flex items-center gap-4 pt-1">
+                    <Button
+                      onClick={handleScheduleDeleteVault}
+                      variant="danger"
+                      disabled={deleteConfirm !== "DELETE" || !masterPasswordInput || deleting}
+                    >
+                      {deleting ? "Scheduling…" : "Schedule Vault Deletion (24h Delay)"}
+                    </Button>
+                    <StatusMsg {...deleteMsg} />
+                  </div>
+                </div>
+              )}
             </div>
           </FieldBox>
 
