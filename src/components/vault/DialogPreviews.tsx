@@ -247,21 +247,53 @@ function AddressLabelPreview({ name, line1, line2, city, state, zip, country }: 
   );
 }
 
-function ProfileBadgePreview({ name, fullName, email, phone }: { name: string; fullName: string; email: string; phone: string }) {
+function ProfileBadgePreview({ name, fullName, email, phone, dob, idNumber }: { name: string; fullName: string; email: string; phone: string; dob?: string; idNumber?: string }) {
   return (
-    <div className="w-full max-w-[440px] mx-auto aspect-[1.586/1] rounded-2xl bg-gradient-to-b from-[var(--surface)] to-[var(--bg)] border border-[var(--border)] p-6 flex items-center gap-4 shadow-lg relative overflow-hidden select-none">
-
-
-      <div className="w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-center shrink-0 shadow-inner relative z-10">
-        <User className="w-8 h-8 text-[var(--fg-muted)]" />
-      </div>
-      <div className="min-w-0 flex-1 space-y-1.5 relative z-10">
-        <div className="text-[8px] uppercase font-bold text-[var(--accent)] tracking-widest">Verification Profile</div>
-        <div className="text-sm font-bold text-[var(--fg)] truncate max-w-[180px]">{fullName || name || "Identity Profile"}</div>
-        <div className="space-y-0.5 text-[10px] text-[var(--fg-muted)] font-mono">
-          <div className="truncate max-w-[180px]">{email || "email@domain.com"}</div>
-          <div className="truncate max-w-[180px]">{phone || "Phone Number"}</div>
+    <div className="w-full max-w-[440px] mx-auto aspect-[1.586/1] rounded-2xl bg-gradient-to-b from-[#111115] to-[#070709] border border-neutral-800/80 p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden select-none">
+      {/* Accent left border glow */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[var(--accent)] to-purple-600" />
+      
+      {/* Background security emblem vector illustration */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/illustrations/personal-settings_8xv3.svg" className="absolute -right-6 -bottom-6 w-36 h-36 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
+      
+      {/* Top row: Chip and Title */}
+      <div className="flex justify-between items-start relative z-10 w-full">
+        <div className="space-y-1">
+          <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-widest font-mono">SECURE ACCESS BADGE</div>
+          <div className="text-sm font-bold text-neutral-100 truncate max-w-[220px]">{fullName || name || "Identity Profile"}</div>
         </div>
+        
+        {/* EMV Microchip graphic representation */}
+        <div className="w-9 h-7 rounded bg-gradient-to-br from-amber-400 via-amber-300 to-yellow-600 border border-yellow-700/30 opacity-80 flex flex-col justify-between p-1 shadow-md shrink-0">
+          <div className="grid grid-cols-3 gap-0.5 h-full opacity-60">
+            <div className="border-r border-b border-yellow-950/40" />
+            <div className="border-r border-b border-yellow-950/40" />
+            <div className="border-b border-yellow-950/40" />
+            <div className="border-r border-yellow-950/40" />
+            <div className="border-r border-yellow-950/40" />
+            <div className="border-yellow-950/40" />
+          </div>
+        </div>
+      </div>
+
+      {/* Middle row: Avatar/Icon and Details */}
+      <div className="flex items-center gap-4 relative z-10 mt-2 mb-2">
+        <div className="w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center shrink-0 shadow-inner relative">
+          <User className="w-6 h-6 text-neutral-400" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-neutral-950" title="Identity Verified" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-0.5 text-[10px] text-neutral-400 font-mono">
+          <div className="truncate max-w-[240px]"><span className="text-neutral-600 uppercase text-[9px] mr-1">EMAIL:</span>{email || "email@domain.com"}</div>
+          <div className="truncate max-w-[240px]"><span className="text-neutral-600 uppercase text-[9px] mr-1">PHONE:</span>{phone || "Phone Number"}</div>
+          {dob && <div className="truncate max-w-[240px]"><span className="text-neutral-600 uppercase text-[9px] mr-1">DOB:</span>{dob}</div>}
+        </div>
+      </div>
+
+      {/* Bottom row: security metadata */}
+      <div className="flex items-center justify-between text-[8px] font-mono border-t border-neutral-900 pt-2.5 relative z-10 text-neutral-600">
+        <span>AES-256 ENCRYPTED IDENTITY</span>
+        <span className="text-[9px] text-[var(--accent)] font-semibold uppercase tracking-wider">{idNumber ? "ID: " + idNumber : "VAULTR PASS"}</span>
       </div>
     </div>
   );
@@ -291,7 +323,7 @@ function NotePaperPreview({ name, note }: { name: string; note: string }) {
   );
 }
 
-export function DynamicPreviewCanvas({ template, name, username, url, line1, line2, city, state, zip, country, fullName, email, phone, note, cardName, cardNumber, expiry, cardBrand, fallbackBrand }: any) {
+export function DynamicPreviewCanvas({ template, name, username, url, line1, line2, city, state, zip, country, fullName, email, phone, dob, idNumber, note, cardName, cardNumber, expiry, cardBrand, fallbackBrand }: any) {
   if (template === "login") {
     return <LoginKeycardPreview name={name} username={username} url={url} />;
   }
@@ -302,7 +334,7 @@ export function DynamicPreviewCanvas({ template, name, username, url, line1, lin
     return <AddressLabelPreview name={name} line1={line1} line2={line2} city={city} state={state} zip={zip} country={country} />;
   }
   if (template === "profile") {
-    return <ProfileBadgePreview name={name} fullName={fullName} email={email} phone={phone} />;
+    return <ProfileBadgePreview name={name} fullName={fullName} email={email} phone={phone} dob={dob} idNumber={idNumber} />;
   }
   if (template === "note") {
     return <NotePaperPreview name={name} note={note} />;

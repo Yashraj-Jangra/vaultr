@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -15,12 +16,15 @@ import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
   CreditCard, User, FileText, Lock, Plus, Minus, X, Wand2, Inbox, Shield, Star, Edit2, LayoutList, LayoutGrid,
-  ShieldCheck, Mail,
+  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus,
 } from "lucide-react";
+import { buildFolderTree, FolderNode } from "@/components/layout/Sidebar";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 import { PasswordHealth } from "@/components/vault/PasswordHealth";
 import { NewEntryDialog } from "@/components/vault/NewEntryDialog";
+import { FolderSelect } from "@/components/vault/FolderSelect";
 import { DetailedCardVisual } from "@/components/vault/DialogPreviews";
+import { ConfirmDeleteModal } from "@/components/vault/ConfirmDeleteModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,33 +113,51 @@ function extractDomain(url: string): string {
   }
 }
 
-const TEMPLATE_META: Record<Template, { label: string; icon: React.ReactNode }> = {
-  login: { label: "Login", icon: <Lock className="w-3.5 h-3.5" /> },
-  card: { 
-    label: "Credit Card", 
+const TEMPLATE_META: Record<Template, { label: string; icon: React.ReactNode; badgeClass: string; iconBg: string }> = {
+  login: {
+    label: "Login",
+    icon: <Lock className="w-3.5 h-3.5" />,
+    badgeClass: "text-indigo-400 bg-indigo-950/60 border-indigo-900/50",
+    iconBg: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
+  },
+  card: {
+    label: "Card",
     icon: (
       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
         <line x1="1" y1="10" x2="23" y2="10" />
       </svg>
-    ) 
+    ),
+    badgeClass: "text-violet-400 bg-violet-950/60 border-violet-900/50",
+    iconBg: "bg-violet-500/10 border-violet-500/20 text-violet-400",
   },
-  address: { 
-    label: "Address", 
-    icon: (
-      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="3 11 22 2 13 21 11 13 3 11" />
-      </svg>
-    ) 
-  },
-  profile: { label: "Profile", icon: <User className="w-3.5 h-3.5" /> },
-  note: { 
-    label: "Secure Note", 
+  address: {
+    label: "Address",
     icon: (
       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+        <circle cx="12" cy="10" r="3" />
       </svg>
-    ) 
+    ),
+    badgeClass: "text-emerald-400 bg-emerald-950/60 border-emerald-900/50",
+    iconBg: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+  },
+  profile: {
+    label: "Profile",
+    icon: <User className="w-3.5 h-3.5" />,
+    badgeClass: "text-sky-400 bg-sky-950/60 border-sky-900/50",
+    iconBg: "bg-sky-500/10 border-sky-500/20 text-sky-400",
+  },
+  note: {
+    label: "Note",
+    icon: (
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+    ),
+    badgeClass: "text-amber-400 bg-amber-950/60 border-amber-900/50",
+    iconBg: "bg-amber-500/10 border-amber-500/20 text-amber-400",
   },
 };
 
@@ -252,9 +274,11 @@ interface NewEntryFormProps {
 }
 
 function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormProps) {
+  const searchParams = useSearchParams();
+  const currentNavFolder = searchParams?.get("folder") ?? "";
   const [template, setTemplate] = useState<Template>(initialData?.template || "login");
   const [name, setName] = useState(initialData?.name || "");
-  const [folder, setFolder] = useState(initialData?.folder || "");
+  const [folder, setFolder] = useState(initialData?.folder || currentNavFolder || "");
   const [newFolder, setNewFolder] = useState("");
   const [tags, setTags] = useState<string>(initialData?.tags?.join(", ") || "");
   const [saving, setSaving] = useState(false);
@@ -419,16 +443,7 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Folder</span>
-            <Select
-              value={folder}
-              onChange={setFolder}
-              options={[
-                { value: "", label: "No folder" },
-                ...folders.map(f => ({ value: f, label: f, icon: <Folder className="w-3.5 h-3.5" /> })),
-                { value: "__new__", label: "+ New folder…", divider: folders.length > 0 },
-              ]}
-              placeholder="No folder"
-            />
+            <FolderSelect value={folder} onChange={setFolder} folders={folders} />
           </div>
           <div className="space-y-1.5">
             <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Tags</span>
@@ -813,84 +828,53 @@ function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
 
 function getItemIcon(item: VaultItem) {
   const template = item.template || "login";
-  
+  const meta = TEMPLATE_META[template as Template];
+
   if (template === "card") {
     const nameLower = item.name.toLowerCase();
-    let isVisa = nameLower.includes("visa");
-    let isMastercard = nameLower.includes("mastercard") || nameLower.includes("master card") || nameLower.includes("mc");
-    let isAmex = nameLower.includes("amex") || nameLower.includes("american express");
-    let isDiscover = nameLower.includes("discover");
+    const isVisa = nameLower.includes("visa");
+    const isMastercard = nameLower.includes("mastercard") || nameLower.includes("master card") || nameLower.includes(" mc");
+    const isAmex = nameLower.includes("amex") || nameLower.includes("american express");
+    const isDiscover = nameLower.includes("discover");
 
+    let cardBadge: React.ReactNode;
     if (isVisa) {
-      return (
-        <div className="w-7 h-5 rounded bg-blue-700 flex items-center justify-center text-[7px] font-black text-white italic tracking-tighter shadow-sm border border-blue-600 select-none shrink-0">
-          VISA
+      cardBadge = <div className="text-[7.5px] font-black text-violet-300 italic tracking-tighter">VISA</div>;
+    } else if (isMastercard) {
+      cardBadge = (
+        <div className="flex items-center gap-px">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-90" />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 opacity-90 -ml-1.5" />
         </div>
       );
+    } else if (isAmex) {
+      cardBadge = <div className="text-[6.5px] font-bold text-violet-300">AMEX</div>;
+    } else if (isDiscover) {
+      cardBadge = <div className="text-[6.5px] font-extrabold text-amber-300">DISC</div>;
+    } else {
+      cardBadge = meta.icon;
     }
-    if (isMastercard) {
-      return (
-        <div className="w-7 h-5 rounded bg-[#1c1917] flex items-center justify-center gap-0.5 shadow-sm border border-neutral-800 relative select-none shrink-0">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-90 translate-x-0.5" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 opacity-90 -translate-x-0.5" />
-        </div>
-      );
-    }
-    if (isAmex) {
-      return (
-        <div className="w-7 h-5 rounded bg-sky-700 flex items-center justify-center text-[6px] font-bold text-white shadow-sm border border-sky-600 select-none shrink-0">
-          AMEX
-        </div>
-      );
-    }
-    if (isDiscover) {
-      return (
-        <div className="w-7 h-5 rounded bg-orange-700 flex items-center justify-center text-[6px] font-extrabold text-white shadow-sm border border-orange-600 select-none shrink-0">
-          DISC
-        </div>
-      );
-    }
-    // Generic sleek card icon
+
     return (
-      <div className="w-7 h-5 rounded bg-neutral-900 border border-neutral-700 relative shadow-sm flex items-center p-0.5 select-none shrink-0">
-        <div className="w-1 h-1 rounded bg-amber-500 absolute left-0.5 top-1.5" />
-        <div className="w-2 h-1 border border-neutral-600 absolute right-0.5 bottom-0.5 rounded-sm" />
+      <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${meta.iconBg}`}>
+        {cardBadge}
       </div>
     );
   }
 
-  if (template === "profile") {
+  if (template === "login") {
     return (
-      <div className="w-7 h-7 rounded-full bg-indigo-950/40 border border-indigo-900/40 flex items-center justify-center text-indigo-400 shrink-0">
-        <User className="w-3.5 h-3.5" />
+      <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
+        <SiteIcon domain={item.domain} name={item.name} size={32} />
       </div>
     );
   }
 
-  if (template === "note") {
-    return (
-      <div className="w-7 h-7 rounded-lg bg-teal-950/40 border border-teal-900/40 flex items-center justify-center text-teal-400 relative shrink-0">
-        <FileText className="w-3.5 h-3.5" />
-        <div className="absolute -bottom-0.5 -right-0.5 bg-neutral-950 rounded-full p-0.5 border border-teal-900">
-          <svg className="w-1.5 h-1.5 text-teal-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-          </svg>
-        </div>
-      </div>
-    );
-  }
-
-  if (template === "address") {
-    return (
-      <div className="w-7 h-7 rounded-lg bg-emerald-950/40 border border-emerald-900/40 flex items-center justify-center text-emerald-400 shrink-0">
-        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="3 11 22 2 13 21 11 13 3 11" />
-        </svg>
-      </div>
-    );
-  }
-
-  return <SiteIcon domain={item.domain} name={item.name} />;
+  return (
+    <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${meta.iconBg}`}>
+      {meta.icon}
+    </div>
+  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -919,6 +903,7 @@ export default function VaultPage() {
     setIsNewEntryOpen,
     saveItem,
     updateItem,
+    batchAction,
   } = useVault();
 
   const [masterPassword, setMasterPassword] = useState("");
@@ -964,6 +949,8 @@ export default function VaultPage() {
   // Bulk / Sort state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<"createdAt" | "updatedAt" | "name">("createdAt");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkConfirmTrash, setBulkConfirmTrash] = useState(false);
   const isSelectionMode = selectedIds.size > 0;
 
   const [viewMode, setViewModeState] = useState<"list" | "grid">("list");
@@ -982,6 +969,24 @@ export default function VaultPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIds(new Set());
   }, [activeFolder, activeFilter, activeTag, activeType]);
+
+  // Keyboard shortcuts for bulk selection mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSelectionMode) {
+        setSelectedIds(new Set());
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && isSelectionMode && !bulkBusy) {
+        // Only if not in an input
+        const tag = (document.activeElement as HTMLElement)?.tagName;
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+          if (activeFilter !== "trash") setBulkConfirmTrash(true);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isSelectionMode, bulkBusy, activeFilter]);
 
   const [defaultTemplate, setDefaultTemplate] = useState<Template>("login");
 
@@ -1068,6 +1073,8 @@ export default function VaultPage() {
     }
   };
 
+  const [deleteModalTarget, setDeleteModalTarget] = useState<VaultItem | null>(null);
+
   const handleTrashItem = async (id: string) => {
     await deleteItem(id);
     if (revealedId === id) { setRevealedId(null); setRevealedData(null); }
@@ -1077,10 +1084,14 @@ export default function VaultPage() {
     await restoreItem(id);
   };
 
-  const handleHardDelete = async (id: string) => {
-    if (!window.confirm("This item will be deleted permanently and can never be recovered. Are you sure you want to proceed?")) return;
-    await hardDeleteItem(id);
-    if (revealedId === id) { setRevealedId(null); setRevealedData(null); }
+  const handleHardDelete = (item: VaultItem) => {
+    setDeleteModalTarget(item);
+  };
+
+  const confirmHardDelete = async () => {
+    if (!deleteModalTarget) return;
+    await hardDeleteItem(deleteModalTarget.id);
+    if (revealedId === deleteModalTarget.id) { setRevealedId(null); setRevealedData(null); }
   };
 
   const toggleSelection = (id: string) => {
@@ -1092,30 +1103,26 @@ export default function VaultPage() {
     });
   };
 
-  const handleBulkAction = async (action: "trash" | "restore" | "delete" | "favorite" | "move", payload?: string) => {
-    if (!user || selectedIds.size === 0) return;
-
-    if (action === "delete") {
-      if (!window.confirm(`These ${selectedIds.size} item(s) will be deleted permanently and can never be recovered. Are you sure you want to proceed?`)) return;
+  const handleBulkAction = async (action: "trash" | "restore" | "favorite" | "unfavorite" | "move", payload?: string) => {
+    if (!user || selectedIds.size === 0 || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      // Map legacy "favorite" (toggle) to explicit favorite/unfavorite
+      let resolvedAction: "trash" | "restore" | "favorite" | "unfavorite" | "move" = action;
+      if (action === "favorite") {
+        // Determine: if any selected item is NOT favorited, favorite all; otherwise unfavorite all
+        const anyUnfavorited = ids.some(id => !items.find(i => i.id === id)?.favorite);
+        resolvedAction = anyUnfavorited ? "favorite" : "unfavorite";
+      }
+      await batchAction(resolvedAction, ids, payload);
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error("[handleBulkAction]", err);
+      alert("Bulk action failed. Please try again.");
+    } finally {
+      setBulkBusy(false);
     }
-
-    const promises: Promise<void>[] = [];
-
-    selectedIds.forEach(id => {
-      if (action === "trash") promises.push(deleteItem(id));
-      else if (action === "restore") promises.push(restoreItem(id));
-      else if (action === "delete") promises.push(hardDeleteItem(id));
-      else if (action === "favorite") {
-        const item = items.find(i => i.id === id);
-        if (item) promises.push(toggleFavorite(id, !item.favorite));
-      }
-      else if (action === "move") {
-        promises.push(updateItem(id, { folder: payload || undefined }));
-      }
-    });
-
-    await Promise.all(promises);
-    setSelectedIds(new Set());
   };
 
 
@@ -1190,6 +1197,17 @@ export default function VaultPage() {
     visibleItems.forEach(i => { const k = i.folder || ""; if (map[k]) map[k].push(i); });
     return map;
   }, [visibleItems, folders, activeFolder, activeFilter, activeTag, activeType]);
+
+  // Direct child subfolders when a folder is opened
+  const directSubfolders = useMemo(() => {
+    if (!activeFolder) return [];
+    const prefix = `${activeFolder}/`;
+    return folders.filter(f => {
+      if (!f.startsWith(prefix)) return false;
+      const rest = f.slice(prefix.length);
+      return !rest.includes("/");
+    });
+  }, [folders, activeFolder]);
 
   // Select all visible items
   const handleSelectAll = () => {
@@ -1467,131 +1485,152 @@ export default function VaultPage() {
   const renderItem = (item: VaultItem) => {
     const isSelected = selectedIds.has(item.id);
     const itemIcon = getItemIcon(item);
+    const template = (item.template || "login") as Template;
+    const meta = TEMPLATE_META[template];
+    const isRevealed = revealedId === item.id;
+
+    // Smart sub-line preview
+    let subLine: string;
+    if (isRevealed && revealedData) {
+      if (template === "login") {
+        subLine = revealedData.username || revealedData.email || (revealedData.urls?.[0] ? extractDomain(revealedData.urls[0]) : "");
+      } else if (template === "card") {
+        subLine = revealedData.cardNumber ? `•••• •••• •••• ${revealedData.cardNumber.slice(-4)}` : revealedData.cardName || "";
+      } else if (template === "note") {
+        subLine = revealedData.note ? revealedData.note.slice(0, 60) : "";
+      } else if (template === "profile") {
+        subLine = revealedData.fullName || revealedData.email || "";
+      } else if (template === "address") {
+        subLine = [revealedData.city, revealedData.country].filter(Boolean).join(", ");
+      } else {
+        subLine = "";
+      }
+    } else {
+      // Masked hints before reveal
+      if (template === "login") subLine = item.domain ? `${item.domain}` : "Login credential";
+      else if (template === "card") subLine = "•••• •••• •••• ••••";
+      else if (template === "note") subLine = "Encrypted note";
+      else if (template === "profile") subLine = "Identity profile";
+      else if (template === "address") subLine = "Saved address";
+      else subLine = "";
+    }
+
+    const dateStr = item.updatedAt || item.createdAt
+      ? new Date(item.updatedAt || item.createdAt || "").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : null;
+
+    const actionButtons = (
+      <>
+        {(!activeFilter || activeFilter !== "trash") && (
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${item.favorite ? "text-amber-400 bg-amber-950/30" : "text-neutral-600 hover:text-amber-400 hover:bg-neutral-800"}`}
+            title={item.favorite ? "Remove favorite" : "Add to favorites"}
+          >
+            <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
+          </button>
+        )}
+        {isRevealed && revealedData?.url && (
+          <a
+            href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
+            target="_blank" rel="noopener noreferrer"
+            className="p-1.5 rounded-lg text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition-colors"
+            title="Open URL"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+        {activeFilter === "trash" ? (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="p-1.5 rounded-lg text-neutral-600 hover:text-emerald-400 hover:bg-emerald-950/30 transition-colors cursor-pointer" title="Restore">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item); }} className="p-1.5 rounded-lg text-neutral-600 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer" title="Delete permanently">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
+            className="p-1.5 rounded-lg text-neutral-700 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer"
+            title="Move to Trash"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </>
+    );
 
     if (viewMode === "grid") {
       return (
-        <div 
-          key={item.id} 
-          className={`group border border-[var(--border)] rounded-2xl transition-all duration-300 bg-neutral-900/10 hover:bg-neutral-900/30 hover:border-neutral-800 flex flex-col justify-between overflow-hidden relative ${
-            isSelected ? "ring-1 ring-[var(--accent)] bg-neutral-900/20 border-neutral-700" : ""
+        <div
+          key={item.id}
+          className={`group relative flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
+            isRevealed
+              ? "border-neutral-700 bg-neutral-900/60 shadow-lg shadow-black/20"
+              : isSelected
+              ? "border-[var(--accent)]/50 bg-neutral-900/40 ring-1 ring-[var(--accent)]/30"
+              : "border-neutral-800/60 bg-neutral-900/20 hover:border-neutral-700 hover:bg-neutral-900/40"
           }`}
         >
-          {/* Top Header info */}
-          <div className="p-4 flex-1 flex flex-col justify-between min-h-[110px]">
-            <div className="flex items-start justify-between gap-2.5">
-              {/* Custom Icon */}
+          {/* Card header */}
+          <div className="p-4 flex-1" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="shrink-0">{itemIcon}</div>
-              
-              {/* Type Badge / Domain */}
-              <div className="flex flex-col items-end text-[10px] text-neutral-600 truncate max-w-[120px]">
-                {item.template && item.template !== "login" ? (
-                  <span className="px-1.5 py-0.5 rounded-full bg-neutral-900/80 border border-neutral-800 text-[9px] uppercase font-semibold tracking-wider text-neutral-400">
-                    {TEMPLATE_META[item.template]?.label}
-                  </span>
-                ) : (
-                  <span className="truncate text-neutral-500 font-mono text-[9px]">
-                    {item.domain || "Login"}
-                  </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {item.favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                {item.hasTotp && (
+                  <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400">2FA</span>
                 )}
               </div>
             </div>
 
-            {/* Title / Name */}
-            <div className="mt-4 cursor-pointer" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
-              <h3 className="text-[13.5px] font-semibold text-neutral-200 group-hover:text-white transition-colors truncate text-left">
-                {item.name}
-              </h3>
-              
-              {/* Sub-text preview */}
-              {revealedId === item.id && revealedData?.username ? (
-                <p className="text-[11px] text-neutral-400 mt-1 font-mono truncate text-left">{revealedData.username}</p>
-              ) : revealedId === item.id && item.template === "card" && revealedData?.cardNumber ? (
-                <p className="text-[11px] text-neutral-400 mt-1 font-mono text-left">
-                  •••• •••• •••• {revealedData.cardNumber.slice(-4)}
-                </p>
-              ) : (
-                <p className="text-[10px] text-neutral-700 mt-1 group-hover:text-neutral-500 transition-colors text-left">Click to decrypt & open</p>
-              )}
-            </div>
+            <h3 className="text-[13px] font-semibold text-neutral-100 truncate mb-1">{item.name}</h3>
+            <p className={`text-[11px] truncate font-mono ${isRevealed ? "text-neutral-400" : "text-neutral-600"}`}>
+              {subLine}
+            </p>
+
+            {/* Folder + Tags */}
+            {(item.folder || (item.tags && item.tags.length > 0)) && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {item.folder && activeFolder === null && (
+                  <span className="text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-neutral-800/60 border border-neutral-700/50 text-neutral-500">
+                    <Folder className="w-2.5 h-2.5" />{item.folder.split("/").pop()}
+                  </span>
+                )}
+                {item.tags?.slice(0, 2).map(tag => (
+                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-800/60 border border-neutral-700/50 text-neutral-500">#{tag}</span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Bottom Action strip */}
-          <div className="px-4 py-2 border-t border-[var(--border)]/40 bg-neutral-950/20 flex items-center justify-between gap-2">
-            {/* Left side checkbox / selection */}
-            <div className="flex items-center gap-2">
+          {/* Action bar */}
+          <div className="px-3 py-2 border-t border-neutral-800/50 bg-neutral-950/30 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
-                className={`w-3.5 h-3.5 rounded border-[var(--border)] accent-neutral-500 cursor-pointer bg-neutral-900 transition-opacity ${
-                  isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                }`}
+                onClick={(e) => e.stopPropagation()}
+                className={`w-3.5 h-3.5 rounded accent-neutral-400 cursor-pointer transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}
               />
-              {item.createdAt && (
-                <span className="text-[9px] text-neutral-700 font-mono">
-                  {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </span>
-              )}
+              {dateStr && <span className="text-[9px] text-neutral-700 font-mono">{dateStr}</span>}
             </div>
-
-            {/* Right side item action buttons */}
-            <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity duration-200">
-              {(!activeFilter || activeFilter !== "trash") && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
-                  className={`hover:text-amber-400 transition-colors p-1 cursor-pointer ${item.favorite ? "text-amber-400" : "text-neutral-700"}`}
-                  title={item.favorite ? "Remove favorite" : "Add favorite"}
-                >
-                  <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
-                </button>
-              )}
-
-              {revealedId === item.id && revealedData?.url && (
-                <a
-                  href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
-                  title="Open URL"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              )}
-
-              {activeFilter === "trash" ? (
-                <>
-                  <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="text-neutral-600 hover:text-green-400 transition-colors p-1 cursor-pointer" title="Restore"><RefreshCw className="w-3.5 h-3.5" /></button>
-                  <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item.id); }} className="text-neutral-600 hover:text-red-500 transition-colors p-1 cursor-pointer" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
-                </>
-              ) : (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
-                  className="text-neutral-700 hover:text-red-500 transition-colors p-1 cursor-pointer"
-                  title="Move to Trash"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
+            <div className="flex items-center gap-0.5">
+              {actionButtons}
             </div>
           </div>
 
-          {/* Expanded detail for grid card */}
-          {revealedId === item.id && revealedData && (
-            <div className="border-t border-[var(--border)]/40 bg-neutral-950/40 p-4">
+          {/* Expanded details */}
+          {isRevealed && revealedData && (
+            <div className="border-t border-neutral-800/60 bg-neutral-950/50">
               <ExpandedDetails
                 data={revealedData}
                 readOnly={activeFilter === "trash"}
                 inGrid
-                onEdit={() =>
-                  setEditDialogItem({
-                    id: item.id,
-                    name: item.name,
-                    folder: item.folder,
-                    tags: item.tags,
-                    template: item.template || "login",
-                    payload: revealedData,
-                  })
-                }
+                onEdit={() => setEditDialogItem({ id: item.id, name: item.name, folder: item.folder, tags: item.tags, template, payload: revealedData })}
               />
             </div>
           )}
@@ -1599,155 +1638,190 @@ export default function VaultPage() {
       );
     }
 
-    // LIST VIEW
+    // ── LIST VIEW ────────────────────────────────────────────────────────────
     return (
-      <div key={item.id} className={`border-t border-[var(--border)] first:border-t-0 transition-colors ${isSelected ? "bg-neutral-900/50" : ""}`}>
-        <div className="flex items-center gap-3 px-4 py-2.5 group">
-          {/* Selection Checkbox */}
-          <div className={`shrink-0 flex items-center justify-center transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+      <div
+        key={item.id}
+        className={`group relative transition-all duration-150 ${
+          isRevealed
+            ? "bg-neutral-900/50 border-l-2 border-l-[var(--accent,#6366f1)]"
+            : isSelected
+            ? "bg-neutral-900/30"
+            : "hover:bg-neutral-900/15"
+        }`}
+      >
+        <div className="flex items-center gap-2.5 px-3 py-3">
+          {/* Checkbox — fixed width always reserved to prevent layout shift */}
+          <div className="w-4 shrink-0">
             <input
               type="checkbox"
               checked={isSelected}
               onChange={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
-              className="w-4 h-4 rounded border-[var(--border)] accent-neutral-500 cursor-pointer bg-neutral-900"
+              className={`w-4 h-4 rounded accent-neutral-400 cursor-pointer bg-neutral-900 transition-opacity duration-150 ${
+                isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+              }`}
             />
           </div>
 
           {/* Icon */}
-          {itemIcon}
-
-          {/* Name + meta */}
-          <div
-            className="flex-1 cursor-pointer min-w-0"
-            onClick={() => toggleReveal(item.id, item.encryptedBlob)}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-medium text-neutral-200 truncate">{item.name}</span>
-              {item.template && item.template !== "login" && (
-                <span className="text-[10px] text-neutral-600 uppercase tracking-wider shrink-0">
-                  {TEMPLATE_META[item.template]?.label}
-                </span>
-              )}
-              {item.createdAt && (
-                <span className="text-[11px] text-neutral-700 font-mono shrink-0 ml-auto">
-                  {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </span>
-              )}
-            </div>
-            {revealedId === item.id && revealedData?.username ? (
-              <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{revealedData.username}</p>
-            ) : (
-              <p className="text-[11px] text-neutral-700 mt-0.5">Click to reveal</p>
-            )}
+          <div className="shrink-0" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
+            {itemIcon}
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-0.5 shrink-0 opacity-10 md:opacity-100 group-hover:opacity-100 transition-opacity">
-            {(!activeFilter || activeFilter !== "trash") && (
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
-                className={`hover:text-amber-400 transition-colors p-1.5 cursor-pointer ${item.favorite ? "text-amber-400" : "text-neutral-700"}`}
-                title={item.favorite ? "Remove favorite" : "Add favorite"}
-              >
-                <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
-              </button>
-            )}
+          {/* Name + meta — main clickable area */}
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
+            {/* Top row: name + favorite + 2FA + date */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[13.5px] font-medium text-neutral-100 truncate flex-shrink min-w-0">{item.name}</span>
+              {item.favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
+              {item.hasTotp && (
+                <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400 shrink-0 hidden sm:inline">2FA</span>
+              )}
+              {dateStr && (
+                <span className="text-[10px] text-neutral-700 font-mono shrink-0 ml-auto hidden sm:inline">{dateStr}</span>
+              )}
+            </div>
 
-            {revealedId === item.id && revealedData?.url && (
-              <a
-                href={revealedData.url.startsWith("http") ? revealedData.url : `https://${revealedData.url}`}
-                target="_blank" rel="noopener noreferrer"
-                className="text-neutral-600 hover:text-neutral-300 transition-colors p-1.5"
-                title="Open URL"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
+            {/* Sub-line: masked preview or revealed data */}
+            <div className="flex items-center gap-2 mt-0.5 min-w-0">
+              <p className={`text-[11px] font-mono truncate ${isRevealed ? "text-neutral-400" : "text-neutral-600"}`}>
+                {subLine || <span className="italic text-neutral-700 not-italic font-sans">Tap to reveal</span>}
+              </p>
+              {/* Folder pill — only in All Items view */}
+              {item.folder && activeFolder === null && (
+                <span className="text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-neutral-800/60 border border-neutral-700/50 text-neutral-500 shrink-0 hidden sm:inline-flex">
+                  <Folder className="w-2.5 h-2.5" />{item.folder.split("/").pop()}
+                </span>
+              )}
+              {item.tags?.slice(0, 2).map(tag => (
+                <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-800/60 border border-neutral-700/50 text-neutral-500 shrink-0 hidden sm:inline">#{tag}</span>
+              ))}
+            </div>
+          </div>
 
-            {activeFilter === "trash" ? (
-              <>
-                <button onClick={(e) => { e.stopPropagation(); handleRestoreItem(item.id); }} className="text-neutral-600 hover:text-green-400 transition-colors p-1.5 cursor-pointer" title="Restore"><RefreshCw className="w-3.5 h-3.5" /></button>
-                <button onClick={(e) => { e.stopPropagation(); handleHardDelete(item.id); }} className="text-neutral-600 hover:text-red-500 transition-colors p-1.5 cursor-pointer" title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
-              </>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleTrashItem(item.id); }}
-                className="text-neutral-700 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
-                title="Move to Trash"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Actions — always usable, hover-reveal on desktop */}
+          <div className="flex items-center gap-0.5 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150">
+            {actionButtons}
           </div>
         </div>
 
-        {/* Expanded detail */}
-        {revealedId === item.id && revealedData && (
-          <ExpandedDetails
-            data={revealedData}
-            readOnly={activeFilter === "trash"}
-            onEdit={() =>
-              setEditDialogItem({
-                id: item.id,
-                name: item.name,
-                folder: item.folder,
-                tags: item.tags,
-                template: item.template || "login",
-                payload: revealedData,
-              })
-            }
-          />
+        {/* Expanded detail panel */}
+        {isRevealed && revealedData && (
+          <div className="mx-4 mb-3 rounded-xl border border-neutral-800/60 bg-neutral-950/60 overflow-hidden">
+            <ExpandedDetails
+              data={revealedData}
+              readOnly={activeFilter === "trash"}
+              onEdit={() => setEditDialogItem({ id: item.id, name: item.name, folder: item.folder, tags: item.tags, template, payload: revealedData })}
+            />
+          </div>
         )}
       </div>
     );
   };
 
+
   const renderGrouped = () => {
     if (!grouped) return null;
 
-    const sections: React.ReactElement[] = [];
+    const folderTree = buildFolderTree(folders);
 
-    // Folder groups first
-    folders.forEach(f => {
-      const grpItems = grouped[f] ?? [];
-      const collapsed = collapsedFolders.has(f);
-      sections.push(
-        <div key={`folder-${f}`}>
-          <button
-            onClick={() => { router.push("/vault"); toggleFolderCollapse(f); }}
-            className="w-full flex items-center gap-2 px-1 py-2 text-[11px] text-neutral-500 hover:text-neutral-300 uppercase tracking-wider cursor-pointer transition-colors"
-          >
-            {collapsed
-              ? <FolderOpen className="w-3.5 h-3.5" />
-              : <Folder className="w-3.5 h-3.5" />
-            }
-            {f}
-            <span className="text-neutral-700 ml-auto normal-case">{grpItems.length}</span>
-            {collapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          </button>
-          {!collapsed && grpItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4 mb-4" : "border border-[var(--border)] rounded-lg overflow-hidden mb-4"}>
-              {grpItems.map(renderItem)}
+    const renderFolderNode = (node: FolderNode, depth: number = 0) => {
+      const grpItems = grouped[node.name] ?? [];
+      const collapsed = collapsedFolders.has(node.name);
+      const indentPx = depth * 14;
+      const hasChildren = node.children.length > 0;
+
+      // Count items in node + descendants
+      const descendantPaths = [node.name];
+      const collect = (n: FolderNode) => n.children.forEach(c => { descendantPaths.push(c.name); collect(c); });
+      collect(node);
+      const totalCount = visibleItems.filter(i => i.folder && descendantPaths.includes(i.folder)).length;
+      const directCount = grpItems.length;
+
+      return (
+        <div key={`folder-${node.name}`} className="my-3" style={{ marginLeft: `${indentPx}px` }}>
+          {/* Unified folder card: header + items in one border */}
+          <div className={`rounded-2xl border transition-colors ${
+            collapsed ? "border-neutral-800/60" : "border-neutral-800/60"
+          } overflow-hidden bg-neutral-900/20`}>
+
+            {/* Header Row */}
+            <div
+              className="flex items-center justify-between px-3 py-2.5 group cursor-pointer hover:bg-neutral-900/30 transition-colors"
+              onClick={() => toggleFolderCollapse(node.name)}
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0">
+                  {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </span>
+                {depth > 0 && <CornerDownRight className="w-3 h-3 text-neutral-700 shrink-0" />}
+                {collapsed
+                  ? <Folder className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                  : <FolderOpen className="w-3.5 h-3.5 text-[var(--accent,#6366f1)] shrink-0" />
+                }
+                <span className="text-[12px] font-semibold text-neutral-400 group-hover:text-neutral-200 truncate transition-colors">{node.label}</span>
+                <span className="text-[9px] font-mono text-neutral-600 bg-neutral-800/60 px-1.5 py-0.5 rounded-full shrink-0">
+                  {hasChildren && totalCount !== directCount ? `${directCount}/${totalCount}` : totalCount}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                <Link
+                  href={`/vault?folder=${encodeURIComponent(node.name)}`}
+                  className="p-1 px-2 rounded-lg text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800/60 text-[10px] flex items-center gap-1 transition-colors"
+                  title="Open folder"
+                >
+                  Open <ChevronRight className="w-3 h-3" />
+                </Link>
+              </div>
             </div>
-          )}
-          {!collapsed && grpItems.length === 0 && (
-            <p className="text-[12px] text-neutral-700 px-1 pb-4">Empty folder.</p>
+
+            {/* Items directly in this folder */}
+            {!collapsed && grpItems.length > 0 && (
+              <div className="border-t border-neutral-800/40 divide-y divide-neutral-800/30">
+                {grpItems.map(renderItem)}
+              </div>
+            )}
+          </div>
+
+          {/* Subfolder children indented below */}
+          {!collapsed && node.children.length > 0 && (
+            <div className="mt-1.5 space-y-1.5">
+              {node.children.map(child => renderFolderNode(child, depth + 1))}
+            </div>
           )}
         </div>
       );
+    };
+
+    const sections: React.ReactElement[] = [];
+
+    folderTree.forEach(rootNode => {
+      sections.push(renderFolderNode(rootNode, 0));
     });
 
     // Uncategorized
     const loose = grouped[""] ?? [];
     if (loose.length > 0) {
       sections.push(
-        <div key="uncategorized">
-          {folders.length > 0 && (
-            <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-1 py-2">Uncategorized</div>
-          )}
-          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
-            {loose.map(renderItem)}
+        <div key="uncategorized" className="my-3">
+          <div className="rounded-2xl border border-neutral-800/60 overflow-hidden bg-neutral-900/20">
+            {/* Uncategorized header */}
+            <div className="flex items-center gap-2 px-3 py-2.5">
+              <Inbox className="w-3.5 h-3.5 text-neutral-600" />
+              <span className="text-[12px] font-semibold text-neutral-500">Uncategorized</span>
+              <span className="text-[9px] font-mono text-neutral-600 bg-neutral-800/60 px-1.5 py-0.5 rounded-full">{loose.length}</span>
+            </div>
+            {/* Items */}
+            {viewMode === "grid" ? (
+              <div className="border-t border-neutral-800/40 p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-3">
+                {loose.map(renderItem)}
+              </div>
+            ) : (
+              <div className="border-t border-neutral-800/40 divide-y divide-neutral-800/30">
+                {loose.map(renderItem)}
+              </div>
+            )}
           </div>
         </div>
       );
@@ -1773,6 +1847,80 @@ export default function VaultPage() {
           <span className="ml-auto text-[11px] text-neutral-700 font-mono hidden sm:block">login · card · note</span>
         </button>
 
+        {/* Opened folder banner & breadcrumbs */}
+        {activeFolder !== null && activeFolder !== "" && (() => {
+          const segments = activeFolder.split("/").filter(Boolean);
+          return (
+            <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800/80 shadow-sm space-y-3">
+              <nav className="flex items-center gap-1.5 flex-wrap text-[12px]" aria-label="Folder path">
+                <Link href="/vault" className="text-neutral-500 hover:text-neutral-200 transition-colors flex items-center gap-1">
+                  <LayoutList className="w-3.5 h-3.5" />
+                  All Items
+                </Link>
+                {segments.map((seg, idx) => {
+                  const path = segments.slice(0, idx + 1).join("/");
+                  const isLast = idx === segments.length - 1;
+                  return (
+                    <React.Fragment key={path}>
+                      <ChevronRight className="w-3 h-3 text-neutral-700 shrink-0" />
+                      {isLast ? (
+                        <span className="text-neutral-200 font-medium">{seg}</span>
+                      ) : (
+                        <Link href={`/vault?folder=${encodeURIComponent(path)}`} className="text-neutral-500 hover:text-neutral-200 transition-colors">
+                          {seg}
+                        </Link>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </nav>
+
+              <div className="flex items-center justify-between pt-1 border-t border-neutral-800/60">
+                <div className="flex items-center gap-2.5">
+                  <FolderOpen className="w-5 h-5 text-[var(--accent,#6366f1)] shrink-0" />
+                  <h1 className="text-[15px] font-semibold text-neutral-100">{segments[segments.length - 1]}</h1>
+                  <span className="text-[11px] font-mono text-neutral-500 bg-neutral-900 px-2 py-0.5 rounded-full border border-neutral-800">
+                    {visibleItems.length} item{visibleItems.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Subfolders Grid in opened folder view */}
+        {activeFolder && directSubfolders.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-[11px] text-neutral-600 uppercase tracking-widest px-1 font-semibold">
+              Subfolders ({directSubfolders.length})
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {directSubfolders.map(subPath => {
+                const subName = subPath.slice(activeFolder.length + 1);
+                const subItemCount = items.filter(i => !i.deletedAt && (i.folder === subPath || i.folder?.startsWith(subPath + "/"))).length;
+                return (
+                  <Link
+                    key={subPath}
+                    href={`/vault?folder=${encodeURIComponent(subPath)}`}
+                    className="group flex items-center justify-between p-2.5 rounded-xl bg-neutral-900/60 border border-neutral-800/80 hover:border-neutral-700 hover:bg-neutral-800/50 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="p-1.5 rounded-lg bg-neutral-800/80 text-neutral-400 group-hover:text-neutral-200 transition-colors shrink-0">
+                        <Folder className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-medium text-neutral-300 group-hover:text-neutral-100 truncate">{subName}</div>
+                        <div className="text-[10px] text-neutral-600 font-mono">{subItemCount} item{subItemCount !== 1 ? "s" : ""}</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-neutral-600 group-hover:text-neutral-300 transition-colors shrink-0 ml-1" />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* New entry dialog (portal) */}
         <NewEntryDialog
           open={isNewEntryOpen}
@@ -1780,6 +1928,7 @@ export default function VaultPage() {
           onSave={handleSave}
           onClose={() => setIsNewEntryOpen(false)}
           defaultTemplate={defaultTemplate}
+          defaultFolder={activeFolder || ""}
         />
 
         {/* Edit entry dialog (portal) */}
@@ -1897,7 +2046,7 @@ export default function VaultPage() {
 
           {/* Filtered (single-folder view) */}
           {!grouped && visibleItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4" : "border border-[var(--border)] rounded-lg overflow-hidden"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4" : "rounded-2xl border border-neutral-800/60 overflow-hidden divide-y divide-neutral-800/40 bg-neutral-900/10"}>
               {visibleItems.map(renderItem)}
             </div>
           )}
@@ -1923,79 +2072,123 @@ export default function VaultPage() {
 
       {/* Floating Bulk Action Bar */}
       {isSelectionMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2.5 rounded-2xl border border-neutral-800 bg-neutral-950/90 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-          {/* Selection info */}
-          <div className="flex flex-col pr-1">
-            <span className="text-[12px] font-semibold text-neutral-200 whitespace-nowrap">{selectedIds.size} selected</span>
-            <button onClick={() => setSelectedIds(new Set())} className="text-[10px] text-neutral-600 hover:text-neutral-400 text-left transition-colors cursor-pointer">Deselect all</button>
-          </div>
-
-          <div className="w-px h-6 bg-neutral-800 mx-1" />
-
-          {/* Move to folder — only outside trash */}
-          {activeFilter !== "trash" && folders.length > 0 && (
-            <>
-              <select
-                onChange={e => {
-                  if (e.target.value === "__none") return;
-                  handleBulkAction("move", e.target.value);
-                  (e.target as HTMLSelectElement).value = "__none";
-                }}
-                defaultValue="__none"
-                className="text-[11px] bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-1.5 rounded-lg outline-none cursor-pointer hover:border-neutral-600 transition-colors max-w-[130px]"
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
+          {/* Confirm trash sub-panel */}
+          {bulkConfirmTrash && (
+            <div className="mb-2 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-900/50 bg-neutral-950/95 backdrop-blur-md shadow-xl">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="text-[12px] text-neutral-300">
+                Move <strong className="text-neutral-100">{selectedIds.size}</strong> item{selectedIds.size !== 1 ? "s" : ""} to trash?
+              </span>
+              <button
+                onClick={async () => { setBulkConfirmTrash(false); await handleBulkAction("trash"); }}
+                disabled={bulkBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-[11px] font-medium border border-red-900/50 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <option value="__none" disabled>Move to…</option>
-                <option value="">(Uncategorized)</option>
-                {folders.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-              <div className="w-px h-6 bg-neutral-800 mx-1" />
-            </>
+                {bulkBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                Confirm
+              </button>
+              <button
+                onClick={() => setBulkConfirmTrash(false)}
+                className="p-1 rounded text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-0.5">
-            {activeFilter !== "trash" && (
-              <button
-                onClick={() => handleBulkAction("favorite")}
-                className="p-2 text-neutral-500 hover:text-amber-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer"
-                title="Toggle Favorite"
-              >
-                <Star className="w-4 h-4" />
-              </button>
+          {/* Main bar */}
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl border border-neutral-800 bg-neutral-950/90 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+            {/* Loading overlay */}
+            {bulkBusy && (
+              <div className="flex items-center gap-2 px-2">
+                <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                <span className="text-[11px] text-neutral-400 whitespace-nowrap">Processing {selectedIds.size} items…</span>
+              </div>
             )}
 
-            {activeFilter === "trash" ? (
+            {!bulkBusy && (
               <>
-                <button
-                  onClick={() => handleBulkAction("restore")}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-400 hover:text-green-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer"
-                  title="Restore Selected"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  Restore
-                </button>
-                <button
-                  onClick={() => handleBulkAction("delete")}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
-                  title="Delete Permanently"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete
-                </button>
+                {/* Selection info */}
+                <div className="flex flex-col pr-1">
+                  <span className="text-[12px] font-semibold text-neutral-200 whitespace-nowrap">{selectedIds.size} selected</span>
+                  <button onClick={() => setSelectedIds(new Set())} className="text-[10px] text-neutral-600 hover:text-neutral-400 text-left transition-colors cursor-pointer">
+                    Esc to deselect
+                  </button>
+                </div>
+
+                <div className="w-px h-6 bg-neutral-800 mx-1" />
+
+                {/* Move to folder — only outside trash */}
+                {activeFilter !== "trash" && folders.length > 0 && (
+                  <>
+                    <select
+                      onChange={e => {
+                        if (e.target.value === "__none") return;
+                        handleBulkAction("move", e.target.value);
+                        (e.target as HTMLSelectElement).value = "__none";
+                      }}
+                      defaultValue="__none"
+                      disabled={bulkBusy}
+                      className="text-[11px] bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-1.5 rounded-lg outline-none cursor-pointer hover:border-neutral-600 transition-colors max-w-[130px] disabled:opacity-50"
+                    >
+                      <option value="__none" disabled>Move to…</option>
+                      <option value="">(Uncategorized)</option>
+                      {folders.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                    <div className="w-px h-6 bg-neutral-800 mx-1" />
+                  </>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-0.5">
+                  {activeFilter !== "trash" && (
+                    <button
+                      onClick={() => handleBulkAction("favorite")}
+                      disabled={bulkBusy}
+                      className="p-2 text-neutral-500 hover:text-amber-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      title="Toggle Favorite"
+                    >
+                      <Star className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {activeFilter === "trash" ? (
+                    <button
+                      onClick={() => handleBulkAction("restore")}
+                      disabled={bulkBusy}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-400 hover:text-green-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      title="Restore Selected"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Restore
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setBulkConfirmTrash(true)}
+                      disabled={bulkBusy}
+                      className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      title="Move to Trash (Del)"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </>
-            ) : (
-              <button
-                onClick={() => handleBulkAction("trash")}
-                className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                title="Move to Trash"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
             )}
           </div>
         </div>
       )}
 
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        open={!!deleteModalTarget}
+        itemName={deleteModalTarget?.name || ""}
+        itemTemplate={deleteModalTarget?.template}
+        onClose={() => setDeleteModalTarget(null)}
+        onConfirm={confirmHardDelete}
+      />
     </div>
   );
 }
