@@ -61,8 +61,8 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 const PROVIDER_META: Record<string, { label: string; color: string }> = {
-  "google.com": { label: "Google", color: "text-blue-400 border-blue-900/50 bg-blue-950/20" },
-  "password":   { label: "Email / Password", color: "text-neutral-400 border-neutral-700 bg-neutral-900" },
+  "google":     { label: "Google", color: "text-blue-400 border-blue-900/50 bg-blue-950/20" },
+  "credential": { label: "Email / Password", color: "text-neutral-400 border-neutral-700 bg-neutral-900" },
 };
 
 function ThemeCard({ theme, selected, onSelect }: { theme: ThemeConfig; selected: boolean; onSelect: () => void; }) {
@@ -215,8 +215,8 @@ export default function AccountSettingsPage() {
       setPhotoURL("");
       setAuthMsg({ text: "Profile picture removed.", ok: true });
       fetchPersonalData();
-    } catch (err: any) {
-      setAuthMsg({ text: err.message, ok: false });
+    } catch (err) {
+      setAuthMsg({ text: (err as Error).message, ok: false });
     } finally {
       setUploadingAvatar(false);
     }
@@ -284,8 +284,8 @@ export default function AccountSettingsPage() {
   // Providers
   const [accounts, setAccounts] = useState<{ id: string; providerId: string; email?: string }[]>([]);
   const [providerMsg, setProviderMsg] = useState({ text: "", ok: true });
-  const [linkingEmail, setLinkingEmail] = useState(false);
-  const [linkEmailStr, setLinkEmailStr] = useState("");
+  const [linkStep, setLinkStep] = useState<0 | 1 | 2>(0); // 0 = idle, 1 = sending OTP, 2 = verify OTP & set password
+  const [linkOtpStr, setLinkOtpStr] = useState("");
   const [linkPassStr, setLinkPassStr] = useState("");
 
   useEffect(() => {
@@ -321,16 +321,40 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleLinkEmailPassword = async () => {
-    if (!linkEmailStr || !linkPassStr) return;
+  const handleSendOtp = async () => {
+    setLinkStep(1);
+    setProviderMsg({ text: "", ok: true });
     try {
-      const res = await fetch("/api/settings/set-password", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: linkPassStr }),
+      const res = await fetch("/api/settings/link-password/send-otp", {
+        method: "POST",
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to link email/password");
-      setProviderMsg({ text: "Email & Password linked.", ok: true });
-      setLinkingEmail(false);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send verification code");
+      setProviderMsg({ text: `Verification code sent to ${user?.email}`, ok: true });
+      setLinkStep(2);
+    } catch (err) {
+      setProviderMsg({ text: (err as Error).message, ok: false });
+      setLinkStep(0);
+    }
+  };
+
+  const handleVerifyAndLink = async () => {
+    if (!linkOtpStr || !linkPassStr) return;
+    setProviderMsg({ text: "", ok: true });
+    try {
+      const res = await fetch("/api/settings/link-password/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: linkOtpStr, password: linkPassStr }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Verification failed");
+      
+      setProviderMsg({ text: "Password linked successfully.", ok: true });
+      setLinkStep(0);
+      setLinkOtpStr("");
+      setLinkPassStr("");
+      
       const accRes = await authClient.listAccounts();
       if (accRes.data) setAccounts(accRes.data.map(acc => ({ id: acc.id, providerId: acc.providerId, email: acc.accountId ?? undefined })));
     } catch (err) {
@@ -455,6 +479,7 @@ export default function AccountSettingsPage() {
             <div className="space-y-3">
               {accounts.map((p) => {
                 const meta = PROVIDER_META[p.providerId] ?? { label: p.providerId, color: "text-neutral-400 border-neutral-700 bg-neutral-900" };
+                const canUnlink = accounts.length > 1;
                 return (
                   <div key={p.id} className="flex items-center justify-between py-3 px-4 border border-neutral-800 bg-neutral-900/50 rounded-lg">
                     <div className="space-y-1">
@@ -465,11 +490,14 @@ export default function AccountSettingsPage() {
                         <p className="text-[13px] text-neutral-300 font-medium">{p.email || user?.email}</p>
                       )}
                     </div>
-                    {p.providerId !== "credential" && (
-                      <button onClick={() => handleUnlink(p.providerId)} className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors bg-red-950/20 px-3 py-1.5 rounded-md border border-red-900/30">
-                        Unlink
-                      </button>
-                    )}
+                    <button
+                      onClick={() => canUnlink && handleUnlink(p.providerId)}
+                      disabled={!canUnlink}
+                      className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors bg-red-950/20 px-3 py-1.5 rounded-md border border-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={!canUnlink ? "Cannot unlink your only sign-in method" : undefined}
+                    >
+                      Unlink
+                    </button>
                   </div>
                 );
               })}
@@ -481,23 +509,32 @@ export default function AccountSettingsPage() {
                   <Link2 className="w-4 h-4" /> Link Google
                 </button>
               )}
-              {!hasPassword && !linkingEmail && (
-                <button onClick={() => setLinkingEmail(true)} className="text-[13px] text-neutral-300 hover:text-white bg-neutral-800 border border-neutral-700 rounded-md px-4 py-2 transition-colors flex items-center gap-2">
+              {!hasPassword && linkStep === 0 && (
+                <button onClick={handleSendOtp} className="text-[13px] text-neutral-300 hover:text-white bg-neutral-800 border border-neutral-700 rounded-md px-4 py-2 transition-colors flex items-center gap-2">
                   <KeySquare className="w-4 h-4" /> Link Password
+                </button>
+              )}
+              {linkStep === 1 && (
+                <button disabled className="text-[13px] text-neutral-400 bg-neutral-800/50 border border-neutral-800 rounded-md px-4 py-2 flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  Sending Code...
                 </button>
               )}
             </div>
 
-            {linkingEmail && (
+            {linkStep === 2 && (
               <div className="p-5 border border-neutral-800 rounded-xl bg-neutral-900/80 space-y-4">
-                <p className="text-[13px] font-semibold text-neutral-200">Link Email & Password</p>
+                <div className="space-y-1">
+                  <p className="text-[13px] font-semibold text-neutral-200 uppercase tracking-widest">Verify & Set Password</p>
+                  <p className="text-[12px] text-neutral-500">We&apos;ve sent a 6-digit verification code to <span className="text-neutral-300 font-medium">{user?.email}</span>.</p>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Input value={linkEmailStr} onChange={(e) => setLinkEmailStr(e.target.value)} placeholder="Email" type="email" className="bg-neutral-950" />
-                  <Input value={linkPassStr} onChange={(e) => setLinkPassStr(e.target.value)} placeholder="Password" type="password" className="bg-neutral-950" />
+                  <Input value={linkOtpStr} onChange={(e) => setLinkOtpStr(e.target.value)} placeholder="6-digit Code" type="text" maxLength={6} className="bg-neutral-950 text-center tracking-widest font-mono text-[14px]" />
+                  <Input value={linkPassStr} onChange={(e) => setLinkPassStr(e.target.value)} placeholder="New Password (min 8 chars)" type="password" className="bg-neutral-950 text-[13px]" />
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button onClick={handleLinkEmailPassword} disabled={!linkEmailStr || !linkPassStr} variant="primary">Submit</Button>
-                  <Button variant="ghost" onClick={() => setLinkingEmail(false)}>Cancel</Button>
+                  <Button onClick={handleVerifyAndLink} disabled={!linkOtpStr || !linkPassStr || linkPassStr.length < 8} variant="primary">Verify & Link</Button>
+                  <Button variant="ghost" onClick={() => { setLinkStep(0); setLinkOtpStr(""); setLinkPassStr(""); }}>Cancel</Button>
                 </div>
               </div>
             )}

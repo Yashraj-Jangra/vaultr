@@ -264,7 +264,7 @@ const CLIPBOARD_KEY = (uid: string) => `vaultr_clipboard_clear_s_${uid}`;
 
 export default function SecuritySettingsPage() {
   const { user } = useAuth();
-  const { items, cryptoKey, autoLockMinutes, setAutoLockMinutes } = useVault();
+  const { items, cryptoKey, autoLockMinutes, setAutoLockMinutes, unlock } = useVault();
 
   // Change master password state
   const [oldPw, setOldPw] = useState("");
@@ -387,11 +387,12 @@ export default function SecuritySettingsPage() {
 
     try {
       const oldKey = await deriveKey(oldPw, user.uid);
-      const liveItems = items.filter((i) => !i.deletedAt);
-      if (liveItems.length > 0) {
+
+      // Verify old key against any available vault item (active or trash)
+      if (items.length > 0) {
         const { decrypt } = await import("@/hooks/useCrypto");
         try {
-          await decrypt(oldKey, liveItems[0].encryptedBlob);
+          await decrypt(oldKey, items[0].encryptedBlob);
         } catch {
           setPwMsg({ text: "Old master password is incorrect.", ok: false });
           setPwChanging(false);
@@ -400,7 +401,8 @@ export default function SecuritySettingsPage() {
       }
 
       const newKey = await deriveKey(newPw, user.uid);
-      const toReEncrypt = liveItems.map((i) => ({ id: i.id, encryptedBlob: i.encryptedBlob }));
+      // Re-encrypt ALL items in vault, including items in trash
+      const toReEncrypt = items.map((i) => ({ id: i.id, encryptedBlob: i.encryptedBlob }));
 
       setPwTotal(toReEncrypt.length);
       setPwDone(0);
@@ -411,13 +413,17 @@ export default function SecuritySettingsPage() {
         setPwProgress(Math.round((done / total) * 100));
       });
 
-      const reencRes = await fetch("/api/vault/items/reencrypt", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: reEncrypted }),
-      });
-      if (!reencRes.ok) throw new Error((await reencRes.json()).error || "Batch re-encryption failed.");
+      if (reEncrypted.length > 0) {
+        const reencRes = await fetch("/api/vault/items/reencrypt", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: reEncrypted }),
+        });
+        if (!reencRes.ok) throw new Error((await reencRes.json()).error || "Batch re-encryption failed.");
+      }
 
       saveVaultSession(user.uid, newPw);
+      await unlock(newPw);
+
       const now = new Date().toISOString();
       await fetch("/api/vault/profile", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -425,8 +431,18 @@ export default function SecuritySettingsPage() {
       });
       setLastChanged(now);
 
+      const activeCount = items.filter(i => !i.deletedAt).length;
+      const trashCount = items.filter(i => !!i.deletedAt).length;
+
+      let msgText = `Master password changed. ${reEncrypted.length} item(s) re-encrypted`;
+      if (trashCount > 0) {
+        msgText += ` (${activeCount} active, ${trashCount} in trash).`;
+      } else {
+        msgText += `.`;
+      }
+
       setOldPw(""); setNewPw(""); setConfirmPw(""); setPwProgress(0);
-      setPwMsg({ text: `Master password changed. ${reEncrypted.length} item(s) re-encrypted.`, ok: true });
+      setPwMsg({ text: msgText, ok: true });
     } catch (err) {
       setPwMsg({ text: (err as Error).message || "An error occurred.", ok: false });
     } finally {
@@ -434,7 +450,9 @@ export default function SecuritySettingsPage() {
     }
   };
 
-  const liveCount = items.filter((i) => !i.deletedAt).length;
+  const totalCount = items.length;
+  const activeCount = items.filter((i) => !i.deletedAt).length;
+  const trashCount = items.filter((i) => !!i.deletedAt).length;
   const isVaultLocked = !cryptoKey;
 
   const [newDeviceEmailAlert, setNewDeviceEmailAlert] = useState(true);
@@ -505,7 +523,9 @@ export default function SecuritySettingsPage() {
                     {pwChanging ? "Changing…" : "Change Password"}
                   </Button>
                   <StatusMsg {...pwMsg} />
-                  <span className="text-[12px] text-neutral-500 ml-auto hidden sm:block">{liveCount} item(s) will be re-encrypted.</span>
+                  <span className="text-[12px] text-neutral-500 ml-auto hidden sm:block">
+                    {totalCount} item(s) will be re-encrypted{trashCount > 0 ? ` (${activeCount} active, ${trashCount} in trash)` : ""}.
+                  </span>
                 </div>
               </>
             )}
