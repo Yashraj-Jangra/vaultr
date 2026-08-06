@@ -9,6 +9,7 @@ import {
   Globe, ShieldAlert, ShieldCheck, Hash, StickyNote,
   MapPin, ChevronRight, Clock, Download, Trash, Paperclip, UploadCloud
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +17,7 @@ import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useVault } from "@/context/VaultContext";
 import { DynamicPreviewCanvas } from "./DialogPreviews";
+import { FolderSelect } from "./FolderSelect";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,7 @@ export interface NewEntryDialogProps {
   onClose: () => void;
   initialData?: { id: string; name: string; folder?: string; tags?: string[]; template: Template; payload: DecryptedPayload; };
   defaultTemplate?: Template;
+  defaultFolder?: string;
 }
 
 // ── Template config (Theme Aware) ─────────────────────────────────────────────
@@ -561,15 +564,18 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
 
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 
-export function NewEntryDialog({ open, folders, onSave, onClose, initialData, defaultTemplate }: NewEntryDialogProps) {
+export function NewEntryDialog({ open, folders, onSave, onClose, initialData, defaultTemplate, defaultFolder }: NewEntryDialogProps) {
   const { activeTheme } = useTheme();
   const { cryptoKey, encryptData, decryptItem } = useVault();
+  const searchParams = useSearchParams();
+  const currentNavFolder = searchParams?.get("folder") ?? "";
+
   const [attachments, setAttachments] = useState<any[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const [template, setTemplate] = useState<Template>(initialData?.template ?? defaultTemplate ?? "login");
   const [name,     setName]     = useState(initialData?.name ?? "");
-  const [folder,   setFolder]   = useState(initialData?.folder ?? "");
+  const [folder,   setFolder]   = useState(() => initialData?.folder ?? defaultFolder ?? currentNavFolder ?? "");
   const [newFolder,setNewFolder]= useState("");
   const [tags,     setTags]     = useState(initialData?.tags?.join(", ") ?? "");
   const [saving,   setSaving]   = useState(false);
@@ -581,9 +587,9 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const [username, setUsername] = useState(initialData?.payload.username ?? "");
   const [password, setPassword] = useState(initialData?.payload.password ?? "");
   const [urls,     setUrls]     = useState<string[]>(() => {
-    if (initialData?.payload.urls) return initialData.payload.urls;
-    if (initialData?.payload.url) return [initialData.payload.url];
-    return [""];
+    const raw = initialData?.payload.urls ?? (initialData?.payload.url ? [initialData.payload.url] : []);
+    const valid = (Array.isArray(raw) ? raw : []).filter(u => typeof u === "string" && u.trim().length > 0);
+    return valid.length > 0 ? valid : [""];
   });
   const [totpSecret, setTotpSecret] = useState(initialData?.payload.totpSecret ?? "");
   const [cardName,     setCardName]     = useState(initialData?.payload.cardName ?? "");
@@ -655,6 +661,16 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   }, [open, onClose, template]);
 
   useEffect(() => {
+    if (open) {
+      if (initialData) {
+        setFolder(initialData.folder ?? "");
+      } else {
+        setFolder(currentNavFolder);
+      }
+    }
+  }, [open, initialData, currentNavFolder]);
+
+  useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
@@ -671,15 +687,62 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     }
     setSaving(true);
     const payload: DecryptedPayload = {
-      _template: template, _folder: activeFolder || undefined,
-      customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key, value: f.value })),
+      _template: template,
+      _folder: activeFolder || undefined,
+      customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key.trim(), value: f.value.trim() })),
       entryNotes: entryNotes.trim() || undefined,
     };
-    if (template === "login")   { const v = urls.map(u => u.trim()).filter(Boolean); Object.assign(payload, { username, password, url: v[0] ?? "", urls: v, totpSecret: totpSecret.trim() }); }
-    if (template === "card")    Object.assign(payload, { cardName, cardNumber, cardBrand, expiry: (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "", cvv, pin });
-    if (template === "address") Object.assign(payload, { line1, line2, city, state: stateVal, zip, country });
-    if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
-    if (template === "note")    Object.assign(payload, { note });
+
+    // Strict template-specific payload construction (ignores inputs from other template types)
+    if (template === "login") {
+      const v = urls.map(u => u.trim()).filter(Boolean);
+      Object.assign(payload, {
+        username: username.trim() || undefined,
+        password: password || undefined,
+        url: v[0] ?? "",
+        urls: v.length > 0 ? v : undefined,
+        totpSecret: totpSecret.trim() || undefined
+      });
+    } else if (template === "card") {
+      const exp = (expiryMonth.trim() || expiryYear.trim()) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : undefined;
+      Object.assign(payload, {
+        cardName: cardName.trim() || undefined,
+        cardNumber: cardNumber.trim() || undefined,
+        cardBrand: cardBrand.trim() || undefined,
+        expiry: exp,
+        cvv: cvv.trim() || undefined,
+        pin: pin.trim() || undefined
+      });
+    } else if (template === "address") {
+      Object.assign(payload, {
+        line1: line1.trim() || undefined,
+        line2: line2.trim() || undefined,
+        city: city.trim() || undefined,
+        state: stateVal.trim() || undefined,
+        zip: zip.trim() || undefined,
+        country: country.trim() || undefined
+      });
+    } else if (template === "profile") {
+      Object.assign(payload, {
+        fullName: fullName.trim() || undefined,
+        dob: dob.trim() || undefined,
+        idNumber: idNumber.trim() || undefined,
+        email: profEmail.trim() || undefined,
+        phone: phone.trim() || undefined
+      });
+    } else if (template === "note") {
+      Object.assign(payload, {
+        note: note.trim() || undefined
+      });
+    }
+
+    // Auto-clean empty properties
+    for (const key of Object.keys(payload)) {
+      const val = (payload as any)[key];
+      if (val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) {
+        delete (payload as any)[key];
+      }
+    }
     const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
     if (initialData?.payload.password && initialData.payload.password !== password) { payload.passwordHistory = [...(initialData.payload.passwordHistory ?? []), initialData.payload.password].slice(-5); }
     else if (initialData?.payload.passwordHistory) { payload.passwordHistory = initialData.payload.passwordHistory; }
@@ -740,12 +803,14 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     if (!open) return;
     setTemplate(initialData?.template ?? defaultTemplate ?? "login");
     setName(initialData?.name ?? "");
-    setFolder(initialData?.folder ?? "");
+    setFolder(initialData?.folder ?? defaultFolder ?? currentNavFolder ?? "");
     setNewFolder("");
     setTags(initialData?.tags?.join(", ") ?? "");
     setUsername(initialData?.payload.username ?? "");
     setPassword(initialData?.payload.password ?? "");
-    setUrls(initialData?.payload.urls ?? (initialData?.payload.url ? [initialData.payload.url] : [""]));
+    const rawUrls = initialData?.payload.urls ?? (initialData?.payload.url ? [initialData.payload.url] : []);
+    const validUrls = (Array.isArray(rawUrls) ? rawUrls : []).filter(u => typeof u === "string" && u.trim().length > 0);
+    setUrls(validUrls.length > 0 ? validUrls : [""]);
     setTotpSecret(initialData?.payload.totpSecret ?? "");
     setCardName(initialData?.payload.cardName ?? "");
     setCardNumber(initialData?.payload.cardNumber ?? "");
@@ -1085,12 +1150,54 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <FieldLabel>Password</FieldLabel>
             <SecretInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="font-mono" />
           </div>
-          <div className="col-span-1 md:col-span-2">
-            <FieldLabel>Primary URL</FieldLabel>
-            <div className="flex gap-2 items-center">
-              <div className="w-6 h-6 flex items-center justify-center shrink-0"><Globe className="w-3.5 h-3.5 text-[var(--fg-muted)]" /></div>
-              <Input value={urls[0] || ""} onChange={e => setUrls(p => [e.target.value, ...p.slice(1)])} placeholder="https://domain.com" />
+          <div className="col-span-1 md:col-span-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <FieldLabel>Website / URL</FieldLabel>
+              {urls.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => setUrls(prev => [...prev, ""])}
+                  className="text-[11px] font-medium text-[var(--accent,#6366f1)] hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  + Add secondary URL
+                </button>
+              )}
             </div>
+            {urls.map((urlVal, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center shrink-0">
+                  <Globe className="w-3.5 h-3.5 text-neutral-400" />
+                </div>
+                <Input
+                  value={urlVal}
+                  onChange={(e) => {
+                    const newVal = e.target.value;
+                    setUrls(prev => {
+                      const next = [...prev];
+                      next[idx] = newVal;
+                      return next;
+                    });
+                  }}
+                  placeholder={idx === 0 ? "https://domain.com" : "https://secondary-domain.com"}
+                  className="flex-1"
+                />
+                {urls.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrls(prev => {
+                        const next = prev.filter((_, i) => i !== idx);
+                        return next.length > 0 ? next : [""];
+                      });
+                    }}
+                    className="p-2 rounded-lg text-neutral-400 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer shrink-0"
+                    title="Remove URL"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
           {showTotp || totpSecret ? (
             <div className="col-span-1 md:col-span-2 p-4 rounded-xl border border-[var(--border)] bg-[var(--bg)]">
@@ -1202,28 +1309,41 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     return null;
   };
 
-  const TemplateTabs = () => (
-    <div className="flex items-center gap-1.5 p-1 bg-[var(--bg)] border border-[var(--border)] rounded-xl w-fit">
-      {TEMPLATES.map(t => {
-        const active = template === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTemplate(t.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer select-none ${
-              active
-                ? "bg-[var(--surface-hover)] text-[var(--accent)] border border-[var(--border)] shadow-sm font-bold"
-                : "text-[var(--fg-muted)] hover:text-[var(--fg)] border border-transparent"
-            }`}
-          >
-            {t.icon}
-            <span className="hidden sm:inline">{t.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
+  const TemplateTabs = () => {
+    if (initialData) {
+      const current = TEMPLATES.find(t => t.id === template) || TEMPLATES[0];
+      return (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--accent)] select-none">
+          {current.icon}
+          <span>{current.label}</span>
+          <span className="text-[9px] uppercase tracking-wider text-[var(--fg-muted)] font-mono ml-1">(Type Fixed)</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1.5 p-1 bg-[var(--bg)] border border-[var(--border)] rounded-xl w-fit">
+        {TEMPLATES.map(t => {
+          const active = template === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTemplate(t.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer select-none ${
+                active
+                  ? "bg-[var(--surface-hover)] text-[var(--accent)] border border-[var(--border)] shadow-sm font-bold"
+                  : "text-[var(--fg-muted)] hover:text-[var(--fg)] border border-transparent"
+              }`}
+            >
+              {t.icon}
+              <span className="hidden sm:inline">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   if (!open) return null;
 
@@ -1273,6 +1393,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                   fullName={fullName}
                   email={profEmail}
                   phone={phone}
+                  dob={dob}
+                  idNumber={idNumber}
                   note={note}
                   cardName={cardName}
                   cardNumber={cardNumber}
@@ -1290,8 +1412,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                 </div>
                 <div>
                   <FieldLabel>Folder</FieldLabel>
-                  <Select value={folder} onChange={setFolder} options={[{ value: "", label: "No folder" }, ...folders.map(f => ({ value: f, label: f, icon: <Folder className="w-3 h-3" /> })), { value: "__new__", label: "+ New folder…", divider: folders.length > 0 }]} placeholder="No folder" />
-                  {folder === "__new__" && <input value={newFolder} onChange={e => setNewFolder(e.target.value)} placeholder="Folder name" autoFocus className="mt-2 w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-[12px] text-[var(--fg)] outline-none focus:border-[var(--accent)] transition-colors" />}
+                  <FolderSelect value={folder} onChange={setFolder} folders={folders} />
                 </div>
                 <div>
                   <FieldLabel>Tags</FieldLabel>
@@ -1411,6 +1532,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     fullName={fullName}
                     email={profEmail}
                     phone={phone}
+                    dob={dob}
+                    idNumber={idNumber}
                     note={note}
                     cardName={cardName}
                     cardNumber={cardNumber}
@@ -1533,8 +1656,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--border)]">
                     <div>
                       <FieldLabel>Folder Location</FieldLabel>
-                      <Select value={folder} onChange={setFolder} options={[{ value: "", label: "No folder" }, ...folders.map(f => ({ value: f, label: f, icon: <Folder className="w-3 h-3" /> })), { value: "__new__", label: "+ New folder…", divider: folders.length > 0 }]} placeholder="No folder" />
-                      {folder === "__new__" && <input value={newFolder} onChange={e => setNewFolder(e.target.value)} placeholder="Folder name" autoFocus className="mt-2 w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-[12px] text-[var(--fg)] outline-none focus:border-[var(--accent)] transition-colors" />}
+                      <FolderSelect value={folder} onChange={setFolder} folders={folders} />
                     </div>
                     <div>
                       <FieldLabel>Classification Tags</FieldLabel>
