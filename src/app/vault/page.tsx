@@ -624,57 +624,33 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
 
 // ─── Row detail renderer ──────────────────────────────────────────────────────
 
-function DetailRow({ label, value, masked = false, isUrl = false, inGrid = false }: {
-  label: string; value: string; masked?: boolean; isUrl?: boolean; inGrid?: boolean;
+function DetailRow({ label, value, masked = false, isUrl = false }: {
+  label: string; value: string; masked?: boolean; isUrl?: boolean;
 }) {
   if (!value) return null;
-  if (inGrid) {
-    return (
-      <div className="flex flex-col gap-1 p-2 rounded-xl bg-neutral-900/90 border border-neutral-800/80 min-w-0">
-        <span className="text-[9.5px] font-bold text-neutral-500 uppercase tracking-wider">{label}</span>
-        <div className="flex items-center justify-between gap-1 min-w-0">
-          {masked ? (
-            <MaskedValue value={value} />
-          ) : isUrl ? (
-            <a
-              href={value.startsWith("http") ? value : `https://${value}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-[12px] font-mono text-indigo-400 hover:text-indigo-300 truncate underline decoration-indigo-500/30"
-            >
-              {value}
-            </a>
-          ) : (
-            <span className="text-[12px] font-mono text-neutral-200 truncate">{value}</span>
-          )}
-          {!masked && <CopyBtn value={value} />}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5 px-3 rounded-xl bg-neutral-900/40 border border-neutral-800/50">
-      <span className="text-[11px] font-semibold text-neutral-500 w-24 shrink-0 uppercase tracking-wider">{label}</span>
-      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-        {masked ? (
-          <MaskedValue value={value} />
-        ) : isUrl ? (
-          <div className="flex items-center gap-1.5 min-w-0">
-            <a
-              href={value.startsWith("http") ? value : `https://${value}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-[12.5px] font-mono text-indigo-400 hover:text-indigo-300 truncate underline decoration-indigo-500/30"
-            >
-              {value}
-            </a>
-            <CopyBtn value={value} />
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[12.5px] font-mono text-neutral-200 truncate">{value}</span>
-            <CopyBtn value={value} />
-          </div>
-        )}
+    <div className="flex items-start gap-4">
+      <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
+      <div className="flex-1 min-w-0">
+        {masked ? <MaskedValue value={value} /> :
+          isUrl ? (
+            <div className="flex items-center gap-1">
+              <a
+                href={value.startsWith("http") ? value : `https://${value}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-[13px] text-neutral-400 hover:text-neutral-200 break-all transition-colors"
+              >
+                {value}
+              </a>
+              <CopyBtn value={value} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] text-neutral-200 break-all">{value}</span>
+              <CopyBtn value={value} />
+            </div>
+          )
+        }
       </div>
     </div>
   );
@@ -724,20 +700,20 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
   const t = data._template ?? "login";
   return (
     <div className={inGrid 
-      ? "p-3 space-y-2 text-sm bg-neutral-950/60" 
-      : "p-4 space-y-2.5 text-sm bg-neutral-950/80"
+      ? "space-y-2.5 text-sm" 
+      : "px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)] text-sm"
     }>
       {t === "login" && <>
-        <DetailRow label="User" value={data.username || ""} inGrid={inGrid} />
-        <DetailRow label="Password" value={data.password || ""} masked inGrid={inGrid} />
+        <DetailRow label="User" value={data.username || ""} />
+        <DetailRow label="Password" value={data.password || ""} masked />
         {data.urls && data.urls.length > 0 ? (
-          data.urls.map((u, i) => <DetailRow key={i} label={i === 0 ? "URL" : `URL ${i+1}`} value={u} isUrl inGrid={inGrid} />)
+          data.urls.map((u, i) => <DetailRow key={i} label={i === 0 ? "URL" : `URL ${i+1}`} value={u} isUrl />)
         ) : (
-          <DetailRow label="URL" value={data.url || ""} isUrl inGrid={inGrid} />
+          <DetailRow label="URL" value={data.url || ""} isUrl />
         )}
         {data.totpSecret && (
-          <div className={`p-2 rounded-xl bg-neutral-900/90 border border-neutral-800/80 ${inGrid ? "flex flex-col gap-1" : "flex items-center justify-between gap-3 px-3 py-2"}`}>
-            <span className="text-[9.5px] font-bold text-neutral-500 uppercase tracking-wider shrink-0">2FA Code</span>
+          <div className="flex items-start gap-4">
+            <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">2FA Code</span>
             <div className="flex-1 min-w-0">
               <TotpDisplay secret={data.totpSecret} />
             </div>
@@ -747,61 +723,66 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 
       {t === "card" && <>
         <CreditCardGraphic data={data} />
-        <DetailRow label="Name" value={data.cardName || ""} inGrid={inGrid} />
-        <DetailRow label="Number" value={data.cardNumber || ""} masked inGrid={inGrid} />
-        <DetailRow label="Expiry" value={data.expiry || ""} inGrid={inGrid} />
-        <DetailRow label="CVV" value={data.cvv || ""} masked inGrid={inGrid} />
-        <DetailRow label="PIN" value={data.pin || ""} masked inGrid={inGrid} />
+        <DetailRow label="Name" value={data.cardName || ""} />
+        <DetailRow label="Number" value={data.cardNumber || ""} masked />
+        <DetailRow label="Expiry" value={data.expiry || ""} />
+        <DetailRow label="CVV" value={data.cvv || ""} masked />
+        <DetailRow label="PIN" value={data.pin || ""} masked />
       </>}
 
       {t === "address" && <>
-        <DetailRow label="Line 1" value={data.line1 || ""} inGrid={inGrid} />
-        <DetailRow label="Line 2" value={data.line2 || ""} inGrid={inGrid} />
-        <DetailRow label="City" value={data.city || ""} inGrid={inGrid} />
-        <DetailRow label="State" value={data.state || ""} inGrid={inGrid} />
-        <DetailRow label="ZIP" value={data.zip || ""} inGrid={inGrid} />
-        <DetailRow label="Country" value={data.country || ""} inGrid={inGrid} />
+        <DetailRow label="Line 1" value={data.line1 || ""} />
+        <DetailRow label="Line 2" value={data.line2 || ""} />
+        <DetailRow label="City" value={data.city || ""} />
+        <DetailRow label="State" value={data.state || ""} />
+        <DetailRow label="ZIP" value={data.zip || ""} />
+        <DetailRow label="Country" value={data.country || ""} />
       </>}
 
       {t === "profile" && <>
-        <DetailRow label="Name" value={data.fullName || ""} inGrid={inGrid} />
-        <DetailRow label="Email" value={data.email || ""} inGrid={inGrid} />
-        <DetailRow label="Phone" value={data.phone || ""} inGrid={inGrid} />
-        <DetailRow label="DOB" value={data.dob || ""} inGrid={inGrid} />
-        <DetailRow label="ID / No." value={data.idNumber || ""} masked inGrid={inGrid} />
+        <DetailRow label="Name" value={data.fullName || ""} />
+        <DetailRow label="Email" value={data.email || ""} />
+        <DetailRow label="Phone" value={data.phone || ""} />
+        <DetailRow label="DOB" value={data.dob || ""} />
+        <DetailRow label="ID / No." value={data.idNumber || ""} masked />
       </>}
 
       {t === "note" && data.note && (
-        <div className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800/80 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[9.5px] font-bold text-neutral-500 uppercase tracking-wider">Note</span>
+        <div className="space-y-1.5">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Note</span>
             <CopyBtn value={data.note} />
           </div>
-          <p className="text-[12.5px] text-neutral-200 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">{data.note}</p>
+          <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.note}</p>
         </div>
       )}
 
       {data.customFields?.map((f, i) => f.value ? (
-        <DetailRow key={i} label={f.key || "Field"} value={f.value} masked inGrid={inGrid} />
+        <DetailRow key={i} label={f.key || "Field"} value={f.value} masked />
       ) : null)}
 
       {data.entryNotes && (
-        <div className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800/80 space-y-1.5 mt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9.5px] font-bold text-neutral-500 uppercase tracking-wider">Private Notes</span>
+        <div className="space-y-1.5 pt-2 border-t border-[var(--border)] mt-2">
+          <div className="flex items-start justify-between">
+            <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Private Notes</span>
             <CopyBtn value={data.entryNotes} />
           </div>
-          <p className="text-[12.5px] text-neutral-200 font-mono whitespace-pre-wrap leading-relaxed">{data.entryNotes}</p>
+          <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.entryNotes}</p>
         </div>
+      )}
+
+      {/* Legacy blobs */}
+      {data.payload && (
+        <p className="text-[13px] text-amber-400 font-mono break-all">{data.payload}</p>
       )}
 
       {/* Password History */}
       {data.passwordHistory && data.passwordHistory.length > 0 && (
-        <div className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800/80 space-y-1.5 mt-2">
-          <span className="text-[9.5px] font-bold text-neutral-500 uppercase tracking-wider">Previous Passwords</span>
-          <div className="flex flex-col gap-1 pt-1">
+        <div className="space-y-1.5 pt-2 border-t border-[var(--border)] mt-2">
+          <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Previous Passwords</span>
+          <div className="flex flex-col gap-1">
             {data.passwordHistory.map((pw, i) => (
-              <div key={i} className="flex justify-between items-center bg-neutral-950 px-2 py-1.5 rounded-lg border border-neutral-800/50 text-[11px] font-mono text-neutral-300">
+              <div key={i} className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded text-[11px] font-mono text-neutral-400">
                 <span>{pw}</span>
                 <CopyBtn value={pw} />
               </div>
@@ -817,10 +798,10 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 
       {/* Actions */}
       {!readOnly && onEdit && (
-        <div className="flex justify-end pt-2 border-t border-neutral-800/60 mt-2">
+        <div className="flex justify-end pt-2 border-t border-[var(--border)] mt-2">
           <button
             onClick={onEdit}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-neutral-300 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors"
           >
             <Edit2 className="w-3.5 h-3.5" />
             Edit Entry
@@ -1585,75 +1566,66 @@ export default function VaultPage() {
       return (
         <div
           key={item.id}
-          className={`group relative flex flex-col justify-between h-full rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
+          className={`group relative flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
             isRevealed
-              ? "border-neutral-600 bg-neutral-900/90 shadow-lg shadow-black/30 ring-1 ring-[var(--accent,#6366f1)]/40"
+              ? "border-neutral-700 bg-neutral-900/60 shadow-lg shadow-black/20"
               : isSelected
-              ? "border-[var(--accent,#6366f1)] bg-neutral-900/80 ring-1 ring-[var(--accent,#6366f1)]/30"
-              : "border-neutral-800/80 bg-neutral-950/70 hover:border-neutral-700 hover:bg-neutral-900/50 hover:shadow-md"
+              ? "border-[var(--accent)]/50 bg-neutral-900/40 ring-1 ring-[var(--accent)]/30"
+              : "border-neutral-800/60 bg-neutral-900/20 hover:border-neutral-700 hover:bg-neutral-900/40"
           }`}
         >
-          {/* Main Card Content */}
-          <div className="p-4 flex-1 flex flex-col justify-between space-y-3" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
-            {/* Header: Icon on left, 2FA + Favorite + Checkbox on right */}
-            <div className="flex items-center justify-between gap-2">
+          {/* Card header */}
+          <div className="p-4 flex-1" onClick={() => toggleReveal(item.id, item.encryptedBlob)}>
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="shrink-0">{itemIcon}</div>
-              <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {item.favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
                 {item.hasTotp && (
                   <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400">2FA</span>
                 )}
-                {(!activeFilter || activeFilter !== "trash") && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.favorite); }}
-                    className={`p-1 rounded-lg transition-colors cursor-pointer ${item.favorite ? "text-amber-400 bg-amber-950/40 border border-amber-900/40" : "text-neutral-600 hover:text-amber-400 hover:bg-neutral-800"}`}
-                    title={item.favorite ? "Remove favorite" : "Add to favorites"}
-                  >
-                    <Star className={`w-3.5 h-3.5 ${item.favorite ? "fill-amber-400" : ""}`} />
-                  </button>
-                )}
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
-                  className={`w-4 h-4 rounded accent-neutral-400 cursor-pointer transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-80"}`}
-                />
               </div>
             </div>
 
-            {/* Title & Preview */}
-            <div className="min-w-0 flex-1">
-              <h3 className="text-[13.5px] font-semibold text-neutral-100 truncate tracking-tight mb-1">{item.name}</h3>
-              <p className={`text-[11.5px] truncate font-mono ${isRevealed ? "text-neutral-300" : "text-neutral-500"}`}>
-                {subLine || <span className="italic text-neutral-600 font-sans">Tap to reveal</span>}
-              </p>
-            </div>
+            <h3 className="text-[13px] font-semibold text-neutral-100 truncate mb-1">{item.name}</h3>
+            <p className={`text-[11px] truncate font-mono ${isRevealed ? "text-neutral-400" : "text-neutral-600"}`}>
+              {subLine}
+            </p>
 
-            {/* Metadata Pills: Folder & Tags */}
+            {/* Folder + Tags */}
             {(item.folder || (item.tags && item.tags.length > 0)) && (
-              <div className="flex flex-wrap items-center gap-1 pt-1">
+              <div className="flex flex-wrap gap-1 mt-2">
                 {item.folder && activeFolder === null && (
-                  <span className="text-[9.5px] flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-400 font-medium shrink-0">
-                    <Folder className="w-2.5 h-2.5 text-neutral-500" />{item.folder.split("/").pop()}
+                  <span className="text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-neutral-800/60 border border-neutral-700/50 text-neutral-500">
+                    <Folder className="w-2.5 h-2.5" />{item.folder.split("/").pop()}
                   </span>
                 )}
                 {item.tags?.slice(0, 2).map(tag => (
-                  <span key={tag} className="text-[9.5px] px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-400 shrink-0 font-mono">#{tag}</span>
+                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-800/60 border border-neutral-700/50 text-neutral-500">#{tag}</span>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Action Bar Footer */}
-          <div className="px-3.5 py-2.5 border-t border-neutral-800/60 bg-neutral-900/40 flex items-center justify-between gap-2 shrink-0">
-            <span className="text-[10px] text-neutral-500 font-mono truncate">{dateStr || ""}</span>
-            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Action bar */}
+          <div className="px-3 py-2 border-t border-neutral-800/50 bg-neutral-950/30 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => { e.stopPropagation(); toggleSelection(item.id); }}
+                onClick={(e) => e.stopPropagation()}
+                className={`w-3.5 h-3.5 rounded accent-neutral-400 cursor-pointer transition-opacity ${isSelected || isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}
+              />
+              {dateStr && <span className="text-[9px] text-neutral-700 font-mono">{dateStr}</span>}
+            </div>
+            <div className="flex items-center gap-0.5">
               {actionButtons}
             </div>
           </div>
 
           {/* Expanded details */}
           {isRevealed && revealedData && (
-            <div className="border-t border-neutral-800/60 bg-neutral-950/80">
+            <div className="border-t border-neutral-800/60 bg-neutral-950/50">
               <ExpandedDetails
                 data={revealedData}
                 readOnly={activeFilter === "trash"}
@@ -1807,7 +1779,7 @@ export default function VaultPage() {
             {/* Items directly in this folder */}
             {!collapsed && grpItems.length > 0 && (
               viewMode === "grid" ? (
-                <div className="border-t border-neutral-800/40 p-3.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-stretch gap-3.5">
+                <div className="border-t border-neutral-800/40 p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-3">
                   {grpItems.map(renderItem)}
                 </div>
               ) : (
@@ -2080,7 +2052,7 @@ export default function VaultPage() {
 
           {/* Filtered (single-folder view) */}
           {!grouped && visibleItems.length > 0 && (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-stretch gap-4" : "rounded-2xl border border-neutral-800/60 overflow-hidden divide-y divide-neutral-800/40 bg-neutral-900/10"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4" : "rounded-2xl border border-neutral-800/60 overflow-hidden divide-y divide-neutral-800/40 bg-neutral-900/10"}>
               {visibleItems.map(renderItem)}
             </div>
           )}
