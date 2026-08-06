@@ -22,11 +22,9 @@
 - [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
 
 ### Vault Item Display & Icon System Redesign
-- [x] **Grid View & ExpandedDetails Redesign**:
-  - Rebuilt Grid View cards with equal-height flex container (`h-full flex flex-col justify-between`).
-  - Positioned 36px icon on top left, 2FA badge + favorite star + checkbox on top right.
-  - Enabled responsive grid columns (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`) inside folder groups in `renderGrouped`.
-  - Redesigned `ExpandedDetails` & `DetailRow` with responsive `inGrid` field card containers (`bg-neutral-900/90 border border-neutral-800/80`) to eliminate squished labels.
+- [x] **Grid Expansion Fix**:
+  - Restored previous clean grid card & detail design as requested.
+  - Applied `items-start` to grid container layouts (`grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-4`) across single folder, uncategorized, and subfolder tree views. Expanding one item now expands only that card vertically without stretching or expanding sibling cards in the grid row.
 - [x] **Removed Repetitive Type Badges**: Removed `LOGIN`, `CARD`, `NOTE`, `ADDRESS`, `PROFILE` text pills from every item row in List View and Grid View.
 - [x] **Standardized 32px Icon System**: Icons standardized to `w-8 h-8 rounded-xl` with dual-tone accent fills (`bg-violet-500/10`, `bg-amber-500/10`, `bg-emerald-500/10`, `bg-sky-500/10`).
 - [x] **Smart Domain Resolver & Multi-Tier Favicon Loader**:
