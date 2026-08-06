@@ -180,14 +180,16 @@ function CopyBtn({ value, size = "sm" }: { value: string; size?: "sm" | "xs" }) 
 function MaskedValue({ value, mono = true }: { value: string; mono?: boolean }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className="flex items-center gap-1 min-w-0">
-      <span className={`break-all ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-600"} text-[13px]`}>
-        {visible ? value : "•".repeat(Math.min(value.length, 20))}
+    <div className="flex items-center justify-between gap-1 min-w-0">
+      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px]`}>
+        {visible ? value : "••••••••••••"}
       </span>
-      <button onClick={() => setVisible(v => !v)} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
-        {visible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-      </button>
-      <CopyBtn value={value} />
+      <div className="flex items-center shrink-0">
+        <button onClick={() => setVisible(v => !v)} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
+          {visible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+        </button>
+        <CopyBtn value={value} />
+      </div>
     </div>
   );
 }
@@ -629,24 +631,25 @@ function DetailRow({ label, value, masked = false, isUrl = false }: {
 }) {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-4">
-      <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
+    <div className="flex items-start gap-2.5 min-w-0">
+      <span className="text-[10.5px] text-neutral-500 font-medium w-16 sm:w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
       <div className="flex-1 min-w-0">
         {masked ? <MaskedValue value={value} /> :
           isUrl ? (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between gap-1 min-w-0">
               <a
                 href={value.startsWith("http") ? value : `https://${value}`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-[13px] text-neutral-400 hover:text-neutral-200 break-all transition-colors"
+                className="text-[12.5px] font-mono text-indigo-400 hover:text-indigo-300 truncate underline decoration-indigo-500/30 min-w-0"
+                title={value}
               >
                 {value}
               </a>
               <CopyBtn value={value} />
             </div>
           ) : (
-            <div className="flex items-center gap-1">
-              <span className="text-[13px] text-neutral-200 break-all">{value}</span>
+            <div className="flex items-center justify-between gap-1 min-w-0">
+              <span className="text-[12.5px] font-mono text-neutral-200 truncate min-w-0" title={value}>{value}</span>
               <CopyBtn value={value} />
             </div>
           )
@@ -700,7 +703,7 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
   const t = data._template ?? "login";
   return (
     <div className={inGrid 
-      ? "space-y-2.5 text-sm" 
+      ? "p-4 space-y-3 text-sm" 
       : "px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)] text-sm"
     }>
       {t === "login" && <>
