@@ -1,10 +1,132 @@
 # todo.md — _vaultr Session Log
 
-## Last Updated: 2026-07-12
+## Last Updated: 2026-08-07
+
+---
+
+### Smart Folder & Entry Pre-selection
+- [x] **Automatic Folder Pre-selection**: When inside an opened folder or subfolder (e.g. `Work/Projects/Alpha`), clicking "Add new item" pre-selects that folder automatically in the `NewEntryDialog` folder dropdown.
+- [x] Fixed `NewEntryDialog` resetting `folder` state to empty string on dialog open.
+- [x] **Login URL Editing Fix**:
+  - Guaranteed URL field initializes to `[""]` when editing a login item without a domain, ensuring the Website / URL input field is ALWAYS visible.
+  - Multi-URL secondary URL support with remove button (`X`) shown ONLY when > 1 URL exists.
+  - Automatic trimming and filtering of empty/whitespace URL fields on save.
+- [x] **Template Type Locking & Payload Isolation**:
+  - Locked template type selector during item edit mode (`initialData` present), displaying a fixed type badge `(Type Fixed)` so users cannot change an existing item's template type.
+  - Strict payload field isolation on item creation/saving: only fields belonging to the currently selected template type are included in `payload`. Inputs entered into other template tabs before switching are automatically ignored and stripped.
+  - Automatic purging of undefined/empty-string keys from saved encrypted payloads.
+- [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
+
+### Vault Item Display & Icon System Redesign
+- [x] **Removed Repetitive Type Badges**: Removed `LOGIN`, `CARD`, `NOTE`, `ADDRESS`, `PROFILE` text pills from every item row in List View and Grid View.
+- [x] **Standardized 32px Icon System**: Icons standardized to `w-8 h-8 rounded-xl` with dual-tone accent fills (`bg-violet-500/10`, `bg-amber-500/10`, `bg-emerald-500/10`, `bg-sky-500/10`).
+- [x] **Smart Domain Resolver & Multi-Tier Favicon Loader**:
+  - Automatically resolves domain names from item name if `domain` field is missing (e.g. `"GitHub"` → `"github.com"`, `"Google"` → `"google.com"`).
+  - Uses Google Favicon API as primary source (`sz=64`) for 99.9% domain coverage, falling back to DuckDuckGo and Clearbit.
+- [x] **Clean Item Hierarchy**: Primary name in `font-medium text-neutral-100`, sub-line in monospace hint.
+- [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
+
+### Smart Folder Deletion UX
+- [x] **Empty Folders (0 items)**: Instantly deleted upon clicking delete without prompting for disposition choices.
+- [x] **Folders with Items (>0 items)**: Displays `DeleteFolderModal` asking user how to handle contained items:
+  - **Move items to Uncategorized**: Removes folder association while keeping items active.
+  - **Delete items too**: Soft-deletes items to Trash, with explicit warning: *"Folder structure will be lost"*.
+- [x] **Illustration-Backed Custom UI**: Premium dialog with centered hero SVG illustration (`/illustrations/throw-away_k2t5.svg`), primary `"Delete Folder (Keep Items)"` button, and secondary `"Delete folder and move X items to Trash"` red text link.
+- [x] Integrated seamlessly into both `Sidebar.tsx` tree view and `FolderManager.tsx` modal view.
+- [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
+
+---
+
+
+---
+
+## ✅ Completed This Session (2026-08-06)
+
+### Mass Actions Overhaul — Batch API
+- [x] Created `POST /api/vault/items/batch/route.ts` — handles trash/restore/favorite/unfavorite/move for N items in a **single DB transaction** (replaces N parallel HTTP calls that caused 429 errors).
+- [x] Ownership check: validates all IDs belong to the current user before updating.
+- [x] Supports up to 500 items per batch.
+
+### Master Key Change & Trash Re-encryption
+- [x] Included items in Trash (`deletedAt !== null`) during master password re-encryption: Previously only active items were re-encrypted, causing decryption errors when restoring items from Trash after a password change. Now all items in the vault are re-encrypted atomically.
+- [x] Verified old master password against any available vault item (active or trash).
+- [x] Displayed exact re-encrypted item count and breakdown in UI:
+  - Header label: `{totalCount} item(s) will be re-encrypted ({activeCount} active, {trashCount} in trash)`.
+  - Success message: `Master password changed. {totalCount} item(s) re-encrypted ({activeCount} active, {trashCount} in trash)`.
+- [x] Automatically synced VaultContext in-memory cryptoKey (`unlock(newPw)`) immediately upon changing master password.
+
+### VaultContext Extensions
+- [x] Added `batchAction(action, ids, payload?)` — calls new batch endpoint, single `fetchItems()` refresh.
+- [x] Added `renameFolder(from, to)` — calls PATCH /api/vault/folders.
+- [x] Added `deleteFolder(name, disposition)` — calls DELETE /api/vault/folders.
+
+### Mass Actions UI
+- [x] Replaced `handleBulkAction` N-parallel pattern with `batchAction` single call.
+- [x] Added `bulkBusy` loading state — spinner + "Processing N items…" message while active.
+- [x] Added `bulkConfirmTrash` confirm dialog before trashing items (with inline confirmation panel).
+- [x] Keyboard shortcut: `Escape` to deselect all; `Delete`/`Backspace` to trigger bulk trash confirm.
+- [x] All bulk action buttons disabled while operation is in progress.
+
+### FolderManager Modal
+- [x] Created `src/components/vault/FolderManager.tsx` — triggered from the ⚙ icon in the sidebar Folders header.
+- [x] Lists all folders with item counts, nested folder display with indentation.
+- [x] Inline rename (input field, Enter to confirm, Escape to cancel).
+- [x] Delete folder with confirmation panel and disposition choice (Uncategorized vs Trash).
+- [x] Shows info about how to create nested folders.
+
+### Sidebar Folder UX Redesign
+- [x] Added `buildFolderTree()` util — builds hierarchical tree from slash-delimited flat folder strings.
+- [x] Added `FolderTreeNode` component — renders collapsible folder tree nodes with:
+  - Indented nesting based on depth.
+  - Collapse/expand toggle for nodes with children.
+  - Item counts: `direct/total` for parent nodes.
+  - `⋯` context menu button on hover (→ right-click menu).
+  - FolderOpen icon when active.
+- [x] Right-click / `⋯` context menu: Open, New item here, Rename/Delete.
+- [x] Added `⚙` Manage Folders button to the Folders section header.
+- [x] Collapse state persisted to `localStorage` per user session.
+- [x] Collapsed mode: shows flat icon list (unchanged behavior).
+- [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
+
+### Breadcrumb Navigation
+- [x] Added breadcrumb trail in vault/page.tsx for nested folder paths (e.g. `Work › Projects › Alpha`).
+- [x] Each breadcrumb segment is a clickable link.
+- [x] Only shown for folders with 2+ path segments.
+
+---
+
+## 🔜 Next Steps
+
+- [ ] **Drag-and-drop items between folders** (Phase 2, requires `@dnd-kit` or similar).
+- [ ] **Empty folder creation UI** — right now folders are derived from items. Add ability to pre-create folder names.
+- [ ] **Merge folders** — in FolderManager, allow renaming folder A to folder B's name to consolidate.
+- [ ] **Search within folder** — scoped search (current search is global).
+- [ ] **"Include subfolders" toggle** — for nested folder views, toggle to show all descendant items.
 
 ---
 
 ## ✅ Completed This Session
+
+### Account Linking UX Overhaul
+- [x] Streamlined "Link Password" flow: removed the email input field and implemented OTP verification using the user's logged-in session email.
+- [x] Secured unlinking: enabled unlinking for the credential provider and added protection to block unlinking the last remaining provider.
+- [x] Redesigned Profile details preview card layout to remove the search illustration and implement a premium secure access badge (featuring an EMV microchip graphic, verified status indicator dot, and clean font-mono styling).
+- [x] Fixed `PROVIDER_META` keys ("google" and "credential") to resolve custom label styles.
+- [x] Fixed settings layout TopBar: hid the non-functional search button and password generator actions, and styled a clean Vaultr branding + "Settings" badge on the left.
+- [x] Verified zero TypeScript compilation errors.
+
+### Landing Page Redesign & Polish
+- [x] Redesigned the main landing page (`src/app/page.tsx`) to match the clean dark theme.
+- [x] Rearranged landing page sections: Hero, Features bento grid, Security specs table, "Up and running in minutes" animated steps timeline, Open Source / GitHub section, FAQ, and final CTA.
+- [x] Removed spy detective artwork from all top sections and integrated it exclusively into the final CTA section.
+- [x] Positioned the spy detective artwork (`spy-detective-white.png`) as a full-height visual on the **right side** of the final CTA section with no overlapping elements or dividers.
+- [x] Redesigned the "Up and running in minutes" section with an animated timeline featuring circular nodes and dynamic connecting paths.
+- [x] Upgraded the Open Source section with a minimal, wrapperless, custom-built inline vector SVG GitHub mascot that dynamically swaps color schemes for perfect readability based on the active theme (white circle with black cat in dark theme, black circle with white cat in light theme) for absolute sharpness.
+- [x] Updated all homepage repository links and clone instructions to point to the user's repository (`https://github.com/Yashraj-Jangra/vaultr`).
+- [x] Verified zero TypeScript compilation errors via `npx tsc --noEmit`.
+
+### Local Dev Environment & Tunnel Configuration
+- [x] Set up local database and MinIO endpoint variables in `.env.local` to use `127.0.0.1` loopbacks (`5435` and `9005` respectively) to route traffic through secure SSH tunnels and bypass VPS host interface locks.
 
 ### Docker & CasaOS Containerization
 - [x] Created `Dockerfile` with multi-stage build running Next.js and auto-migrating DB schema via `drizzle-kit` on startup.
@@ -126,16 +248,22 @@
 
 | File | Change |
 |------|--------|
+| `src/app/settings/account/page.tsx` | Redesigned Sign-in Methods layout, added OTP-based linking UI, and updated provider meta keys |
+| `src/components/vault/DialogPreviews.tsx` | Redesigned ProfileBadgePreview to use a premium, secure badge design with microchip and personal settings vector |
+| `src/components/layout/CommandPalette.tsx` | Passed dob and idNumber values to the DynamicPreviewCanvas inside command palette |
+| `src/lib/linkOtpStore.ts` | Created in-memory OTP cache store with TTL expiration for user linking verification |
+| `src/app/api/settings/link-password/send-otp/route.ts` | Created send-otp endpoint for sending password linking codes to signed-in emails |
+| `src/app/api/settings/link-password/verify/route.ts` | Created verification endpoint that validates OTP and sets password in Better Auth |
+| `src/app/api/settings/set-password/route.ts` | Deleted legacy direct password-setting endpoint |
 | `src/lib/storage.ts` | Refined public URLs to use proxy path, decoupled backend S3 endpoint from frontend domain, added URL rewriter |
 | `src/hooks/useAuth.ts` | Added client-side rewriter to `photoURL` session object mapping |
-| `src/app/settings/account/page.tsx` | Added state synchronization effect for async profile loading |
 | `src/app/api/avatars/[...slug]/route.ts` | Created secure avatar file proxy endpoint that retrieves and streams images using server-side S3 client |
 | `scripts/fix-avatar-urls.js` | Created pure Node.js migration script to clean up legacy MinIO URLs across database rows |
 | `next.config.ts` | Updated CSP directives to allow Google avatar CDNs and use origin-relative image loading |
 | `docker-compose.yml` | Added Google OAuth credentials, SMTP variables, and `MINIO_PUBLIC_URL` variable forwarding |
 | `.env` | Configured production `MINIO_PUBLIC_URL` |
 | `.env.example` | Documented and configured internal vs. public MinIO parameters |
-| `src/components/layout/TopBar.tsx` | Dynamic profile photo url image rendering |
+| `src/components/layout/TopBar.tsx` | Dynamic profile photo url image rendering, and settings layout conditional search/generator hiding with premium branding |
 | `src/app/admin/layout.tsx` | Cyberpunk bracket card, SVG mesh network float, exit return trigger |
 | `src/app/admin/analytics/page.tsx` | Custom diagnostics gauges showing active latencies, ping timers, and locations |
 | `src/app/api/admin/stats/route.ts` | Measure active DB query times, S3 connection pings, and resolved timezone zones |

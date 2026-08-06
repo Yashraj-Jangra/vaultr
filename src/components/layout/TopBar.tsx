@@ -40,40 +40,63 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
   return (
     <header className="h-14 border-b border-[var(--border)] bg-[var(--bg)] sticky top-0 z-40 flex items-center px-4 gap-3">
       {/* Mobile Menu Toggle */}
-      <button
-        onClick={onMenuOpen}
-        className="md:hidden flex items-center justify-center p-1.5 -ml-1.5 rounded-md hover:bg-neutral-800/50 text-neutral-500 hover:text-neutral-300 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-      </button>
+      {onMenuOpen && (
+        <button
+          onClick={onMenuOpen}
+          className="md:hidden flex items-center justify-center p-1.5 -ml-1.5 rounded-md hover:bg-neutral-800/50 text-neutral-500 hover:text-neutral-300 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+      )}
 
-      {/* Mobile brand mark — only shown when sidebar is hidden */}
-      <Image
-        src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
-        alt="_vaultr"
-        width={24}
-        height={24}
-        className="md:hidden w-6 h-6 object-contain shrink-0"
-      />
+      {/* Brand logo-mark / title */}
+      {!onSearchOpen ? (
+        <div className="flex items-center gap-2 mr-4">
+          <Image
+            src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
+            alt="_vaultr"
+            width={22}
+            height={22}
+            className="w-5.5 h-5.5 object-contain shrink-0"
+          />
+          <span className="text-[14px] font-bold text-neutral-200 tracking-tight font-sans">Vaultr</span>
+          <span className="text-[10px] text-neutral-500 font-semibold px-1.5 py-0.5 border border-neutral-800 bg-neutral-900/50 rounded uppercase tracking-wider">Settings</span>
+        </div>
+      ) : (
+        /* Mobile brand mark — only shown when sidebar is hidden */
+        <Image
+          src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
+          alt="_vaultr"
+          width={24}
+          height={24}
+          className="md:hidden w-6 h-6 object-contain shrink-0"
+        />
+      )}
 
       {/* Search bar */}
-      <button
-        onClick={onSearchOpen}
-        className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-md border border-[var(--border)] text-[13px] text-neutral-600 hover:border-neutral-700 hover:text-neutral-400 transition-colors cursor-pointer text-left"
-      >
-        <Search className="w-3.5 h-3.5 shrink-0" />
-        <span className="flex-1">Search vault…</span>
-        <kbd className="text-[10px] text-neutral-700 border border-[var(--border)] rounded px-1.5 py-0.5 font-mono hidden sm:block">⌘K</kbd>
-      </button>
+      {onSearchOpen ? (
+        <button
+          onClick={onSearchOpen}
+          className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-md border border-[var(--border)] text-[13px] text-neutral-600 hover:border-neutral-700 hover:text-neutral-400 transition-colors cursor-pointer text-left"
+        >
+          <Search className="w-3.5 h-3.5 shrink-0" />
+          <span className="flex-1">Search vault…</span>
+          <kbd className="text-[10px] text-neutral-700 border border-[var(--border)] rounded px-1.5 py-0.5 font-mono hidden sm:block">⌘K</kbd>
+        </button>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* Generator button */}
-      <button
-        onClick={onGeneratorOpen}
-        title="Password Generator"
-        className="text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer p-2 rounded-md hover:bg-neutral-800/50"
-      >
-        <Wand2 className="w-4 h-4" />
-      </button>
+      {onGeneratorOpen && (
+        <button
+          onClick={onGeneratorOpen}
+          title="Password Generator"
+          className="text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer p-2 rounded-md hover:bg-neutral-800/50"
+        >
+          <Wand2 className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Lock status dot */}
       <div
