@@ -15,6 +15,10 @@
   - Locked template type selector during item edit mode (`initialData` present), displaying a fixed type badge `(Type Fixed)` so users cannot change an existing item's template type.
   - Strict payload field isolation on item creation/saving: only fields belonging to the currently selected template type are included in `payload`. Inputs entered into other template tabs before switching are automatically ignored and stripped.
   - Automatic purging of undefined/empty-string keys from saved encrypted payloads.
+- [x] **Git Commit History Cleanup & Remote Sync**:
+  - Squashed 39 noisy commits into 8 clean, logical, human-style atomic commits with direct emoji titles and proper timestamps.
+  - Sanitized credentials in `.env.local.idk`.
+  - Pushed to `origin/main` (`git push --force-with-lease origin main` — branch fully in sync).
 - [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
 
 ### Vault Item Display & Icon System Redesign
