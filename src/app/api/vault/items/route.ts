@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
-import { vaultItems, configStats } from "@/db/schema";
+import { vaultItems, configStats, userProfiles } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -94,7 +94,27 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const user = await verifyUserToken(req);
+
+    // Verify 24h deletion cooldown has elapsed
+    const [profile] = await db
+      .select({ scheduledDeleteAt: userProfiles.scheduledDeleteAt })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, user.id));
+
+    if (!profile?.scheduledDeleteAt || new Date() < new Date(profile.scheduledDeleteAt)) {
+      return NextResponse.json(
+        { error: "Vault deletion must be scheduled 24 hours in advance." },
+        { status: 403 }
+      );
+    }
+
+    // Cooldown elapsed — perform wipe
     await db.delete(vaultItems).where(eq(vaultItems.userId, user.id));
+    await db
+      .update(userProfiles)
+      .set({ scheduledDeleteAt: null })
+      .where(eq(userProfiles.userId, user.id));
+
     return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof Response) return err;

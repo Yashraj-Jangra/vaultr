@@ -148,6 +148,8 @@ export const userProfiles = pgTable("user_profiles", {
   // ── Storage ──────────────────────────────────────────────────────────────
   storageUsedBytes:         integer("storage_used_bytes").default(0),
   storageQuotaBytes:        integer("storage_quota_bytes").default(104857600), // 100 MB
+  // ── Cooldowns & Deletion ──────────────────────────────────────────────────
+  scheduledDeleteAt:        timestamp("scheduled_delete_at", { withTimezone: true }),
 });
 
 export type UserProfile    = typeof userProfiles.$inferSelect;

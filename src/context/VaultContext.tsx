@@ -62,6 +62,14 @@ export interface VaultContextValue {
   setIsNewEntryOpen: (val: boolean) => void;
   folders: string[];
   filteredItems: VaultItem[];
+  /** Bulk action on multiple items via a single API call. Returns number of updated items. */
+  batchAction: (action: "trash" | "restore" | "favorite" | "unfavorite" | "move", ids: string[], payload?: string) => Promise<number>;
+  /** Add a folder (and its ancestors) to custom persisted folders list. */
+  addCustomFolder: (folderPath: string) => void;
+  /** Rename a folder across all items that have it. */
+  renameFolder: (from: string, to: string) => Promise<void>;
+  /** Delete a folder — move items to uncategorized (default) or trash. */
+  deleteFolder: (name: string, disposition?: "uncategorize" | "trash") => Promise<void>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -140,25 +148,20 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
+  const lastFetchTimeRef = useRef(0);
+  const fetchingRef = useRef(false);
+
   // ── Fetch vault items from REST API
   const fetchItems = useCallback(async () => {
     if (!user?.id) return;
+    const now = Date.now();
+    if (fetchingRef.current || now - lastFetchTimeRef.current < 1000) return;
+    fetchingRef.current = true;
+    lastFetchTimeRef.current = now;
     try {
       const data = await apiFetch("/api/vault/items");
       const list: VaultItem[] = (data.items ?? [])
         .map(rowToItem)
-        .filter((item: VaultItem) => {
-          // Passive trash sweep: hard delete if deletedAt > 30 days
-          if (item.deletedAt) {
-            const deletedTime = new Date(item.deletedAt).getTime();
-            if (Date.now() - deletedTime > 30 * 24 * 60 * 60 * 1000) {
-              // Fire and forget — hard delete passively
-              fetch(`/api/vault/items/${item.id}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-              return false;
-            }
-          }
-          return true;
-        })
         .sort((a: VaultItem, b: VaultItem) =>
           new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
         );
@@ -166,6 +169,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("[VaultContext] fetchItems error", err);
     } finally {
+      fetchingRef.current = false;
       setIsLoading(false);
     }
   }, [user?.id]);
@@ -356,6 +360,111 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     fetchItems();
   }, [user, fetchItems]);
 
+  const batchAction = useCallback(async (
+    action: "trash" | "restore" | "favorite" | "unfavorite" | "move",
+    ids: string[],
+    payload?: string
+  ): Promise<number> => {
+    if (!user?.id || ids.length === 0) return 0;
+    const res = await apiFetch("/api/vault/items/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ids, payload }),
+    });
+    fetchItems();
+    return res.updated ?? 0;
+  }, [user, fetchItems]);
+
+  // ── Custom / empty folders state (persisted per user)
+  const CUSTOM_FOLDERS_KEY = user?.id ? `vaultr_custom_folders_${user.id}` : null;
+  const [customFolders, setCustomFolders] = useState<string[]>(() => {
+    if (!user?.id) return [];
+    try {
+      const stored = localStorage.getItem(`vaultr_custom_folders_${user.id}`);
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return [];
+  });
+
+  // Keep customFolders synced when user changes
+  useEffect(() => {
+    if (!user?.id) {
+      setCustomFolders([]);
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(`vaultr_custom_folders_${user.id}`);
+      if (stored) setCustomFolders(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
+  const addCustomFolder = useCallback((folderPath: string) => {
+    const trimmed = folderPath.trim();
+    if (!trimmed) return;
+    setCustomFolders(prev => {
+      const set = new Set(prev);
+      const segs = trimmed.split("/").filter(Boolean);
+      for (let i = 1; i <= segs.length; i++) {
+        set.add(segs.slice(0, i).join("/"));
+      }
+      const next = Array.from(set).sort();
+      if (CUSTOM_FOLDERS_KEY) {
+        try { localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(next)); }
+        catch { /* ignore */ }
+      }
+      return next;
+    });
+  }, [CUSTOM_FOLDERS_KEY]);
+
+  const renameFolder = useCallback(async (from: string, to: string) => {
+    if (!user?.id) return;
+    await apiFetch("/api/vault/folders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to }),
+    });
+
+    // Update customFolders for exact match and prefix matches
+    setCustomFolders(prev => {
+      const fromPrefix = `${from}/`;
+      const next = prev.map(f => {
+        if (f === from) return to;
+        if (f.startsWith(fromPrefix)) return `${to}/${f.slice(fromPrefix.length)}`;
+        return f;
+      });
+      const unique = Array.from(new Set(next)).sort();
+      if (CUSTOM_FOLDERS_KEY) {
+        try { localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(unique)); }
+        catch { /* ignore */ }
+      }
+      return unique;
+    });
+
+    fetchItems();
+  }, [user, fetchItems, CUSTOM_FOLDERS_KEY]);
+
+  const deleteFolder = useCallback(async (name: string, disposition: "uncategorize" | "trash" = "uncategorize") => {
+    if (!user?.id) return;
+    await apiFetch("/api/vault/folders", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, disposition }),
+    });
+
+    // Remove folder and all its subfolders from customFolders
+    setCustomFolders(prev => {
+      const namePrefix = `${name}/`;
+      const next = prev.filter(f => f !== name && !f.startsWith(namePrefix));
+      if (CUSTOM_FOLDERS_KEY) {
+        try { localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(next)); }
+        catch { /* ignore */ }
+      }
+      return next;
+    });
+
+    fetchItems();
+  }, [user, fetchItems, CUSTOM_FOLDERS_KEY]);
+
   const decryptItem = useCallback(async (blob: string): Promise<string> => {
     if (!cryptoKey) throw new Error("Vault is locked");
     return decrypt(cryptoKey, blob);
@@ -368,7 +477,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   // ── Derived state
   const folders = Array.from(
-    new Set(items.map((i) => i.folder).filter(Boolean) as string[])
+    new Set([
+      ...(items.map((i) => i.folder).filter(Boolean) as string[]),
+      ...customFolders,
+    ])
   ).sort();
 
   const filteredItems = searchQuery.trim()
@@ -402,6 +514,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       hardDeleteItem,
       restoreItem,
       toggleFavorite,
+      batchAction,
+      addCustomFolder,
+      renameFolder,
+      deleteFolder,
       decryptItem,
       encryptData,
       setSearchQuery,

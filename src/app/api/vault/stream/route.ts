@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   }
 
   const encoder = new TextEncoder();
-  let lastUpdatedAt = new Date(0);
+  let lastUpdatedAt = new Date();
 
   const stream = new ReadableStream({
     async start(controller) {
