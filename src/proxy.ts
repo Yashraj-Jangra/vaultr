@@ -57,6 +57,20 @@ const RULES: RateLimitRule[] = [
     max: 5,
     windowMs: 10 * 60 * 1000, // 5 attempts per 10 min
   },
+  // Stream SSE endpoint: separate bucket so SSE reconnects don't exhaust general API quota
+  {
+    bucket: "stream",
+    prefix: "/api/vault/stream",
+    max: 30,
+    windowMs: 60 * 1000, // 30 connections per min
+  },
+  // Vault item reads: dedicated bucket so item fetches are isolated
+  {
+    bucket: "vault-read",
+    prefix: "/api/vault/items",
+    max: 60,
+    windowMs: 60 * 1000, // 60 req/min
+  },
   // General API: generous but bounded
   {
     bucket: "api",
