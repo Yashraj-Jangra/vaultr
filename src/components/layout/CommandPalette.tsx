@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, Settings, Plus, Wand2, X, Heart, Fingerprint, Clock, Shield, Sparkles } from "lucide-react";
+import { Search, Lock, Settings, Plus, Wand2, X, Heart, Fingerprint, Clock, Shield, Sparkles, CreditCard, Globe, User, FileText } from "lucide-react";
 import { useVault } from "@/context/VaultContext";
 import { DynamicPreviewCanvas } from "@/components/vault/DialogPreviews";
+import { SiteIcon } from "@/components/vault/SiteIcon";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -143,22 +144,39 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
         item.domain?.toLowerCase().includes(q) ||
         item.folder?.toLowerCase().includes(q)
       )
-      .map((item) => ({
-        id: `entry-${item.id}`,
-        itemId: item.id,
-        label: item.name,
-        description: item.domain || item.folder,
-        icon: item.domain
-          ? <img src={`https://www.google.com/s2/favicons?domain=${item.domain}&sz=16`} alt="" className="w-4 h-4 rounded" />
-          : <Shield className="w-4 h-4" />,
-        run: () => {
-          saveToHistory(query);
-          router.push(`/vault?reveal=${item.id}`);
-          onClose();
-        },
-        group: "entry" as const,
-        template: item.template || "login",
-      }));
+      .map((item) => {
+        const template = item.template || "login";
+        let icon: React.ReactNode;
+
+        if (template === "login") {
+          icon = <SiteIcon domain={item.domain} name={item.name} size={18} />;
+        } else if (template === "card") {
+          icon = <CreditCard className="w-4 h-4 text-violet-400" />;
+        } else if (template === "address") {
+          icon = <Globe className="w-4 h-4 text-emerald-400" />;
+        } else if (template === "profile") {
+          icon = <User className="w-4 h-4 text-sky-400" />;
+        } else if (template === "note") {
+          icon = <FileText className="w-4 h-4 text-amber-400" />;
+        } else {
+          icon = <Shield className="w-4 h-4 text-neutral-400" />;
+        }
+
+        return {
+          id: `entry-${item.id}`,
+          itemId: item.id,
+          label: item.name,
+          description: item.domain || item.folder,
+          icon,
+          run: () => {
+            saveToHistory(query);
+            router.push(`/vault?reveal=${item.id}`);
+            onClose();
+          },
+          group: "entry" as const,
+          template,
+        };
+      });
   }, [items, query, router, onClose, saveToHistory]);
 
   const filteredActions: Action[] = useMemo(() => {
