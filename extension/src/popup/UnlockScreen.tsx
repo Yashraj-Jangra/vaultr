@@ -52,20 +52,10 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
   if (isUnauthorized) {
     return (
       <div className="unlock-wrap" style={{ justifyContent: "center", gap: 24 }}>
-        {/* Background Grid */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-            opacity: 0.015,
-            pointerEvents: "none",
-          }}
-        />
+        <div className="unlock-bg-grid" />
+        <div className="unlock-bg-radial" />
 
-        <div style={{ textAlign: "center" }}>
-          {/* Locked Avatar style Icon */}
+        <div style={{ textAlign: "center", position: "relative", zIndex: 10 }}>
           <div className="lock-halo-wrap">
             <div className="lock-halo" style={{ background: "radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%)" }} />
             <div className="lock-box" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.02)" }}>
@@ -98,7 +88,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
 
   return (
     <div className="unlock-wrap">
-      {/* Background Grid matching site */}
+      {/* Decorative Grid & Glow matching site exactly */}
       <div className="unlock-bg-grid" />
       <div className="unlock-bg-radial" />
 
@@ -110,37 +100,42 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
             src="brand/lock-brand-dark.png"
             alt="Vaultr Lock"
             style={{
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
               objectFit: "contain",
               opacity: loading ? 1 : 0.6,
-              transition: "opacity 0.3s ease"
+              transition: "all 0.3s ease"
             }}
           />
         </div>
       </div>
 
       {/* Header Info */}
-      <div className="unlock-header">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: 0.6, marginBottom: 12 }}>
+      <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8, opacity: 0.6 }}>
           <img
             src="brand/logo-dark.png"
-            alt="Vaultr Logo"
+            alt="Vaultr"
             style={{ height: 20, width: "auto", objectFit: "contain" }}
           />
         </div>
-        <h1 className="unlock-title">
+        <h1 style={{ fontSize: 18, fontWeight: 600, color: "var(--neutral-100)", letterSpacing: "-0.025em" }}>
           {loading ? "Decrypting vault…" : "Unlock your vault"}
         </h1>
-        {userEmail && <p className="unlock-email">{userEmail}</p>}
+        {userEmail && (
+          <p style={{ fontSize: 12, color: "var(--neutral-500)", fontFamily: "monospace", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260, margin: "4px auto 0" }}>
+            {userEmail}
+          </p>
+        )}
       </div>
 
       {/* Inputs & Form */}
-      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`}>
+      <div style={{ width: "100%", position: "relative", zIndex: 10 }}>
+        <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {error && (
-            <div className="alert alert-error" style={{ width: "100%" }}>
-              {error}
+            <div className="alert alert-error">
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0, marginTop: 4 }} />
+              <p style={{ fontSize: 12, color: "#f87171", flex: 1 }}>{error}</p>
             </div>
           )}
 
@@ -154,34 +149,66 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
               placeholder="Master password"
               autoFocus
               disabled={loading}
-              style={{ paddingRight: 40, height: 44 }}
+              style={{
+                width: "100%",
+                height: 44,
+                paddingRight: 40,
+                background: "#0d0d0d",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                color: "var(--neutral-200)",
+                fontSize: 13
+              }}
             />
-            <Lock size={15} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-700)" }} />
+            <Lock size={16} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-700)", pointerEvents: "none" }} />
           </div>
 
           <button
             onClick={() => handleSubmit()}
             className="btn btn-primary"
-            style={{ width: "100%", height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
             disabled={!masterPassword || loading}
+            style={{
+              width: "100%",
+              height: 44,
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              fontSize: 13,
+              fontWeight: 500
+            }}
           >
             {loading ? (
-              <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
             ) : (
-              "Unlock Vault"
+              <>
+                <Lock size={14} />
+                Unlock vault
+              </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="unlock-footer">
-        <span className="unlock-footer-link" onClick={openLoginPage}>
-          Sign in
-        </span>
-        <span className="unlock-footer-link" style={{ cursor: "default" }}>
-          {serverUrl.replace(/^https?:\/\//, "")}
-        </span>
+      {/* Footer Links matching site */}
+      <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24, fontSize: 12, position: "relative", zIndex: 10 }}>
+        <button
+          onClick={openLoginPage}
+          style={{ background: "none", border: "none", color: "var(--neutral-600)", cursor: "pointer", fontSize: 12 }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--neutral-300)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--neutral-600)")}
+        >
+          Forgot password?
+        </button>
+        <button
+          onClick={openLoginPage}
+          style={{ background: "none", border: "none", color: "var(--neutral-600)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--neutral-300)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--neutral-600)")}
+        >
+          <Shield size={14} /> Why is this needed?
+        </button>
       </div>
     </div>
   );

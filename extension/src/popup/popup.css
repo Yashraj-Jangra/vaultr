@@ -1096,16 +1096,28 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: 0.025;
   background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-size: 40px 40px;
 }
 
 .unlock-bg-radial {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255, 255, 255, 0.015) 0%, transparent 70%);
+}
+
+.alert-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(153, 27, 27, 0.4);
+  background: rgba(127, 29, 29, 0.25);
+  color: #f87171;
+  font-size: 12px;
 }
 
 .lock-halo-wrap {
