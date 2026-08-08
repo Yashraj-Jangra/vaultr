@@ -158,10 +158,12 @@ function DetailRow({ label, value, masked = false }: { label: string; value: str
         {masked ? (
           <MaskedValue value={value} />
         ) : (
-          <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
             <span className="detail-value">{value}</span>
-            <CopyBtn value={value} />
-          </>
+            <div className="detail-actions">
+              <CopyBtn value={value} />
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -193,22 +195,26 @@ function TotpDisplay({ secret }: { secret: string }) {
   return (
     <div className="detail-row">
       <span className="detail-label">2FA Code</span>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
-        {/* Countdown Ring */}
-        <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg style={{ width: 14, height: 14, transform: "rotate(-90deg)" }} viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" stroke="var(--neutral-800)" strokeWidth="4" fill="none" />
-            <circle cx="12" cy="12" r="10" stroke="#0ea5e9" strokeWidth="4" fill="none"
-              strokeDasharray="62.8"
-              strokeDashoffset={62.8 * (1 - percent / 100)}
-              style={{ transition: "stroke-dashoffset 1s linear" }}
-            />
-          </svg>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Countdown Ring */}
+          <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg style={{ width: 14, height: 14, transform: "rotate(-90deg)" }} viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="var(--neutral-800)" strokeWidth="4" fill="none" />
+              <circle cx="12" cy="12" r="10" stroke="#0ea5e9" strokeWidth="4" fill="none"
+                strokeDasharray="62.8"
+                strokeDashoffset={62.8 * (1 - percent / 100)}
+                style={{ transition: "stroke-dashoffset 1s linear" }}
+              />
+            </svg>
+          </div>
+          <span className="detail-value" style={{ color: "#0ea5e9", fontWeight: 700, letterSpacing: "1px" }}>
+            {code.slice(0, 3)} {code.slice(3, 6)}
+          </span>
         </div>
-        <span className="detail-value" style={{ color: "#0ea5e9", fontWeight: 700, letterSpacing: "1px" }}>
-          {code.slice(0, 3)} {code.slice(3, 6)}
-        </span>
-        <CopyBtn value={code} />
+        <div className="detail-actions">
+          <CopyBtn value={code} />
+        </div>
       </div>
     </div>
   );
@@ -383,7 +389,9 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 24 }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTE CONTENT</span>
-                    <CopyBtn value={decrypted.note} />
+                    <div className="detail-actions">
+                      <CopyBtn value={decrypted.note} />
+                    </div>
                   </div>
                   <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note}</pre>
                 </div>
@@ -394,7 +402,9 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 6 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 24 }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTES</span>
-                    <CopyBtn value={decrypted.entryNotes} />
+                    <div className="detail-actions">
+                      <CopyBtn value={decrypted.entryNotes} />
+                    </div>
                   </div>
                   <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
                 </div>
