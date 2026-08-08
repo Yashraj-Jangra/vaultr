@@ -4,6 +4,32 @@
 
 ---
 
+## ✅ Completed This Session (2026-08-08)
+
+### Extension UI/UX Overhaul + Autofill Fix
+
+- [x] **New design system (`popup.css`)**: Full CSS token-based design system matching the main site's dark aesthetic (`#07080c` base, neutral zinc scale, purple accent `#7c6afa`), Inter font via Google Fonts, animated transitions.
+- [x] **Redesigned `UnlockScreen.tsx`**: Premium dark layout with gradient shield logo, inline error alerts, unauthorized state with "Open Vaultr" CTA button.
+- [x] **Redesigned `VaultScreen.tsx`**: Multi-tier favicon loading (Google → DuckDuckGo → Clearbit fallback, matching the site's `SiteIcon` component), expandable item rows showing username/password/TOTP/notes with show/hide toggle and per-field copy, "Fill" button inline on current-site matches, autofill pass-through to content script.
+- [x] **Redesigned `GeneratorScreen.tsx`**: Visual strength bar with animated fill, colored strength label, regenerate + copy buttons, premium toggle chips for character types.
+- [x] **Redesigned `SettingsScreen.tsx`**: Account card (avatar initials, email, "Manage Account" → opens site), Autofill toggles (suggest on focus, auto-submit), auto-lock dropdown, server URL, "Open Vaultr Web App" button, About section.
+- [x] **Fixed `autofill.ts`**: Autofill now triggers on email/username/text fields as well as password fields (was password-only before). Uses `HTMLInputElement.prototype.value` native setter for React/Vue/Angular compatibility. Handles both "focused on username" and "focused on password" cases bidirectionally. Animated dropdown with ESC to dismiss. Listens for `AUTOFILL_CREDENTIAL` message from popup.
+- [x] **Updated `service-worker.ts`**: Added `GET_ACCOUNT_INFO` message handler (`/api/me` fetch). Fetches account info on unlock. Fixed domain match bug (no longer shows all items when domain is empty string).
+- [x] **Updated `App.tsx`**: Fetches account info on unlock and passes to SettingsScreen. `onAutofill` callback sends `AUTOFILL_CREDENTIAL` to active tab content script then closes popup.
+- [x] **Updated `popup.html`**: Inter font loaded from Google Fonts, corrected popup size to 380×560.
+- [x] Build: `webpack compiled successfully` — zero TypeScript errors, zero warnings.
+
+## 🔜 Next Steps
+
+- [ ] **Test extension end-to-end**: Load unpacked from `extension/dist/`, unlock, verify autofill on a real login page.
+- [ ] **Autofill settings persistence**: The auto-lock timeout and autofill toggles in SettingsScreen currently only hold local React state — wire them to `chrome.storage.local` + service worker.
+- [ ] **TOTP live countdown**: Add live countdown ring and refresh in the item expand detail panel.
+- [ ] **Icons in extension**: Add actual icon assets (16/48/128px) to `extension/public/` and reference in `manifest.json`.
+
+---
+
+---
+
 ### Monorepo Architecture: Shared Core, Extension & Android Mobile App
 - [x] **Npm Workspaces Setup**: Configured root `package.json` with `"workspaces": ["packages/*", "extension", "mobile"]` and updated `tsconfig.json` path mappings (`@vaultr/core`).
 - [x] **Extracted Shared Core Package (`packages/core`)**:
