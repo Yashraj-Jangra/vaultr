@@ -6,6 +6,7 @@
 import { VaultrApiClient, decrypt, deriveKey, VaultItem, DecryptedLoginPayload } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "http://localhost:3000";
+const DEFAULT_SALT = "vaultr_default_salt";
 
 interface ServiceWorkerState {
   serverUrl: string;
@@ -13,6 +14,7 @@ interface ServiceWorkerState {
   items: VaultItem[];
   decryptedItemsCache: Record<string, DecryptedLoginPayload>;
   isUnlocked: boolean;
+  accountInfo: { email?: string; name?: string } | null;
 }
 
 const state: ServiceWorkerState = {
@@ -21,20 +23,19 @@ const state: ServiceWorkerState = {
   items: [],
   decryptedItemsCache: {},
   isUnlocked: false,
+  accountInfo: null,
 };
 
-// Initialize server URL from local storage or default
+// Initialize server URL from local storage
 chrome.storage.local.get(["vaultr_server_url"], (result) => {
   if (result.vaultr_server_url) {
     state.serverUrl = result.vaultr_server_url;
   }
 });
 
-// Alarm handler for auto-lock
+// Auto-lock alarm
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "vaultr_autolock") {
-    lockVault();
-  }
+  if (alarm.name === "vaultr_autolock") lockVault();
 });
 
 function lockVault() {
@@ -42,24 +43,24 @@ function lockVault() {
   state.items = [];
   state.decryptedItemsCache = {};
   state.isUnlocked = false;
+  state.accountInfo = null;
   chrome.storage.session.remove(["vaultr_master_password"]);
   chrome.alarms.clear("vaultr_autolock");
-  console.log("[Vaultr Service Worker] Vault locked.");
+  console.log("[Vaultr SW] Vault locked.");
 }
 
 async function getApiClient(): Promise<VaultrApiClient> {
   const { vaultr_server_url } = await chrome.storage.local.get("vaultr_server_url");
-  const serverUrl = vaultr_server_url || DEFAULT_SERVER_URL;
-  return new VaultrApiClient({
-    baseUrl: serverUrl,
-  });
+  return new VaultrApiClient({ baseUrl: vaultr_server_url || DEFAULT_SERVER_URL });
 }
 
-// Message Listener for Popup and Content Script
+// ─── Message Handler ──────────────────────────────────────────────────────────
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
       switch (message.type) {
+
         case "GET_STATUS": {
           sendResponse({
             isUnlocked: state.isUnlocked,
@@ -77,21 +78,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
 
         case "UNLOCK": {
-          const { masterPassword, salt = "vaultr_default_salt" } = message;
+          const { masterPassword } = message;
           const api = await getApiClient();
+
+          // Fetch items from server (validates session cookie)
           const items = await api.getItems();
 
-          // Verify unlock by attempting to derive key
-          const key = await deriveKey(masterPassword, salt);
-          
+          // Derive encryption key (validates master password locally)
+          await deriveKey(masterPassword, DEFAULT_SALT);
+
           state.masterPassword = masterPassword;
           state.items = items;
           state.isUnlocked = true;
 
-          // Cache master password in session storage (cleared when browser closes)
+          // Persist master password in session storage (clears when browser closes)
           await chrome.storage.session.set({ vaultr_master_password: masterPassword });
 
-          // Set auto-lock alarm (15 minutes default)
+          // Fetch account info while we're at it
+          try {
+            const accountRes = await globalThis.fetch(`${state.serverUrl}/api/me`, {
+              credentials: "include",
+            });
+            if (accountRes.ok) {
+              const data = await accountRes.json();
+              state.accountInfo = { email: data.email, name: data.name };
+            }
+          } catch {
+            // Non-fatal — account info is optional
+          }
+
+          // Reset auto-lock alarm
+          chrome.alarms.clear("vaultr_autolock");
           chrome.alarms.create("vaultr_autolock", { delayInMinutes: 15 });
 
           sendResponse({ success: true, count: items.length });
@@ -113,6 +130,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
 
+        case "GET_ACCOUNT_INFO": {
+          if (!state.isUnlocked) {
+            sendResponse({ account: null });
+            return;
+          }
+          // If we already have it, return it
+          if (state.accountInfo) {
+            sendResponse({ account: state.accountInfo });
+            return;
+          }
+          // Otherwise try to fetch
+          try {
+            const res = await globalThis.fetch(`${state.serverUrl}/api/me`, {
+              credentials: "include",
+            });
+            if (res.ok) {
+              const data = await res.json();
+              state.accountInfo = { email: data.email, name: data.name };
+              sendResponse({ account: state.accountInfo });
+            } else {
+              sendResponse({ account: {} });
+            }
+          } catch {
+            sendResponse({ account: {} });
+          }
+          break;
+        }
+
         case "GET_LOGINS_FOR_DOMAIN": {
           if (!state.isUnlocked || !state.masterPassword) {
             sendResponse({ logins: [] });
@@ -120,33 +165,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
 
           const targetDomain = (message.domain || "").toLowerCase().replace(/^www\./, "");
-          const key = await deriveKey(state.masterPassword, "vaultr_default_salt");
-
+          const key = await deriveKey(state.masterPassword, DEFAULT_SALT);
           const matchingLogins: Array<{ id: string; name: string; username?: string; password?: string }> = [];
 
           for (const item of state.items) {
-            if (item.template !== "login" && item.template !== undefined) continue;
+            // Only match login-type items
+            if (item.template && item.template !== "login") continue;
 
             const itemDomain = (item.domain || "").toLowerCase().replace(/^www\./, "");
-            const nameMatches = item.name.toLowerCase().includes(targetDomain);
+            const nameMatch = item.name.toLowerCase().includes(targetDomain);
 
-            if (itemDomain.includes(targetDomain) || targetDomain.includes(itemDomain) || nameMatches) {
+            if (!targetDomain || itemDomain.includes(targetDomain) || targetDomain.includes(itemDomain) || nameMatch) {
+              if (!targetDomain) continue; // don't show everything if no domain
               try {
-                let decryptedPayload = state.decryptedItemsCache[item.id];
-                if (!decryptedPayload) {
-                  const rawJson = await decrypt(key, item.encryptedBlob);
-                  decryptedPayload = JSON.parse(rawJson) as DecryptedLoginPayload;
-                  state.decryptedItemsCache[item.id] = decryptedPayload;
+                let decrypted = state.decryptedItemsCache[item.id];
+                if (!decrypted) {
+                  const raw = await decrypt(key, item.encryptedBlob);
+                  decrypted = JSON.parse(raw) as DecryptedLoginPayload;
+                  state.decryptedItemsCache[item.id] = decrypted;
                 }
-
                 matchingLogins.push({
                   id: item.id,
                   name: item.name,
-                  username: decryptedPayload.username,
-                  password: decryptedPayload.password,
+                  username: decrypted.username,
+                  password: decrypted.password,
                 });
               } catch (err) {
-                console.error("[Vaultr SW] Failed to decrypt item:", item.id, err);
+                console.error("[Vaultr SW] Decrypt error:", item.id, err);
               }
             }
           }
@@ -161,7 +206,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             return;
           }
           const { encryptedBlob } = message;
-          const key = await deriveKey(state.masterPassword, "vaultr_default_salt");
+          const key = await deriveKey(state.masterPassword, DEFAULT_SALT);
           const raw = await decrypt(key, encryptedBlob);
           sendResponse({ payload: JSON.parse(raw) });
           break;
@@ -172,7 +217,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
     } catch (err: any) {
       console.error("[Vaultr SW Error]", err);
-      sendResponse({ error: err?.message || "Internal Service Worker Error" });
+      sendResponse({ error: err?.message || "Internal error" });
     }
   })();
 

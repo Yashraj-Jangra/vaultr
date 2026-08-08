@@ -1,6 +1,11 @@
 /**
- * Vaultr Content Script — Native In-Page Form Detection & Autofill Injection
- * Scans active page DOM for login forms and shows interactive Vaultr autofill dropdowns.
+ * Vaultr Content Script — Native In-Page Form Detection & Autofill
+ *
+ * Strategy:
+ *  - Detect login forms by scanning for password fields + sibling username/email fields
+ *  - Show a floating Vaultr dropdown anchored to the focused field
+ *  - On selection, fill BOTH username and password fields and dispatch React-compatible events
+ *  - Listen for AUTOFILL_CREDENTIAL messages sent directly from the popup
  */
 
 interface AutofillCredential {
@@ -11,144 +16,279 @@ interface AutofillCredential {
 }
 
 let activeDropdown: HTMLElement | null = null;
+let lastFocusedField: HTMLInputElement | null = null;
 
-function getCurrentDomain(): string {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getDomain(): string {
+  try { return window.location.hostname; } catch { return ""; }
+}
+
+/** Dispatch React-compatible input events so frameworks (React/Vue/Angular) pick up changes */
+function nativeInputValueSetter(input: HTMLInputElement, value: string) {
   try {
-    return window.location.hostname;
+    // React 16+ uses a native input setter
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    if (nativeSetter) {
+      nativeSetter.call(input, value);
+    } else {
+      input.value = value;
+    }
   } catch {
-    return "";
+    input.value = value;
+  }
+  // Dispatch both input and change to satisfy all frameworks
+  input.dispatchEvent(new Event("input",  { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent("keyup",   { bubbles: true }));
+}
+
+/** Find username/email field — search the form first, then the closest ancestor */
+function findUsernameField(anchor: HTMLInputElement): HTMLInputElement | null {
+  const form = anchor.closest("form") || document.body;
+  const selectors = [
+    'input[autocomplete="username"]',
+    'input[autocomplete="email"]',
+    'input[type="email"]',
+    'input[name*="user" i]',
+    'input[name*="email" i]',
+    'input[name*="login" i]',
+    'input[id*="user" i]',
+    'input[id*="email" i]',
+    'input[placeholder*="email" i]',
+    'input[placeholder*="username" i]',
+    'input[type="text"]',
+  ];
+  for (const sel of selectors) {
+    const el = form.querySelector<HTMLInputElement>(sel);
+    if (el && el !== anchor && el.offsetParent !== null) return el;
+  }
+  return null;
+}
+
+/** Find password field relative to an anchor element */
+function findPasswordField(anchor: HTMLInputElement): HTMLInputElement | null {
+  const form = anchor.closest("form") || document.body;
+  const selectors = [
+    'input[autocomplete="current-password"]',
+    'input[type="password"]',
+  ];
+  for (const sel of selectors) {
+    const el = form.querySelector<HTMLInputElement>(sel);
+    if (el && el !== anchor && el.offsetParent !== null) return el;
+  }
+  return null;
+}
+
+function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential) {
+  const type = focusedField.type.toLowerCase();
+
+  if (type === "password") {
+    // Focused on password field: fill password here, find and fill username sibling
+    if (cred.password) nativeInputValueSetter(focusedField, cred.password);
+    if (cred.username) {
+      const usernameEl = findUsernameField(focusedField);
+      if (usernameEl) nativeInputValueSetter(usernameEl, cred.username);
+    }
+  } else {
+    // Focused on username/email field: fill here, find and fill password sibling
+    if (cred.username) nativeInputValueSetter(focusedField, cred.username);
+    if (cred.password) {
+      const passwordEl = findPasswordField(focusedField);
+      if (passwordEl) nativeInputValueSetter(passwordEl, cred.password);
+    }
   }
 }
 
-function fillFormFields(usernameField: HTMLInputElement | null, passwordField: HTMLInputElement, cred: AutofillCredential) {
-  if (usernameField && cred.username) {
-    usernameField.value = cred.username;
-    usernameField.dispatchEvent(new Event("input", { bubbles: true }));
-    usernameField.dispatchEvent(new Event("change", { bubbles: true }));
-  }
+// ─── Dropdown UI ─────────────────────────────────────────────────────────────
 
-  if (cred.password) {
-    passwordField.value = cred.password;
-    passwordField.dispatchEvent(new Event("input", { bubbles: true }));
-    passwordField.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-}
-
-function removeActiveDropdown() {
+function removeDropdown() {
   if (activeDropdown) {
-    activeDropdown.remove();
-    activeDropdown = null;
+    activeDropdown.style.opacity = "0";
+    activeDropdown.style.transform = "translateY(-4px)";
+    setTimeout(() => { activeDropdown?.remove(); activeDropdown = null; }, 180);
   }
 }
 
-function showAutofillDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential[]) {
-  removeActiveDropdown();
-
+function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential[]) {
+  removeDropdown();
   if (credentials.length === 0) return;
 
   const rect = inputEl.getBoundingClientRect();
+
   const dropdown = document.createElement("div");
   dropdown.id = "vaultr-autofill-dropdown";
   dropdown.style.cssText = `
-    position: absolute;
-    top: ${rect.bottom + window.scrollY + 4}px;
-    left: ${rect.left + window.scrollX}px;
-    width: ${Math.max(rect.width, 240)}px;
-    background: #0f0f11;
-    border: 1px solid #27272a;
+    position: fixed;
+    top: ${rect.bottom + 6}px;
+    left: ${rect.left}px;
+    width: ${Math.max(rect.width, 256)}px;
+    background: #0d0e14;
+    border: 1px solid #22263a;
     border-radius: 12px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 16px 48px -8px rgba(0,0,0,0.85), 0 0 0 1px rgba(124,106,250,0.08);
     z-index: 2147483647;
     overflow: hidden;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #f4f4f5;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    color: #f0f0f5;
     padding: 6px;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1);
   `;
 
+  // Header
   const header = document.createElement("div");
   header.style.cssText = `
-    padding: 6px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #a1a1aa;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #18181b;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 6px;
+    padding: 5px 8px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #7c6afa;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid #181a24;
+    margin-bottom: 4px;
   `;
-  header.innerHTML = `<span>Vaultr Autofill</span><span style="font-size: 10px; color: #71717a;">${credentials.length} saved</span>`;
+
+  // Vaultr shield icon (SVG inline)
+  header.innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c6afa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+    <span>Vaultr</span>
+    <span style="margin-left:auto; font-weight:500; color:#52536a;">${credentials.length} saved</span>
+  `;
   dropdown.appendChild(header);
 
+  // Credential items
   credentials.forEach((cred) => {
-    const itemEl = document.createElement("div");
-    itemEl.style.cssText = `
-      padding: 8px 10px;
-      margin-top: 4px;
+    const item = document.createElement("div");
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 8px;
       border-radius: 8px;
       cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      transition: background 0.15s ease;
-    `;
-    itemEl.innerHTML = `
-      <div style="font-weight: 500; font-size: 13px; color: #f4f4f5;">${cred.name}</div>
-      <div style="font-size: 11px; color: #a1a1aa;">${cred.username || "No username"}</div>
+      transition: background 0.12s ease;
     `;
 
-    itemEl.addEventListener("mouseenter", () => {
-      itemEl.style.background = "#18181b";
-    });
-    itemEl.addEventListener("mouseleave", () => {
-      itemEl.style.background = "transparent";
-    });
+    const initials = cred.name.slice(0, 2).toUpperCase();
+    item.innerHTML = `
+      <div style="
+        width:30px; height:30px; border-radius:9px;
+        background:#1c1e28; border:1px solid #22263a;
+        display:flex; align-items:center; justify-content:center;
+        font-size:11px; font-weight:700; color:#8a8ab0;
+        flex-shrink:0; letter-spacing:-0.5px;
+      ">${initials}</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cred.name}</div>
+        <div style="font-size:11px; color:#8a8ab0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cred.username || "No username"}</div>
+      </div>
+      <div style="
+        font-size:10px; font-weight:600; color:#7c6afa;
+        background:rgba(124,106,250,0.12); border:1px solid rgba(124,106,250,0.2);
+        padding:3px 7px; border-radius:5px; flex-shrink:0;
+      ">Fill</div>
+    `;
 
-    itemEl.addEventListener("mousedown", (e) => {
+    item.addEventListener("mouseenter", () => { item.style.background = "#161820"; });
+    item.addEventListener("mouseleave", () => { item.style.background = "transparent"; });
+
+    item.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
-      // Find matching username input in same form or parent
-      const form = inputEl.closest("form") || document.body;
-      const usernameInput = form.querySelector<HTMLInputElement>("input[type=text], input[type=email], input[name*=user], input[name*=email]");
-      
-      fillFormFields(usernameInput, inputEl, cred);
-      removeActiveDropdown();
+      fillCredential(inputEl, cred);
+      removeDropdown();
     });
 
-    dropdown.appendChild(itemEl);
+    dropdown.appendChild(item);
   });
 
   document.body.appendChild(dropdown);
   activeDropdown = dropdown;
+
+  // Animate in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (activeDropdown) {
+        activeDropdown.style.opacity = "1";
+        activeDropdown.style.transform = "translateY(0)";
+      }
+    });
+  });
 }
 
-// Dismiss dropdown when clicking outside
+// ─── Event Listeners ──────────────────────────────────────────────────────────
+
+// Dismiss when clicking outside
 document.addEventListener("click", (e) => {
   if (activeDropdown && !activeDropdown.contains(e.target as Node)) {
-    removeActiveDropdown();
+    removeDropdown();
+  }
+}, true);
+
+// Dismiss on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && activeDropdown) removeDropdown();
+}, true);
+
+// Show dropdown on focus for any login-related field
+function isLoginField(input: HTMLInputElement): boolean {
+  if (input.type === "password") return true;
+  if (input.type === "email") return true;
+  if (input.type === "text" || !input.type) {
+    const attrs = [input.name, input.id, input.placeholder, input.autocomplete].join(" ").toLowerCase();
+    return /user|email|login|account|identifier/.test(attrs);
+  }
+  return false;
+}
+
+document.addEventListener("focusin", (e) => {
+  const target = e.target as HTMLInputElement;
+  if (!target || target.tagName !== "INPUT") return;
+  if (!isLoginField(target)) return;
+  if (target.closest("#vaultr-autofill-dropdown")) return;
+
+  lastFocusedField = target;
+
+  const domain = getDomain();
+  chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
+    if (chrome.runtime.lastError) return;
+    if (response?.logins?.length > 0) {
+      showDropdown(target, response.logins);
+    }
+  });
+}, true);
+
+// Handle autofill from popup (AUTOFILL_CREDENTIAL message)
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "AUTOFILL_CREDENTIAL" && message.credential) {
+    const cred: AutofillCredential = {
+      id: "popup",
+      name: "Vaultr",
+      ...message.credential,
+    };
+
+    // Try to find the best field to anchor to
+    const activeEl = document.activeElement as HTMLInputElement | null;
+    const anchor =
+      (activeEl && activeEl.tagName === "INPUT" ? activeEl : null) ||
+      lastFocusedField ||
+      document.querySelector<HTMLInputElement>('input[type="password"]') ||
+      document.querySelector<HTMLInputElement>('input[type="email"]') ||
+      document.querySelector<HTMLInputElement>('input[type="text"]');
+
+    if (anchor) {
+      fillCredential(anchor, cred);
+    }
   }
 });
 
-// Scan inputs on focus
-document.addEventListener(
-  "focusin",
-  (e) => {
-    const target = e.target as HTMLInputElement;
-    if (target && target.tagName === "INPUT" && (target.type === "password" || target.type === "text" || target.type === "email")) {
-      const domain = getCurrentDomain();
-      chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
-        if (chrome.runtime.lastError) return;
-        if (response && response.logins && response.logins.length > 0) {
-          if (target.type === "password") {
-            showAutofillDropdown(target, response.logins);
-          }
-        }
-      });
-    }
-  },
-  true
-);
-
-console.log("[Vaultr Content Script] In-page autofill initialized for:", getCurrentDomain());
+console.log("[Vaultr] Autofill content script loaded for:", getDomain());

@@ -1,44 +1,39 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { generateRandomPassword, scorePassword } from "@vaultr/core";
 import { RefreshCw, Copy, Check } from "lucide-react";
 
 export function GeneratorScreen() {
-  const [length, setLength] = useState(16);
+  const [length, setLength] = useState(20);
   const [useUpper, setUseUpper] = useState(true);
   const [useLower, setUseLower] = useState(true);
   const [useDigits, setUseDigits] = useState(true);
-  const [useSymbols, setUseSymbols] = useState(true);
-
-  const [password, setPassword] = useState(() =>
-    generateRandomPassword({
-      length: 16,
-      useLower: true,
-      useUpper: true,
-      useDigits: true,
-      useSymbols: true,
-      pronounceable: false,
-      minUpper: 1,
-      minDigits: 1,
-      minSymbols: 1,
-      exclude: "",
-    })
-  );
+  const [useSymbols, setUseSymbols] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const handleGenerate = () => {
-    const pw = generateRandomPassword({
-      length,
-      useLower,
-      useUpper,
-      useDigits,
-      useSymbols,
-      pronounceable: false,
-      minUpper: useUpper ? 1 : 0,
-      minDigits: useDigits ? 1 : 0,
-      minSymbols: useSymbols ? 1 : 0,
-      exclude: "",
-    });
-    setPassword(pw);
+  const generate = useCallback(
+    (len = length, up = useUpper, lo = useLower, di = useDigits, sy = useSymbols) =>
+      generateRandomPassword({
+        length: len,
+        useLower: lo,
+        useUpper: up,
+        useDigits: di,
+        useSymbols: sy,
+        pronounceable: false,
+        minUpper: up ? 1 : 0,
+        minDigits: di ? 1 : 0,
+        minSymbols: sy ? 1 : 0,
+        exclude: "",
+      }),
+    []
+  );
+
+  const [password, setPassword] = useState(() => generate());
+
+  const handleGenerate = (
+    len = length, up = useUpper, lo = useLower, di = useDigits, sy = useSymbols
+  ) => {
+    setPassword(generate(len, up, lo, di, sy));
+    setCopied(false);
   };
 
   const handleCopy = async () => {
@@ -49,61 +44,154 @@ export function GeneratorScreen() {
 
   const strength = scorePassword(password);
 
-  return (
-    <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px" }}>
-      <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: "12px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-        <div style={{ fontSize: "14px", fontFamily: "monospace", color: "#f4f4f5", wordBreak: "break-all", background: "#09090b", padding: "10px", borderRadius: "8px", border: "1px solid #27272a" }}>
-          {password}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "11px", color: strength.color, fontWeight: 600 }}>{strength.label} ({strength.crackTime})</span>
-          <div style={{ display: "flex", gap: "6px" }}>
-            <button onClick={handleGenerate} style={{ background: "#27272a", border: "none", color: "#f4f4f5", borderRadius: "6px", padding: "6px 8px", cursor: "pointer" }}>
-              <RefreshCw size={12} />
-            </button>
-            <button onClick={handleCopy} style={{ background: copied ? "rgba(34, 197, 94, 0.15)" : "#f4f4f5", border: "none", color: copied ? "#4ade80" : "#09090b", borderRadius: "6px", padding: "6px 10px", fontSize: "11px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}>
-              {copied ? <Check size={12} /> : <Copy size={12} />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
-        </div>
-      </div>
+  const strengthColor = (label: string) => {
+    switch (label?.toLowerCase()) {
+      case "very weak":  return "#f87171";
+      case "weak":       return "#fb923c";
+      case "fair":       return "#fbbf24";
+      case "strong":     return "#34d399";
+      case "very strong":return "#10b981";
+      default:           return "var(--text-muted)";
+    }
+  };
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#a1a1aa", marginBottom: "4px" }}>
-            <span>Length</span>
-            <span style={{ fontWeight: 600, color: "#f4f4f5" }}>{length}</span>
-          </div>
-          <input
-            type="range"
-            min="8"
-            max="64"
-            value={length}
-            onChange={(e) => {
-              setLength(Number(e.target.value));
-              handleGenerate();
-            }}
-            style={{ width: "100%", accentColor: "#8b5cf6" }}
+  const strengthPct = (label: string) => {
+    switch (label?.toLowerCase()) {
+      case "very weak":   return 15;
+      case "weak":        return 35;
+      case "fair":        return 55;
+      case "strong":      return 78;
+      case "very strong": return 100;
+      default:            return 0;
+    }
+  };
+
+  const color = strengthColor(strength?.label);
+  const pct = strengthPct(strength?.label);
+
+  return (
+    <div className="screen-body" style={{ padding: "14px 12px", display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Password Display */}
+      <div className="pw-display">
+        <div className="pw-value">{password}</div>
+
+        {/* Strength bar */}
+        <div className="pw-strength-bar">
+          <div
+            className="pw-strength-fill"
+            style={{ width: `${pct}%`, background: color }}
           />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-          <ToggleOption label="A-Z Uppercase" checked={useUpper} onChange={(v) => { setUseUpper(v); handleGenerate(); }} />
-          <ToggleOption label="a-z Lowercase" checked={useLower} onChange={(v) => { setUseLower(v); handleGenerate(); }} />
-          <ToggleOption label="0-9 Digits" checked={useDigits} onChange={(v) => { setUseDigits(v); handleGenerate(); }} />
-          <ToggleOption label="!@# Symbols" checked={useSymbols} onChange={(v) => { setUseSymbols(v); handleGenerate(); }} />
+        <div className="pw-meta">
+          <span style={{ fontSize: 11, fontWeight: 600, color }}>
+            {strength?.label || "—"}
+          </span>
+          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+            {strength?.crackTime || ""}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+          <button
+            className="btn btn-ghost"
+            style={{ flex: 1, justifyContent: "center", gap: 6 }}
+            onClick={() => handleGenerate()}
+          >
+            <RefreshCw size={12} />
+            Regenerate
+          </button>
+          <button
+            className={`btn ${copied ? "btn-success" : "btn-primary"}`}
+            style={{ flex: 1, justifyContent: "center", gap: 6 }}
+            onClick={handleCopy}
+          >
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      </div>
+
+      {/* Length */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+          <span>Length</span>
+          <span style={{ fontWeight: 700, color: "var(--text-primary)", minWidth: 24, textAlign: "right" }}>{length}</span>
+        </div>
+        <input
+          type="range"
+          min={8}
+          max={64}
+          value={length}
+          style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
+          onChange={(e) => {
+            const len = Number(e.target.value);
+            setLength(len);
+            handleGenerate(len);
+          }}
+        />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+          <span>8</span><span>64</span>
+        </div>
+      </div>
+
+      {/* Character Types */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
+          Characters
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <ToggleChip
+            label="A–Z Uppercase"
+            checked={useUpper}
+            onChange={(v) => { setUseUpper(v); handleGenerate(length, v); }}
+          />
+          <ToggleChip
+            label="a–z Lowercase"
+            checked={useLower}
+            onChange={(v) => { setUseLower(v); handleGenerate(length, useUpper, v); }}
+          />
+          <ToggleChip
+            label="0–9 Digits"
+            checked={useDigits}
+            onChange={(v) => { setUseDigits(v); handleGenerate(length, useUpper, useLower, v); }}
+          />
+          <ToggleChip
+            label="!@# Symbols"
+            checked={useSymbols}
+            onChange={(v) => { setUseSymbols(v); handleGenerate(length, useUpper, useLower, useDigits, v); }}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function ToggleOption({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function ToggleChip({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: "8px", background: "#18181b", border: "1px solid #27272a", padding: "8px 10px", borderRadius: "8px", fontSize: "11px", color: "#f4f4f5", cursor: "pointer" }}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ accentColor: "#8b5cf6" }} />
-      <span>{label}</span>
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: "var(--radius-md)",
+        background: checked ? "var(--accent-dim)" : "var(--bg-raised)",
+        border: `1px solid ${checked ? "rgba(124,106,250,0.3)" : "var(--border-default)"}`,
+        fontSize: 12,
+        color: checked ? "#a899fa" : "var(--text-secondary)",
+        cursor: "pointer",
+        transition: "var(--transition)",
+        userSelect: "none",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ accentColor: "var(--accent)", width: 12, height: 12, flexShrink: 0 }}
+      />
+      {label}
     </label>
   );
 }

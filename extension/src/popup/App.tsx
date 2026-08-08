@@ -4,9 +4,15 @@ import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
 import { SettingsScreen } from "./SettingsScreen";
-import { KeyRound, Shield, RefreshCw, Settings, Lock } from "lucide-react";
+import { KeyRound, Shuffle, Settings, Lock, Shield } from "lucide-react";
+import "./popup.css";
 
 type Tab = "vault" | "generator" | "settings";
+
+export interface AccountInfo {
+  email?: string;
+  name?: string;
+}
 
 export function App() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -14,19 +20,17 @@ export function App() {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("vault");
   const [loading, setLoading] = useState(true);
+  const [accountInfo, setAccountInfo] = useState<AccountInfo>({});
 
   useEffect(() => {
-    // Query background service worker for status
     chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
-      if (chrome.runtime.lastError) {
-        setLoading(false);
-        return;
-      }
+      if (chrome.runtime.lastError) { setLoading(false); return; }
       if (res) {
         setIsUnlocked(res.isUnlocked);
         setServerUrl(res.serverUrl || "http://localhost:3000");
         if (res.isUnlocked) {
           fetchItems();
+          fetchAccountInfo();
         }
       }
       setLoading(false);
@@ -35,57 +39,67 @@ export function App() {
 
   const fetchItems = () => {
     chrome.runtime.sendMessage({ type: "GET_ITEMS" }, (res) => {
-      if (res && res.items) {
-        setItems(res.items);
-      }
+      if (res?.items) setItems(res.items);
     });
   };
 
-  const handleUnlock = async (password: string) => {
-    return new Promise<void>((resolve, reject) => {
+  const fetchAccountInfo = () => {
+    chrome.runtime.sendMessage({ type: "GET_ACCOUNT_INFO" }, (res) => {
+      if (res?.account) setAccountInfo(res.account);
+    });
+  };
+
+  const handleUnlock = (password: string): Promise<void> =>
+    new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: "UNLOCK", masterPassword: password }, (res) => {
         if (res?.success) {
           setIsUnlocked(true);
           fetchItems();
+          fetchAccountInfo();
           resolve();
         } else {
           reject(new Error(res?.error || "Incorrect master password"));
         }
       });
     });
-  };
 
-  const handleLock = async () => {
+  const handleLock = () => {
     chrome.runtime.sendMessage({ type: "LOCK" }, () => {
       setIsUnlocked(false);
       setItems([]);
+      setAccountInfo({});
     });
   };
 
-  const handleUpdateServerUrl = async (url: string) => {
-    return new Promise<void>((resolve) => {
+  const handleUpdateServerUrl = (url: string): Promise<void> =>
+    new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: "SET_SERVER_URL", serverUrl: url }, () => {
         setServerUrl(url);
         resolve();
       });
     });
-  };
 
-  const handleDecryptItem = async (encryptedBlob: string) => {
-    return new Promise<any>((resolve, reject) => {
+  const handleDecryptItem = (encryptedBlob: string): Promise<any> =>
+    new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: "DECRYPT_ITEM", encryptedBlob }, (res) => {
-        if (res?.payload) {
-          resolve(res.payload);
-        } else {
-          reject(new Error(res?.error || "Failed to decrypt"));
-        }
+        if (res?.payload) resolve(res.payload);
+        else reject(new Error(res?.error || "Failed to decrypt"));
       });
     });
+
+  const handleAutofill = (cred: { username?: string; password?: string }) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]?.id) return;
+      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred });
+    });
+    // Close popup after autofill
+    window.close();
   };
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#71717a", fontSize: "12px" }}>
+      <div className="loading-wrap">
+        <div className="spinner" />
         Loading Vaultr...
       </div>
     );
@@ -96,69 +110,76 @@ export function App() {
       <UnlockScreen
         serverUrl={serverUrl}
         onUnlock={handleUnlock}
-        onOpenSettings={() => setActiveTab("settings")}
+        onOpenSettings={() => {}} // settings inaccessible when locked
       />
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#09090b", color: "#f4f4f5" }}>
-      {/* Top Navigation Bar */}
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid #18181b", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0f0f11" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div style={{ width: "24px", height: "24px", borderRadius: "8px", background: "linear-gradient(135deg, #8b5cf6, #ec4899)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Shield size={14} color="#ffffff" />
+    <div className="screen">
+      {/* Header */}
+      <div className="header">
+        <div className="header-brand">
+          <div className="header-logo">
+            <Shield size={14} color="#fff" />
           </div>
-          <span style={{ fontWeight: 600, fontSize: "14px", letterSpacing: "-0.2px" }}>Vaultr</span>
+          <span className="header-title">Vaultr</span>
         </div>
+        <div className="header-actions">
+          <button
+            className="icon-btn"
+            onClick={handleLock}
+            title="Lock Vault"
+          >
+            <Lock size={13} />
+          </button>
+        </div>
+      </div>
 
+      {/* Content */}
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {activeTab === "vault" && (
+          <VaultScreen
+            items={items}
+            onDecryptItem={handleDecryptItem}
+            onAutofill={handleAutofill}
+          />
+        )}
+        {activeTab === "generator" && <GeneratorScreen />}
+        {activeTab === "settings" && (
+          <SettingsScreen
+            serverUrl={serverUrl}
+            accountInfo={accountInfo}
+            onUpdateServerUrl={handleUpdateServerUrl}
+            onLock={handleLock}
+          />
+        )}
+      </div>
+
+      {/* Bottom Nav */}
+      <div className="bottom-nav">
         <button
-          onClick={handleLock}
-          title="Lock Vault"
-          style={{ background: "#18181b", border: "1px solid #27272a", color: "#a1a1aa", width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          className={`nav-btn${activeTab === "vault" ? " active" : ""}`}
+          onClick={() => setActiveTab("vault")}
         >
-          <Lock size={13} />
+          <KeyRound size={16} />
+          <span>Vault</span>
+        </button>
+        <button
+          className={`nav-btn${activeTab === "generator" ? " active" : ""}`}
+          onClick={() => setActiveTab("generator")}
+        >
+          <Shuffle size={16} />
+          <span>Generate</span>
+        </button>
+        <button
+          className={`nav-btn${activeTab === "settings" ? " active" : ""}`}
+          onClick={() => setActiveTab("settings")}
+        >
+          <Settings size={16} />
+          <span>Settings</span>
         </button>
       </div>
-
-      {/* Main Screen Content */}
-      <div style={{ flex: 1, overflow: "hidden" }}>
-        {activeTab === "vault" && <VaultScreen items={items} onDecryptItem={handleDecryptItem} />}
-        {activeTab === "generator" && <GeneratorScreen />}
-        {activeTab === "settings" && <SettingsScreen serverUrl={serverUrl} onUpdateServerUrl={handleUpdateServerUrl} onLock={handleLock} />}
-      </div>
-
-      {/* Bottom Tab Bar */}
-      <div style={{ height: "48px", borderTop: "1px solid #18181b", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: "#0f0f11" }}>
-        <TabButton active={activeTab === "vault"} onClick={() => setActiveTab("vault")} icon={<KeyRound size={16} />} label="Vault" />
-        <TabButton active={activeTab === "generator"} onClick={() => setActiveTab("generator")} icon={<RefreshCw size={16} />} label="Generator" />
-        <TabButton active={activeTab === "settings"} onClick={() => setActiveTab("settings")} icon={<Settings size={16} />} label="Settings" />
-      </div>
     </div>
-  );
-}
-
-function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: "none",
-        border: "none",
-        color: active ? "#a78bfa" : "#71717a",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "2px",
-        fontSize: "10px",
-        fontWeight: active ? 600 : 400,
-        cursor: "pointer",
-        transition: "color 0.15s ease",
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
   );
 }
