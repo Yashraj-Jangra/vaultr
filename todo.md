@@ -16,6 +16,7 @@
 - [x] **Created `NewEntryForm.tsx` (Ported from Website)**: Verbatim port of the website's NewEntryForm: type selector pills (Login/Card/Address/Profile/Note), custom fields list, notes field, password generator button, and local encryption footer badge.
 - [x] **Created `GET /api/me` Backend Endpoint**: New server route to authenticate requests and expose current user profile info `{ id, email, name, image }` to the extension.
 - [x] **Updated `service-worker.ts` & `App.tsx`**: Added message routing for `SAVE_ITEM`, `UPDATE_ITEM`, `DELETE_ITEM` (moves to Trash via PATCH), `GET_FOLDERS` (dynamically resolves from active items), and `SET_AUTO_LOCK`. Verified clean bundle compiles successfully.
+- [x] **Decryption Salt Bug Fix**: Resolved the issue where vault item decryption failed on click-to-expand. The service worker now fetches `/api/me` during the unlock sequence to retrieve the authentic `user.id`, using it as the PBKDF2 salt for key derivation and decryption, matching the website's encryption logic exactly.
 
 ## 🔜 Next Steps
 
