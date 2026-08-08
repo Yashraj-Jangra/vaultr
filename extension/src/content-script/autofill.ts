@@ -8,9 +8,13 @@
  *  - Listen for AUTOFILL_CREDENTIAL messages sent directly from the popup
  */
 
+import { resolveDomain, isWebPageUrl } from "@vaultr/core";
+
 interface AutofillCredential {
   id: string;
   name: string;
+  domain?: string;
+  url?: string;
   username?: string;
   password?: string;
 }
@@ -22,7 +26,12 @@ let lastFocusedField: HTMLInputElement | null = null;
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getDomain(): string {
-  try { return window.location.hostname; } catch { return ""; }
+  try {
+    if (!isWebPageUrl(window.location.href)) return "";
+    return window.location.hostname;
+  } catch {
+    return "";
+  }
 }
 
 /** Dispatch React-compatible input events so frameworks (React/Vue/Angular) pick up changes */
@@ -124,7 +133,7 @@ function repositionDropdown() {
   }
   activeDropdown.style.top = `${rect.bottom + 6}px`;
   activeDropdown.style.left = `${rect.left}px`;
-  activeDropdown.style.width = `${Math.max(rect.width, 256)}px`;
+  activeDropdown.style.width = `${Math.max(rect.width, 320)}px`;
 }
 
 function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential[]) {
@@ -141,83 +150,99 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
     position: fixed;
     top: ${rect.bottom + 6}px;
     left: ${rect.left}px;
-    width: ${Math.max(rect.width, 256)}px;
-    background: #0d0e14;
-    border: 1px solid #22263a;
-    border-radius: 12px;
-    box-shadow: 0 16px 48px -8px rgba(0,0,0,0.85), 0 0 0 1px rgba(124,106,250,0.08);
+    width: ${Math.max(rect.width, 320)}px;
+    background: #09090b;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06);
     z-index: 2147483647;
     overflow: hidden;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 13px;
-    color: #f0f0f5;
+    color: #f4f4f5;
     padding: 6px;
     opacity: 0;
     transform: translateY(-6px);
-    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1);
+    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   `;
 
-  // Header
+  // Branding Header at Top with official Vaultr Brand Logo
   const header = document.createElement("div");
   header.style.cssText = `
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 8px 8px;
-    font-size: 10px;
+    gap: 8px;
+    padding: 7px 10px 9px;
+    font-size: 11px;
     font-weight: 700;
-    color: #7c6afa;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    border-bottom: 1px solid #181a24;
-    margin-bottom: 4px;
+    color: #ffffff;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 5px;
   `;
 
-  // Vaultr shield icon (SVG inline)
+  const logoUrl = typeof chrome !== "undefined" && chrome.runtime?.getURL
+    ? chrome.runtime.getURL("brand/logo-dark.png")
+    : "";
+
   header.innerHTML = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c6afa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-    </svg>
-    <span>Vaultr</span>
-    <span style="margin-left:auto; font-weight:500; color:#52536a;">${credentials.length} saved</span>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      ${
+        logoUrl
+          ? `<img src="${logoUrl}" alt="Vaultr" style="height: 18px; width: auto; max-width: 90px; object-fit: contain; display: block;" />`
+          : `<span style="font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;">VAULTR</span>`
+      }
+    </div>
+    <span style="margin-left:auto; font-weight:500; font-size:10px; color:#a1a1aa; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:9999px; border:1px solid rgba(255,255,255,0.08);">
+      ${credentials.length} ${credentials.length === 1 ? "match" : "matches"}
+    </span>
   `;
   dropdown.appendChild(header);
 
-  // Credential items
+  // Credential list
   credentials.forEach((cred) => {
     const item = document.createElement("div");
     item.style.cssText = `
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 8px;
-      border-radius: 8px;
+      gap: 12px;
+      padding: 9px 10px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: background 0.12s ease;
+      transition: all 0.15s ease;
+      background: transparent;
     `;
 
-    const initials = cred.name.slice(0, 2).toUpperCase();
+    const effectiveDomain = resolveDomain(cred.domain, cred.name, cred.url);
+    const globeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`;
+    const iconSrc = effectiveDomain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64` : "";
+
     item.innerHTML = `
-      <div style="
-        width:30px; height:30px; border-radius:9px;
-        background:#1c1e28; border:1px solid #22263a;
-        display:flex; align-items:center; justify-content:center;
-        font-size:11px; font-weight:700; color:#8a8ab0;
-        flex-shrink:0; letter-spacing:-0.5px;
-      ">${initials}</div>
-      <div style="min-width:0; flex:1;">
-        <div style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cred.name}</div>
-        <div style="font-size:11px; color:#8a8ab0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cred.username || "No username"}</div>
+      <div class="vaultr-icon-box" style="
+        width: 34px; height: 34px; border-radius: 9px;
+        background: #18181b; border: 1px solid rgba(255, 255, 255, 0.12);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; overflow: hidden;
+      ">${
+        iconSrc
+          ? `<img src="${iconSrc}" alt="" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;" onerror="this.outerHTML='${globeSvg}';" />`
+          : globeSvg
+      }</div>
+      <div style="min-width: 0; flex: 1;">
+        <div style="font-weight: 600; font-size: 13.5px; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cred.name}</div>
+        <div style="font-size: 11.5px; color: #94a3b8; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">${cred.username || "No username"}</div>
       </div>
-      <div style="
-        font-size:10px; font-weight:600; color:#7c6afa;
-        background:rgba(124,106,250,0.12); border:1px solid rgba(124,106,250,0.2);
-        padding:3px 7px; border-radius:5px; flex-shrink:0;
-      ">Fill</div>
     `;
 
-    item.addEventListener("mouseenter", () => { item.style.background = "#161820"; });
-    item.addEventListener("mouseleave", () => { item.style.background = "transparent"; });
+    item.addEventListener("mouseenter", () => {
+      item.style.background = "#18181b";
+    });
+
+    item.addEventListener("mouseleave", () => {
+      item.style.background = "transparent";
+    });
 
     item.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -284,9 +309,14 @@ document.addEventListener("focusin", (e) => {
   if (!isLoginField(target)) return;
   if (target.closest("#vaultr-autofill-dropdown")) return;
 
+  // Only suggest for valid websites, not internal browser pages (newtab, chrome://, etc.)
+  if (!isWebPageUrl(window.location.href)) return;
+
   lastFocusedField = target;
 
   const domain = getDomain();
+  if (!domain) return;
+
   chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
     if (chrome.runtime.lastError) return;
     if (response?.logins?.length > 0) {
