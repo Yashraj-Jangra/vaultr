@@ -229,41 +229,45 @@ body {
 
 /* ─── Item Rows (List View matching) ──────────────────────────────────────── */
 
+/* ─── Item Rows (Sleek, Minimal, Modern) ─────────────────────────────────── */
+
 .items-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+}
+
+.item-container {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.item-container.expanded {
+  background: rgba(255, 255, 255, 0.018);
 }
 
 .item-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: 8px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  background: transparent;
+  user-select: none;
 }
 
 .item-row:hover {
-  background: var(--surface-2);
-  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.item-row.expanded {
-  background: var(--surface);
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
-}
-
-/* Icons (Site style 32px rounded-xl) */
+/* Icons (Sleek 28px rounded-lg) */
 .site-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   overflow: hidden;
   flex-shrink: 0;
   display: flex;
@@ -274,13 +278,13 @@ body {
 }
 
 .site-icon img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
 }
 
 .site-icon-fallback {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   color: var(--neutral-400);
   letter-spacing: -0.5px;
@@ -307,53 +311,47 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
+  margin-top: 0px;
 }
 
 .item-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-/* ─── Detail Panels ───────────────────────────────────────────────────────── */
+/* ─── Detail Panels (Borderless Alignment) ────────────────────────────────── */
 
 .item-details {
-  border: 1px solid var(--border);
-  border-top: none;
-  background: var(--surface);
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-  padding: 8px 12px 12px;
-  margin-bottom: 6px;
+  padding: 4px 8px 12px 48px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  animation: detail-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  gap: 5px;
+  animation: detail-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes detail-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Detail Row Site Match */
 .detail-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   min-width: 0;
+  height: 24px;
 }
 
 .detail-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  color: var(--neutral-500);
+  color: var(--neutral-600);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  width: 64px;
-  padding-top: 5px;
+  width: 72px;
   flex-shrink: 0;
 }
 
@@ -361,9 +359,8 @@ body {
   flex: 1;
   min-width: 0;
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--neutral-200);
-  padding: 3px 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -377,59 +374,64 @@ body {
 .detail-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+
+.detail-row:hover .detail-actions {
+  opacity: 1;
 }
 
 .detail-action-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--neutral-600);
-  width: 24px;
-  height: 24px;
+  color: var(--neutral-500);
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 5px;
 }
 
 .detail-action-btn:hover {
-  color: var(--neutral-300);
+  color: var(--neutral-200);
   background: var(--neutral-900);
 }
 
 /* ─── Match Banner / Site Matches ─────────────────────────────────────────── */
 
 .match-banner {
-  border: 1px solid rgba(124, 106, 250, 0.15);
-  background: rgba(124, 106, 250, 0.04);
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding: 4px 4px 12px;
+  margin-bottom: 8px;
 }
 
 .match-banner-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #a899fa;
+  color: var(--neutral-500);
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
+  padding-left: 4px;
 }
 
 /* Section Divider Labels */
 .section-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--neutral-600);
   margin-bottom: 8px;
-  margin-top: 4px;
-  padding-left: 2px;
+  margin-top: 8px;
+  padding-left: 4px;
 }
 
 /* ─── Buttons (Site Match) ────────────────────────────────────────────────── */

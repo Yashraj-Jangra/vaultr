@@ -214,53 +214,7 @@ function TotpDisplay({ secret }: { secret: string }) {
   );
 }
 
-function CreditCardGraphic({ name, number, expiry }: { name?: string; number?: string; expiry?: string }) {
-  const cleanNumber = (number || "").replace(/\s?/g, "");
-  const formattedNumber = cleanNumber.replace(/(\d{4})/g, "$1 ").trim();
 
-  return (
-    <div style={{
-      width: "100%",
-      aspectRatio: "1.58",
-      borderRadius: "12px",
-      background: "linear-gradient(135deg, #1c1e28 0%, #0d0e14 100%)",
-      border: "1px solid var(--border)",
-      padding: "14px",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "space-between",
-      boxShadow: "inset 0 1px 1px rgba(255,255,255,0.05), 0 8px 24px -4px rgba(0,0,0,0.6)",
-      marginBottom: "8px"
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ width: 28, height: 20, borderRadius: 4, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", display: "flex", gap: 3, padding: 3 }}>
-          <div style={{ width: 6, height: "100%", background: "#f59e0b", opacity: 0.8, borderRadius: 1 }} />
-          <div style={{ width: 10, height: "100%", background: "#f59e0b", opacity: 0.8, borderRadius: 1 }} />
-        </div>
-        <span style={{ fontSize: 9, fontWeight: 700, color: "var(--neutral-500)", textTransform: "uppercase", letterSpacing: 1 }}>CARD</span>
-      </div>
-      <div>
-        <div style={{ fontFamily: "monospace", fontSize: 13, color: "var(--neutral-100)", letterSpacing: 1, wordBreak: "break-all" }}>
-          {formattedNumber || "•••• •••• •••• ••••"}
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontSize: 7, color: "var(--neutral-600)", textTransform: "uppercase", letterSpacing: 0.5 }}>Cardholder</span>
-          <span style={{ fontSize: 10, color: "var(--neutral-300)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>
-            {name || "NAME SURNAME"}
-          </span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-          <span style={{ fontSize: 7, color: "var(--neutral-600)", textTransform: "uppercase", letterSpacing: 0.5 }}>Expires</span>
-          <span style={{ fontSize: 10, color: "var(--neutral-300)", fontFamily: "monospace" }}>
-            {expiry || "MM/YY"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── ItemRow Component ───────────────────────────────────────────────────────
 
@@ -334,10 +288,10 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
   const isLogin = !item.template || item.template === "login";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div className={`item-container${expanded ? " expanded" : ""}`}>
       {/* Main Row */}
       <div
-        className={`item-row${expanded ? " expanded" : ""}`}
+        className="item-row"
         onClick={handleExpand}
       >
         {getItemIcon(item)}
@@ -393,7 +347,6 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
               {/* Card Template */}
               {item.template === "card" && (
                 <>
-                  <CreditCardGraphic name={decrypted.cardName} number={decrypted.cardNumber} expiry={decrypted.expiry} />
                   <DetailRow label="Cardholder" value={decrypted.cardName} />
                   <DetailRow label="Number" value={decrypted.cardNumber} masked />
                   <DetailRow label="Expires" value={decrypted.expiry} />
@@ -427,9 +380,9 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
 
               {/* Note Template */}
               {item.template === "note" && decrypted.note && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--neutral-950)", border: "1px solid var(--border)", borderRadius: 8, padding: 8, marginTop: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "var(--neutral-600)" }}>NOTE CONTENT</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 24 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTE CONTENT</span>
                     <CopyBtn value={decrypted.note} />
                   </div>
                   <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note}</pre>
@@ -438,9 +391,9 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
 
               {/* Entry Notes (Shared) */}
               {decrypted.entryNotes && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 6, marginTop: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "var(--neutral-600)" }}>NOTES</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 24 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTES</span>
                     <CopyBtn value={decrypted.entryNotes} />
                   </div>
                   <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
@@ -448,7 +401,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
               )}
 
               {/* Action buttons */}
-              <div style={{ display: "flex", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 6 }}>
+              <div style={{ display: "flex", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 8 }}>
                 {isLogin && (decrypted.username || decrypted.password) && (
                   <button
                     className="btn btn-accent"
