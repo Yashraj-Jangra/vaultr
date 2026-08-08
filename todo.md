@@ -8,9 +8,9 @@
 
 ### Extension UI/UX Overhaul + Autofill Fix
 
-- [x] **New design system (`popup.css`)**: Direct port of Next.js CSS tokens (`--bg`, `--surface`, `--surface-2`, `--border`, `--fg-muted`) and component aesthetics. Pixel-match inputs, toggles, buttons, and alert layouts.
-- [x] **Redesigned `UnlockScreen.tsx`**: Ported the website's `!cryptoKey` lock visual exactly — background grid dot pattern, radial glow, lock-halo ring pulse, custom vector brand shield lock logo, unauthorized state with a redirect button, and shake animation on password error.
-- [x] **Redesigned `VaultScreen.tsx`**: Expandable detailed item rows matching the site's `DetailRow` for all template types: Login, Card (with CSS card graphic), Note (monospace pre-wrap), Address, and Profile. Added live TOTP generator code + circular countdown ring animation. Embedded inline Edit and Delete (soft delete / Trash) options.
+- [x] **New design system (`popup.css`)**: Direct port of Next.js CSS tokens (`--bg`, `--surface`, `--surface-2`, `--border`, `--fg-muted`) and component aesthetics. Pixel-match inputs, toggles, buttons, and alert layouts. Overhauled list styling to be modern, borderless, and minimal.
+- [x] **Redesigned `UnlockScreen.tsx`**: Ported the website's `!cryptoKey` lock visual exactly — background grid dot pattern, radial glow, lock-halo ring pulse, official brand lock/logo assets, unauthorized state with a redirect button, and shake animation on password error.
+- [x] **Redesigned `VaultScreen.tsx`**: Expandable detailed item rows matching the site's `DetailRow` for all template types: Login, Card, Note, Address, and Profile. Overhauled list to be borderless and transparent with hover highlight highlights, removing visual card/division clutter. Added live TOTP generator code + circular countdown ring animation. Embedded inline Edit and Delete (soft delete / Trash) options.
 - [x] **Redesigned `GeneratorScreen.tsx`**: Stylized output display box, range sliders, option checkboxes, and strength bars to match the site's compact `PasswordGen` widget.
 - [x] **Redesigned `SettingsScreen.tsx`**: Account info card with avatar photo/initials and redirect chevron, autofill toggles, auto-lock timeout settings, server connections, and custom info alerts.
 - [x] **Created `NewEntryForm.tsx` (Ported from Website)**: Verbatim port of the website's NewEntryForm: type selector pills (Login/Card/Address/Profile/Note), custom fields list, notes field, password generator button, and local encryption footer badge.
