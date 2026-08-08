@@ -11,6 +11,7 @@ const DEFAULT_SALT = "vaultr_default_salt";
 interface ServiceWorkerState {
   serverUrl: string;
   masterPassword: string | null;
+  userId: string | null;
   items: VaultItem[];
   decryptedItemsCache: Record<string, any>;
   isUnlocked: boolean;
@@ -20,6 +21,7 @@ interface ServiceWorkerState {
 const state: ServiceWorkerState = {
   serverUrl: DEFAULT_SERVER_URL,
   masterPassword: null,
+  userId: null,
   items: [],
   decryptedItemsCache: {},
   isUnlocked: false,
@@ -52,6 +54,7 @@ function setupAutoLock(minutes: number) {
 
 function lockVault() {
   state.masterPassword = null;
+  state.userId = null;
   state.items = [];
   state.decryptedItemsCache = {};
   state.isUnlocked = false;
@@ -111,17 +114,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           // Fetch items from server (validates session cookie)
           const items = await api.getItems();
 
-          // Derive encryption key (validates master password locally)
-          await deriveKey(masterPassword, DEFAULT_SALT);
-
-          state.masterPassword = masterPassword;
-          state.items = items;
-          state.isUnlocked = true;
-
-          // Persist master password in session storage (clears when browser closes)
-          await chrome.storage.session.set({ vaultr_master_password: masterPassword });
-
-          // Fetch account info from the server
+          // Fetch account info from the server to get user ID for salt
+          let userId = "";
           try {
             const accountRes = await globalThis.fetch(`${state.serverUrl}/api/me`, {
               credentials: "include",
@@ -129,10 +123,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             if (accountRes.ok) {
               const data = await accountRes.json();
               state.accountInfo = { email: data.email, name: data.name, image: data.image };
+              userId = data.id;
             }
           } catch (e) {
             console.error("[Vaultr SW] Fetch account on unlock failed:", e);
           }
+
+          if (!userId) {
+            throw new Error("Failed to retrieve user identity for decryption.");
+          }
+
+          // Derive encryption key using user.id as salt (matching site exactly)
+          await deriveKey(masterPassword, userId);
+
+          state.masterPassword = masterPassword;
+          state.userId = userId;
+          state.items = items;
+          state.isUnlocked = true;
+
+          // Persist master password in session storage (clears when browser closes)
+          await chrome.storage.session.set({ vaultr_master_password: masterPassword });
 
           // Reset auto-lock alarm based on user preference
           const res = await chrome.storage.local.get("autolock_minutes");
@@ -191,7 +201,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
 
           const targetDomain = (message.domain || "").toLowerCase().replace(/^www\./, "");
-          const key = await deriveKey(state.masterPassword, DEFAULT_SALT);
+          const key = await deriveKey(state.masterPassword, state.userId || "");
           const matchingLogins: Array<{ id: string; name: string; username?: string; password?: string }> = [];
 
           for (const item of state.items) {
@@ -236,7 +246,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             sendResponse({ payload: state.decryptedItemsCache[itemId] });
             return;
           }
-          const key = await deriveKey(state.masterPassword, DEFAULT_SALT);
+          const key = await deriveKey(state.masterPassword, state.userId || "");
           const raw = await decrypt(key, encryptedBlob);
           const parsed = JSON.parse(raw);
           if (itemId) {
@@ -253,7 +263,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
           const { name, template, folder, tags, payload } = message;
           const api = await getApiClient();
-          const key = await deriveKey(state.masterPassword, DEFAULT_SALT);
+          const key = await deriveKey(state.masterPassword, state.userId || "");
           const encryptedBlob = await encrypt(key, JSON.stringify(payload));
           const domain = payload.url ? new URL(payload.url.startsWith("http") ? payload.url : `https://${payload.url}`).hostname : "";
 
@@ -281,7 +291,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
           const { id, name, template, folder, tags, payload } = message;
           const api = await getApiClient();
-          const key = await deriveKey(state.masterPassword, DEFAULT_SALT);
+          const key = await deriveKey(state.masterPassword, state.userId || "");
           const encryptedBlob = await encrypt(key, JSON.stringify(payload));
           const domain = payload.url ? new URL(payload.url.startsWith("http") ? payload.url : `https://${payload.url}`).hostname : "";
 
