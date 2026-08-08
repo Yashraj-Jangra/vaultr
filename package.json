@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/chrome": "^0.0.280",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",

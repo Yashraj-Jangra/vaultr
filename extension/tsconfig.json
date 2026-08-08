@@ -9,6 +9,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "lib": ["dom", "dom.iterable", "esnext"],
+    "types": ["chrome"],
     "paths": {
       "@vaultr/core": ["../packages/core/src/index.ts"],
       "@vaultr/core/*": ["../packages/core/src/*"]

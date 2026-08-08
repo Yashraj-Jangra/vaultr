@@ -19,6 +19,9 @@
 
 # production
 /build
+/extension/dist
+/.expo
+**/node_modules
 
 # misc
 .DS_Store
