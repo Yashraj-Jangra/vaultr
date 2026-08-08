@@ -16,6 +16,7 @@ interface AutofillCredential {
 }
 
 let activeDropdown: HTMLElement | null = null;
+let activeInput: HTMLInputElement | null = null;
 let lastFocusedField: HTMLInputElement | null = null;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -105,16 +106,33 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
 
 function removeDropdown() {
   if (activeDropdown) {
-    activeDropdown.style.opacity = "0";
-    activeDropdown.style.transform = "translateY(-4px)";
-    setTimeout(() => { activeDropdown?.remove(); activeDropdown = null; }, 180);
+    const el = activeDropdown;
+    activeDropdown = null;
+    activeInput = null;
+    el.style.opacity = "0";
+    el.style.transform = "translateY(-4px)";
+    setTimeout(() => { el.remove(); }, 180);
   }
 }
 
+function repositionDropdown() {
+  if (!activeDropdown || !activeInput) return;
+  const rect = activeInput.getBoundingClientRect();
+  if (rect.bottom < 0 || rect.top > window.innerHeight) {
+    removeDropdown();
+    return;
+  }
+  activeDropdown.style.top = `${rect.bottom + 6}px`;
+  activeDropdown.style.left = `${rect.left}px`;
+  activeDropdown.style.width = `${Math.max(rect.width, 256)}px`;
+}
+
 function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential[]) {
+  if (activeInput === inputEl && activeDropdown) return;
   removeDropdown();
   if (credentials.length === 0) return;
 
+  activeInput = inputEl;
   const rect = inputEl.getBoundingClientRect();
 
   const dropdown = document.createElement("div");
@@ -227,9 +245,19 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 
-// Dismiss when clicking outside
+// Reposition dropdown on scroll/resize
+window.addEventListener("scroll", repositionDropdown, { capture: true, passive: true });
+window.addEventListener("resize", repositionDropdown, { passive: true });
+
+// Dismiss when clicking outside BOTH active dropdown and active input
 document.addEventListener("click", (e) => {
-  if (activeDropdown && !activeDropdown.contains(e.target as Node)) {
+  const target = e.target as Node | null;
+  if (!activeDropdown) return;
+
+  const isInsideDropdown = activeDropdown.contains(target);
+  const isInsideInput = activeInput && (activeInput === target || activeInput.contains(target));
+
+  if (!isInsideDropdown && !isInsideInput) {
     removeDropdown();
   }
 }, true);
@@ -262,7 +290,9 @@ document.addEventListener("focusin", (e) => {
   chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
     if (chrome.runtime.lastError) return;
     if (response?.logins?.length > 0) {
-      showDropdown(target, response.logins);
+      if (document.activeElement === target) {
+        showDropdown(target, response.logins);
+      }
     }
   });
 }, true);
