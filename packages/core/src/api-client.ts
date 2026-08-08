@@ -22,7 +22,8 @@ export class VaultrApiClient {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.getToken = options.getToken;
     this.getCookies = options.getCookies;
-    this.fetchImpl = options.customFetch || globalThis.fetch;
+    const fn = options.customFetch || globalThis.fetch;
+    this.fetchImpl = typeof fn === "function" ? fn.bind(globalThis) : fn;
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
