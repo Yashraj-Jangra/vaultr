@@ -202,18 +202,11 @@ export function App() {
       {/* Header */}
       <div className="header">
         <div className="header-brand">
-          <div className="header-logo">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad-sw2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 1px 4px rgba(124, 106, 250, 0.45))" }}>
-              <defs>
-                <linearGradient id="logo-grad-sw2" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#7c6afa" />
-                  <stop offset="100%" stopColor="#ec4899" />
-                </linearGradient>
-              </defs>
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-          </div>
-          <span className="header-title">Vaultr</span>
+          <img
+            src="brand/logo-dark.png"
+            alt="Vaultr"
+            style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.8 }}
+          />
         </div>
         <div className="header-actions">
           {/* Refresh */}

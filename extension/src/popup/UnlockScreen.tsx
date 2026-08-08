@@ -122,22 +122,28 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       <div className="lock-halo-wrap">
         <div className="lock-halo" />
         <div className="lock-box">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad-sw)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 2px 8px rgba(124, 106, 250, 0.4))" }}>
-            <defs>
-              <linearGradient id="logo-grad-sw" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#7c6afa" />
-                <stop offset="100%" stopColor="#ec4899" />
-              </linearGradient>
-            </defs>
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
+          <img
+            src="brand/lock-brand-dark.png"
+            alt="Vaultr Lock"
+            style={{
+              width: 44,
+              height: 44,
+              objectFit: "contain",
+              opacity: loading ? 1 : 0.6,
+              transition: "opacity 0.3s ease"
+            }}
+          />
         </div>
       </div>
 
       {/* Header Info */}
       <div className="unlock-header">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: 0.7, marginBottom: 8 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "var(--neutral-500)" }}>Vaultr</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: 0.6, marginBottom: 12 }}>
+          <img
+            src="brand/logo-dark.png"
+            alt="Vaultr Logo"
+            style={{ height: 20, width: "auto", objectFit: "contain" }}
+          />
         </div>
         <h1 className="unlock-title">
           {loading ? "Decrypting vault…" : "Unlock your vault"}
