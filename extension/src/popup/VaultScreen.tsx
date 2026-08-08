@@ -2,16 +2,23 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
   Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User,
-  Zap, Eye, EyeOff, ChevronDown, ChevronUp
+  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock
 } from "lucide-react";
+import { generateTOTP, getTotpPercentage } from "@vaultr/core";
+
+type Template = "login" | "card" | "address" | "profile" | "note";
 
 interface VaultScreenProps {
   items: VaultItem[];
   onDecryptItem: (encryptedBlob: string) => Promise<any>;
   onAutofill: (cred: { username?: string; password?: string }) => void;
+  onEditItem: (item: VaultItem, decryptedPayload: any) => void;
+  onDeleteItem: (id: string) => Promise<void>;
+  onAddNew: () => void;
 }
 
-/** Multi-tier favicon loader matching the site's SiteIcon component */
+// ─── SiteIcon Fallback ───────────────────────────────────────────────────────
+
 function resolveDomain(domain?: string, name?: string): string {
   if (domain && domain.trim()) {
     const c = domain.trim().toLowerCase();
@@ -64,33 +71,212 @@ function SiteIcon({ domain, name }: { domain?: string; name: string }) {
   );
 }
 
-function getTypeIcon(template?: string) {
-  const s = 13;
-  switch (template) {
-    case "card":    return <CreditCard size={s} color="#f59e0b" />;
-    case "address": return <Globe size={s} color="#3b82f6" />;
-    case "profile": return <User size={s} color="#10b981" />;
-    case "note":    return <FileText size={s} color="#a855f7" />;
-    default:        return <KeyRound size={s} color="#7c6afa" />;
+function getItemIcon(item: VaultItem) {
+  const template = item.template || "login";
+  if (template === "login") {
+    return <SiteIcon domain={item.domain} name={item.name} />;
   }
+
+  // Icons and backgrounds matching the site
+  let icon: React.ReactNode = <Lock size={14} />;
+  let bgClass = "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
+
+  if (template === "card") {
+    icon = <CreditCard size={14} />;
+    bgClass = "bg-violet-500/10 text-violet-400 border-violet-500/20";
+  } else if (template === "address") {
+    icon = <Globe size={14} />;
+    bgClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+  } else if (template === "profile") {
+    icon = <User size={14} />;
+    bgClass = "bg-sky-500/10 text-sky-400 border-sky-500/20";
+  } else if (template === "note") {
+    icon = <FileText size={14} />;
+    bgClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+  }
+
+  return (
+    <div className={`site-icon ${bgClass}`} style={{ borderStyle: "solid" }}>
+      {icon}
+    </div>
+  );
 }
 
-// ─── ItemRow ─────────────────────────────────────────────────────────────────
+// ─── Ported Small Components ─────────────────────────────────────────────────
+
+function CopyBtn({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="detail-action-btn"
+      title="Copy value"
+    >
+      {copied ? <Check size={12} style={{ color: "#10b981" }} /> : <Copy size={12} />}
+    </button>
+  );
+}
+
+function MaskedValue({ value }: { value: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
+      <span className={`detail-value${visible ? "" : " blur"}`}>
+        {visible ? value : "••••••••••••"}
+      </span>
+      <div className="detail-actions">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setVisible(!visible); }}
+          className="detail-action-btn"
+          title={visible ? "Hide" : "Show"}
+        >
+          {visible ? <EyeOff size={12} /> : <Eye size={12} />}
+        </button>
+        <CopyBtn value={value} />
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, masked = false }: { label: string; value: string; masked?: boolean }) {
+  if (!value) return null;
+  return (
+    <div className="detail-row">
+      <span className="detail-label">{label}</span>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
+        {masked ? (
+          <MaskedValue value={value} />
+        ) : (
+          <>
+            <span className="detail-value">{value}</span>
+            <CopyBtn value={value} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TotpDisplay({ secret }: { secret: string }) {
+  const [code, setCode] = useState("------");
+  const [percent, setPercent] = useState(100);
+
+  useEffect(() => {
+    let mounted = true;
+    const update = async () => {
+      try {
+        const _code = await generateTOTP(secret);
+        if (mounted) {
+          setCode(_code);
+          setPercent(getTotpPercentage());
+        }
+      } catch {
+        if (mounted) setCode("ERROR");
+      }
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [secret]);
+
+  return (
+    <div className="detail-row">
+      <span className="detail-label">2FA Code</span>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+        {/* Countdown Ring */}
+        <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg style={{ width: 14, height: 14, transform: "rotate(-90deg)" }} viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="var(--neutral-800)" strokeWidth="4" fill="none" />
+            <circle cx="12" cy="12" r="10" stroke="#0ea5e9" strokeWidth="4" fill="none"
+              strokeDasharray="62.8"
+              strokeDashoffset={62.8 * (1 - percent / 100)}
+              style={{ transition: "stroke-dashoffset 1s linear" }}
+            />
+          </svg>
+        </div>
+        <span className="detail-value" style={{ color: "#0ea5e9", fontWeight: 700, letterSpacing: "1px" }}>
+          {code.slice(0, 3)} {code.slice(3, 6)}
+        </span>
+        <CopyBtn value={code} />
+      </div>
+    </div>
+  );
+}
+
+function CreditCardGraphic({ name, number, expiry }: { name?: string; number?: string; expiry?: string }) {
+  const cleanNumber = (number || "").replace(/\s?/g, "");
+  const formattedNumber = cleanNumber.replace(/(\d{4})/g, "$1 ").trim();
+
+  return (
+    <div style={{
+      width: "100%",
+      aspectRatio: "1.58",
+      borderRadius: "12px",
+      background: "linear-gradient(135deg, #1c1e28 0%, #0d0e14 100%)",
+      border: "1px solid var(--border)",
+      padding: "14px",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      boxShadow: "inset 0 1px 1px rgba(255,255,255,0.05), 0 8px 24px -4px rgba(0,0,0,0.6)",
+      marginBottom: "8px"
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ width: 28, height: 20, borderRadius: 4, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", display: "flex", gap: 3, padding: 3 }}>
+          <div style={{ width: 6, height: "100%", background: "#f59e0b", opacity: 0.8, borderRadius: 1 }} />
+          <div style={{ width: 10, height: "100%", background: "#f59e0b", opacity: 0.8, borderRadius: 1 }} />
+        </div>
+        <span style={{ fontSize: 9, fontWeight: 700, color: "var(--neutral-500)", textTransform: "uppercase", letterSpacing: 1 }}>CARD</span>
+      </div>
+      <div>
+        <div style={{ fontFamily: "monospace", fontSize: 13, color: "var(--neutral-100)", letterSpacing: 1, wordBreak: "break-all" }}>
+          {formattedNumber || "•••• •••• •••• ••••"}
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{ fontSize: 7, color: "var(--neutral-600)", textTransform: "uppercase", letterSpacing: 0.5 }}>Cardholder</span>
+          <span style={{ fontSize: 10, color: "var(--neutral-300)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>
+            {name || "NAME SURNAME"}
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+          <span style={{ fontSize: 7, color: "var(--neutral-600)", textTransform: "uppercase", letterSpacing: 0.5 }}>Expires</span>
+          <span style={{ fontSize: 10, color: "var(--neutral-300)", fontFamily: "monospace" }}>
+            {expiry || "MM/YY"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ItemRow Component ───────────────────────────────────────────────────────
 
 interface ItemRowProps {
   item: VaultItem;
   onDecrypt: (blob: string) => Promise<any>;
-  copiedId: string | null;
-  onCopy: (text: string, id: string) => void;
   onAutofill: (cred: { username?: string; password?: string }) => void;
+  onEdit: (item: VaultItem, decryptedPayload: any) => void;
+  onDelete: (id: string) => Promise<void>;
   isCurrentSiteMatch?: boolean;
 }
 
-function ItemRow({ item, onDecrypt, copiedId, onCopy, onAutofill, isCurrentSiteMatch }: ItemRowProps) {
+function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteMatch }: ItemRowProps) {
   const [decrypted, setDecrypted] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleExpand = useCallback(async () => {
     const next = !expanded;
@@ -125,16 +311,36 @@ function ItemRow({ item, onDecrypt, copiedId, onCopy, onAutofill, isCurrentSiteM
     [decrypted, item.encryptedBlob, onDecrypt, onAutofill]
   );
 
+  const handleEditClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (decrypted) {
+        onEdit(item, decrypted);
+      }
+    },
+    [item, decrypted, onEdit]
+  );
+
+  const handleDeleteClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (window.confirm(`Move "${item.name}" to Trash?`)) {
+        await onDelete(item.id);
+      }
+    },
+    [item, onDelete]
+  );
+
   const isLogin = !item.template || item.template === "login";
 
   return (
-    <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-      {/* Main row */}
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Main Row */}
       <div
         className={`item-row${expanded ? " expanded" : ""}`}
         onClick={handleExpand}
       >
-        <SiteIcon domain={item.domain} name={item.name} />
+        {getItemIcon(item)}
 
         <div className="item-meta">
           <div className="item-name">{item.name}</div>
@@ -144,135 +350,131 @@ function ItemRow({ item, onDecrypt, copiedId, onCopy, onAutofill, isCurrentSiteM
         </div>
 
         <div className="item-actions">
-          {/* Autofill button for current-site matches */}
+          {/* Fill indicator badge for active site */}
           {isCurrentSiteMatch && isLogin && (
             <button
-              className="autofill-btn"
+              className="btn btn-accent"
+              style={{ padding: "4px 8px", fontSize: 10 }}
               onClick={handleAutofillClick}
-              title="Autofill on this page"
+              title="Autofill on active tab"
             >
-              <Zap size={11} style={{ marginRight: 3 }} />
+              <Zap size={11} style={{ marginRight: 2 }} />
               Fill
             </button>
           )}
 
-          {/* Quick copy password */}
-          {decrypted?.password && (
-            <button
-              className={`btn btn-ghost${copiedId === item.id ? " btn-success" : ""}`}
-              style={{ padding: "4px 8px", fontSize: 10 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onCopy(decrypted.password, item.id);
-              }}
-              title="Copy password"
-            >
-              {copiedId === item.id ? <Check size={11} /> : <Copy size={11} />}
-            </button>
-          )}
-
-          <span style={{ color: "var(--text-muted)", display: "flex" }}>
-            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          <span style={{ color: "var(--neutral-600)", display: "flex" }}>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </span>
         </div>
       </div>
 
-      {/* Expanded detail panel */}
+      {/* Expanded Panel */}
       {expanded && (
         <div className="item-details">
           {loading && (
-            <div style={{ color: "var(--text-muted)", fontSize: 11, padding: "4px 0" }}>
-              Decrypting…
+            <div style={{ color: "var(--neutral-600)", fontSize: 11, textAlign: "center", padding: "8px 0" }}>
+              Decrypting secure payload…
             </div>
           )}
 
           {decrypted && (
             <>
-              {decrypted.username && (
-                <div className="detail-row">
-                  <span className="detail-label">Username</span>
-                  <span className="detail-value">{decrypted.username}</span>
-                  <div className="detail-actions">
-                    <button
-                      className="detail-action-btn"
-                      onClick={() => onCopy(decrypted.username, `${item.id}-user`)}
-                      title="Copy username"
-                    >
-                      {copiedId === `${item.id}-user` ? <Check size={11} color="var(--success)" /> : <Copy size={11} />}
-                    </button>
+              {/* Login Template */}
+              {item.template === "login" && (
+                <>
+                  <DetailRow label="Username" value={decrypted.username} />
+                  <DetailRow label="Password" value={decrypted.password} masked />
+                  {decrypted.totpSecret && <TotpDisplay secret={decrypted.totpSecret} />}
+                  <DetailRow label="URL" value={decrypted.url} />
+                </>
+              )}
+
+              {/* Card Template */}
+              {item.template === "card" && (
+                <>
+                  <CreditCardGraphic name={decrypted.cardName} number={decrypted.cardNumber} expiry={decrypted.expiry} />
+                  <DetailRow label="Cardholder" value={decrypted.cardName} />
+                  <DetailRow label="Number" value={decrypted.cardNumber} masked />
+                  <DetailRow label="Expires" value={decrypted.expiry} />
+                  <DetailRow label="CVV" value={decrypted.cvv} masked />
+                  <DetailRow label="PIN" value={decrypted.pin} masked />
+                </>
+              )}
+
+              {/* Address Template */}
+              {item.template === "address" && (
+                <>
+                  <DetailRow label="Line 1" value={decrypted.line1} />
+                  <DetailRow label="Line 2" value={decrypted.line2} />
+                  <DetailRow label="City" value={decrypted.city} />
+                  <DetailRow label="State" value={decrypted.state} />
+                  <DetailRow label="ZIP Code" value={decrypted.zip} />
+                  <DetailRow label="Country" value={decrypted.country} />
+                </>
+              )}
+
+              {/* Profile Template */}
+              {item.template === "profile" && (
+                <>
+                  <DetailRow label="Full Name" value={decrypted.fullName} />
+                  <DetailRow label="Email" value={decrypted.email} />
+                  <DetailRow label="Phone" value={decrypted.phone} />
+                  <DetailRow label="DOB" value={decrypted.dob} />
+                  <DetailRow label="ID Number" value={decrypted.idNumber} masked />
+                </>
+              )}
+
+              {/* Note Template */}
+              {item.template === "note" && decrypted.note && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "var(--neutral-950)", border: "1px solid var(--border)", borderRadius: 8, padding: 8, marginTop: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "var(--neutral-600)" }}>NOTE CONTENT</span>
+                    <CopyBtn value={decrypted.note} />
                   </div>
+                  <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note}</pre>
                 </div>
               )}
 
-              {decrypted.password && (
-                <div className="detail-row">
-                  <span className="detail-label">Password</span>
-                  <span className={`detail-value${showPassword ? "" : " blur"}`}>
-                    {showPassword ? decrypted.password : "••••••••••••"}
-                  </span>
-                  <div className="detail-actions">
-                    <button
-                      className="detail-action-btn"
-                      onClick={() => setShowPassword(!showPassword)}
-                      title={showPassword ? "Hide" : "Show"}
-                    >
-                      {showPassword ? <EyeOff size={11} /> : <Eye size={11} />}
-                    </button>
-                    <button
-                      className="detail-action-btn"
-                      onClick={() => onCopy(decrypted.password, item.id)}
-                      title="Copy password"
-                    >
-                      {copiedId === item.id ? <Check size={11} color="var(--success)" /> : <Copy size={11} />}
-                    </button>
+              {/* Entry Notes (Shared) */}
+              {decrypted.entryNotes && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 6, marginTop: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "var(--neutral-600)" }}>NOTES</span>
+                    <CopyBtn value={decrypted.entryNotes} />
                   </div>
+                  <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
                 </div>
               )}
 
-              {decrypted.totp && (
-                <div className="detail-row">
-                  <span className="detail-label">TOTP</span>
-                  <span className="detail-value">{decrypted.totp}</span>
-                  <div className="detail-actions">
-                    <button
-                      className="detail-action-btn"
-                      onClick={() => onCopy(decrypted.totp, `${item.id}-totp`)}
-                    >
-                      {copiedId === `${item.id}-totp` ? <Check size={11} color="var(--success)" /> : <Copy size={11} />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {decrypted.url && (
-                <div className="detail-row">
-                  <span className="detail-label">URL</span>
-                  <span className="detail-value" style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                    {decrypted.url}
-                  </span>
-                </div>
-              )}
-
-              {decrypted.notes && (
-                <div className="detail-row">
-                  <span className="detail-label">Notes</span>
-                  <span className="detail-value" style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>
-                    {decrypted.notes}
-                  </span>
-                </div>
-              )}
-
-              {/* Autofill in expanded view */}
-              {isLogin && (decrypted.username || decrypted.password) && (
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 6 }}>
+                {isLogin && (decrypted.username || decrypted.password) && (
+                  <button
+                    className="btn btn-accent"
+                    style={{ flex: 1, padding: "6px", justifyContent: "center" }}
+                    onClick={handleAutofillClick}
+                  >
+                    <Zap size={12} />
+                    Fill Page
+                  </button>
+                )}
                 <button
-                  className="btn btn-accent"
-                  style={{ width: "100%", marginTop: 4, padding: "7px", justifyContent: "center" }}
-                  onClick={handleAutofillClick}
+                  className="btn btn-ghost"
+                  style={{ flex: 1, padding: "6px", justifyContent: "center" }}
+                  onClick={handleEditClick}
                 >
-                  <Zap size={12} />
-                  Autofill on Active Tab
+                  <Edit2 size={12} />
+                  Edit
                 </button>
-              )}
+                <button
+                  className="btn btn-danger"
+                  style={{ padding: "6px 10px" }}
+                  onClick={handleDeleteClick}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -281,11 +483,17 @@ function ItemRow({ item, onDecrypt, copiedId, onCopy, onAutofill, isCurrentSiteM
   );
 }
 
-// ─── VaultScreen ──────────────────────────────────────────────────────────────
+// ─── VaultScreen Component ───────────────────────────────────────────────────
 
-export function VaultScreen({ items, onDecryptItem, onAutofill }: VaultScreenProps) {
+export function VaultScreen({
+  items,
+  onDecryptItem,
+  onAutofill,
+  onEditItem,
+  onDeleteItem,
+  onAddNew
+}: VaultScreenProps) {
   const [query, setQuery] = useState("");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeTabDomain, setActiveTabDomain] = useState<string>("");
 
   useEffect(() => {
@@ -299,14 +507,6 @@ export function VaultScreen({ items, onDecryptItem, onAutofill }: VaultScreenPro
         }
       });
     }
-  }, []);
-
-  const handleCopy = useCallback(async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {}
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -350,23 +550,23 @@ export function VaultScreen({ items, onDecryptItem, onAutofill }: VaultScreenPro
         </div>
       </div>
 
-      <div className="screen-body">
-        {/* Current site matches */}
+      <div className="screen-body" style={{ paddingBottom: 72 }}>
+        {/* Matches */}
         {matchedItems.length > 0 && !query && (
           <div className="match-banner">
             <div className="match-banner-label">
               <Globe size={11} />
               {activeTabDomain}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {matchedItems.map((item) => (
                 <ItemRow
                   key={`match-${item.id}`}
                   item={item}
                   onDecrypt={onDecryptItem}
-                  copiedId={copiedId}
-                  onCopy={handleCopy}
                   onAutofill={onAutofill}
+                  onEdit={onEditItem}
+                  onDelete={onDeleteItem}
                   isCurrentSiteMatch={true}
                 />
               ))}
@@ -378,10 +578,10 @@ export function VaultScreen({ items, onDecryptItem, onAutofill }: VaultScreenPro
         {shownItems.length === 0 ? (
           <div className="empty-state">
             <KeyRound size={28} />
-            <div style={{ fontWeight: 500, color: "var(--text-secondary)" }}>
+            <div className="empty-state-title">
               {query ? "No results found" : "No items in vault"}
             </div>
-            <div>{query ? `Nothing matched "${query}"` : "Add items on the Vaultr web app"}</div>
+            <div style={{ fontSize: 11 }}>{query ? `Nothing matched "${query}"` : "Tap + to add your first secure record"}</div>
           </div>
         ) : (
           <>
@@ -394,9 +594,9 @@ export function VaultScreen({ items, onDecryptItem, onAutofill }: VaultScreenPro
                   key={item.id}
                   item={item}
                   onDecrypt={onDecryptItem}
-                  copiedId={copiedId}
-                  onCopy={handleCopy}
                   onAutofill={onAutofill}
+                  onEdit={onEditItem}
+                  onDelete={onDeleteItem}
                   isCurrentSiteMatch={matchIds.has(item.id) && !query}
                 />
               ))}
@@ -404,6 +604,11 @@ export function VaultScreen({ items, onDecryptItem, onAutofill }: VaultScreenPro
           </>
         )}
       </div>
+
+      {/* Floating Action Button */}
+      <button className="fab" onClick={onAddNew} title="Add secure entry">
+        <Plus size={20} />
+      </button>
     </div>
   );
 }

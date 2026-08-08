@@ -1,30 +1,33 @@
 import React, { useState } from "react";
-import { Lock, KeyRound, AlertCircle, Server, LogIn, ExternalLink, Shield } from "lucide-react";
+import { Lock, LogIn, ExternalLink, Shield } from "lucide-react";
 
 interface UnlockScreenProps {
   serverUrl: string;
+  userEmail?: string;
   onUnlock: (password: string) => Promise<void>;
-  onOpenSettings: () => void;
 }
 
-export function UnlockScreen({ serverUrl, onUnlock, onOpenSettings }: UnlockScreenProps) {
+export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenProps) {
   const [masterPassword, setMasterPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [shakeKey, setShakeKey] = useState(0);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!masterPassword) return;
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!masterPassword || loading) return;
+
     setLoading(true);
     setError("");
-    setIsUnauthorized(false);
 
     try {
       await onUnlock(masterPassword);
     } catch (err: any) {
-      const msg = err?.message || "Failed to unlock vault";
+      const msg = err?.message || "Incorrect master password";
       setError(msg);
+      setShakeKey((k) => k + 1);
+
       if (
         msg.toLowerCase().includes("unauthorized") ||
         msg.toLowerCase().includes("session") ||
@@ -48,114 +51,147 @@ export function UnlockScreen({ serverUrl, onUnlock, onOpenSettings }: UnlockScre
 
   if (isUnauthorized) {
     return (
-      <div className="unlock-wrap animate-in">
-        <div>
-          {/* Icon */}
-          <div style={{
-            width: 64, height: 64, borderRadius: 22,
-            background: "rgba(248,113,113,0.1)",
-            border: "1px solid rgba(248,113,113,0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 16px"
-          }}>
-            <LogIn size={28} color="#f87171" />
+      <div className="unlock-wrap" style={{ justifyContent: "center", gap: 24 }}>
+        {/* Background Grid */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+            opacity: 0.015,
+            pointerEvents: "none",
+          }}
+        />
+
+        <div style={{ textAlign: "center" }}>
+          {/* Locked Avatar style Icon */}
+          <div className="lock-halo-wrap">
+            <div className="lock-halo" style={{ background: "radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%)" }} />
+            <div className="lock-box" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.02)" }}>
+              <LogIn size={32} className="text-red-400" />
+            </div>
           </div>
 
-          <h2 className="unlock-title">Not signed in</h2>
-          <p className="unlock-sub">
-            You need to be logged in on the Vaultr web app before you can unlock the extension.
+          <h2 className="unlock-title" style={{ fontSize: 16 }}>Unauthorized</h2>
+          <p className="unlock-email" style={{ color: "var(--neutral-500)", marginTop: 6, padding: "0 12px", fontFamily: "inherit" }}>
+            Please sign in to your Vaultr account in the browser to unlock the extension.
           </p>
         </div>
 
-        {/* Server info */}
-        <div style={{
-          width: "100%", background: "var(--bg-raised)", border: "1px solid var(--border-default)",
-          borderRadius: "var(--radius-md)", padding: "10px 12px"
-        }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 3 }}>
-            Server
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "monospace" }}>{serverUrl}</div>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, zIndex: 10 }}>
+          <button className="btn btn-primary" style={{ width: "100%", padding: "12px" }} onClick={openLoginPage}>
+            <ExternalLink size={14} style={{ marginRight: 4 }} />
+            Open Vaultr & Sign In
+          </button>
+          <button
+            className="btn btn-ghost"
+            style={{ width: "100%", padding: "10px" }}
+            onClick={() => { setIsUnauthorized(false); setError(""); }}
+          >
+            ← Back
+          </button>
         </div>
-
-        <button className="btn-accent btn" style={{ width: "100%", padding: "11px", fontSize: 13 }} onClick={openLoginPage}>
-          <ExternalLink size={14} />
-          Open Vaultr & Sign In
-        </button>
-
-        <button
-          className="link-btn"
-          onClick={() => { setIsUnauthorized(false); setError(""); }}
-          style={{ fontSize: 12 }}
-        >
-          ← Back to unlock
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="unlock-wrap animate-in">
-      {/* Logo */}
-      <div>
-        <div className="unlock-icon" style={{ margin: "0 auto 16px" }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 12,
-            background: "linear-gradient(135deg, #7c6afa, #ec4899)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 16px rgba(124,106,250,0.4)"
-          }}>
-            <Shield size={20} color="#fff" />
-          </div>
+    <div className="unlock-wrap">
+      {/* Background Grid */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+          opacity: 0.012,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,255,255,0.015) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Lock Halo Visual */}
+      <div className="lock-halo-wrap">
+        <div className="lock-halo" />
+        <div className="lock-box">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad-sw)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 2px 8px rgba(124, 106, 250, 0.4))" }}>
+            <defs>
+              <linearGradient id="logo-grad-sw" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#7c6afa" />
+                <stop offset="100%" stopColor="#ec4899" />
+              </linearGradient>
+            </defs>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
         </div>
-        <h2 className="unlock-title">Vaultr is Locked</h2>
-        <p className="unlock-sub">Enter your master password to unlock</p>
       </div>
 
-      {/* Error */}
-      {error && !isUnauthorized && (
-        <div className="alert alert-error" style={{ width: "100%" }}>
-          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{error}</span>
+      {/* Header Info */}
+      <div className="unlock-header">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: 0.7, marginBottom: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "var(--neutral-500)" }}>Vaultr</span>
         </div>
-      )}
+        <h1 className="unlock-title">
+          {loading ? "Decrypting vault…" : "Unlock your vault"}
+        </h1>
+        {userEmail && <p className="unlock-email">{userEmail}</p>}
+      </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="unlock-form">
-        <div className="form-group">
-          <label className="form-label">Master Password</label>
-          <div className="form-input-icon">
-            <KeyRound size={15} />
+      {/* Inputs & Form */}
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`}>
+          {error && (
+            <div className="alert alert-error" style={{ width: "100%" }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ position: "relative" }}>
             <input
               type="password"
               className="form-input"
               value={masterPassword}
               onChange={(e) => setMasterPassword(e.target.value)}
-              placeholder="••••••••••••"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              placeholder="Master password"
               autoFocus
+              disabled={loading}
+              style={{ paddingRight: 40, height: 44 }}
             />
+            <Lock size={15} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-700)" }} />
           </div>
-        </div>
 
-        <button
-          type="submit"
-          className="btn-primary btn"
-          disabled={loading || !masterPassword}
-          style={{ marginTop: 4 }}
-        >
-          {loading ? "Unlocking…" : "Unlock Vault"}
-        </button>
-      </form>
+          <button
+            onClick={() => handleSubmit()}
+            className="btn btn-primary"
+            style={{ width: "100%", height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
+            disabled={!masterPassword || loading}
+          >
+            {loading ? (
+              <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+            ) : (
+              "Unlock Vault"
+            )}
+          </button>
+        </div>
+      </div>
 
       {/* Footer */}
-      <div className="unlock-footer" style={{ width: "100%" }}>
-        <span className="server-badge">
-          <Server size={11} />
-          {serverUrl}
+      <div className="unlock-footer">
+        <span className="unlock-footer-link" onClick={openLoginPage}>
+          Sign in
         </span>
-        <button className="link-btn" onClick={openLoginPage}>
-          Sign in →
-        </button>
+        <span className="unlock-footer-link" style={{ cursor: "default" }}>
+          {serverUrl.replace(/^https?:\/\//, "")}
+        </span>
       </div>
     </div>
   );
