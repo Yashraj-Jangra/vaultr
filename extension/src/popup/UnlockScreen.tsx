@@ -98,30 +98,14 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
 
   return (
     <div className="unlock-wrap">
-      {/* Background Grid */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          opacity: 0.012,
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,255,255,0.015) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
+      {/* Background Grid matching site */}
+      <div className="unlock-bg-grid" />
+      <div className="unlock-bg-radial" />
 
       {/* Lock Halo Visual */}
       <div className="lock-halo-wrap">
         <div className="lock-halo" />
-        <div className="lock-box">
+        <div className={`lock-box${loading ? " unlocking" : ""}`}>
           <img
             src="brand/lock-brand-dark.png"
             alt="Vaultr Lock"
