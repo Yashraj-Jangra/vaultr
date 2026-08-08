@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@vaultr/core": ["./packages/core/src/index.ts"],
+      "@vaultr/core/*": ["./packages/core/src/*"]
     }
   },
   "include": [

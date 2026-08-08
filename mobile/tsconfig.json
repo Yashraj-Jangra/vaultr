@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@vaultr/core": ["../packages/core/src/index.ts"],
+      "@vaultr/core/*": ["../packages/core/src/*"]
+    }
+  }
+}

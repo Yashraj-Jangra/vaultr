@@ -1,0 +1,31 @@
+{
+  "name": "@vaultr/extension",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch"
+  },
+  "dependencies": {
+    "@vaultr/core": "*",
+    "lucide-react": "^1.7.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.3",
+    "mini-css-extract-plugin": "^2.9.2",
+    "postcss": "^8.4.49",
+    "postcss-loader": "^8.1.1",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  }
+}

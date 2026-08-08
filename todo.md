@@ -1,6 +1,31 @@
 # todo.md — _vaultr Session Log
 
-## Last Updated: 2026-08-07
+## Last Updated: 2026-08-08
+
+---
+
+### Monorepo Architecture: Shared Core, Extension & Android Mobile App
+- [x] **Npm Workspaces Setup**: Configured root `package.json` with `"workspaces": ["packages/*", "extension", "mobile"]` and updated `tsconfig.json` path mappings (`@vaultr/core`).
+- [x] **Extracted Shared Core Package (`packages/core`)**:
+  - `crypto.ts`: Environment-agnostic WebCrypto utilities (`deriveKey`, `encrypt`, `decrypt`, `reEncryptBlobs`) working across Web, Extension MV3 background workers, Node.js, and React Native.
+  - `totp.ts`: Pure TypeScript RFC 6238 TOTP generator (`generateTOTP`, `getTotpCountdown`, `getTotpPercentage`) using WebCrypto.
+  - `generator.ts`: Pure password generator (`generateRandomPassword`, `generatePassphrase`, `generatePin`, `generatePattern`, `scorePassword`).
+  - `api-client.ts`: Typed REST API wrapper (`VaultrApiClient`) for all `/api/vault/*` endpoints with token and cookie auth support.
+  - `types.ts`: Centralized types (`VaultItem`, `Template`, `VaultSession`, `NewVaultItemPayload`, `BatchAction`).
+- [x] **Browser Extension (`/extension`)**:
+  - MV3 manifest setup (`manifest.json`) with permissions for `storage`, `activeTab`, `scripting`, `alarms`, `clipboardWrite`.
+  - Service worker (`background/service-worker.ts`) handling session unlock, auto-lock alarm, domain matching, and secure decryption.
+  - Native in-page autofill content script (`content-script/autofill.ts`) with automatic form scanning and floating autofill dropdown.
+  - React Popup UI (`App.tsx`, `VaultScreen.tsx`, `UnlockScreen.tsx`, `GeneratorScreen.tsx`, `SettingsScreen.tsx`).
+  - Webpack bundler configuration (`webpack.config.js`).
+- [x] **Android Mobile App (`/mobile`)**:
+  - Expo configuration (`app.json`, `package.json`, `tsconfig.json`) configured for Android target.
+  - Hardware biometric unlock service (`services/biometrics.ts`) using `expo-local-authentication` and `expo-secure-store`.
+  - Android system autofill service bridge (`services/autofill.ts`).
+  - Offline encrypted cache & background sync queue engine (`services/sync.ts`) using `AsyncStorage`.
+  - Mobile Zustand store (`store/vaultStore.ts`) replacing `VaultContext`.
+  - Native React Native dark mode UI (`App.tsx`).
+- [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
 
 ---
 

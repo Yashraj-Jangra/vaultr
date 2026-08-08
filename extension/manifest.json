@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Vaultr — Secure Password Manager",
+  "short_name": "Vaultr",
+  "version": "1.0.0",
+  "description": "Self-hosted, end-to-end encrypted password manager browser extension.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Vaultr"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["autofill.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "alarms",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
+}

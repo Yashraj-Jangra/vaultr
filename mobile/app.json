@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Vaultr",
+    "slug": "vaultr-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#09090b"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#09090b"
+      },
+      "package": "com.vaultr.mobile",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "BIND_AUTOFILL_SERVICE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Vaultr to use Face ID to unlock your secure vault."
+        }
+      ]
+    ]
+  }
+}
