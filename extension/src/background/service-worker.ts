@@ -134,7 +134,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
 
           // Derive encryption key using user.id as salt (matching site exactly)
-          await deriveKey(masterPassword, userId);
+          const key = await deriveKey(masterPassword, userId);
+
+          // Validate master password correctness against vault items
+          if (items.length > 0) {
+            let verified = false;
+            for (const item of items) {
+              if (!item.encryptedBlob) continue;
+              try {
+                const raw = await decrypt(key, item.encryptedBlob);
+                if (raw) {
+                  verified = true;
+                  try {
+                    state.decryptedItemsCache[item.id] = JSON.parse(raw);
+                  } catch {}
+                  break;
+                }
+              } catch {
+                // AES-GCM decryption failed for this item (wrong password)
+              }
+            }
+            if (!verified) {
+              throw new Error("Incorrect master password");
+            }
+          }
 
           state.masterPassword = masterPassword;
           state.userId = userId;
