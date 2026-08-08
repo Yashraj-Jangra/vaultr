@@ -133,9 +133,9 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       <div style={{ width: "100%", position: "relative", zIndex: 10 }}>
         <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {error && (
-            <div className="alert alert-error">
+            <div className="alert-error animate-auth-form-in">
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0, marginTop: 4 }} />
-              <p style={{ fontSize: 12, color: "#f87171", flex: 1 }}>{error}</p>
+              <p style={{ fontSize: 12, color: "#f87171", margin: 0, lineHeight: 1.4, flex: 1 }}>{error}</p>
             </div>
           )}
 

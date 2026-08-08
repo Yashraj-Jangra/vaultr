@@ -155,7 +155,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
               }
             }
             if (!verified) {
-              throw new Error("Incorrect master password");
+              throw new Error("Wrong master password.");
             }
           }
 

@@ -1114,10 +1114,26 @@ body {
   gap: 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(153, 27, 27, 0.4);
-  background: rgba(127, 29, 29, 0.25);
+  border: 1px solid rgba(127, 29, 29, 0.4);
+  background: rgba(69, 10, 10, 0.35);
   color: #f87171;
   font-size: 12px;
+  line-height: 1.4;
+}
+
+@keyframes auth-form-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-auth-form-in {
+  animation: auth-form-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .lock-halo-wrap {
