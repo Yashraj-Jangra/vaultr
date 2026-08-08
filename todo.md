@@ -8,22 +8,18 @@
 
 ### Extension UI/UX Overhaul + Autofill Fix
 
-- [x] **New design system (`popup.css`)**: Full CSS token-based design system matching the main site's dark aesthetic (`#07080c` base, neutral zinc scale, purple accent `#7c6afa`), Inter font via Google Fonts, animated transitions.
-- [x] **Redesigned `UnlockScreen.tsx`**: Premium dark layout with gradient shield logo, inline error alerts, unauthorized state with "Open Vaultr" CTA button.
-- [x] **Redesigned `VaultScreen.tsx`**: Multi-tier favicon loading (Google → DuckDuckGo → Clearbit fallback, matching the site's `SiteIcon` component), expandable item rows showing username/password/TOTP/notes with show/hide toggle and per-field copy, "Fill" button inline on current-site matches, autofill pass-through to content script.
-- [x] **Redesigned `GeneratorScreen.tsx`**: Visual strength bar with animated fill, colored strength label, regenerate + copy buttons, premium toggle chips for character types.
-- [x] **Redesigned `SettingsScreen.tsx`**: Account card (avatar initials, email, "Manage Account" → opens site), Autofill toggles (suggest on focus, auto-submit), auto-lock dropdown, server URL, "Open Vaultr Web App" button, About section.
-- [x] **Fixed `autofill.ts`**: Autofill now triggers on email/username/text fields as well as password fields (was password-only before). Uses `HTMLInputElement.prototype.value` native setter for React/Vue/Angular compatibility. Handles both "focused on username" and "focused on password" cases bidirectionally. Animated dropdown with ESC to dismiss. Listens for `AUTOFILL_CREDENTIAL` message from popup.
-- [x] **Updated `service-worker.ts`**: Added `GET_ACCOUNT_INFO` message handler (`/api/me` fetch). Fetches account info on unlock. Fixed domain match bug (no longer shows all items when domain is empty string).
-- [x] **Updated `App.tsx`**: Fetches account info on unlock and passes to SettingsScreen. `onAutofill` callback sends `AUTOFILL_CREDENTIAL` to active tab content script then closes popup.
-- [x] **Updated `popup.html`**: Inter font loaded from Google Fonts, corrected popup size to 380×560.
-- [x] Build: `webpack compiled successfully` — zero TypeScript errors, zero warnings.
+- [x] **New design system (`popup.css`)**: Direct port of Next.js CSS tokens (`--bg`, `--surface`, `--surface-2`, `--border`, `--fg-muted`) and component aesthetics. Pixel-match inputs, toggles, buttons, and alert layouts.
+- [x] **Redesigned `UnlockScreen.tsx`**: Ported the website's `!cryptoKey` lock visual exactly — background grid dot pattern, radial glow, lock-halo ring pulse, custom vector brand shield lock logo, unauthorized state with a redirect button, and shake animation on password error.
+- [x] **Redesigned `VaultScreen.tsx`**: Expandable detailed item rows matching the site's `DetailRow` for all template types: Login, Card (with CSS card graphic), Note (monospace pre-wrap), Address, and Profile. Added live TOTP generator code + circular countdown ring animation. Embedded inline Edit and Delete (soft delete / Trash) options.
+- [x] **Redesigned `GeneratorScreen.tsx`**: Stylized output display box, range sliders, option checkboxes, and strength bars to match the site's compact `PasswordGen` widget.
+- [x] **Redesigned `SettingsScreen.tsx`**: Account info card with avatar photo/initials and redirect chevron, autofill toggles, auto-lock timeout settings, server connections, and custom info alerts.
+- [x] **Created `NewEntryForm.tsx` (Ported from Website)**: Verbatim port of the website's NewEntryForm: type selector pills (Login/Card/Address/Profile/Note), custom fields list, notes field, password generator button, and local encryption footer badge.
+- [x] **Created `GET /api/me` Backend Endpoint**: New server route to authenticate requests and expose current user profile info `{ id, email, name, image }` to the extension.
+- [x] **Updated `service-worker.ts` & `App.tsx`**: Added message routing for `SAVE_ITEM`, `UPDATE_ITEM`, `DELETE_ITEM` (moves to Trash via PATCH), `GET_FOLDERS` (dynamically resolves from active items), and `SET_AUTO_LOCK`. Verified clean bundle compiles successfully.
 
 ## 🔜 Next Steps
 
 - [ ] **Test extension end-to-end**: Load unpacked from `extension/dist/`, unlock, verify autofill on a real login page.
-- [ ] **Autofill settings persistence**: The auto-lock timeout and autofill toggles in SettingsScreen currently only hold local React state — wire them to `chrome.storage.local` + service worker.
-- [ ] **TOTP live countdown**: Add live countdown ring and refresh in the item expand detail panel.
 - [ ] **Icons in extension**: Add actual icon assets (16/48/128px) to `extension/public/` and reference in `manifest.json`.
 
 ---
