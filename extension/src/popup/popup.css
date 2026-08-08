@@ -227,6 +227,52 @@ body {
   background: var(--bg);
 }
 
+/* ─── Folder Navigation Bar ──────────────────────────────────────────────── */
+
+.folder-nav-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 12px 10px;
+  background: var(--bg);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.folder-nav-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.folder-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--neutral-400);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.folder-pill:hover {
+  background: var(--surface-2);
+  color: var(--neutral-200);
+}
+
+.folder-pill.active {
+  background: var(--neutral-100);
+  color: var(--neutral-900);
+  border-color: var(--neutral-100);
+  font-weight: 600;
+}
+
 /* ─── Item Rows (List View matching) ──────────────────────────────────────── */
 
 /* ─── Item Rows (Sleek, Minimal, Modern) ─────────────────────────────────── */

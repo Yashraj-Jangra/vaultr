@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
   Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User,
-  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock
+  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder
 } from "lucide-react";
 import { generateTOTP, getTotpPercentage } from "@vaultr/core";
 
@@ -422,10 +422,12 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
                 </button>
                 <button
                   className="btn btn-danger"
-                  style={{ padding: "6px 10px" }}
+                  style={{ padding: "6px 12px" }}
                   onClick={handleDeleteClick}
+                  title="Move to Trash"
                 >
                   <Trash2 size={12} />
+                  Delete
                 </button>
               </div>
             </>
@@ -447,6 +449,7 @@ export function VaultScreen({
   onAddNew
 }: VaultScreenProps) {
   const [query, setQuery] = useState("");
+  const [selectedFolder, setSelectedFolder] = useState<string>("All");
   const [activeTabDomain, setActiveTabDomain] = useState<string>("");
 
   useEffect(() => {
@@ -462,19 +465,39 @@ export function VaultScreen({
     }
   }, []);
 
+  // Filter out Trash (soft deleted) items
+  const activeItems = useMemo(() => {
+    return items.filter((i) => !i.deletedAt);
+  }, [items]);
+
+  // Extract unique folders from active items
+  const folders = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of activeItems) {
+      if (item.folder && item.folder.trim()) {
+        set.add(item.folder.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [activeItems]);
+
   const filteredItems = useMemo(() => {
+    let list = activeItems;
+    if (selectedFolder !== "All") {
+      list = list.filter((i) => (i.folder || "").trim() === selectedFolder);
+    }
     const q = query.toLowerCase();
-    if (!q) return items;
-    return items.filter(
+    if (!q) return list;
+    return list.filter(
       (i) =>
         i.name.toLowerCase().includes(q) ||
         (i.domain || "").toLowerCase().includes(q)
     );
-  }, [items, query]);
+  }, [activeItems, selectedFolder, query]);
 
   const matchedItems = useMemo(() => {
     if (!activeTabDomain || query) return [];
-    return items.filter((i) => {
+    return activeItems.filter((i) => {
       const d = (i.domain || "").toLowerCase().replace(/^www\./, "");
       return (
         d.includes(activeTabDomain) ||
@@ -482,9 +505,9 @@ export function VaultScreen({
         i.name.toLowerCase().includes(activeTabDomain)
       );
     });
-  }, [items, activeTabDomain, query]);
+  }, [activeItems, activeTabDomain, query]);
 
-  const shownItems = query ? filteredItems : items;
+  const shownItems = filteredItems;
   const matchIds = new Set(matchedItems.map((m) => m.id));
 
   return (
@@ -503,9 +526,32 @@ export function VaultScreen({
         </div>
       </div>
 
+      {/* Folder Navigation Bar */}
+      {folders.length > 0 && (
+        <div className="folder-nav-wrap">
+          <button
+            className={`folder-pill${selectedFolder === "All" ? " active" : ""}`}
+            onClick={() => setSelectedFolder("All")}
+          >
+            <Folder size={11} />
+            All
+          </button>
+          {folders.map((f) => (
+            <button
+              key={f}
+              className={`folder-pill${selectedFolder === f ? " active" : ""}`}
+              onClick={() => setSelectedFolder(f)}
+            >
+              <Folder size={11} />
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="screen-body" style={{ paddingBottom: 72 }}>
         {/* Matches */}
-        {matchedItems.length > 0 && !query && (
+        {matchedItems.length > 0 && !query && selectedFolder === "All" && (
           <div className="match-banner">
             <div className="match-banner-label">
               <Globe size={11} />
@@ -532,13 +578,13 @@ export function VaultScreen({
           <div className="empty-state">
             <KeyRound size={28} />
             <div className="empty-state-title">
-              {query ? "No results found" : "No items in vault"}
+              {query ? "No results found" : selectedFolder !== "All" ? `No items in ${selectedFolder}` : "No items in vault"}
             </div>
             <div style={{ fontSize: 11 }}>{query ? `Nothing matched "${query}"` : "Tap + to add your first secure record"}</div>
           </div>
         ) : (
           <>
-            {matchedItems.length > 0 && !query && (
+            {matchedItems.length > 0 && !query && selectedFolder === "All" && (
               <div className="section-label">All Items</div>
             )}
             <div className="items-list">
