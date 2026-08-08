@@ -186,7 +186,7 @@ function MaskedValue({ value, mono = true }: { value: string; mono?: boolean }) 
       </span>
       <div className="flex items-center shrink-0">
         <button onClick={() => setVisible(v => !v)} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
-          {visible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+          {visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
         </button>
         <CopyBtn value={value} />
       </div>

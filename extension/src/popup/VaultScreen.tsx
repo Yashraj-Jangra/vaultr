@@ -131,7 +131,7 @@ function MaskedValue({ value }: { value: string }) {
   const [visible, setVisible] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
-      <span className={`detail-value${visible ? "" : " blur"}`}>
+      <span className="detail-value" style={{ color: visible ? "var(--neutral-200)" : "var(--neutral-500)" }}>
         {visible ? value : "••••••••••••"}
       </span>
       <div className="detail-actions">
@@ -141,7 +141,7 @@ function MaskedValue({ value }: { value: string }) {
           className="detail-action-btn"
           title={visible ? "Hide" : "Show"}
         >
-          {visible ? <EyeOff size={12} /> : <Eye size={12} />}
+          {visible ? <Eye size={12} /> : <EyeOff size={12} />}
         </button>
         <CopyBtn value={value} />
       </div>
