@@ -27,9 +27,9 @@
 - [x] **Enlarged High-Definition Item Logos (`page.tsx` & `VaultScreen.tsx`)**:
   - Replaced tiny monochrome card badges and 14px icons with high-resolution SVG card brand logos (`/logos/Visa.svg`, `/logos/Mastercard.svg`, `/logos/AMEX.svg`, `/logos/Discover.svg`, `/logos/Rupay.svg`).
   - Enlarged template icons for Notes (`FileText`), Profiles (`User`), Addresses (`MapPin`), and Cards (`CreditCard`) to prominent 20px–22px vector icons across site and extension.
-- [x] **Android Logo Standardization (`domain.ts`, `route.ts` & `VaultScreen.tsx`)**:
+- [x] **Android Logo Standardization (`domain.ts`, `SiteIcon.tsx` & `VaultScreen.tsx`)**:
   - Simplified `resolveDomain` in [`domain.ts`](file:///d:/Projects/_vaultr/packages/core/src/domain.ts) to return `"androidapp"` for all `androidapp://` and `android://` entries.
-  - Configured `/api/favicon` proxy to fetch and stream the official Android Developer head logo (`android-head_flat.png`), ensuring identical, high-definition Android branding across site and extension.
+  - Used the direct official Android Developer head logo image URL (`android-head_flat.png`) directly in website (`SiteIcon.tsx`) and extension (`VaultScreen.tsx`) components, completely bypassing proxy caching issues.
 - [x] **Extension High-Resolution Icon Sizing Fix (`popup.css` & `VaultScreen.tsx`)**:
   - Wrapped all extension popup icons in a `.site-icon` container with strict CSS bounds (`width: 32px; height: 32px; max-width: 32px; max-height: 32px; object-fit: contain`).
   - Resolved sizing overflow issue where high-resolution favicons (128px/256px) expanded beyond row boundaries due to unparsed Tailwind utility classes in extension build.

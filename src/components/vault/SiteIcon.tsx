@@ -23,8 +23,12 @@ export function SiteIcon({
     return <Globe className={`${sizeClass} shrink-0 text-neutral-400 select-none`} />;
   }
 
-  // Same-origin high-resolution favicon proxy
-  const src = `/api/favicon?domain=${encodeURIComponent(effectiveDomain)}`;
+  const isAndroid = effectiveDomain.startsWith("androidapp") || effectiveDomain.startsWith("android");
+
+  // Use the direct URL provided by the user for android entries to bypass proxy caching
+  const src = isAndroid
+    ? "https://developer.android.com/static/images/brand/android-head_flat.png"
+    : `/api/favicon?domain=${encodeURIComponent(effectiveDomain)}`;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
