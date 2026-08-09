@@ -15,10 +15,10 @@ const DEFAULT_ANDROID_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" 
 </svg>`;
 
 /**
- * GET /api/favicon?domain=github.com OR GET /api/favicon?domain=android://com.spotify.music
+ * GET /api/favicon?domain=github.com OR GET /api/favicon?domain=android://...
  *
  * Same-origin favicon & Android App icon proxy server.
- * Proxies Google Favicon API & Play Store App logos server-side to serve consistent 64px/128px site icons.
+ * Proxies Google Favicon API server-side & serves vector Android logos for android/androidapp scheme URIs.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Handle androidapp: / android:// URIs or "android" keyword directly
+  // Handle androidapp: / android:// URIs or "android" keyword directly -> Always serve Android Logo
   const lowerDomain = domain.toLowerCase();
   const isAndroid =
     lowerDomain === "android" ||
@@ -40,73 +40,51 @@ export async function GET(req: NextRequest) {
     lowerDomain.startsWith("android://") ||
     lowerDomain.startsWith("android:");
 
-  const pkgName = isAndroid
-    ? domain
-        .replace(/^androidapp:\/\//i, "")
-        .replace(/^androidapp:/i, "")
-        .replace(/^android:\/\//i, "")
-        .replace(/^android:/i, "")
-        .replace(/^android/i, "")
-        .split("/")[0]
-        .split("?")[0]
-        .trim()
-    : "";
-
-  if (isAndroid && (!pkgName || pkgName === "android" || pkgName === "androidapp")) {
+  if (isAndroid) {
     return new NextResponse(DEFAULT_ANDROID_SVG, {
       status: 200,
       headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" },
     });
   }
 
-  const cleanDomain = !isAndroid
-    ? domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0]
-    : "";
+  const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0];
 
-  if (!cleanDomain && !isAndroid) {
+  if (!cleanDomain) {
     return new NextResponse(DEFAULT_GLOBE_SVG, {
       status: 200,
       headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" },
     });
   }
 
-  const targetSources: string[] = isAndroid
-    ? [
-        `https://unavatar.io/android/${pkgName}?fallback=false`,
-        `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://play.google.com/store/apps/details?id=${pkgName}&size=128`,
-      ]
-    : [`https://www.google.com/s2/favicons?domain=${encodeURIComponent(cleanDomain)}&sz=128`];
+  const targetUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(cleanDomain)}&sz=128`;
 
-  for (const targetUrl of targetSources) {
-    try {
-      const res = await fetch(targetUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        },
-        signal: AbortSignal.timeout(3000),
-      });
+  try {
+    const res = await fetch(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(3000),
+    });
 
-      if (res.ok) {
-        const contentType = res.headers.get("content-type") || "image/png";
-        const buffer = await res.arrayBuffer();
+    if (res.ok) {
+      const contentType = res.headers.get("content-type") || "image/png";
+      const buffer = await res.arrayBuffer();
 
-        if (buffer.byteLength > 50) {
-          return new NextResponse(buffer, {
-            status: 200,
-            headers: {
-              "Content-Type": contentType,
-              "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
-            },
-          });
-        }
+      if (buffer.byteLength > 50) {
+        return new NextResponse(buffer, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+          },
+        });
       }
-    } catch {
-      /* try next target */
     }
+  } catch {
+    /* fallback to SVG Globe */
   }
 
-  const fallbackSvg = isAndroid ? DEFAULT_ANDROID_SVG : DEFAULT_GLOBE_SVG;
-  return new NextResponse(fallbackSvg, {
+  return new NextResponse(DEFAULT_GLOBE_SVG, {
     status: 200,
     headers: {
       "Content-Type": "image/svg+xml",

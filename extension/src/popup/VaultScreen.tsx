@@ -31,32 +31,18 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
     );
   }
 
-  const isAndroid = effectiveDomain.startsWith("androidapp");
-  const pkgName = isAndroid ? effectiveDomain.replace(/^androidapp:/, "").trim() : "";
+  const isAndroid = effectiveDomain.startsWith("androidapp") || effectiveDomain.startsWith("android");
 
-  let src: string;
-  if (isAndroid) {
-    if (pkgName && pkgName !== "androidapp") {
-      src = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://play.google.com/store/apps/details?id=${encodeURIComponent(pkgName)}&size=128`;
-    } else {
-      src = "https://developer.android.com/static/images/brand/android-head_flat.png";
-    }
-  } else {
-    src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`;
-  }
+  const src = isAndroid
+    ? "https://developer.android.com/static/images/brand/android-head_flat.png"
+    : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`;
 
   return (
     <div className="site-icon">
       <img
         src={src}
         alt=""
-        onError={(e) => {
-          if (isAndroid && src !== "https://developer.android.com/static/images/brand/android-head_flat.png") {
-            (e.target as HTMLImageElement).src = "https://developer.android.com/static/images/brand/android-head_flat.png";
-          } else {
-            setHasError(true);
-          }
-        }}
+        onError={() => setHasError(true)}
         style={{ width: "32px", height: "32px", maxWidth: "32px", maxHeight: "32px", objectFit: "contain" }}
       />
     </div>
