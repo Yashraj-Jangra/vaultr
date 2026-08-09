@@ -12,11 +12,57 @@
 - [x] **Redesigned `UnlockScreen.tsx`**: Ported the website's `!cryptoKey` lock visual exactly — background grid dot pattern, radial glow, lock-halo ring pulse, official brand lock/logo assets, unauthorized state with a redirect button, and shake animation on password error.
 - [x] **Redesigned `VaultScreen.tsx`**: Expandable detailed item rows matching the site's `DetailRow` for all template types: Login, Card, Note, Address, and Profile. Overhauled list to be borderless and transparent with hover highlights. Added live TOTP generator code + circular countdown ring animation. Filtered out trash items (`deletedAt`), added an explicit Delete button (`Move to Trash`), and added site-friendly horizontal folder navigation tabs.
 - [x] **Redesigned `GeneratorScreen.tsx`**: Stylized output display box, range sliders, option checkboxes, and strength bars to match the site's compact `PasswordGen` widget.
-- [x] **Redesigned `SettingsScreen.tsx`**: Account info card with avatar photo/initials and redirect chevron, autofill toggles, auto-lock timeout settings, server connections, and custom info alerts.
-- [x] **Created `NewEntryForm.tsx` (Ported from Website)**: Verbatim port of the website's NewEntryForm: type selector pills (Login/Card/Address/Profile/Note), custom fields list, notes field, password generator button, and local encryption footer badge.
-- [x] **Created `GET /api/me` Backend Endpoint**: New server route to authenticate requests and expose current user profile info `{ id, email, name, image }` to the extension.
-- [x] **Updated `service-worker.ts` & `App.tsx`**: Added message routing for `SAVE_ITEM`, `UPDATE_ITEM`, `DELETE_ITEM` (moves to Trash via PATCH), `GET_FOLDERS` (dynamically resolves from active items), and `SET_AUTO_LOCK`. Verified clean bundle compiles successfully.
-- [x] **Decryption Salt Bug Fix**: Resolved the issue where vault item decryption failed on click-to-expand. The service worker now fetches `/api/me` during the unlock sequence to retrieve the authentic `user.id`, using it as the PBKDF2 salt for key derivation and decryption, matching the website's encryption logic exactly.
+- [x] **Redesigned In-Page Autofill Suggestions Box (`autofill.ts`)**:
+  - Added top branding header featuring the official **Vaultr Brand Logo** (`brand/logo-dark.png` registered in `web_accessible_resources`), `VAULTR` title, and match count pill tag (`1 match` / `X matches`).
+  - Increased minimum width to `320px` with roomier row padding (`9px 10px`), high-contrast typography (`#f4f4f5` titles, `#94a3b8` monospace usernames), dark elevated surface (`#09090b` with backdrop blur), and interactive `<CornerDownLeft /> Fill` glass pill badges that flip to solid white on hover.
+- [x] **Settings Profile & Manage Account Redesign (`SettingsScreen.tsx`)**:
+  - Converted profile avatar to a sleek circle (`borderRadius: 50%`, `46px x 46px`) directly alongside user name & email without border box wrappers.
+  - Added dedicated `<ExternalLink /> Manage Account on Vaultr` action button below profile row.
+- [x] **Card CVV & PIN 3-Dot Masking**:
+  - Restored standard 12-dot masking (`"••••••••••••"`) for passwords, card numbers, and general sensitive fields.
+  - Restricted compact 3-dot masking (`"•••"`) specifically to card **CVV** and **PIN** fields across both the website (`src/app/vault/page.tsx`) and the extension (`VaultScreen.tsx`).
+- [x] **List Item Expansion Layout Shift Fix (`page.tsx`)**:
+  - Maintained constant `border-l-2` border width across all list row states (collapsed, hovered, selected, expanded), toggling color from `border-l-transparent` to `border-l-[var(--accent)]`.
+  - Completely eliminated the 2px horizontal content shift when expanding list items.
+- [x] **Enlarged High-Definition Item Logos (`page.tsx` & `VaultScreen.tsx`)**:
+  - Replaced tiny monochrome card badges and 14px icons with high-resolution SVG card brand logos (`/logos/Visa.svg`, `/logos/Mastercard.svg`, `/logos/AMEX.svg`, `/logos/Discover.svg`, `/logos/Rupay.svg`).
+  - Enlarged template icons for Notes (`FileText`), Profiles (`User`), Addresses (`MapPin`), and Cards (`CreditCard`) to prominent 20px–22px vector icons across site and extension.
+- [x] **Extension Android App Logo Support (`VaultScreen.tsx`)**:
+  - Updated extension `SiteIcon` component in [`VaultScreen.tsx`](file:///d:/Projects/_vaultr/extension/src/popup/VaultScreen.tsx) to detect `androidapp` target entries.
+  - Fetches Play Store app logos for specific package names (`id=${pkg}`) and automatically falls back to the official Android head logo image (`android-head_flat.png`) for generic `android://` entries.
+- [x] **Extension High-Resolution Icon Sizing Fix (`popup.css` & `VaultScreen.tsx`)**:
+  - Wrapped all extension popup icons in a `.site-icon` container with strict CSS bounds (`width: 32px; height: 32px; max-width: 32px; max-height: 32px; object-fit: contain`).
+  - Resolved sizing overflow issue where high-resolution favicons (128px/256px) expanded beyond row boundaries due to unparsed Tailwind utility classes in extension build.
+- [x] **Android Scheme URI Support & Collapsed List Item Fix (`domain.ts`, `route.ts` & `page.tsx`)**:
+  - Fixed domain resolver ([`domain.ts`](file:///d:/Projects/_vaultr/packages/core/src/domain.ts)) to recognize `android` / `android://` in the `domain` property before decryption, resolving the collapsed list view globe fallback bug.
+  - Expanded domain resolver and favicon proxy to support `android://` scheme URIs (e.g. `android://com.spotify.music`) alongside `androidapp://`.
+  - Added dedicated `DEFAULT_ANDROID_SVG` vector logo response in `/api/favicon` proxy so generic `android://` list entries render the Android brand icon instead of the globe fallback.
+  - Preserves package name extraction to display real app icons or Android brand badges.
+- [x] **Borderless Icon System (`SiteIcon.tsx` & `page.tsx`)**:
+  - Removed outer div container background boxes, borders, and padding wrappers from site item icons in [`SiteIcon.tsx`](file:///d:/Projects/_vaultr/src/components/vault/SiteIcon.tsx) and [`page.tsx`](file:///d:/Projects/_vaultr/src/app/vault/page.tsx).
+  - Site item icons now render as clean, borderless, un-boxed raw icons.
+- [x] **Unified Favicon Resolver & Icon Hover Cleanup (`SiteIcon.tsx`, `VaultScreen.tsx` & `/api/favicon/route.ts`)**:
+  - Removed `hover:scale-105` scale hover animation from site item icons in [`SiteIcon.tsx`](file:///d:/Projects/_vaultr/src/components/vault/SiteIcon.tsx).
+  - Fixed invalid Tailwind class `w-4.5` / `h-4.5` in `SiteIcon.tsx` to standard `w-4 h-4`, resolving invisible Globe fallback SVGs.
+  - Routed website [`SiteIcon.tsx`](file:///d:/Projects/_vaultr/src/components/vault/SiteIcon.tsx) image requests through same-origin `/api/favicon?domain=...` proxy to eliminate referrer blocking and cross-origin CORS errors.
+  - Standardized favicon rendering in website [`SiteIcon.tsx`](file:///d:/Projects/_vaultr/src/components/vault/SiteIcon.tsx) to match browser extension [`VaultScreen.tsx`](file:///d:/Projects/_vaultr/extension/src/popup/VaultScreen.tsx), fetching directly via Google Favicon API (`sz=64`).
+  - Completely eliminated server-side 404 image errors, fallback letter initials, and multi-tier chain errors.
+  - Streamlined `/api/favicon` proxy endpoint to directly stream Google Favicon API assets with SVG Globe fallback.
+  - Added direct server-side `favicon.ico` fetch fallback before returning a clean 128px SVG Globe icon response (`image/svg+xml`), eliminating 404 errors and image breaking.
+  - Prioritized 256px/512px HD brand logo providers (`unavatar.io`, `logo.clearbit.com`, `t1.gstatic.com ... &size=256`) in server-side `/api/favicon` proxy to eliminate low-pixel blurriness.
+  - Updated `resolveDomain` in `@vaultr/core` to parse explicit `domain` values containing `http://` / `https://` schemes cleanly.
+  - Replaced text initials fallback (`"VT"`) with the clean browser-standard `<Globe />` icon across website [`SiteIcon.tsx`](file:///d:/Projects/_vaultr/src/components/vault/SiteIcon.tsx), extension popup [`VaultScreen.tsx`](file:///d:/Projects/_vaultr/extension/src/popup/VaultScreen.tsx), and in-page autofill suggestions overlay [`autofill.ts`](file:///d:/Projects/_vaultr/extension/src/content-script/autofill.ts).
+- [x] **Browser Internal Page Filter for Extension & In-Page Autofill (`@vaultr/core`, `autofill.ts`, `VaultScreen.tsx`, `service-worker.ts` & `App.tsx`)**:
+  - Added URL validation helpers `isWebPageUrl`, `isInternalBrowserHost`, and `isWebProtocol` to `@vaultr/core`.
+  - Restricted in-page autofill dropdown and focus event listeners to valid `http:` / `https:` websites only (excluding `chrome://newtab`, `chrome-extension://`, `edge://`, `about:blank`, etc.).
+  - Updated extension popup active tab detection and background service worker domain host extraction to skip internal browser pages.
+- [x] **Shared Core Domain Resolver, Search Menu & Extension Icon System (`@vaultr/core`, `SiteIcon.tsx`, `CommandPalette.tsx`, `VaultScreen.tsx`, `autofill.ts` & `popup.css`)**:
+  - Extracted 250+ brand dictionary (`KNOWN_BRANDS`) and domain parsing logic into `@vaultr/core` (`packages/core/src/domain.ts`).
+  - Integrated `SiteIcon` into the site command palette search menu (`CommandPalette.tsx`), so domain favicons and template icons render for all search results.
+  - Reused `resolveDomain` across website (`SiteIcon.tsx`), extension popup (`VaultScreen.tsx`), and in-page autofill suggestions (`autofill.ts`).
+  - Updated extension item list icon dimensions (`.site-icon` to 32px × 32px `rounded-xl` with crisp 64px favicons and drop-shadows matching the site).
+  - Added multi-tier high-resolution favicon resolution (Google Favicon API `sz=64`, Android app icon, DuckDuckGo `.ico`, Clearbit) with fallback 2-letter uppercase initials badge.
+  - Replicated credit card brand badges (Visa, Mastercard, AMEX, Discover) in extension popup item lists.
 
 ## 🔜 Next Steps
 
