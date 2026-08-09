@@ -217,17 +217,21 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
 
     const effectiveDomain = resolveDomain(cred.domain, cred.name, cred.url);
     const globeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`;
-    const iconSrc = effectiveDomain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64` : "";
+    const isAndroid = effectiveDomain.startsWith("androidapp") || effectiveDomain.startsWith("android");
+    const iconSrc = effectiveDomain
+      ? isAndroid
+        ? "https://developer.android.com/static/images/brand/android-head_flat.png"
+        : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`
+      : "";
 
     item.innerHTML = `
       <div class="vaultr-icon-box" style="
-        width: 34px; height: 34px; border-radius: 9px;
-        background: #18181b; border: 1px solid rgba(255, 255, 255, 0.12);
+        width: 32px; height: 32px; max-width: 32px; max-height: 32px;
         display: flex; align-items: center; justify-content: center;
         flex-shrink: 0; overflow: hidden;
       ">${
         iconSrc
-          ? `<img src="${iconSrc}" alt="" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;" onerror="this.outerHTML='${globeSvg}';" />`
+          ? `<img src="${iconSrc}" alt="" style="width: 32px; height: 32px; max-width: 32px; max-height: 32px; object-fit: contain; border-radius: 8px; display: block;" onerror="this.outerHTML='${globeSvg}';" />`
           : globeSvg
       }</div>
       <div style="min-width: 0; flex: 1;">
