@@ -309,30 +309,34 @@ body {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Icons (Sleek 28px rounded-lg) */
+/* Icons (Strict 32px borderless container matching site) */
 .site-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  overflow: hidden;
+  width: 32px;
+  height: 32px;
+  max-width: 32px;
+  max-height: 32px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--neutral-900);
-  border: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .site-icon img {
-  width: 16px;
-  height: 16px;
+  width: 32px;
+  height: 32px;
+  max-width: 32px;
+  max-height: 32px;
   object-fit: contain;
+  border-radius: 8px;
+  user-select: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
 .site-icon-fallback {
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--neutral-400);
+  color: var(--neutral-300);
   letter-spacing: -0.5px;
 }
 
@@ -421,11 +425,6 @@ body {
   display: flex;
   align-items: center;
   gap: 2px;
-  opacity: 0.3;
-  transition: opacity 0.15s ease;
-}
-
-.detail-row:hover .detail-actions {
   opacity: 1;
 }
 
@@ -556,6 +555,111 @@ body {
 .btn-accent:hover {
   background: rgba(124, 106, 250, 0.18);
   border-color: rgba(124, 106, 250, 0.4);
+}
+
+/* ─── Modern Minimal Item Action Badges & Buttons ───────────────────────── */
+
+.btn-fill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--neutral-200);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-fill-badge:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #000000;
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
+}
+
+.expanded-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 10px;
+}
+
+.btn-expanded-primary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--neutral-100);
+  color: var(--neutral-950);
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-expanded-primary:hover {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+  transform: translateY(-0.5px);
+}
+
+.btn-expanded-secondary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #141416;
+  border: 1px solid var(--border);
+  color: var(--neutral-300);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-expanded-secondary:hover {
+  background: #1c1c20;
+  border-color: var(--neutral-700);
+  color: var(--neutral-100);
+}
+
+.btn-expanded-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-expanded-danger:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
 }
 
 /* Floating Action Button (FAB) */
@@ -701,17 +805,6 @@ body {
   font-size: 12px;
 }
 
-.alert-error::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ef4444;
-  display: inline-block;
-  margin-top: 5px;
-  flex-shrink: 0;
-}
-
 /* ─── Generator Visual Widgets ────────────────────────────────────────────── */
 
 .pw-display {
@@ -765,39 +858,39 @@ body {
 }
 
 .account-card:hover {
-  background: var(--surface-2);
-  border-color: var(--border-hover);
+  background: #121214;
+  border-color: var(--neutral-700);
 }
 
 .account-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--neutral-900);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #18181b;
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--neutral-300);
+  color: var(--neutral-200);
   text-transform: uppercase;
 }
 
 .account-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--neutral-200);
+  color: var(--neutral-100);
 }
 
 .account-email {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--neutral-500);
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .settings-section {
-  padding: 16px 4px;
+  padding: 14px 2px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -807,11 +900,11 @@ body {
 
 .settings-section-title {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
   color: var(--neutral-600);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   padding-left: 2px;
 }
 
@@ -820,12 +913,13 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 2px;
+  padding: 4px 2px;
 }
 
 .settings-row-label {
   font-size: 13px;
-  color: var(--neutral-300);
+  font-weight: 500;
+  color: var(--neutral-200);
 }
 
 .settings-row-sub {

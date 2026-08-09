@@ -1,102 +1,117 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
-  Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User,
-  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder
+  Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User, MapPin,
+  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft
 } from "lucide-react";
-import { generateTOTP, getTotpPercentage } from "@vaultr/core";
+import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
 interface VaultScreenProps {
   items: VaultItem[];
-  onDecryptItem: (encryptedBlob: string) => Promise<any>;
+  onDecryptItem: (encryptedBlob: string, itemId?: string) => Promise<any>;
   onAutofill: (cred: { username?: string; password?: string }) => void;
   onEditItem: (item: VaultItem, decryptedPayload: any) => void;
   onDeleteItem: (id: string) => Promise<void>;
   onAddNew: () => void;
 }
 
-// ─── SiteIcon Fallback ───────────────────────────────────────────────────────
+// ─── SiteIcon Component (Reusing @vaultr/core resolveDomain) ────────────────
 
-function resolveDomain(domain?: string, name?: string): string {
-  if (domain && domain.trim()) {
-    const c = domain.trim().toLowerCase();
-    if (c.includes("://")) { try { return new URL(c).hostname; } catch {} }
-    return c.split("/")[0].split(":")[0];
+function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: string }) {
+  const [hasError, setHasError] = useState(false);
+  const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
+
+  if (!effectiveDomain || hasError) {
+    return (
+      <div className="site-icon">
+        <Globe size={20} style={{ color: "#a3a3a3" }} />
+      </div>
+    );
   }
-  if (name && name.trim()) {
-    const n = name.trim().toLowerCase();
-    if (n.includes(".")) {
-      const parts = n.split(/\s+/);
-      const withDot = parts.find((p) => p.includes(".") && !p.endsWith("."));
-      if (withDot) return withDot;
+
+  const isAndroid = effectiveDomain.startsWith("androidapp");
+  const pkgName = isAndroid ? effectiveDomain.replace(/^androidapp:/, "").trim() : "";
+
+  let src: string;
+  if (isAndroid) {
+    if (pkgName && pkgName !== "androidapp") {
+      src = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://play.google.com/store/apps/details?id=${encodeURIComponent(pkgName)}&size=128`;
+    } else {
+      src = "https://developer.android.com/static/images/brand/android-head_flat.png";
     }
-    const brands: Record<string, string> = {
-      google: "google.com", github: "github.com", gitlab: "gitlab.com",
-      amazon: "amazon.com", aws: "amazon.com", netflix: "netflix.com",
-      spotify: "spotify.com", twitter: "twitter.com", x: "x.com",
-      facebook: "facebook.com", instagram: "instagram.com", linkedin: "linkedin.com",
-      apple: "apple.com", microsoft: "microsoft.com", outlook: "outlook.com",
-      gmail: "gmail.com", chatgpt: "openai.com", openai: "openai.com",
-      vercel: "vercel.com", figma: "figma.com", notion: "notion.so",
-      slack: "slack.com", discord: "discord.com", reddit: "reddit.com",
-      youtube: "youtube.com", dropbox: "dropbox.com", steam: "steampowered.com",
-      paypal: "paypal.com", stripe: "stripe.com",
-    };
-    for (const [k, v] of Object.entries(brands)) {
-      if (n.includes(k)) return v;
-    }
+  } else {
+    src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`;
   }
-  return "";
-}
-
-function SiteIcon({ domain, name }: { domain?: string; name: string }) {
-  const [errLevel, setErrLevel] = useState(0);
-  const effectiveDomain = useMemo(() => resolveDomain(domain, name), [domain, name]);
-
-  if (!effectiveDomain || errLevel > 2) {
-    const initials = name.slice(0, 2).toUpperCase();
-    return <div className="site-icon"><span className="site-icon-fallback">{initials}</span></div>;
-  }
-
-  let src = `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=64`;
-  if (errLevel === 1) src = `https://icons.duckduckgo.com/ip3/${effectiveDomain}.ico`;
-  if (errLevel === 2) src = `https://logo.clearbit.com/${effectiveDomain}?size=64`;
 
   return (
     <div className="site-icon">
-      <img src={src} alt="" onError={() => setErrLevel((l) => l + 1)} />
+      <img
+        src={src}
+        alt=""
+        onError={(e) => {
+          if (isAndroid && src !== "https://developer.android.com/static/images/brand/android-head_flat.png") {
+            (e.target as HTMLImageElement).src = "https://developer.android.com/static/images/brand/android-head_flat.png";
+          } else {
+            setHasError(true);
+          }
+        }}
+        style={{ width: "32px", height: "32px", maxWidth: "32px", maxHeight: "32px", objectFit: "contain" }}
+      />
     </div>
   );
 }
 
 function getItemIcon(item: VaultItem) {
   const template = item.template || "login";
+
   if (template === "login") {
-    return <SiteIcon domain={item.domain} name={item.name} />;
+    return <SiteIcon domain={item.domain} name={item.name} url={(item as any).url} />;
   }
 
-  // Icons and backgrounds matching the site
-  let icon: React.ReactNode = <Lock size={14} />;
-  let bgClass = "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
-
   if (template === "card") {
-    icon = <CreditCard size={14} />;
-    bgClass = "bg-violet-500/10 text-violet-400 border-violet-500/20";
-  } else if (template === "address") {
-    icon = <Globe size={14} />;
-    bgClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    const nameLower = item.name.toLowerCase();
+    const isVisa = nameLower.includes("visa");
+    const isMastercard = nameLower.includes("mastercard") || nameLower.includes("master card") || nameLower.includes(" mc");
+    const isAmex = nameLower.includes("amex") || nameLower.includes("american express");
+    const isDiscover = nameLower.includes("discover");
+    const isRupay = nameLower.includes("rupay");
+
+    let cardBadge: React.ReactNode;
+    if (isVisa) {
+      cardBadge = <img src="/logos/Visa.svg" style={{ height: "16px", width: "auto", objectFit: "contain" }} alt="Visa" />;
+    } else if (isMastercard) {
+      cardBadge = <img src="/logos/Mastercard.svg" style={{ height: "20px", width: "auto", objectFit: "contain" }} alt="Mastercard" />;
+    } else if (isAmex) {
+      cardBadge = <img src="/logos/AMEX.svg" style={{ height: "20px", width: "auto", objectFit: "contain" }} alt="AMEX" />;
+    } else if (isDiscover) {
+      cardBadge = <img src="/logos/Discover.svg" style={{ height: "14px", width: "auto", objectFit: "contain" }} alt="Discover" />;
+    } else if (isRupay) {
+      cardBadge = <img src="/logos/Rupay.svg" style={{ height: "14px", width: "auto", objectFit: "contain" }} alt="RuPay" />;
+    } else {
+      cardBadge = <CreditCard size={20} style={{ color: "#a78bfa" }} />;
+    }
+
+    return (
+      <div className="site-icon">
+        {cardBadge}
+      </div>
+    );
+  }
+
+  let icon: React.ReactNode = <Lock size={20} style={{ color: "#818cf8" }} />;
+
+  if (template === "address") {
+    icon = <MapPin size={20} style={{ color: "#34d399" }} />;
   } else if (template === "profile") {
-    icon = <User size={14} />;
-    bgClass = "bg-sky-500/10 text-sky-400 border-sky-500/20";
+    icon = <User size={20} style={{ color: "#38bdf8" }} />;
   } else if (template === "note") {
-    icon = <FileText size={14} />;
-    bgClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    icon = <FileText size={20} style={{ color: "#fbbf24" }} />;
   }
 
   return (
-    <div className={`site-icon ${bgClass}`} style={{ borderStyle: "solid" }}>
+    <div className="site-icon">
       {icon}
     </div>
   );
@@ -127,12 +142,14 @@ function CopyBtn({ value }: { value: string }) {
   );
 }
 
-function MaskedValue({ value }: { value: string }) {
+function MaskedValue({ value, dots = 12 }: { value: string; dots?: number }) {
   const [visible, setVisible] = useState(false);
+  const maskText = "•".repeat(dots);
+
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
-      <span className="detail-value" style={{ color: visible ? "var(--neutral-200)" : "var(--neutral-500)" }}>
-        {visible ? value : "••••••••••••"}
+      <span className="detail-value" style={{ color: visible ? "var(--neutral-200)" : "var(--neutral-500)", letterSpacing: visible ? "normal" : "2px" }}>
+        {visible ? value : maskText}
       </span>
       <div className="detail-actions">
         <button
@@ -149,14 +166,14 @@ function MaskedValue({ value }: { value: string }) {
   );
 }
 
-function DetailRow({ label, value, masked = false }: { label: string; value: string; masked?: boolean }) {
+function DetailRow({ label, value, masked = false, dots = 12 }: { label: string; value: string; masked?: boolean; dots?: number }) {
   if (!value) return null;
   return (
     <div className="detail-row">
       <span className="detail-label">{label}</span>
       <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
         {masked ? (
-          <MaskedValue value={value} />
+          <MaskedValue value={value} dots={dots} />
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
             <span className="detail-value">{value}</span>
@@ -226,7 +243,7 @@ function TotpDisplay({ secret }: { secret: string }) {
 
 interface ItemRowProps {
   item: VaultItem;
-  onDecrypt: (blob: string) => Promise<any>;
+  onDecrypt: (blob: string, itemId?: string) => Promise<any>;
   onAutofill: (cred: { username?: string; password?: string }) => void;
   onEdit: (item: VaultItem, decryptedPayload: any) => void;
   onDelete: (id: string) => Promise<void>;
@@ -244,7 +261,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
     if (next && !decrypted) {
       setLoading(true);
       try {
-        const payload = await onDecrypt(item.encryptedBlob);
+        const payload = await onDecrypt(item.encryptedBlob, item.id);
         setDecrypted(payload);
       } catch (err) {
         console.error("Decrypt failed:", err);
@@ -252,7 +269,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
         setLoading(false);
       }
     }
-  }, [expanded, decrypted, item.encryptedBlob, onDecrypt]);
+  }, [expanded, decrypted, item.encryptedBlob, item.id, onDecrypt]);
 
   const handleAutofillClick = useCallback(
     async (e: React.MouseEvent) => {
@@ -260,7 +277,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
       let cred = decrypted;
       if (!cred) {
         try {
-          cred = await onDecrypt(item.encryptedBlob);
+          cred = await onDecrypt(item.encryptedBlob, item.id);
           setDecrypted(cred);
         } catch {
           return;
@@ -268,7 +285,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
       }
       onAutofill({ username: cred.username, password: cred.password });
     },
-    [decrypted, item.encryptedBlob, onDecrypt, onAutofill]
+    [decrypted, item.encryptedBlob, item.id, onDecrypt, onAutofill]
   );
 
   const handleEditClick = useCallback(
@@ -313,13 +330,13 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
           {/* Fill indicator badge for active site */}
           {isCurrentSiteMatch && isLogin && (
             <button
-              className="btn btn-accent"
-              style={{ padding: "4px 8px", fontSize: 10 }}
+              type="button"
+              className="btn-fill-badge"
               onClick={handleAutofillClick}
-              title="Autofill on active tab"
+              title="Autofill on active page"
             >
-              <Zap size={11} style={{ marginRight: 2 }} />
-              Fill
+              <CornerDownLeft size={11} />
+              <span>Fill</span>
             </button>
           )}
 
@@ -356,8 +373,8 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
                   <DetailRow label="Cardholder" value={decrypted.cardName} />
                   <DetailRow label="Number" value={decrypted.cardNumber} masked />
                   <DetailRow label="Expires" value={decrypted.expiry} />
-                  <DetailRow label="CVV" value={decrypted.cvv} masked />
-                  <DetailRow label="PIN" value={decrypted.pin} masked />
+                  <DetailRow label="CVV" value={decrypted.cvv} masked dots={3} />
+                  <DetailRow label="PIN" value={decrypted.pin} masked dots={3} />
                 </>
               )}
 
@@ -411,33 +428,30 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
               )}
 
               {/* Action buttons */}
-              <div style={{ display: "flex", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 8 }}>
+              <div className="expanded-actions-row">
                 {isLogin && (decrypted.username || decrypted.password) && (
                   <button
-                    className="btn btn-accent"
-                    style={{ flex: 1, padding: "6px", justifyContent: "center" }}
+                    className="btn-expanded-primary"
                     onClick={handleAutofillClick}
                   >
-                    <Zap size={12} />
-                    Fill Page
+                    <CornerDownLeft size={13} />
+                    <span>Autofill Page</span>
                   </button>
                 )}
                 <button
-                  className="btn btn-ghost"
-                  style={{ flex: 1, padding: "6px", justifyContent: "center" }}
+                  className="btn-expanded-secondary"
                   onClick={handleEditClick}
                 >
-                  <Edit2 size={12} />
-                  Edit
+                  <Edit2 size={13} />
+                  <span>Edit</span>
                 </button>
                 <button
-                  className="btn btn-danger"
-                  style={{ padding: "6px 12px" }}
+                  className="btn-expanded-danger"
                   onClick={handleDeleteClick}
                   title="Move to Trash"
                 >
-                  <Trash2 size={12} />
-                  Delete
+                  <Trash2 size={13} />
+                  <span>Delete</span>
                 </button>
               </div>
             </>
@@ -465,12 +479,18 @@ export function VaultScreen({
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.url) {
+        const tabUrl = tabs[0]?.url || "";
+        if (tabUrl && isWebPageUrl(tabUrl)) {
           try {
-            const url = new URL(tabs[0].url);
-            setActiveTabDomain(url.hostname.replace(/^www\./, ""));
+            const url = new URL(tabUrl);
+            const host = url.hostname.replace(/^www\./, "").toLowerCase();
+            if (host && !isInternalBrowserHost(host)) {
+              setActiveTabDomain(host);
+              return;
+            }
           } catch {}
         }
+        setActiveTabDomain("");
       });
     }
   }, []);
