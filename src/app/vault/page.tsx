@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
+import { useCrypto, deriveKey, decrypt } from "@/hooks/useCrypto";
 import { useTheme } from "@/context/ThemeContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -16,7 +17,7 @@ import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
   CreditCard, User, FileText, Lock, Plus, Minus, X, Wand2, Inbox, Shield, Star, Edit2, LayoutList, LayoutGrid,
-  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus,
+  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus, MapPin,
 } from "lucide-react";
 import { buildFolderTree, FolderNode } from "@/components/layout/Sidebar";
 import { SiteIcon } from "@/components/vault/SiteIcon";
@@ -25,6 +26,7 @@ import { NewEntryDialog } from "@/components/vault/NewEntryDialog";
 import { FolderSelect } from "@/components/vault/FolderSelect";
 import { DetailedCardVisual } from "@/components/vault/DialogPreviews";
 import { ConfirmDeleteModal } from "@/components/vault/ConfirmDeleteModal";
+import { EmptyTrashModal, PurgeTarget } from "@/components/vault/EmptyTrashModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,38 +37,37 @@ interface CustomField { id: string; key: string; value: string; }
 export interface DecryptedPayload {
   _template?: Template;
   _folder?: string;
-  // login
   username?: string;
   password?: string;
   url?: string;
   urls?: string[];
-  // card
   cardName?: string;
   cardNumber?: string;
-  cardBrand?: string;
   expiry?: string;
   cvv?: string;
   pin?: string;
-  // address
+  cardBrand?: string;
   line1?: string;
   line2?: string;
   city?: string;
   state?: string;
   zip?: string;
   country?: string;
-  // profile
   fullName?: string;
   dob?: string;
   idNumber?: string;
   email?: string;
   phone?: string;
-  // note
   note?: string;
-  // shared
   customFields?: { key: string; value: string }[];
   totpSecret?: string;
   entryNotes?: string;
   passwordHistory?: string[];
+  // passkey / credentials
+  isPasskey?: boolean;
+  passkeyRpId?: string;
+  passkeyCredentialId?: string;
+  passkeyUserHandle?: string;
   // legacy
   payload?: string;
 }
@@ -106,6 +107,16 @@ function generatePassword(len: number, upper: boolean, lower: boolean, nums: boo
 }
 
 function extractDomain(url: string): string {
+  if (!url) return "";
+  const trimmed = url.trim().toLowerCase();
+  if (
+    trimmed.startsWith("androidapp:") ||
+    trimmed.startsWith("android://") ||
+    trimmed.startsWith("android:") ||
+    trimmed.startsWith("android")
+  ) {
+    return trimmed;
+  }
   try {
     return new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
   } catch {
@@ -116,46 +127,31 @@ function extractDomain(url: string): string {
 const TEMPLATE_META: Record<Template, { label: string; icon: React.ReactNode; badgeClass: string; iconBg: string }> = {
   login: {
     label: "Login",
-    icon: <Lock className="w-3.5 h-3.5" />,
+    icon: <Lock className="w-5.5 h-5.5 text-indigo-400" />,
     badgeClass: "text-indigo-400 bg-indigo-950/60 border-indigo-900/50",
     iconBg: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
   },
   card: {
     label: "Card",
-    icon: (
-      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-        <line x1="1" y1="10" x2="23" y2="10" />
-      </svg>
-    ),
+    icon: <CreditCard className="w-5.5 h-5.5 text-violet-400" />,
     badgeClass: "text-violet-400 bg-violet-950/60 border-violet-900/50",
     iconBg: "bg-violet-500/10 border-violet-500/20 text-violet-400",
   },
   address: {
     label: "Address",
-    icon: (
-      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-        <circle cx="12" cy="10" r="3" />
-      </svg>
-    ),
+    icon: <MapPin className="w-5.5 h-5.5 text-emerald-400" />,
     badgeClass: "text-emerald-400 bg-emerald-950/60 border-emerald-900/50",
     iconBg: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
   },
   profile: {
     label: "Profile",
-    icon: <User className="w-3.5 h-3.5" />,
+    icon: <User className="w-5.5 h-5.5 text-sky-400" />,
     badgeClass: "text-sky-400 bg-sky-950/60 border-sky-900/50",
     iconBg: "bg-sky-500/10 border-sky-500/20 text-sky-400",
   },
   note: {
     label: "Note",
-    icon: (
-      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-        <polyline points="14 2 14 8 20 8" />
-      </svg>
-    ),
+    icon: <FileText className="w-5.5 h-5.5 text-amber-400" />,
     badgeClass: "text-amber-400 bg-amber-950/60 border-amber-900/50",
     iconBg: "bg-amber-500/10 border-amber-500/20 text-amber-400",
   },
@@ -177,12 +173,14 @@ function CopyBtn({ value, size = "sm" }: { value: string; size?: "sm" | "xs" }) 
   );
 }
 
-function MaskedValue({ value, mono = true }: { value: string; mono?: boolean }) {
+function MaskedValue({ value, mono = true, dots = 12 }: { value: string; mono?: boolean; dots?: number }) {
   const [visible, setVisible] = useState(false);
+  const maskText = "•".repeat(dots);
+
   return (
     <div className="flex items-center justify-between gap-1 min-w-0">
-      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px]`}>
-        {visible ? value : "••••••••••••"}
+      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!visible ? "tracking-widest" : ""}`}>
+        {visible ? value : maskText}
       </span>
       <div className="flex items-center shrink-0">
         <button onClick={() => setVisible(v => !v)} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
@@ -626,15 +624,15 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
 
 // ─── Row detail renderer ──────────────────────────────────────────────────────
 
-function DetailRow({ label, value, masked = false, isUrl = false }: {
-  label: string; value: string; masked?: boolean; isUrl?: boolean;
+function DetailRow({ label, value, masked = false, isUrl = false, dots = 12 }: {
+  label: string; value: string; masked?: boolean; isUrl?: boolean; dots?: number;
 }) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-2.5 min-w-0">
       <span className="text-[10.5px] text-neutral-500 font-medium w-16 sm:w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
       <div className="flex-1 min-w-0">
-        {masked ? <MaskedValue value={value} /> :
+        {masked ? <MaskedValue value={value} dots={dots} /> :
           isUrl ? (
             <div className="flex items-center justify-between gap-1 min-w-0">
               <a
@@ -729,8 +727,8 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
         <DetailRow label="Name" value={data.cardName || ""} />
         <DetailRow label="Number" value={data.cardNumber || ""} masked />
         <DetailRow label="Expiry" value={data.expiry || ""} />
-        <DetailRow label="CVV" value={data.cvv || ""} masked />
-        <DetailRow label="PIN" value={data.pin || ""} masked />
+        <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
+        <DetailRow label="PIN" value={data.pin || ""} masked dots={3} />
       </>}
 
       {t === "address" && <>
@@ -829,7 +827,7 @@ function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
   );
 }
 
-function getItemIcon(item: VaultItem) {
+function getItemIcon(item: VaultItem, url?: string) {
   const template = item.template || "login";
   const meta = TEMPLATE_META[template as Template];
 
@@ -840,41 +838,36 @@ function getItemIcon(item: VaultItem) {
     const isAmex = nameLower.includes("amex") || nameLower.includes("american express");
     const isDiscover = nameLower.includes("discover");
 
+    const isRupay = nameLower.includes("rupay");
+
     let cardBadge: React.ReactNode;
     if (isVisa) {
-      cardBadge = <div className="text-[7.5px] font-black text-violet-300 italic tracking-tighter">VISA</div>;
+      cardBadge = <img src="/logos/Visa.svg" className="h-5 w-auto object-contain drop-shadow" alt="Visa" />;
     } else if (isMastercard) {
-      cardBadge = (
-        <div className="flex items-center gap-px">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 opacity-90" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 opacity-90 -ml-1.5" />
-        </div>
-      );
+      cardBadge = <img src="/logos/Mastercard.svg" className="h-6 w-auto object-contain drop-shadow" alt="Mastercard" />;
     } else if (isAmex) {
-      cardBadge = <div className="text-[6.5px] font-bold text-violet-300">AMEX</div>;
+      cardBadge = <img src="/logos/AMEX.svg" className="h-6 w-auto object-contain drop-shadow" alt="AMEX" />;
     } else if (isDiscover) {
-      cardBadge = <div className="text-[6.5px] font-extrabold text-amber-300">DISC</div>;
+      cardBadge = <img src="/logos/Discover.svg" className="h-4 w-auto object-contain drop-shadow" alt="Discover" />;
+    } else if (isRupay) {
+      cardBadge = <img src="/logos/Rupay.svg" className="h-4 w-auto object-contain drop-shadow" alt="RuPay" />;
     } else {
       cardBadge = meta.icon;
     }
 
     return (
-      <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${meta.iconBg}`}>
+      <div className="w-9 h-9 flex items-center justify-center shrink-0">
         {cardBadge}
       </div>
     );
   }
 
   if (template === "login") {
-    return (
-      <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
-        <SiteIcon domain={item.domain} name={item.name} size={32} />
-      </div>
-    );
+    return <SiteIcon domain={item.domain} name={item.name} url={url} size={36} />;
   }
 
   return (
-    <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${meta.iconBg}`}>
+    <div className="w-9 h-9 flex items-center justify-center shrink-0">
       {meta.icon}
     </div>
   );
@@ -955,6 +948,9 @@ export default function VaultPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkConfirmTrash, setBulkConfirmTrash] = useState(false);
   const isSelectionMode = selectedIds.size > 0;
+
+  // Permanent Delete Purge Modal state with Master Password Reprompt
+  const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
 
   const [viewMode, setViewModeState] = useState<"list" | "grid">("list");
   useEffect(() => {
@@ -1088,7 +1084,23 @@ export default function VaultPage() {
   };
 
   const handleHardDelete = (item: VaultItem) => {
-    setDeleteModalTarget(item);
+    setPurgeTarget({ type: "single", ids: [item.id], count: 1 });
+  };
+
+  const handleConfirmPurge = async (password: string) => {
+    if (!purgeTarget) return;
+
+    // Verify master password zero-knowledge check
+    const testKey = await deriveKey(password, user?.id || "");
+    const sampleItem = items.find((i) => purgeTarget.ids.includes(i.id)) || items[0];
+    if (sampleItem) {
+      await decrypt(testKey, sampleItem.encryptedBlob);
+    }
+
+    // Verification passed! Execute bulk permanent purge
+    await batchAction("purge", purgeTarget.ids);
+    setSelectedIds(new Set());
+    setPurgeTarget(null);
   };
 
   const confirmHardDelete = async () => {
@@ -1487,10 +1499,11 @@ export default function VaultPage() {
 
   const renderItem = (item: VaultItem) => {
     const isSelected = selectedIds.has(item.id);
-    const itemIcon = getItemIcon(item);
+    const isRevealed = revealedId === item.id;
+    const itemPayload = isRevealed ? revealedData : null;
+    const itemIcon = getItemIcon(item, itemPayload?.url || itemPayload?.urls?.[0]);
     const template = (item.template || "login") as Template;
     const meta = TEMPLATE_META[template];
-    const isRevealed = revealedId === item.id;
 
     // Smart sub-line preview
     let subLine: string;
@@ -1645,12 +1658,12 @@ export default function VaultPage() {
     return (
       <div
         key={item.id}
-        className={`group relative transition-all duration-150 ${
+        className={`group relative transition-all duration-150 border-l-2 ${
           isRevealed
-            ? "bg-neutral-900/50 border-l-2 border-l-[var(--accent,#6366f1)]"
+            ? "bg-neutral-900/50 border-l-[var(--accent,#6366f1)]"
             : isSelected
-            ? "bg-neutral-900/30"
-            : "hover:bg-neutral-900/15"
+            ? "bg-neutral-900/30 border-l-transparent"
+            : "border-l-transparent hover:bg-neutral-900/15"
         }`}
       >
         <div className="flex items-center gap-2.5 px-3 py-3">
@@ -1980,6 +1993,16 @@ export default function VaultPage() {
               </div>
 
               <div className="flex items-center gap-3">
+                {/* Empty Trash Button in Trash View */}
+                {activeFilter === "trash" && visibleItems.length > 0 && (
+                  <button
+                    onClick={() => setPurgeTarget({ type: "all", ids: visibleItems.map(i => i.id), count: visibleItems.length })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-900/50 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 text-xs font-semibold transition-all shadow-sm cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Empty Trash ({visibleItems.length})
+                  </button>
+                )}
                 {/* view toggle */}
                 <div className="flex items-center bg-neutral-900 rounded-lg p-0.5 border border-neutral-800 hidden sm:flex">
                   <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-neutral-800 text-neutral-200 shadow-sm" : "text-neutral-500 hover:text-neutral-300"} transition-all flex items-center`}>
@@ -2163,15 +2186,26 @@ export default function VaultPage() {
                   )}
 
                   {activeFilter === "trash" ? (
-                    <button
-                      onClick={() => handleBulkAction("restore")}
-                      disabled={bulkBusy}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-400 hover:text-green-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                      title="Restore Selected"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Restore
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleBulkAction("restore")}
+                        disabled={bulkBusy}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-neutral-300 hover:text-emerald-400 hover:bg-neutral-900 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                        title="Restore Selected"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => setPurgeTarget({ type: "selected", ids: Array.from(selectedIds), count: selectedIds.size })}
+                        disabled={bulkBusy}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                        title="Permanently Delete Selected"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete Permanently
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={() => setBulkConfirmTrash(true)}
@@ -2197,6 +2231,14 @@ export default function VaultPage() {
         itemTemplate={deleteModalTarget?.template}
         onClose={() => setDeleteModalTarget(null)}
         onConfirm={confirmHardDelete}
+      />
+
+      {/* Empty Trash / Permanent Purge Master Password Reprompt Modal */}
+      <EmptyTrashModal
+        open={!!purgeTarget}
+        target={purgeTarget}
+        onClose={() => setPurgeTarget(null)}
+        onConfirm={handleConfirmPurge}
       />
     </div>
   );
