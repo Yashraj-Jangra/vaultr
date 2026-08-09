@@ -516,6 +516,9 @@ export function VaultScreen({
   const matchedItems = useMemo(() => {
     if (!activeTabDomain || query) return [];
     return activeItems.filter((i) => {
+      const template = i.template || "login";
+      if (template !== "login") return false;
+
       const d = (i.domain || "").toLowerCase().replace(/^www\./, "");
       return (
         d.includes(activeTabDomain) ||

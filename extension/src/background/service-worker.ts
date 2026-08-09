@@ -385,7 +385,8 @@ function getBaseRootDomain(hostname: string): string {
 
           for (const item of state.items) {
             if (item.deletedAt) continue;
-            if (item.template && item.template !== "login") continue;
+            const template = item.template || "login";
+            if (template !== "login") continue;
 
             let decrypted = state.decryptedItemsCache[item.id];
             if (!decrypted) {
@@ -398,6 +399,8 @@ function getBaseRootDomain(hostname: string): string {
                 continue;
               }
             }
+
+            if (!decrypted.username && !decrypted.password) continue;
 
             const itemHost = extractDomainHost(item.domain || decrypted?.url);
             if (!itemHost) continue;
