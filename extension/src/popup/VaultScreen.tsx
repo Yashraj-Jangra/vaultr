@@ -519,11 +519,16 @@ export function VaultScreen({
       const template = i.template || "login";
       if (template !== "login") return false;
 
-      const d = (i.domain || "").toLowerCase().replace(/^www\./, "");
+      const rawDomain = (i.domain || (i as any).url || "").trim();
+      if (!rawDomain) return false;
+
+      const d = rawDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0];
+      if (!d) return false;
+
       return (
+        d === activeTabDomain ||
         d.includes(activeTabDomain) ||
-        activeTabDomain.includes(d) ||
-        i.name.toLowerCase().includes(activeTabDomain)
+        (d.length >= 4 && activeTabDomain.includes(d))
       );
     });
   }, [activeItems, activeTabDomain, query]);

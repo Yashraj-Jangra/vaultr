@@ -402,7 +402,10 @@ function getBaseRootDomain(hostname: string): string {
 
             if (!decrypted.username && !decrypted.password) continue;
 
-            const itemHost = extractDomainHost(item.domain || decrypted?.url);
+            const rawDomain = item.domain || decrypted.url;
+            if (!rawDomain || !rawDomain.trim()) continue;
+
+            const itemHost = extractDomainHost(rawDomain);
             if (!itemHost) continue;
 
             const itemRoot = getBaseRootDomain(itemHost);

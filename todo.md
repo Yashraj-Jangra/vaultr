@@ -24,9 +24,9 @@
 - [x] **List Item Expansion Layout Shift Fix (`page.tsx`)**:
   - Maintained constant `border-l-2` border width across all list row states (collapsed, hovered, selected, expanded), toggling color from `border-l-transparent` to `border-l-[var(--accent)]`.
   - Completely eliminated the 2px horizontal content shift when expanding list items.
-- [x] **Strict Login Template Autofill Suggestion Filtering (`service-worker.ts` & `VaultScreen.tsx`)**:
+- [x] **Strict Login Template & Domain Validation for Suggestions (`service-worker.ts` & `VaultScreen.tsx`)**:
   - Filtered out non-login item templates (notes, cards, addresses, profiles) from background `GET_LOGINS_FOR_DOMAIN` autofill suggestions and popup site matches.
-  - Required decrypted items to contain a valid `username` or `password` before proposing in-page autofill suggestions.
+  - Required items to have a valid, non-empty `domain` or `url` before matching, resolving a bug where empty-domain items matched every website domain.
 - [x] **Website Autofill Suggestion Dropdown Shadow DOM Isolation (`autofill.ts`)**:
   - Isolated autofill suggestion dropdown using Shadow DOM (`attachShadow`), preventing all host website CSS rules from leaking into extension UI.
   - Built icon fallback logic programmatically via DOM API to eliminate HTML attribute string escaping bugs and garbage text rendering (`I, ; /`).
