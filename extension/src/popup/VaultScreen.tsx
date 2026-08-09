@@ -31,10 +31,11 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
     );
   }
 
-  const isAndroid = effectiveDomain.startsWith("androidapp") || effectiveDomain.startsWith("android");
+  const isAndroid = effectiveDomain === "android" || effectiveDomain === "androidapp"
+    || effectiveDomain.startsWith("android:") || effectiveDomain.startsWith("androidapp:");
 
   const src = isAndroid
-    ? "/logos/android.png"
+    ? "https://developer.android.com/static/images/brand/android-head_flat.png"
     : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`;
 
   return (
@@ -48,6 +49,7 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
     </div>
   );
 }
+
 
 function getItemIcon(item: VaultItem) {
   const template = item.template || "login";

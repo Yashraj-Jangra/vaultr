@@ -23,7 +23,6 @@ export function SiteIcon({
     return <Globe className={`${sizeClass} shrink-0 text-neutral-400 select-none`} />;
   }
 
-  // Same-origin high-resolution favicon proxy
   const src = `/api/favicon?domain=${encodeURIComponent(effectiveDomain)}`;
 
   return (
@@ -33,7 +32,7 @@ export function SiteIcon({
       src={src}
       alt="Site Icon"
       onError={() => setHasError(true)}
-      className={`${sizeClass} shrink-0 ${roundedClass} object-contain filter drop-shadow(0 2px 4px rgba(0,0,0,0.4)) select-none`}
+      className={`${sizeClass} shrink-0 ${roundedClass} object-contain select-none`}
     />
   );
 }
