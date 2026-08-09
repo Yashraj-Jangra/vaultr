@@ -3,7 +3,7 @@
  *
  * Strategy:
  *  - Detect login forms by scanning for password fields + sibling username/email fields
- *  - Show a floating Vaultr dropdown anchored to the focused field
+ *  - Show a floating Vaultr dropdown anchored to the focused field (isolated via Shadow DOM)
  *  - On selection, fill BOTH username and password fields and dispatch React-compatible events
  *  - Listen for AUTOFILL_CREDENTIAL messages sent directly from the popup
  */
@@ -111,7 +111,35 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
   }
 }
 
-// ─── Dropdown UI ─────────────────────────────────────────────────────────────
+function createGlobeIcon(): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "18");
+  svg.setAttribute("height", "18");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "#a1a1aa");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  circle.setAttribute("cx", "12");
+  circle.setAttribute("cy", "12");
+  circle.setAttribute("r", "10");
+
+  const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path1.setAttribute("d", "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20");
+
+  const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path2.setAttribute("d", "M2 12h20");
+
+  svg.appendChild(circle);
+  svg.appendChild(path1);
+  svg.appendChild(path2);
+  return svg;
+}
+
+// ─── Dropdown UI (Shadow DOM Isolated) ───────────────────────────────────────
 
 function removeDropdown() {
   if (activeDropdown) {
@@ -144,79 +172,179 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
   activeInput = inputEl;
   const rect = inputEl.getBoundingClientRect();
 
-  const dropdown = document.createElement("div");
-  dropdown.id = "vaultr-autofill-dropdown";
-  dropdown.style.cssText = `
-    position: fixed;
-    top: ${rect.bottom + 6}px;
-    left: ${rect.left}px;
-    width: ${Math.max(rect.width, 320)}px;
-    background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 14px;
-    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    z-index: 2147483647;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: 13px;
-    color: #f4f4f5;
-    padding: 6px;
+  const host = document.createElement("div");
+  host.id = "vaultr-autofill-host";
+  host.style.cssText = `
+    position: fixed !important;
+    top: ${rect.bottom + 6}px !important;
+    left: ${rect.left}px !important;
+    width: ${Math.max(rect.width, 320)}px !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
     opacity: 0;
     transform: translateY(-6px);
     transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
   `;
 
-  // Branding Header at Top with official Vaultr Brand Logo
-  const header = document.createElement("div");
-  header.style.cssText = `
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px 9px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #ffffff;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: 5px;
+  const shadow = host.attachShadow({ mode: "open" });
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    * {
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      line-height: 1.4 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+    }
+    .dropdown-container {
+      background: #09090b !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+      overflow: hidden !important;
+      font-size: 13px !important;
+      color: #f4f4f5 !important;
+      padding: 6px !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+    }
+    .header {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      padding: 7px 10px 9px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      color: #ffffff !important;
+      letter-spacing: 0.04em !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      margin-bottom: 5px !important;
+    }
+    .brand-logo {
+      height: 18px !important;
+      width: auto !important;
+      max-width: 90px !important;
+      object-fit: contain !important;
+      display: block !important;
+    }
+    .match-badge {
+      margin-left: auto !important;
+      font-weight: 500 !important;
+      font-size: 10px !important;
+      color: #a1a1aa !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      padding: 2px 8px !important;
+      border-radius: 9999px !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    .item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      padding: 9px 10px !important;
+      border-radius: 10px !important;
+      cursor: pointer !important;
+      transition: background 0.15s ease !important;
+      background: transparent !important;
+    }
+    .item:hover {
+      background: #18181b !important;
+    }
+    .icon-box {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      max-width: 32px !important;
+      max-height: 32px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      overflow: hidden !important;
+      border-radius: 8px !important;
+      background: transparent !important;
+      border: none !important;
+    }
+    .icon-img {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      max-width: 32px !important;
+      max-height: 32px !important;
+      object-fit: contain !important;
+      border-radius: 8px !important;
+      display: block !important;
+      background: transparent !important;
+      border: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
+    .meta {
+      min-width: 0 !important;
+      flex: 1 !important;
+    }
+    .name {
+      font-weight: 600 !important;
+      font-size: 13.5px !important;
+      color: #ffffff !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .sub {
+      font-size: 11.5px !important;
+      color: #94a3b8 !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      margin-top: 2px !important;
+    }
   `;
+  shadow.appendChild(styleEl);
+
+  const container = document.createElement("div");
+  container.className = "dropdown-container";
+
+  // Branding Header
+  const header = document.createElement("div");
+  header.className = "header";
 
   const logoUrl = typeof chrome !== "undefined" && chrome.runtime?.getURL
     ? chrome.runtime.getURL("brand/logo-dark.png")
     : "";
 
-  header.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 6px;">
-      ${
-        logoUrl
-          ? `<img src="${logoUrl}" alt="Vaultr" style="height: 18px; width: auto; max-width: 90px; object-fit: contain; display: block;" />`
-          : `<span style="font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;">VAULTR</span>`
-      }
-    </div>
-    <span style="margin-left:auto; font-weight:500; font-size:10px; color:#a1a1aa; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:9999px; border:1px solid rgba(255,255,255,0.08);">
-      ${credentials.length} ${credentials.length === 1 ? "match" : "matches"}
-    </span>
-  `;
-  dropdown.appendChild(header);
+  if (logoUrl) {
+    const brandImg = document.createElement("img");
+    brandImg.src = logoUrl;
+    brandImg.alt = "Vaultr";
+    brandImg.className = "brand-logo";
+    header.appendChild(brandImg);
+  } else {
+    const title = document.createElement("span");
+    title.textContent = "VAULTR";
+    title.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
+    header.appendChild(title);
+  }
 
-  // Credential list
+  const badge = document.createElement("span");
+  badge.className = "match-badge";
+  badge.textContent = `${credentials.length} ${credentials.length === 1 ? "match" : "matches"}`;
+  header.appendChild(badge);
+
+  container.appendChild(header);
+
+  // Credential items
   credentials.forEach((cred) => {
     const item = document.createElement("div");
-    item.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 9px 10px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      background: transparent;
-    `;
+    item.className = "item";
 
     const effectiveDomain = resolveDomain(cred.domain, cred.name, cred.url);
-    const globeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`;
     const isAndroid = effectiveDomain.startsWith("androidapp") || effectiveDomain.startsWith("android");
     const iconSrc = effectiveDomain
       ? isAndroid
@@ -224,29 +352,38 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
         : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`
       : "";
 
-    item.innerHTML = `
-      <div class="vaultr-icon-box" style="
-        width: 32px; height: 32px; max-width: 32px; max-height: 32px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0; overflow: hidden;
-      ">${
-        iconSrc
-          ? `<img src="${iconSrc}" alt="" style="width: 32px; height: 32px; max-width: 32px; max-height: 32px; object-fit: contain; border-radius: 8px; display: block;" onerror="this.outerHTML='${globeSvg}';" />`
-          : globeSvg
-      }</div>
-      <div style="min-width: 0; flex: 1;">
-        <div style="font-weight: 600; font-size: 13.5px; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cred.name}</div>
-        <div style="font-size: 11.5px; color: #94a3b8; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">${cred.username || "No username"}</div>
-      </div>
-    `;
+    const iconBox = document.createElement("div");
+    iconBox.className = "icon-box";
 
-    item.addEventListener("mouseenter", () => {
-      item.style.background = "#18181b";
-    });
+    if (iconSrc) {
+      const img = document.createElement("img");
+      img.src = iconSrc;
+      img.alt = "";
+      img.className = "icon-img";
+      img.onerror = () => {
+        img.replaceWith(createGlobeIcon());
+      };
+      iconBox.appendChild(img);
+    } else {
+      iconBox.appendChild(createGlobeIcon());
+    }
 
-    item.addEventListener("mouseleave", () => {
-      item.style.background = "transparent";
-    });
+    item.appendChild(iconBox);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "name";
+    nameEl.textContent = cred.name;
+
+    const subEl = document.createElement("div");
+    subEl.className = "sub";
+    subEl.textContent = cred.username || "No username";
+
+    meta.appendChild(nameEl);
+    meta.appendChild(subEl);
+    item.appendChild(meta);
 
     item.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -255,11 +392,12 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       removeDropdown();
     });
 
-    dropdown.appendChild(item);
+    container.appendChild(item);
   });
 
-  document.body.appendChild(dropdown);
-  activeDropdown = dropdown;
+  shadow.appendChild(container);
+  document.body.appendChild(host);
+  activeDropdown = host;
 
   // Animate in
   requestAnimationFrame(() => {
@@ -283,7 +421,10 @@ document.addEventListener("click", (e) => {
   const target = e.target as Node | null;
   if (!activeDropdown) return;
 
-  const isInsideDropdown = activeDropdown.contains(target);
+  const isInsideDropdown =
+    activeDropdown === target ||
+    activeDropdown.contains(target) ||
+    (e.composedPath && e.composedPath().includes(activeDropdown));
   const isInsideInput = activeInput && (activeInput === target || activeInput.contains(target));
 
   if (!isInsideDropdown && !isInsideInput) {
@@ -311,7 +452,7 @@ document.addEventListener("focusin", (e) => {
   const target = e.target as HTMLInputElement;
   if (!target || target.tagName !== "INPUT") return;
   if (!isLoginField(target)) return;
-  if (target.closest("#vaultr-autofill-dropdown")) return;
+  if (target.closest("#vaultr-autofill-host")) return;
 
   // Only suggest for valid websites, not internal browser pages (newtab, chrome://, etc.)
   if (!isWebPageUrl(window.location.href)) return;
@@ -354,5 +495,3 @@ chrome.runtime.onMessage.addListener((message) => {
     }
   }
 });
-
-console.log("[Vaultr] Autofill content script loaded for:", getDomain());

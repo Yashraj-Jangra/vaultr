@@ -24,9 +24,9 @@
 - [x] **List Item Expansion Layout Shift Fix (`page.tsx`)**:
   - Maintained constant `border-l-2` border width across all list row states (collapsed, hovered, selected, expanded), toggling color from `border-l-transparent` to `border-l-[var(--accent)]`.
   - Completely eliminated the 2px horizontal content shift when expanding list items.
-- [x] **Website Autofill Suggestion Dropdown Icon Fix (`autofill.ts`)**:
-  - Removed dark container background box (`#18181b`) and outer border wrapper from item favicons in website autofill suggestions popup.
-  - Added strict `32px x 32px` bounds with `object-fit: contain` and official Android logo URL handling for Android scheme URIs.
+- [x] **Website Autofill Suggestion Dropdown Shadow DOM Isolation (`autofill.ts`)**:
+  - Isolated autofill suggestion dropdown using Shadow DOM (`attachShadow`), preventing all host website CSS rules from leaking into extension UI.
+  - Built icon fallback logic programmatically via DOM API to eliminate HTML attribute string escaping bugs and garbage text rendering (`I, ; /`).
 - [x] **Enlarged High-Definition Item Logos (`page.tsx` & `VaultScreen.tsx`)**:
   - Replaced tiny monochrome card badges and 14px icons with high-resolution SVG card brand logos (`/logos/Visa.svg`, `/logos/Mastercard.svg`, `/logos/AMEX.svg`, `/logos/Discover.svg`, `/logos/Rupay.svg`).
   - Enlarged template icons for Notes (`FileText`), Profiles (`User`), Addresses (`MapPin`), and Cards (`CreditCard`) to prominent 20px–22px vector icons across site and extension.
