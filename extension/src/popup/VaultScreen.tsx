@@ -277,13 +277,26 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
   );
 
   const handleEditClick = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (decrypted) {
-        onEdit(item, decrypted);
+      let payload = decrypted;
+      if (!payload) {
+        setLoading(true);
+        try {
+          payload = await onDecrypt(item.encryptedBlob, item.id);
+          setDecrypted(payload);
+        } catch (err) {
+          console.error("Decrypt failed:", err);
+          return;
+        } finally {
+          setLoading(false);
+        }
+      }
+      if (payload) {
+        onEdit(item, payload);
       }
     },
-    [item, decrypted, onEdit]
+    [item, decrypted, onDecrypt, onEdit]
   );
 
   const handleDeleteClick = useCallback(
@@ -538,9 +551,9 @@ export function VaultScreen({
 
   return (
     <div className="screen">
-      {/* Search */}
-      <div className="search-wrap">
-        <div className="search-field">
+      {/* Search & Add Bar */}
+      <div className="search-wrap" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div className="search-field" style={{ flex: 1 }}>
           <Search size={14} className="search-icon" />
           <input
             type="text"
@@ -550,6 +563,26 @@ export function VaultScreen({
             placeholder="Search vault…"
           />
         </div>
+        <button
+          type="button"
+          onClick={onAddNew}
+          className="btn btn-primary"
+          style={{
+            padding: "8px 12px",
+            fontSize: 12,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            flexShrink: 0,
+            borderRadius: 10,
+            cursor: "pointer"
+          }}
+          title="Add New Entry"
+        >
+          <Plus size={14} />
+          <span>New</span>
+        </button>
       </div>
 
       {/* Folder Navigation Bar */}

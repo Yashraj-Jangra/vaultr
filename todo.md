@@ -21,6 +21,9 @@
 - [x] **Card CVV & PIN 3-Dot Masking**:
   - Restored standard 12-dot masking (`"••••••••••••"`) for passwords, card numbers, and general sensitive fields.
   - Restricted compact 3-dot masking (`"•••"`) specifically to card **CVV** and **PIN** fields across both the website (`src/app/vault/page.tsx`) and the extension (`VaultScreen.tsx`).
+- [x] **Extension Add & Edit Entry Workflow Wiring (`VaultScreen.tsx`)**:
+  - Added a prominent `+ New` button to the search header bar in `VaultScreen.tsx`, directly triggering the rich `<NewEntryForm />` overlay modal.
+  - Updated item row edit handlers (`handleEditClick`) to automatically decrypt item payloads when collapsed, allowing items to be edited directly without requiring manual expansion first.
 - [x] **List Item Expansion Layout Shift Fix (`page.tsx`)**:
   - Maintained constant `border-l-2` border width across all list row states (collapsed, hovered, selected, expanded), toggling color from `border-l-transparent` to `border-l-[var(--accent)]`.
   - Completely eliminated the 2px horizontal content shift when expanding list items.
