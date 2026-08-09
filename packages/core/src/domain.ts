@@ -269,21 +269,6 @@ export function resolveDomain(domain?: string, name?: string, url?: string): str
     n.includes("android://");
 
   if (isAndroidEntry) {
-    const rawAndroid = [d, u, n].find((str) => str.includes("android"));
-    if (rawAndroid) {
-      const pkg = rawAndroid
-        .replace(/^androidapp:\/\//i, "")
-        .replace(/^androidapp:/i, "")
-        .replace(/^android:\/\//i, "")
-        .replace(/^android:/i, "")
-        .replace(/^android/i, "")
-        .split("/")[0]
-        .split("?")[0]
-        .trim();
-      if (pkg && pkg !== "android" && pkg !== "androidapp") {
-        return `androidapp:${pkg}`;
-      }
-    }
     return "androidapp";
   }
 
