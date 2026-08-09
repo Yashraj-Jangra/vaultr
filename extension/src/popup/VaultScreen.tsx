@@ -34,7 +34,7 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
   const isAndroid = effectiveDomain.startsWith("androidapp") || effectiveDomain.startsWith("android");
 
   const src = isAndroid
-    ? "https://developer.android.com/static/images/brand/android-head_flat.png"
+    ? "/logos/android.png"
     : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`;
 
   return (

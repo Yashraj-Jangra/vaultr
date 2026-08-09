@@ -43,6 +43,7 @@ module.exports = {
         { from: "manifest.json", to: "manifest.json" },
         { from: "../public/brand", to: "brand" },
         { from: "../public/illustrations", to: "illustrations" },
+        { from: "../public/logos", to: "logos" },
       ],
     }),
   ],

@@ -1,6 +1,8 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 const DEFAULT_GLOBE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
   <rect width="24" height="24" rx="6" fill="#18181b"/>
@@ -9,13 +11,11 @@ const DEFAULT_GLOBE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" he
   <path d="M5 12h14" stroke="#94a3b8" stroke-width="1.6"/>
 </svg>`;
 
-const OFFICIAL_ANDROID_LOGO_URL = "https://developer.android.com/static/images/brand/android-head_flat.png";
-
 /**
  * GET /api/favicon?domain=github.com OR GET /api/favicon?domain=androidapp
  *
  * Same-origin favicon & Android App icon proxy server.
- * Proxies Google Favicon API & Android Developer brand logos server-side.
+ * Proxies Google Favicon API server-side & serves local Android brand png for android/androidapp scheme URIs.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -37,20 +37,32 @@ export async function GET(req: NextRequest) {
     lowerDomain.startsWith("android://") ||
     lowerDomain.startsWith("android:");
 
-  const cleanDomain = !isAndroid
-    ? domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0]
-    : "";
+  if (isAndroid) {
+    try {
+      const filePath = path.join(process.cwd(), "public", "logos", "android.png");
+      const buffer = fs.readFileSync(filePath);
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=86400, s-maxage=86400",
+        },
+      });
+    } catch {
+      /* fallback to SVG Globe if read fails */
+    }
+  }
 
-  if (!cleanDomain && !isAndroid) {
+  const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0];
+
+  if (!cleanDomain) {
     return new NextResponse(DEFAULT_GLOBE_SVG, {
       status: 200,
       headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" },
     });
   }
 
-  const targetUrl = isAndroid
-    ? OFFICIAL_ANDROID_LOGO_URL
-    : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(cleanDomain)}&sz=128`;
+  const targetUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(cleanDomain)}&sz=128`;
 
   try {
     const res = await fetch(targetUrl, {
