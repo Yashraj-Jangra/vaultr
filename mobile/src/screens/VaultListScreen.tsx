@@ -30,6 +30,7 @@ import {
   User,
   Shield,
   X,
+  ChevronRight,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 
@@ -50,13 +51,13 @@ function ItemIconBadge({ item }: { item: any }) {
 
   if (template === "login" && item.domain) {
     return (
-      <SiteIcon domain={item.domain} name={item.name} size={32} />
+      <SiteIcon domain={item.domain} name={item.name} size={36} />
     );
   }
 
   return (
     <View style={[styles.templateIconBox, { backgroundColor: tc.bg }]}>
-      <IconComp size={16} color={tc.icon} />
+      <IconComp size={18} color={tc.icon} />
     </View>
   );
 }
@@ -126,38 +127,50 @@ export function VaultListScreen({ navigation }: Props) {
       ? new Date(item.updatedAt || item.createdAt || "").toLocaleDateString("en-US", { month: "short", day: "numeric" })
       : null;
 
+    const folderName = item.folder ? item.folder.split("/").pop() : null;
+
     return (
       <TouchableOpacity
-        style={styles.itemRow}
+        style={styles.itemCard}
         onPress={() => navigation.navigate("ItemDetail", { item })}
         activeOpacity={0.7}
       >
-        {/* Icon */}
+        {/* Left Icon Badge */}
         <View style={styles.itemIconWrap}>
           <ItemIconBadge item={item} />
         </View>
 
-        {/* Name + preview */}
+        {/* Center Details */}
         <View style={styles.itemContent}>
           <View style={styles.itemTopRow}>
             <Text style={styles.itemName} numberOfLines={1}>
               {item.name}
             </Text>
+
             {item.hasTotp && (
               <View style={styles.totpBadge}>
-                <KeyRound size={10} color="#a78bfa" />
+                <KeyRound size={9} color="#a78bfa" />
                 <Text style={styles.totpBadgeText}>2FA</Text>
               </View>
             )}
           </View>
 
-          <Text style={styles.itemSubLine} numberOfLines={1}>
-            {subLine}
-          </Text>
+          <View style={styles.itemSubRow}>
+            <Text style={styles.itemSubLine} numberOfLines={1}>
+              {subLine}
+            </Text>
+
+            {folderName ? (
+              <View style={styles.folderTag}>
+                <Folder size={9} color="#71717a" style={{ marginRight: 3 }} />
+                <Text style={styles.folderTagText}>{folderName}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
-        {/* Folder pill + Actions */}
-        <View style={styles.itemActions}>
+        {/* Right Actions & Meta */}
+        <View style={styles.itemRightWrap}>
           {dateStr ? (
             <Text style={styles.dateText}>{dateStr}</Text>
           ) : null}
@@ -165,14 +178,16 @@ export function VaultListScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => toggleFavorite(item.id)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Star
-              size={13}
-              color={item.favorite ? "#fbbf24" : "#404040"}
+              size={14}
+              color={item.favorite ? "#fbbf24" : "#3f3f46"}
               fill={item.favorite ? "#fbbf24" : "none"}
             />
           </TouchableOpacity>
+
+          <ChevronRight size={14} color="#3f3f46" style={{ marginLeft: 2 }} />
         </View>
       </TouchableOpacity>
     );
@@ -326,6 +341,7 @@ export function VaultListScreen({ navigation }: Props) {
         data={filteredItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        contentContainerStyle={{ paddingVertical: 8, paddingBottom: 80 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -346,7 +362,6 @@ export function VaultListScreen({ navigation }: Props) {
             </Text>
           </View>
         }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
       {/* FAB */}
@@ -482,13 +497,23 @@ const styles = StyleSheet.create({
   filterPillTextActive: { color: "#09090b", fontWeight: "600" },
   filterDivider: { width: 1, height: 20, backgroundColor: "#1f1f1f", marginHorizontal: 2 },
 
-  // Item row — matches web list view
-  itemRow: {
+  // Elevated card row design
+  itemCard: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#18181b",
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    padding: 12,
+    paddingHorizontal: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
   itemIconWrap: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   templateIconBox: {
@@ -498,46 +523,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  itemContent: { flex: 1, minWidth: 0 },
+  itemContent: { flex: 1, minWidth: 0, marginLeft: 12 },
   itemTopRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
-  itemName: { fontSize: 14, fontWeight: "600", color: "#f4f4f5", flexShrink: 1, minWidth: 0 },
-  itemSubRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  itemSubLine: { fontSize: 11.5, color: "#71717a", fontFamily: "monospace", flexShrink: 1, marginTop: 2 },
-  dateText: { fontSize: 11, color: "#525252", fontFamily: "monospace", marginRight: 4 },
-  folderPill: {
+  itemName: { fontSize: 14.5, fontWeight: "600", color: "#ffffff", flexShrink: 1, minWidth: 0 },
+  itemSubRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 3 },
+  itemSubLine: { fontSize: 11.5, color: "#71717a", fontFamily: "monospace", flexShrink: 1 },
+  folderTag: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(38,38,38,0.6)",
+    backgroundColor: "#18181b",
     borderWidth: 1,
-    borderColor: "rgba(64,64,64,0.5)",
-    borderRadius: 20,
+    borderColor: "#27272a",
+    borderRadius: 10,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 1.5,
   },
-  folderPillText: { fontSize: 9.5, color: "#71717a" },
+  folderTagText: { fontSize: 9.5, color: "#a1a1aa", fontWeight: "500" },
   totpBadge: {
-    backgroundColor: "rgba(109,40,217,0.3)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(109,40,217,0.25)",
     borderWidth: 1,
-    borderColor: "rgba(139,92,246,0.4)",
-    borderRadius: 20,
+    borderColor: "rgba(139,92,246,0.35)",
+    borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  totpBadgeText: { fontSize: 9.5, color: "#a78bfa", fontWeight: "700", letterSpacing: 0.5 },
+  totpBadgeText: { fontSize: 9, color: "#a78bfa", fontWeight: "700", letterSpacing: 0.5 },
 
-  // Action buttons
-  itemActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  // Right metadata & actions
+  itemRightWrap: { flexDirection: "row", alignItems: "center", gap: 6, marginLeft: 8 },
+  dateText: { fontSize: 10.5, color: "#525252", fontFamily: "monospace" },
   actionBtn: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionBtnFav: { backgroundColor: "rgba(251,191,36,0.1)" },
-
-  // Separator — matches web's 1px divider
-  separator: { height: 1, backgroundColor: "#141417", marginLeft: 64 },
 
   // Empty state
   emptyState: { alignItems: "center", paddingTop: 80, paddingHorizontal: 24 },
@@ -549,8 +573,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 20,
     bottom: 24,
-    width: 50,
-    height: 50,
+    width: 52,
+    height: 52,
     borderRadius: 16,
     backgroundColor: "#f4f4f5",
     alignItems: "center",
