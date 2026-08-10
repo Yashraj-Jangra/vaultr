@@ -29,7 +29,8 @@
         {
           "faceIDPermission": "Allow Vaultr to use Face ID to unlock your secure vault."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

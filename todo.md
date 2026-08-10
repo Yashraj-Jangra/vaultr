@@ -1,6 +1,16 @@
 # todo.md — _vaultr Session Log
 
-## Last Updated: 2026-08-08
+## Last Updated: 2026-08-10
+
+---
+
+## ✅ Completed This Session (2026-08-10)
+
+### Android Mobile App Phase 1 — Data Layer & Authentication Overhaul
+- [x] **API Client Bearer & Cookie Header Wiring (`vaultStore.ts`)**: Created `getApiClient()` helper that automatically attaches `Authorization: Bearer <token>` and `Cookie: better-auth.session_token=<token>` headers on all network calls (`getItems`, `createItem`, `updateItem`, `deleteItem`), eliminating HTTP 401 unauthenticated errors.
+- [x] **PBKDF2 Per-User Salt Key Derivation (`vaultStore.ts`)**: Fixed `deriveKey(masterPassword, salt)` to derive keys using `accountUser.id` instead of a static `"vaultr_default_salt"`, ensuring on-device decryption keys match the web application.
+- [x] **Auth Sign-In Error Handling & Response Parsing (`vaultStore.ts` & `auth.ts`)**: Updated `signInAccount` to throw an explicit error on HTTP non-200 responses, eliminating fake fallback token generation and ensuring invalid credentials report clear feedback.
+- [x] **Complete Mobile Vault CRUD Store Actions (`vaultStore.ts` & `ItemFormScreen.tsx`)**: Added `createItem`, `updateItem`, `trashItem`, `restoreItem`, `deleteItem` (permanent delete), and `toggleFavorite` actions to Zustand store with automatic offline caching and sync queueing. Re-wired `ItemFormScreen` to use store actions directly.
 
 ---
 
@@ -21,10 +31,10 @@
 - [x] **Card CVV & PIN 3-Dot Masking**:
   - Restored standard 12-dot masking (`"••••••••••••"`) for passwords, card numbers, and general sensitive fields.
   - Restricted compact 3-dot masking (`"•••"`) specifically to card **CVV** and **PIN** fields across both the website (`src/app/vault/page.tsx`) and the extension (`VaultScreen.tsx`).
-- [x] **Extension Add & Edit Entry Overlay Styling (`popup.css` & `VaultScreen.tsx`)**:
-  - Added full CSS styles for `.dialog-panel`, `.dialog-header`, `.dialog-body`, `.dialog-footer`, `.form-input`, `.form-select`, and `.type-pills` in [`popup.css`](file:///d:/Projects/_vaultr/extension/src/popup/popup.css).
-  - Fixed an unstyled CSS bug where opening the Add/Edit form rendered as an empty black box, restoring full slide-up modal rendering across all 5 item templates.
-  - Added a prominent `+ New` button to the search header bar in `VaultScreen.tsx`, and updated edit handlers to auto-decrypt collapsed items before editing.
+- [x] **Extension Add & Edit Entry Overlay Styling (`popup.css`, `NewEntryForm.tsx` & `App.tsx`)**:
+  - Added optional chaining (`initialData?.payload?.<field>`) across all initializers in [`NewEntryForm.tsx`](file:///d:/Projects/_vaultr/extension/src/popup/NewEntryForm.tsx), resolving an unhandled React `TypeError` crash on items with empty payloads.
+  - Wrapped overlay panel in a full-popup container (`position: fixed; inset: 0; z-index: 9999;`) in [`App.tsx`](file:///d:/Projects/_vaultr/extension/src/popup/App.tsx) and added full CSS styles for `.dialog-panel` and form controls in [`popup.css`](file:///d:/Projects/_vaultr/extension/src/popup/popup.css).
+  - Fixed **React Error #31** rendering crash causing a completely blank black screen when clicking Add/Edit. The background script was returning `[{ name: "Work", count: 2 }]` objects for folders instead of string arrays, which caused React to crash when attempting to render the object in a `<select>` option. Mapped the array to plain strings in `App.tsx` state.
 - [x] **List Item Expansion Layout Shift Fix (`page.tsx`)**:
   - Maintained constant `border-l-2` border width across all list row states (collapsed, hovered, selected, expanded), toggling color from `border-l-transparent` to `border-l-[var(--accent)]`.
   - Completely eliminated the 2px horizontal content shift when expanding list items.
@@ -103,7 +113,14 @@
   - Android system autofill service bridge (`services/autofill.ts`).
   - Offline encrypted cache & background sync queue engine (`services/sync.ts`) using `AsyncStorage`.
   - Mobile Zustand store (`store/vaultStore.ts`) replacing `VaultContext`.
-  - Native React Native dark mode UI (`App.tsx`).
+  - **Full React Navigation & Modular Native Screens Architecture**:
+    - **Upgraded to Expo SDK 57 Ecosystem**: Configured `package.json` with Expo SDK 57, React 19 (`19.2.3`), React Native (`0.86.2`), `react-native-svg`, gesture-handler, screens, safe-area-context, and `lucide.d.ts` module declarations.
+    - Created `RootNavigator.tsx` and `types.ts` with React Navigation Stack (`@react-navigation/stack`).
+    - Created `UnlockScreen.tsx`: Sleek brand unlock UI with master password, biometrics, and server endpoint config.
+    - Created `VaultListScreen.tsx`: Fast searchable vault list with item counts, template icons, filter bar, and Floating Action Button (+).
+    - Created `ItemDetailScreen.tsx`: On-device payload decryption, field display (user, pass, URL, notes, custom fields), password visibility toggle, and 1-tap clipboard copying via `expo-clipboard`.
+    - Created `ItemFormScreen.tsx`: Complete entry creation & editing screen supporting multiple template types (Login, Card, Note, Address, Profile), encrypting payloads on device before syncing with backend API.
+    - Created `SettingsScreen.tsx`: App info, server config, biometric status, and session lock.
 - [x] Zero TypeScript errors confirmed (`npx tsc --noEmit` — clean).
 
 ---

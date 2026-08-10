@@ -2,6 +2,8 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
     "paths": {
       "@vaultr/core": ["../packages/core/src/index.ts"],
       "@vaultr/core/*": ["../packages/core/src/*"]
