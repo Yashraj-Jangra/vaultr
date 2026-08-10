@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Lock, Shield, Eye, EyeOff, LogOut } from "lucide-react-native";
 import { useVaultStore } from "../store/vaultStore";
+import { Illustration } from "../components/Illustration";
 
 const { width } = Dimensions.get("window");
 
@@ -197,9 +198,7 @@ export function UnlockScreen() {
   const renderForgot = () => (
     <View>
       <View style={styles.centeredIconWrap}>
-        <View style={styles.forgotIconBox}>
-          <Lock size={24} color="#f87171" />
-        </View>
+        <Illustration name="forgot_password" width={180} height={130} style={{ marginBottom: 12 }} />
         <Text style={styles.subViewTitle}>Unrecoverable Password</Text>
       </View>
 
@@ -247,9 +246,7 @@ export function UnlockScreen() {
   const renderWhy = () => (
     <View>
       <View style={styles.centeredIconWrap}>
-        <View style={styles.whyIconBox}>
-          <Shield size={24} color="#818cf8" />
-        </View>
+        <Illustration name="authentication" width={180} height={130} style={{ marginBottom: 12 }} />
         <Text style={styles.subViewTitle}>Local Decryption</Text>
       </View>
 

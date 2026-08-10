@@ -12,6 +12,7 @@ import {
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
 import { Trash2, RotateCcw, ArrowLeft, ShieldAlert } from "lucide-react-native";
+import { Illustration } from "../components/Illustration";
 
 export function TrashScreen({ navigation }: any) {
   const { items, restoreItem, deleteItem } = useVaultStore();
@@ -115,7 +116,7 @@ export function TrashScreen({ navigation }: any) {
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Trash2 size={36} color={colors.surface3} style={{ marginBottom: 10 }} />
+            <Illustration name="empty_trash" width={180} height={130} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyTitle}>Trash is Empty</Text>
             <Text style={styles.emptyDesc}>Items moved to trash will appear here.</Text>
           </View>

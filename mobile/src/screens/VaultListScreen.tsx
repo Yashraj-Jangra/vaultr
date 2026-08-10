@@ -29,6 +29,7 @@ import {
   User,
   Shield,
 } from "lucide-react-native";
+import { Illustration } from "../components/Illustration";
 
 type Props = { navigation: any };
 
@@ -314,7 +315,7 @@ export function VaultListScreen({ navigation }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Shield size={32} color="#262626" />
+            <Illustration name="empty_vault" width={180} height={150} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>
               {searchQuery ? "No results found" : "Your vault is empty"}
             </Text>

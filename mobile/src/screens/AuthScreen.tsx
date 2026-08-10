@@ -19,6 +19,7 @@ import {
   Lock, Mail, Eye, EyeOff, ArrowRight,
   Globe, User, Plus, Shield, X, LogOut,
 } from "lucide-react-native";
+import { Illustration } from "../components/Illustration";
 
 const { width } = Dimensions.get("window");
 type Tab = "signin" | "signup";
@@ -199,6 +200,14 @@ export function AuthScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Hero illustration — matches web auth page */}
+            <Illustration
+              name={isSignUp ? "authentication" : "secure_login"}
+              width={160}
+              height={110}
+              style={{ alignSelf: "center", marginVertical: 6 }}
+            />
 
             {/* Heading */}
             <View style={styles.headingWrap}>
