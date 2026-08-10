@@ -3,14 +3,11 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
-  FlatList,
-  StatusBar,
   ScrollView,
+  StatusBar,
   RefreshControl,
   Image,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
@@ -28,8 +25,6 @@ import {
   FileText,
   MapPin,
   User,
-  Shield,
-  X,
   ChevronRight,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
@@ -44,41 +39,33 @@ const TEMPLATE_ICONS: Record<string, any> = {
   profile: User,
 };
 
-function ItemIconBadge({ item }: { item: any }) {
+const TEMPLATE_LABELS: Record<string, string> = {
+  login: "Logins",
+  card: "Cards",
+  note: "Notes",
+  address: "Addresses",
+  profile: "Profiles",
+};
+
+/** Small icon badge used in Favourites section rows */
+function SmallIconBadge({ item }: { item: any }) {
   const template = item.template || "login";
   const tc = TEMPLATE_COLORS[template] || TEMPLATE_COLORS.login;
   const IconComp = TEMPLATE_ICONS[template] || Lock;
 
   if (template === "login" && item.domain) {
-    return (
-      <SiteIcon domain={item.domain} name={item.name} size={36} />
-    );
+    return <SiteIcon domain={item.domain} name={item.name} size={32} />;
   }
-
   return (
-    <View style={[styles.templateIconBox, { backgroundColor: tc.bg }]}>
-      <IconComp size={18} color={tc.icon} />
+    <View style={[styles.smallIconBox, { backgroundColor: tc.bg }]}>
+      <IconComp size={15} color={tc.icon} />
     </View>
   );
 }
 
 export function VaultListScreen({ navigation }: Props) {
-  const {
-    accountUser,
-    items,
-    searchQuery,
-    setSearchQuery,
-    selectedFolder,
-    setSelectedFolder,
-    selectedTemplate,
-    setSelectedTemplate,
-    lock,
-    fetchItems,
-    toggleFavorite,
-  } = useVaultStore();
-
+  const { accountUser, items, lock, fetchItems } = useVaultStore();
   const [refreshing, setRefreshing] = useState(false);
-  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -87,157 +74,68 @@ export function VaultListScreen({ navigation }: Props) {
   };
 
   const activeItems = useMemo(() => items.filter((i) => !i.deletedAt), [items]);
+  const trashCount = useMemo(() => items.filter((i) => !!i.deletedAt).length, [items]);
 
-  const folders = useMemo(() => {
-    const set = new Set<string>();
-    activeItems.forEach((i) => { if (i.folder) set.add(i.folder); });
-    return Array.from(set).sort();
+  const favoriteItems = useMemo(
+    () => activeItems.filter((i) => i.favorite),
+    [activeItems]
+  );
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      login: 0, card: 0, note: 0, address: 0, profile: 0,
+    };
+    activeItems.forEach((i) => {
+      const t = i.template || "login";
+      if (t in counts) counts[t]++;
+    });
+    return counts;
   }, [activeItems]);
 
-  const filteredItems = useMemo(() => {
-    return activeItems.filter((item) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        !q ||
-        item.name.toLowerCase().includes(q) ||
-        (item.domain || "").toLowerCase().includes(q) ||
-        (item.folder || "").toLowerCase().includes(q);
-      const matchesFolder =
-        selectedFolder === "ALL" ||
-        (selectedFolder === "UNCATEGORIZED" && !item.folder) ||
-        item.folder === selectedFolder;
-      const matchesTemplate =
-        selectedTemplate === "ALL" ||
-        (item.template || "login") === selectedTemplate;
-      const matchesFavorites = !showOnlyFavorites || !!item.favorite;
-      return matchesSearch && matchesFolder && matchesTemplate && matchesFavorites;
+  const folders = useMemo(() => {
+    const map: Record<string, number> = {};
+    activeItems.forEach((i) => {
+      const f = i.folder || "__NONE__";
+      map[f] = (map[f] || 0) + 1;
     });
-  }, [activeItems, searchQuery, selectedFolder, selectedTemplate, showOnlyFavorites]);
+    return map;
+  }, [activeItems]);
 
-  const renderItem = ({ item }: { item: any }) => {
-    const template = item.template || "login";
-    const subLine =
-      template === "login" ? (item.domain || "Login credential") :
-      template === "card" ? "•••• •••• •••• ••••" :
-      template === "note" ? "Encrypted note" :
-      template === "profile" ? "Identity profile" :
-      template === "address" ? "Saved address" : "";
+  const folderNames = useMemo(
+    () => Object.keys(folders).filter((f) => f !== "__NONE__").sort(),
+    [folders]
+  );
+  const uncategorizedCount = folders["__NONE__"] || 0;
 
-    const dateStr = item.updatedAt || item.createdAt
-      ? new Date(item.updatedAt || item.createdAt || "").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      : null;
-
-    const folderName = item.folder ? item.folder.split("/").pop() : null;
-
-    return (
-      <TouchableOpacity
-        style={styles.itemCard}
-        onPress={() => navigation.navigate("ItemDetail", { item })}
-        activeOpacity={0.7}
-      >
-        {/* Left Icon Badge */}
-        <View style={styles.itemIconWrap}>
-          <ItemIconBadge item={item} />
-        </View>
-
-        {/* Center Details */}
-        <View style={styles.itemContent}>
-          <View style={styles.itemTopRow}>
-            <Text style={styles.itemName} numberOfLines={1}>
-              {item.name}
-            </Text>
-
-            {item.hasTotp && (
-              <View style={styles.totpBadge}>
-                <KeyRound size={9} color="#a78bfa" />
-                <Text style={styles.totpBadgeText}>2FA</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.itemSubRow}>
-            <Text style={styles.itemSubLine} numberOfLines={1}>
-              {subLine}
-            </Text>
-
-            {folderName ? (
-              <View style={styles.folderTag}>
-                <Folder size={9} color="#71717a" style={{ marginRight: 3 }} />
-                <Text style={styles.folderTagText}>{folderName}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Right Actions & Meta */}
-        <View style={styles.itemRightWrap}>
-          {dateStr ? (
-            <Text style={styles.dateText}>{dateStr}</Text>
-          ) : null}
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => toggleFavorite(item.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Star
-              size={14}
-              color={item.favorite ? "#fbbf24" : "#3f3f46"}
-              fill={item.favorite ? "#fbbf24" : "none"}
-            />
-          </TouchableOpacity>
-
-          <ChevronRight size={14} color="#3f3f46" style={{ marginLeft: 2 }} />
-        </View>
-      </TouchableOpacity>
-    );
+  const navigateFiltered = (title: string, filterType?: string, filterFolder?: string) => {
+    navigation.navigate("VaultFiltered", { title, filterType, filterFolder });
   };
 
-  const TEMPLATES = [
-    { id: "ALL", label: "All" },
-    { id: "login", label: "Logins" },
-    { id: "card", label: "Cards" },
-    { id: "note", label: "Notes" },
-    { id: "address", label: "Addresses" },
-    { id: "profile", label: "Profiles" },
-  ];
+  const avatarInitial = (accountUser?.name || accountUser?.email || "U")[0].toUpperCase();
+
+  const isEmpty = activeItems.length === 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
-      {/* Top Header — web & mobile premium header bar */}
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Image
-            source={require("../../assets/brand/logo-dark.png")}
-            style={styles.headerBrandLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.zeroKnowledgeBadge}>
-            <View style={styles.greenDot} />
-            <Text style={styles.zeroKnowledgeText}>AES-256</Text>
-          </View>
-        </View>
-
+        <Text style={styles.headerTitle}>My vault</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerActionBtn}
-            onPress={() => navigation.navigate("Trash")}
+            onPress={() => navigation.navigate("VaultFiltered", {
+              title: "Search",
+              filterType: undefined,
+              filterFolder: undefined,
+              openSearch: true,
+            })}
             activeOpacity={0.7}
           >
-            <Trash2 size={15} color="#a1a1aa" />
+            <Search size={17} color="#a1a1aa" />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.headerActionBtn}
-            onPress={lock}
-            activeOpacity={0.7}
-          >
-            <Lock size={15} color="#a1a1aa" />
-          </TouchableOpacity>
-
-          {/* Account Profile Avatar Option at Top */}
           <TouchableOpacity
             style={styles.accountAvatarBtn}
             onPress={() => navigation.navigate("Settings")}
@@ -247,124 +145,185 @@ export function VaultListScreen({ navigation }: Props) {
               <Image source={{ uri: accountUser.image }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitial}>
-                  {(accountUser?.name || accountUser?.email || "U")[0].toUpperCase()}
-                </Text>
+                <Text style={styles.avatarInitial}>{avatarInitial}</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Search bar — website & extension high-contrast styling */}
-      <View style={styles.searchWrap}>
-        <View style={styles.searchBar}>
-          <Search size={14} color="#71717a" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search passwords, domains, notes…"
-            placeholderTextColor="#525252"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 4 }}>
-              <X size={14} color="#71717a" />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.itemCountTag}>
-              <Text style={styles.itemCountTagText}>{filteredItems.length} items</Text>
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.favFilterBtn, showOnlyFavorites && styles.favFilterBtnActive]}
-          onPress={() => setShowOnlyFavorites(!showOnlyFavorites)}
-          activeOpacity={0.8}
-        >
-          <Star size={14} color={showOnlyFavorites ? "#fbbf24" : "#71717a"} fill={showOnlyFavorites ? "#fbbf24" : "none"} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Type filter pills */}
+      {/* ── Scrollable Body ── */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterRow}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textDim} />
+        }
       >
-        {TEMPLATES.map((t) => (
-          <TouchableOpacity
-            key={t.id}
-            style={[styles.filterPill, selectedTemplate === t.id && styles.filterPillActive]}
-            onPress={() => setSelectedTemplate(t.id)}
-          >
-            <Text style={[styles.filterPillText, selectedTemplate === t.id && styles.filterPillTextActive]}>
-              {t.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        {/* Folder pills */}
-        {folders.length > 0 && (
+        {isEmpty ? (
+          /* Empty vault illustration */
+          <View style={styles.emptyWrap}>
+            <Illustration name="vault_tyfh" width={200} height={170} style={{ marginBottom: 16 }} />
+            <Text style={styles.emptyTitle}>Your vault is empty</Text>
+            <Text style={styles.emptyDesc}>Tap + to add your first entry</Text>
+          </View>
+        ) : (
           <>
-            <View style={styles.filterDivider} />
-            <TouchableOpacity
-              style={[styles.filterPill, selectedFolder === "ALL" && styles.filterPillActive]}
-              onPress={() => setSelectedFolder("ALL")}
-            >
-              <Text style={[styles.filterPillText, selectedFolder === "ALL" && styles.filterPillTextActive]}>
-                All Folders
-              </Text>
-            </TouchableOpacity>
-            {folders.map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filterPill, selectedFolder === f && styles.filterPillActive]}
-                onPress={() => setSelectedFolder(f)}
-              >
-                <Folder size={10} color={selectedFolder === f ? colors.neutral950 : colors.textFaint} style={{ marginRight: 4 }} />
-                <Text style={[styles.filterPillText, selectedFolder === f && styles.filterPillTextActive]}>
-                  {f.split("/").pop()}
+            {/* ── FAVOURITES section ── */}
+            {favoriteItems.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>
+                  FAVOURITES ({favoriteItems.length})
                 </Text>
-              </TouchableOpacity>
-            ))}
+                <View style={styles.listCard}>
+                  {favoriteItems.map((item, idx) => {
+                    const template = item.template || "login";
+                    const subLine =
+                      template === "login" ? (item.domain || "Login") :
+                      template === "card" ? "•••• •••• •••• ••••" :
+                      template === "note" ? "Secure note" :
+                      template === "profile" ? "Identity profile" :
+                      template === "address" ? "Saved address" : "";
+                    const isLast = idx === favoriteItems.length - 1;
+                    return (
+                      <React.Fragment key={item.id}>
+                        <TouchableOpacity
+                          style={styles.listRow}
+                          onPress={() => navigation.navigate("ItemDetail", { item })}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.listRowIcon}>
+                            <SmallIconBadge item={item} />
+                          </View>
+                          <View style={styles.listRowContent}>
+                            <Text style={styles.listRowTitle} numberOfLines={1}>{item.name}</Text>
+                            <Text style={styles.listRowSub} numberOfLines={1}>{subLine}</Text>
+                          </View>
+                          <ChevronRight size={15} color="#3f3f46" />
+                        </TouchableOpacity>
+                        {!isLast && <View style={styles.rowDivider} />}
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* ── TYPES section ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>
+                TYPES ({activeItems.length})
+              </Text>
+              <View style={styles.listCard}>
+                {(["login", "card", "note", "address", "profile"] as const).map((t, idx, arr) => {
+                  const IconComp = TEMPLATE_ICONS[t];
+                  const tc = TEMPLATE_COLORS[t];
+                  const count = typeCounts[t];
+                  const isLast = idx === arr.length - 1;
+                  return (
+                    <React.Fragment key={t}>
+                      <TouchableOpacity
+                        style={styles.listRow}
+                        onPress={() => navigateFiltered(TEMPLATE_LABELS[t], t)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.listRowIcon, { backgroundColor: tc.bg, borderRadius: 10, width: 36, height: 36 }]}>
+                          <IconComp size={16} color={tc.icon} />
+                        </View>
+                        <Text style={styles.listRowTitle}>{TEMPLATE_LABELS[t]}</Text>
+                        <View style={{ flex: 1 }} />
+                        <Text style={styles.listRowCount}>{count}</Text>
+                        <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+                      </TouchableOpacity>
+                      {!isLast && <View style={styles.rowDivider} />}
+                    </React.Fragment>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* ── FOLDERS section ── */}
+            {(folderNames.length > 0 || uncategorizedCount > 0) && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>
+                  FOLDERS ({folderNames.length + (uncategorizedCount > 0 ? 1 : 0)})
+                </Text>
+                <View style={styles.listCard}>
+                  {folderNames.map((f, idx) => {
+                    const displayName = f.split("/").pop() || f;
+                    const depth = f.split("/").length - 1;
+                    const isLast = idx === folderNames.length - 1 && uncategorizedCount === 0;
+                    return (
+                      <React.Fragment key={f}>
+                        <TouchableOpacity
+                          style={[styles.listRow, depth > 0 && { paddingLeft: 14 + depth * 16 }]}
+                          onPress={() => navigateFiltered(displayName, undefined, f)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.listRowIcon}>
+                            <Folder size={18} color="#71717a" />
+                          </View>
+                          <Text style={styles.listRowTitle}>{displayName}</Text>
+                          <View style={{ flex: 1 }} />
+                          <Text style={styles.listRowCount}>{folders[f]}</Text>
+                          <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+                        </TouchableOpacity>
+                        {!isLast && <View style={styles.rowDivider} />}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {uncategorizedCount > 0 && (
+                    <>
+                      {folderNames.length > 0 && <View style={styles.rowDivider} />}
+                      <TouchableOpacity
+                        style={styles.listRow}
+                        onPress={() => navigateFiltered("No folder", undefined, "UNCATEGORIZED")}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.listRowIcon}>
+                          <Folder size={18} color="#52525b" />
+                        </View>
+                        <Text style={[styles.listRowTitle, { color: "#a1a1aa" }]}>No folder</Text>
+                        <View style={{ flex: 1 }} />
+                        <Text style={styles.listRowCount}>{uncategorizedCount}</Text>
+                        <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* ── TRASH row ── */}
+            <View style={styles.section}>
+              <View style={styles.listCard}>
+                <TouchableOpacity
+                  style={styles.listRow}
+                  onPress={() => navigation.navigate("Trash")}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.listRowIcon, { backgroundColor: "rgba(239,68,68,0.1)", borderRadius: 10, width: 36, height: 36 }]}>
+                    <Trash2 size={16} color="#f87171" />
+                  </View>
+                  <Text style={[styles.listRowTitle, { color: "#f87171" }]}>Trash</Text>
+                  <View style={{ flex: 1 }} />
+                  {trashCount > 0 && (
+                    <Text style={[styles.listRowCount, { color: "#f87171" }]}>{trashCount}</Text>
+                  )}
+                  <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </>
         )}
+
+        {/* Bottom spacer for FAB */}
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Items List */}
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingVertical: 8, paddingBottom: 80 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.textDim}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Illustration name="vault_tyfh" width={180} height={150} style={{ marginBottom: 12 }} />
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? "No results found" : "Your vault is empty"}
-            </Text>
-            <Text style={styles.emptyDesc}>
-              {searchQuery
-                ? "Try a different search query"
-                : "Tap + to add your first entry"}
-            </Text>
-          </View>
-        }
-      />
-
-      {/* FAB */}
+      {/* ── FAB ── */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate("ItemForm", {})}
@@ -378,38 +337,29 @@ export function VaultListScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#09090b" },
+  scroll: { flex: 1 },
+  scrollContent: { paddingTop: 8 },
 
-  // Header
+  // ── Header ──
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     backgroundColor: "#09090b",
-    borderBottomWidth: 1,
-    borderBottomColor: "#18181b",
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerBrandLogo: { height: 20, width: 95, opacity: 0.9 },
-  zeroKnowledgeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: "rgba(16,185,129,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.2)",
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#ffffff",
+    letterSpacing: -0.5,
   },
-  greenDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#10b981" },
-  zeroKnowledgeText: { fontSize: 10, color: "#34d399", fontWeight: "600", fontFamily: "monospace" },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerActionBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: "#111111",
     borderWidth: 1,
     borderColor: "#1f1f1f",
@@ -417,165 +367,118 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   accountAvatarBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     overflow: "hidden",
-    borderWidth: 1.5,
-    borderColor: "#a78bfa",
+    borderWidth: 2,
+    borderColor: "#7c3aed",
   },
-  avatarImg: { width: 34, height: 34, borderRadius: 17 },
+  avatarImg: { width: 36, height: 36, borderRadius: 18 },
   avatarFallback: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#7c3aed",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: { fontSize: 13, fontWeight: "700", color: "#ffffff" },
+  avatarInitial: { fontSize: 14, fontWeight: "700", color: "#ffffff" },
 
-  // Search
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  // ── Section ──
+  section: {
+    marginTop: 20,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#09090b",
-    borderBottomWidth: 1,
-    borderBottomColor: "#141414",
   },
-  searchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0d0d0d",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 42,
+  sectionLabel: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#525252",
+    letterSpacing: 1.1,
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  searchInput: { flex: 1, color: "#f4f4f5", fontSize: 13, height: 42 },
-  itemCountTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: "#18181b",
-    borderWidth: 1,
-    borderColor: "#27272a",
-  },
-  itemCountTagText: { fontSize: 10, color: "#71717a", fontFamily: "monospace" },
-  favFilterBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "#0d0d0d",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  favFilterBtnActive: { borderColor: "rgba(251,191,36,0.5)", backgroundColor: "rgba(251,191,36,0.1)" },
 
-  // Filter pills
-  filterScroll: { borderBottomWidth: 1, borderBottomColor: "#18181b", backgroundColor: "#09090b" },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: "center" },
-  filterPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#0d0d0d",
+  // ── List card ──
+  listCard: {
+    backgroundColor: "#111111",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#1c1c1e",
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  filterPillActive: { backgroundColor: "#f4f4f5", borderColor: "#f4f4f5" },
-  filterPillText: { fontSize: 12, color: "#a1a1aa", fontWeight: "500" },
-  filterPillTextActive: { color: "#09090b", fontWeight: "600" },
-  filterDivider: { width: 1, height: 20, backgroundColor: "#1f1f1f", marginHorizontal: 2 },
-
-  // Elevated card row design
-  itemCard: {
+  listRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0d0d0d",
-    borderWidth: 1,
-    borderColor: "#18181b",
-    borderRadius: 14,
-    marginHorizontal: 16,
-    marginVertical: 4,
-    padding: 12,
+    paddingVertical: 13,
     paddingHorizontal: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
+    gap: 12,
   },
-  itemIconWrap: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  templateIconBox: {
+  listRowIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  itemContent: { flex: 1, minWidth: 0, marginLeft: 12 },
-  itemTopRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
-  itemName: { fontSize: 14.5, fontWeight: "600", color: "#ffffff", flexShrink: 1, minWidth: 0 },
-  itemSubRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 3 },
-  itemSubLine: { fontSize: 11.5, color: "#71717a", fontFamily: "monospace", flexShrink: 1 },
-  folderTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#18181b",
-    borderWidth: 1,
-    borderColor: "#27272a",
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-  },
-  folderTagText: { fontSize: 9.5, color: "#a1a1aa", fontWeight: "500" },
-  totpBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "rgba(109,40,217,0.25)",
-    borderWidth: 1,
-    borderColor: "rgba(139,92,246,0.35)",
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  totpBadgeText: { fontSize: 9, color: "#a78bfa", fontWeight: "700", letterSpacing: 0.5 },
-
-  // Right metadata & actions
-  itemRightWrap: { flexDirection: "row", alignItems: "center", gap: 6, marginLeft: 8 },
-  dateText: { fontSize: 10.5, color: "#525252", fontFamily: "monospace" },
-  actionBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+  smallIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
+  listRowContent: { flex: 1, minWidth: 0 },
+  listRowTitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#f4f4f5",
+    flexShrink: 1,
+  },
+  listRowSub: {
+    fontSize: 12,
+    color: "#71717a",
+    marginTop: 2,
+    fontFamily: "monospace",
+  },
+  listRowCount: {
+    fontSize: 13,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: "#1c1c1e",
+    marginLeft: 62,
+  },
 
-  // Empty state
-  emptyState: { alignItems: "center", paddingTop: 80, paddingHorizontal: 24 },
-  emptyTitle: { color: "#737373", fontSize: 15, fontWeight: "600", marginTop: 14, letterSpacing: -0.3 },
-  emptyDesc: { color: "#525252", fontSize: 12, marginTop: 6, textAlign: "center" },
+  // ── Empty State ──
+  emptyWrap: {
+    alignItems: "center",
+    paddingTop: 80,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    color: "#737373",
+    fontSize: 17,
+    fontWeight: "600",
+    marginTop: 16,
+    letterSpacing: -0.3,
+  },
+  emptyDesc: {
+    color: "#525252",
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: "center",
+  },
 
-  // FAB
+  // ── FAB ──
   fab: {
     position: "absolute",
     right: 20,
     bottom: 24,
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     backgroundColor: "#f4f4f5",
     alignItems: "center",
     justifyContent: "center",

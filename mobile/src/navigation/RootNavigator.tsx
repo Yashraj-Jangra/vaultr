@@ -15,6 +15,7 @@ import { SessionsScreen } from "../screens/settings/SessionsScreen";
 import { DataScreen } from "../screens/settings/DataScreen";
 import { FolderManagerScreen } from "../screens/settings/FolderManagerScreen";
 import { TrashScreen } from "../screens/TrashScreen";
+import { VaultFilteredScreen } from "../screens/VaultFilteredScreen";
 import { colors } from "../theme/colors";
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -49,6 +50,7 @@ export function RootNavigator() {
             <Stack.Screen name="DataSettings" component={DataScreen} />
             <Stack.Screen name="FolderManager" component={FolderManagerScreen} />
             <Stack.Screen name="Trash" component={TrashScreen} />
+            <Stack.Screen name="VaultFiltered" component={VaultFilteredScreen} />
           </>
         )}
       </Stack.Navigator>

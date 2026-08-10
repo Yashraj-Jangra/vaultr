@@ -12,6 +12,12 @@ export type RootStackParamList = {
   Sessions: undefined;
   FolderManager: undefined;
   Trash: undefined;
+  VaultFiltered: {
+    title: string;
+    filterType?: string;
+    filterFolder?: string;
+    openSearch?: boolean;
+  };
 };
 
 export type MainTabParamList = {
