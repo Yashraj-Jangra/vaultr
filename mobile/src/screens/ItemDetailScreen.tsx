@@ -360,6 +360,36 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.noteText}>{payload.entryNotes}</Text>
                 </View>
               ) : null}
+
+              {/* Attachments Section */}
+              {payload.attachments && Array.isArray(payload.attachments) && payload.attachments.length > 0 ? (
+                <View style={styles.fieldBox}>
+                  <Text style={styles.fieldLabel}>File Attachments ({payload.attachments.length})</Text>
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    {payload.attachments.map((att: any, idx: number) => (
+                      <TouchableOpacity
+                        key={att.id || idx}
+                        style={styles.attachDetailRow}
+                        onPress={() => {
+                          if (att.uri) {
+                            Linking.openURL(att.uri).catch(() => Alert.alert("Notice", "Cannot preview file. File URI is local or encrypted."));
+                          }
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <FileText size={16} color="#60a5fa" />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.attachDetailName} numberOfLines={1}>{att.name}</Text>
+                          <Text style={styles.attachDetailSize}>
+                            {att.size ? (att.size / 1024).toFixed(1) + " KB" : "Encrypted Attachment"}
+                          </Text>
+                        </View>
+                        <ExternalLink size={14} color="#71717a" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
             </View>
           )}
 
@@ -563,6 +593,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
+  attachDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 10,
+    padding: 10,
+  },
+  attachDetailName: { fontSize: 13, color: "#f4f4f5", fontWeight: "500" },
+  attachDetailSize: { fontSize: 11, color: "#71717a", fontFamily: "monospace", marginTop: 2 },
   fieldLabel: {
     fontSize: 12,
     fontWeight: "600",

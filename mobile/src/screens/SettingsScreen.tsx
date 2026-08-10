@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
+import { getAvatarUri } from "../utils/avatar";
 import {
   Shield,
   Fingerprint,
@@ -78,8 +79,8 @@ export function SettingsScreen({ navigation }: any) {
           activeOpacity={0.75}
         >
           <View style={styles.avatar}>
-            {accountUser?.image ? (
-              <Image source={{ uri: accountUser.image }} style={styles.avatarImg} />
+            {getAvatarUri(accountUser?.image, serverUrl) ? (
+              <Image source={{ uri: getAvatarUri(accountUser?.image, serverUrl)! }} style={styles.avatarImg} />
             ) : (
               <Text style={styles.avatarLetter}>{avatarLetter}</Text>
             )}

@@ -16,6 +16,7 @@ import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
+import * as DocumentPicker from "expo-document-picker";
 import {
   X,
   Lock,
@@ -25,6 +26,8 @@ import {
   MapPin,
   Save,
   KeyRound,
+  Plus,
+  Trash2,
 } from "lucide-react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemForm">;
@@ -78,6 +81,9 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [note, setNote] = useState("");
   const [entryNotes, setEntryNotes] = useState("");
 
+  // Attachments
+  const [attachments, setAttachments] = useState<Array<{ id: string; name: string; uri: string; size: number; mimeType?: string }>>([]);
+
   useEffect(() => {
     if (isEdit && item) {
       (async () => {
@@ -108,10 +114,39 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
           if (p.note) setNote(p.note);
           if (p.entryNotes) setEntryNotes(p.entryNotes);
+          if (p.attachments && Array.isArray(p.attachments)) setAttachments(p.attachments);
         } catch {}
       })();
     }
   }, [isEdit, item]);
+
+  const handlePickDocument = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (!res.canceled && res.assets[0]) {
+        const doc = res.assets[0];
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: "att_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+            name: doc.name,
+            uri: doc.uri,
+            size: doc.size || 0,
+            mimeType: doc.mimeType || "application/octet-stream",
+          },
+        ]);
+      }
+    } catch (err: any) {
+      Alert.alert("Error", "Could not pick file attachment.");
+    }
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -156,6 +191,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.phone = phone.trim();
       } else if (template === "note") {
         unencryptedPayload.note = note;
+      }
+
+      if (attachments.length > 0) {
+        unencryptedPayload.attachments = attachments;
       }
 
       const domain = url.trim() || undefined;
@@ -530,6 +569,34 @@ export function ItemFormScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* File Attachments */}
+        <View style={styles.formGroup}>
+          <View style={styles.attachHeader}>
+            <Text style={styles.label}>File Attachments ({attachments.length})</Text>
+            <TouchableOpacity style={styles.attachPillBtn} onPress={handlePickDocument} activeOpacity={0.75}>
+              <FileText size={12} color="#a78bfa" />
+              <Text style={styles.attachPillText}>+ Attach File</Text>
+            </TouchableOpacity>
+          </View>
+
+          {attachments.length > 0 && (
+            <View style={styles.attachBox}>
+              {attachments.map((att) => (
+                <View key={att.id} style={styles.attachItemRow}>
+                  <FileText size={15} color="#60a5fa" />
+                  <Text style={styles.attachItemName} numberOfLines={1}>{att.name}</Text>
+                  <Text style={styles.attachItemSize}>
+                    {att.size ? (att.size / 1024).toFixed(1) + " KB" : ""}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleRemoveAttachment(att.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <X size={15} color="#f87171" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Private Notes */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Private Notes</Text>
@@ -606,6 +673,41 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     minHeight: 80,
   },
+  attachHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  attachPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(124,58,237,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.3)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  attachPillText: { fontSize: 11, fontWeight: "600", color: "#a78bfa" },
+  attachBox: {
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 12,
+    padding: 8,
+    gap: 6,
+  },
+  attachItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#141417",
+    borderRadius: 8,
+    padding: 8,
+  },
+  attachItemName: { flex: 1, fontSize: 13, color: "#f4f4f5", fontWeight: "500" },
+  attachItemSize: { fontSize: 11, color: "#71717a", fontFamily: "monospace" },
   templateRow: {
     gap: 8,
     paddingVertical: 4,

@@ -15,6 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
 import { reEncryptBlobs } from "@vaultr/core";
+import * as ImagePicker from "expo-image-picker";
+import { getAvatarUri } from "../../utils/avatar";
 import {
   User,
   KeyRound,
@@ -25,6 +27,7 @@ import {
   Database,
   Mail,
   Trash2,
+  Edit2,
 } from "lucide-react-native";
 
 export function AccountSettingsScreen({ navigation }: any) {
@@ -67,6 +70,75 @@ export function AccountSettingsScreen({ navigation }: any) {
       setPhotoURL(accountUser.image || "");
     }
   }, [accountUser]);
+
+  // Handle Photo Picker
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission Required", "Gallery permission is required to choose a profile photo.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        const localUri = result.assets[0].uri;
+        setPhotoURL(localUri);
+        await updateAccountUser({ image: localUri });
+
+        // Server upload if session token available
+        if (accountToken && serverUrl) {
+          try {
+            const formData = new FormData();
+            const filename = localUri.split("/").pop() || "avatar.jpg";
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
+            formData.append("file", { uri: localUri, name: filename, type } as any);
+
+            const res = await fetch(`${serverUrl}/api/settings/avatar`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accountToken}`,
+              },
+              body: formData,
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.avatarUrl) {
+                setPhotoURL(data.avatarUrl);
+                await updateAccountUser({ image: data.avatarUrl });
+              }
+            }
+          } catch (err) {
+            console.warn("Server avatar upload fallback to local URI:", err);
+          }
+        }
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to pick image.");
+    }
+  };
+
+  // Handle Remove Photo
+  const handleRemoveAvatar = async () => {
+    setPhotoURL("");
+    await updateAccountUser({ image: undefined });
+    if (accountToken && serverUrl) {
+      try {
+        await fetch(`${serverUrl}/api/settings/avatar`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accountToken}` },
+        });
+      } catch {}
+    }
+  };
 
   // Handle Save Primary Profile
   const handleSaveProfile = async () => {
@@ -233,20 +305,35 @@ export function AccountSettingsScreen({ navigation }: any) {
           </View>
 
           <View style={styles.avatarRow}>
-            <View style={styles.avatarWrap}>
-              {photoURL ? (
-                <Image source={{ uri: photoURL }} style={styles.avatarImage} />
+            <TouchableOpacity style={styles.avatarWrap} onPress={handlePickAvatar} activeOpacity={0.8}>
+              {getAvatarUri(photoURL, serverUrl) ? (
+                <Image source={{ uri: getAvatarUri(photoURL, serverUrl)! }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatarFallback}>
                   <Text style={styles.avatarInitial}>{initialLetter}</Text>
                 </View>
               )}
-            </View>
+              <View style={styles.cameraOverlay}>
+                <Edit2 size={12} color="#ffffff" />
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.avatarInfo}>
               <Text style={styles.userNameText}>{accountUser?.name || "Vaultr User"}</Text>
               <Text style={styles.userEmailText}>{accountUser?.email || "user@vaultr.local"}</Text>
               <Text style={styles.userIdTag}>ID: {accountUser?.id || "N/A"}</Text>
+
+              {photoURL ? (
+                <TouchableOpacity style={styles.removePhotoLink} onPress={handleRemoveAvatar} activeOpacity={0.7}>
+                  <Trash2 size={12} color="#f87171" />
+                  <Text style={styles.removePhotoText}>Remove photo</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.uploadPhotoLink} onPress={handlePickAvatar} activeOpacity={0.7}>
+                  <Edit2 size={12} color="#a78bfa" />
+                  <Text style={styles.uploadPhotoText}>Upload photo</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -260,30 +347,6 @@ export function AccountSettingsScreen({ navigation }: any) {
               placeholderTextColor="#525252"
               autoCapitalize="words"
             />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Avatar Image URL</Text>
-            <View style={styles.inputWithAction}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={photoURL}
-                onChangeText={setPhotoURL}
-                placeholder="https://example.com/avatar.jpg"
-                placeholderTextColor="#525252"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {photoURL ? (
-                <TouchableOpacity
-                  style={styles.removeAvatarBtn}
-                  onPress={() => setPhotoURL("")}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Trash2 size={16} color="#f87171" />
-                </TouchableOpacity>
-              ) : null}
-            </View>
           </View>
 
           <TouchableOpacity
@@ -540,21 +603,35 @@ const styles = StyleSheet.create({
 
   // Avatar Row
   avatarRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  avatarWrap: { width: 56, height: 56, borderRadius: 28, overflow: "hidden" },
-  avatarImage: { width: 56, height: 56, borderRadius: 28 },
+  avatarWrap: { width: 60, height: 60, borderRadius: 30, overflow: "hidden", position: "relative" },
+  avatarImage: { width: 60, height: 60, borderRadius: 30 },
   avatarFallback: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: "#7c3aed",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: { fontSize: 22, fontWeight: "700", color: "#ffffff" },
+  avatarInitial: { fontSize: 24, fontWeight: "700", color: "#ffffff" },
+  cameraOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 20,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarInfo: { flex: 1, minWidth: 0, gap: 2 },
   userNameText: { fontSize: 16, fontWeight: "700", color: "#ffffff" },
   userEmailText: { fontSize: 12, color: "#a1a1aa" },
   userIdTag: { fontSize: 10.5, color: "#525252", fontFamily: "monospace" },
+  removePhotoLink: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  removePhotoText: { fontSize: 11.5, color: "#f87171", fontWeight: "600" },
+  uploadPhotoLink: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  uploadPhotoText: { fontSize: 11.5, color: "#a78bfa", fontWeight: "600" },
 
   // Storage
   storageBox: {

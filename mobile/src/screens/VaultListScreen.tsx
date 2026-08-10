@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { SiteIcon } from "../components/SiteIcon";
 import { colors, TEMPLATE_COLORS } from "../theme/colors";
+import { getAvatarUri } from "../utils/avatar";
 import {
   Search,
   Lock,
@@ -64,7 +65,7 @@ function SmallIconBadge({ item }: { item: any }) {
 }
 
 export function VaultListScreen({ navigation }: Props) {
-  const { accountUser, items, lock, fetchItems } = useVaultStore();
+  const { accountUser, serverUrl, items, lock, fetchItems } = useVaultStore();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -147,8 +148,8 @@ export function VaultListScreen({ navigation }: Props) {
             onPress={() => navigation.navigate("AccountSettings")}
             activeOpacity={0.85}
           >
-            {accountUser?.image ? (
-              <Image source={{ uri: accountUser.image }} style={styles.avatarImg} />
+            {getAvatarUri(accountUser?.image, serverUrl) ? (
+              <Image source={{ uri: getAvatarUri(accountUser?.image, serverUrl)! }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatarFallback}>
                 <Text style={styles.avatarInitial}>{avatarInitial}</Text>
