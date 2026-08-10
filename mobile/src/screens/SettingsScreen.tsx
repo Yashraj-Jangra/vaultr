@@ -12,14 +12,18 @@ import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
 import {
   Shield,
-  Globe,
   Fingerprint,
   LogOut,
   User,
   CheckCircle,
+  Monitor,
+  Folder,
+  Trash2,
+  Database,
+  ChevronRight,
 } from "lucide-react-native";
 
-export function SettingsScreen() {
+export function SettingsScreen({ navigation }: any) {
   const { serverUrl, lock, signOutAccount, accountUser } = useVaultStore();
 
   return (
@@ -33,9 +37,12 @@ export function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <TouchableOpacity
+          style={styles.profileCard}
+          onPress={() => navigation.navigate("AccountSettings")}
+        >
           <View style={styles.avatarCircle}>
-            <User size={28} color={colors.accent} />
+            <User size={26} color={colors.accent} />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>
@@ -45,39 +52,99 @@ export function SettingsScreen() {
               {accountUser?.email || "user@vaultr.local"}
             </Text>
           </View>
-          <View style={styles.verifiedBadge}>
-            <CheckCircle size={14} color={colors.success} />
-          </View>
-        </View>
+          <ChevronRight size={18} color={colors.textDim} />
+        </TouchableOpacity>
 
-        {/* Server Connection Section */}
+        {/* Navigation Sections */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SERVER CONFIGURATION</Text>
-          <View style={styles.cardRow}>
-            <Globe size={18} color={colors.textMuted} style={{ marginRight: 12 }} />
+          <Text style={styles.sectionTitle}>PREFERENCES & SECURITY</Text>
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => navigation.navigate("AccountSettings")}
+          >
+            <User size={18} color={colors.accent} style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>Server Endpoint</Text>
-              <Text style={styles.rowSubtext}>{serverUrl}</Text>
+              <Text style={styles.rowTitle}>Account Settings</Text>
+              <Text style={styles.rowSubtext}>Update passwords, master key, user profile</Text>
             </View>
-          </View>
-        </View>
+            <ChevronRight size={18} color={colors.textDim} />
+          </TouchableOpacity>
 
-        {/* Security Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SECURITY & BIOMETRICS</Text>
-          <View style={styles.cardRow}>
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => navigation.navigate("SecuritySettings")}
+          >
             <Fingerprint size={18} color={colors.accent} style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>Biometric Unlock</Text>
-              <Text style={styles.rowSubtext}>Fingerprint / Face ID Hardware Active</Text>
+              <Text style={styles.rowTitle}>Security & Biometrics</Text>
+              <Text style={styles.rowSubtext}>Fingerprint unlock, auto-lock timeout</Text>
             </View>
-          </View>
+            <ChevronRight size={18} color={colors.textDim} />
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => navigation.navigate("Sessions")}
+          >
+            <Monitor size={18} color={colors.accent} style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Active Sessions</Text>
+              <Text style={styles.rowSubtext}>Manage signed in devices and sessions</Text>
+            </View>
+            <ChevronRight size={18} color={colors.textDim} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Data & Vault Organization */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>DATA & VAULT MANAGEMENT</Text>
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => navigation.navigate("DataSettings")}
+          >
+            <Database size={18} color={colors.cardBlue} style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Import & Export</Text>
+              <Text style={styles.rowSubtext}>Backups, Bitwarden/CSV migration</Text>
+            </View>
+            <ChevronRight size={18} color={colors.textDim} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => navigation.navigate("FolderManager")}
+          >
+            <Folder size={18} color={colors.warning} style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Folder Manager</Text>
+              <Text style={styles.rowSubtext}>Organize items into custom folders</Text>
+            </View>
+            <ChevronRight size={18} color={colors.textDim} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => navigation.navigate("Trash")}
+          >
+            <Trash2 size={18} color={colors.danger} style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Trash & Recovery</Text>
+              <Text style={styles.rowSubtext}>View or restore deleted vault entries</Text>
+            </View>
+            <ChevronRight size={18} color={colors.textDim} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Server Endpoint */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SERVER ENDPOINT</Text>
           <View style={styles.cardRow}>
             <Shield size={18} color={colors.success} style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>WebCrypto Encryption</Text>
-              <Text style={styles.rowSubtext}>AES-256-GCM On-Device Key Derivation</Text>
+              <Text style={styles.rowTitle}>Vaultr Server</Text>
+              <Text style={styles.rowSubtext}>{serverUrl}</Text>
             </View>
           </View>
         </View>
@@ -148,9 +215,6 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontSize: 12,
     color: colors.textMuted,
-  },
-  verifiedBadge: {
-    padding: 4,
   },
   section: {
     gap: 8,

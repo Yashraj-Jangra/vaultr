@@ -5,6 +5,7 @@ declare module "lucide-react-native" {
     color?: string;
     strokeWidth?: number;
     style?: any;
+    fill?: string;
   }
   export const Search: ComponentType<IconProps>;
   export const Lock: ComponentType<IconProps>;
@@ -35,5 +36,18 @@ declare module "lucide-react-native" {
   export const ArrowRight: ComponentType<IconProps>;
   export const RefreshCw: ComponentType<IconProps>;
   export const CheckCircle: ComponentType<IconProps>;
+  export const CheckCircle2: ComponentType<IconProps>;
   export const Folder: ComponentType<IconProps>;
+  export const Star: ComponentType<IconProps>;
+  export const Trash2: ComponentType<IconProps>;
+  export const ExternalLink: ComponentType<IconProps>;
+  export const AlertCircle: ComponentType<IconProps>;
+  export const Download: ComponentType<IconProps>;
+  export const Upload: ComponentType<IconProps>;
+  export const ShieldAlert: ComponentType<IconProps>;
+  export const Clock: ComponentType<IconProps>;
+  export const Monitor: ComponentType<IconProps>;
+  export const Smartphone: ComponentType<IconProps>;
+  export const Database: ComponentType<IconProps>;
+  export const RotateCcw: ComponentType<IconProps>;
 }

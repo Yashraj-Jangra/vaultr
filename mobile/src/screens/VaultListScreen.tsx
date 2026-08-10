@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,21 +9,21 @@ import {
   SafeAreaView,
   StatusBar,
   ScrollView,
+  RefreshControl,
 } from "react-native";
-import { StackScreenProps } from "@react-navigation/stack";
-import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
-import { VaultItem } from "@vaultr/core";
 import { SiteIcon } from "../components/SiteIcon";
 import { colors } from "../theme/colors";
 import {
   Search,
   Lock,
   Plus,
-  Settings,
   ChevronRight,
   Shield,
   Folder,
+  Star,
+  Trash2,
+  KeyRound,
 } from "lucide-react-native";
 
 type Props = { navigation: any };
@@ -38,21 +38,34 @@ export function VaultListScreen({ navigation }: Props) {
     selectedTemplate,
     setSelectedTemplate,
     lock,
-    accountUser,
+    fetchItems,
+    toggleFavorite,
   } = useVaultStore();
 
-  // Extract unique folders
+  const [refreshing, setRefreshing] = useState(false);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchItems();
+    setRefreshing(false);
+  };
+
+  // Active items (excluding trash)
+  const activeItems = useMemo(() => items.filter((i) => !i.deletedAt), [items]);
+
+  // Extract unique folders from active items
   const folders = useMemo(() => {
     const set = new Set<string>();
-    items.forEach((i) => {
+    activeItems.forEach((i) => {
       if (i.folder) set.add(i.folder);
     });
     return Array.from(set).sort();
-  }, [items]);
+  }, [activeItems]);
 
   // Filtered items
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    return activeItems.filter((item) => {
       // Search query
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -72,9 +85,12 @@ export function VaultListScreen({ navigation }: Props) {
         selectedTemplate === "ALL" ||
         (item.template || "login") === selectedTemplate;
 
-      return matchesSearch && matchesFolder && matchesTemplate;
+      // Favorites filter
+      const matchesFavorites = !showOnlyFavorites || !!item.favorite;
+
+      return matchesSearch && matchesFolder && matchesTemplate && matchesFavorites;
     });
-  }, [items, searchQuery, selectedFolder, selectedTemplate]);
+  }, [activeItems, searchQuery, selectedFolder, selectedTemplate, showOnlyFavorites]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,9 +108,18 @@ export function VaultListScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.lockBtn} onPress={lock}>
-          <Lock size={16} color={colors.danger} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.headerActionBtn}
+            onPress={() => navigation.navigate("Trash")}
+          >
+            <Trash2 size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.lockBtn} onPress={lock}>
+            <Lock size={16} color={colors.danger} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Input */}
@@ -111,27 +136,55 @@ export function VaultListScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {/* Folder Pills Filter */}
+      {/* Filter Section */}
       <View style={styles.filterSection}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
+          {/* Favorites Pill */}
           <TouchableOpacity
             style={[
               styles.filterPill,
-              selectedFolder === "ALL" && styles.filterPillActive,
+              showOnlyFavorites && styles.filterPillActive,
             ]}
-            onPress={() => setSelectedFolder("ALL")}
+            onPress={() => setShowOnlyFavorites(!showOnlyFavorites)}
+          >
+            <Star
+              size={12}
+              color={showOnlyFavorites ? colors.bg : colors.warning}
+              style={{ marginRight: 4 }}
+              fill={showOnlyFavorites ? colors.bg : "none"}
+            />
+            <Text
+              style={[
+                styles.filterPillText,
+                showOnlyFavorites && styles.filterPillTextActive,
+              ]}
+            >
+              Favorites
+            </Text>
+          </TouchableOpacity>
+
+          {/* Folder Pills */}
+          <TouchableOpacity
+            style={[
+              styles.filterPill,
+              selectedFolder === "ALL" && !showOnlyFavorites && styles.filterPillActive,
+            ]}
+            onPress={() => {
+              setShowOnlyFavorites(false);
+              setSelectedFolder("ALL");
+            }}
           >
             <Text
               style={[
                 styles.filterPillText,
-                selectedFolder === "ALL" && styles.filterPillTextActive,
+                selectedFolder === "ALL" && !showOnlyFavorites && styles.filterPillTextActive,
               ]}
             >
-              All Items
+              All Folders
             </Text>
           </TouchableOpacity>
 
@@ -142,7 +195,10 @@ export function VaultListScreen({ navigation }: Props) {
                 styles.filterPill,
                 selectedFolder === f && styles.filterPillActive,
               ]}
-              onPress={() => setSelectedFolder(f)}
+              onPress={() => {
+                setShowOnlyFavorites(false);
+                setSelectedFolder(f);
+              }}
             >
               <Folder
                 size={12}
@@ -167,6 +223,13 @@ export function VaultListScreen({ navigation }: Props) {
         data={filteredItems}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.itemCard}
@@ -182,13 +245,33 @@ export function VaultListScreen({ navigation }: Props) {
             />
 
             <View style={styles.itemDetails}>
-              <Text style={styles.itemName} numberOfLines={1}>
-                {item.name}
-              </Text>
+              <View style={styles.itemNameRow}>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                {item.hasTotp && (
+                  <View style={styles.totpBadge}>
+                    <KeyRound size={10} color={colors.accent} />
+                    <Text style={styles.totpBadgeText}>2FA</Text>
+                  </View>
+                )}
+              </View>
+
               <Text style={styles.itemSubtext} numberOfLines={1}>
                 {item.domain || item.folder || (item.template || "login").toUpperCase()}
               </Text>
             </View>
+
+            <TouchableOpacity
+              style={styles.starBtn}
+              onPress={() => toggleFavorite(item.id)}
+            >
+              <Star
+                size={16}
+                color={item.favorite ? colors.warning : colors.textDim}
+                fill={item.favorite ? colors.warning : "none"}
+              />
+            </TouchableOpacity>
 
             <ChevronRight size={18} color={colors.textDim} />
           </TouchableOpacity>
@@ -233,6 +316,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   brandBadge: {
     width: 28,
     height: 28,
@@ -256,6 +344,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     fontWeight: "600",
+  },
+  headerActionBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surface2,
   },
   lockBtn: {
     padding: 8,
@@ -333,15 +426,37 @@ const styles = StyleSheet.create({
   itemDetails: {
     flex: 1,
   },
+  itemNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   itemName: {
     fontSize: 15,
     fontWeight: "600",
     color: colors.text,
     marginBottom: 2,
   },
+  totpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: colors.accentBg,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  totpBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: colors.accent,
+  },
   itemSubtext: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  starBtn: {
+    padding: 4,
   },
   emptyBox: {
     alignItems: "center",

@@ -9,6 +9,12 @@ import { UnlockScreen } from "../screens/UnlockScreen";
 import { MainTabs } from "./MainTabs";
 import { ItemDetailScreen } from "../screens/ItemDetailScreen";
 import { ItemFormScreen } from "../screens/ItemFormScreen";
+import { AccountSettingsScreen } from "../screens/settings/AccountSettingsScreen";
+import { SecuritySettingsScreen } from "../screens/settings/SecuritySettingsScreen";
+import { SessionsScreen } from "../screens/settings/SessionsScreen";
+import { DataScreen } from "../screens/settings/DataScreen";
+import { FolderManagerScreen } from "../screens/settings/FolderManagerScreen";
+import { TrashScreen } from "../screens/TrashScreen";
 import { colors } from "../theme/colors";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -46,6 +52,12 @@ export function RootNavigator() {
               component={ItemFormScreen}
               options={{ animation: "slide_from_bottom" }}
             />
+            <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+            <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+            <Stack.Screen name="Sessions" component={SessionsScreen} />
+            <Stack.Screen name="DataSettings" component={DataScreen} />
+            <Stack.Screen name="FolderManager" component={FolderManagerScreen} />
+            <Stack.Screen name="Trash" component={TrashScreen} />
           </>
         )}
       </Stack.Navigator>

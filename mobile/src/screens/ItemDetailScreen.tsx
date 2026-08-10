@@ -9,11 +9,14 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Linking,
 } from "react-native";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import * as Clipboard from "expo-clipboard";
+import { SiteIcon } from "../components/SiteIcon";
+import { colors } from "../theme/colors";
 import {
   ArrowLeft,
   Copy,
@@ -27,13 +30,17 @@ import {
   Key,
   FileText,
   ShieldCheck,
+  Star,
+  Trash2,
+  ExternalLink,
+  CreditCard,
 } from "lucide-react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemDetail">;
 
 export function ItemDetailScreen({ route, navigation }: Props) {
   const { item } = route.params;
-  const { decryptItemBlob } = useVaultStore();
+  const { decryptItemBlob, toggleFavorite, trashItem } = useVaultStore();
 
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -68,9 +75,38 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const handleLaunchUrl = (targetUrl?: string) => {
+    if (!targetUrl) return;
+    let formatted = targetUrl;
+    if (!formatted.startsWith("http://") && !formatted.startsWith("https://")) {
+      formatted = "https://" + formatted;
+    }
+    Linking.openURL(formatted).catch(() => {
+      Alert.alert("Error", `Could not open URL: ${formatted}`);
+    });
+  };
+
+  const handleMoveToTrash = () => {
+    Alert.alert(
+      "Move to Trash",
+      `Are you sure you want to move "${item.name}" to Trash?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Move to Trash",
+          style: "destructive",
+          onPress: async () => {
+            await trashItem(item.id);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       {/* Navigation Bar */}
       <View style={styles.navBar}>
@@ -78,39 +114,79 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
         >
-          <ArrowLeft size={20} color="#f4f4f5" />
+          <ArrowLeft size={20} color={colors.text} />
         </TouchableOpacity>
+
         <Text style={styles.navTitle} numberOfLines={1}>
           {item.name}
         </Text>
-        <TouchableOpacity
-          style={styles.editBtn}
-          onPress={() => navigation.navigate("ItemForm", { item })}
-        >
-          <Edit2 size={18} color="#a78bfa" />
-        </TouchableOpacity>
+
+        <View style={styles.navRight}>
+          <TouchableOpacity
+            style={styles.navActionBtn}
+            onPress={() => toggleFavorite(item.id)}
+          >
+            <Star
+              size={18}
+              color={item.favorite ? colors.warning : colors.textMuted}
+              fill={item.favorite ? colors.warning : "none"}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navActionBtn}
+            onPress={() => navigation.navigate("ItemForm", { item })}
+          >
+            <Edit2 size={18} color={colors.accent} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
+            <Trash2 size={18} color={colors.danger} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator color="#a78bfa" size="large" />
+          <ActivityIndicator color={colors.accent} size="large" />
           <Text style={styles.loadingText}>Decrypting payload...</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {/* Header Badge Card */}
           <View style={styles.badgeCard}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <View style={styles.metaRow}>
-              <View style={styles.templatePill}>
-                <Text style={styles.templatePillText}>
-                  {(item.template || "login").toUpperCase()}
-                </Text>
+            <View style={styles.badgeCardHeader}>
+              <SiteIcon
+                domain={item.domain}
+                name={item.name}
+                url={payload?.url || item.domain}
+                template={item.template || "login"}
+                size={44}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <View style={styles.metaRow}>
+                  <View style={styles.templatePill}>
+                    <Text style={styles.templatePillText}>
+                      {(item.template || "login").toUpperCase()}
+                    </Text>
+                  </View>
+                  {item.folder ? (
+                    <Text style={styles.folderText}>{item.folder}</Text>
+                  ) : null}
+                </View>
               </View>
-              {item.folder ? (
-                <Text style={styles.folderText}>{item.folder}</Text>
-              ) : null}
             </View>
+
+            {(payload?.url || item.domain) && (
+              <TouchableOpacity
+                style={styles.launchBtn}
+                onPress={() => handleLaunchUrl(payload?.url || item.domain)}
+              >
+                <ExternalLink size={16} color={colors.bg} />
+                <Text style={styles.launchBtnText}>Launch Website</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Fields List */}
@@ -119,7 +195,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               {/* Username */}
               {payload.username ? (
                 <DetailRow
-                  icon={<User size={16} color="#a1a1aa" />}
+                  icon={<User size={16} color={colors.textMuted} />}
                   label="Username / Email"
                   value={payload.username}
                   onCopy={() => copyToClipboard("username", payload.username)}
@@ -130,7 +206,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               {/* Password */}
               {payload.password ? (
                 <DetailRow
-                  icon={<Key size={16} color="#a1a1aa" />}
+                  icon={<Key size={16} color={colors.textMuted} />}
                   label="Password"
                   value={showPassword ? payload.password : "••••••••••••"}
                   onCopy={() => copyToClipboard("password", payload.password)}
@@ -144,7 +220,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               {/* URL */}
               {payload.url || item.domain ? (
                 <DetailRow
-                  icon={<Globe size={16} color="#a1a1aa" />}
+                  icon={<Globe size={16} color={colors.textMuted} />}
                   label="Website URL"
                   value={payload.url || item.domain}
                   onCopy={() =>
@@ -169,24 +245,11 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.noteText}>{payload.entryNotes}</Text>
                 </View>
               ) : null}
-
-              {/* Custom Fields */}
-              {Array.isArray(payload.customFields) &&
-                payload.customFields.map((cf: any, idx: number) => (
-                  <DetailRow
-                    key={idx}
-                    icon={<FileText size={16} color="#a1a1aa" />}
-                    label={cf.key || "Custom Field"}
-                    value={cf.value || ""}
-                    onCopy={() => copyToClipboard(`cf_${idx}`, cf.value)}
-                    isCopied={copiedField === `cf_${idx}`}
-                  />
-                ))}
             </View>
           )}
 
           <View style={styles.footerNote}>
-            <ShieldCheck size={14} color="#52525b" />
+            <ShieldCheck size={14} color={colors.textDim} />
             <Text style={styles.footerNoteText}>
               Decrypted securely in memory on device
             </Text>
@@ -227,17 +290,17 @@ function DetailRow({
           {isPassword && onToggleShow && (
             <TouchableOpacity style={styles.actionBtn} onPress={onToggleShow}>
               {showPassword ? (
-                <EyeOff size={16} color="#a1a1aa" />
+                <EyeOff size={16} color={colors.textMuted} />
               ) : (
-                <Eye size={16} color="#a1a1aa" />
+                <Eye size={16} color={colors.textMuted} />
               )}
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.actionBtn} onPress={onCopy}>
             {isCopied ? (
-              <Check size={16} color="#4ade80" />
+              <Check size={16} color={colors.success} />
             ) : (
-              <Copy size={16} color="#a1a1aa" />
+              <Copy size={16} color={colors.textMuted} />
             )}
           </TouchableOpacity>
         </View>
@@ -252,7 +315,7 @@ function DetailRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#09090b",
+    backgroundColor: colors.bg,
   },
   navBar: {
     flexDirection: "row",
@@ -261,25 +324,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#18181b",
+    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface2,
   },
   navTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#f4f4f5",
+    color: colors.text,
     flex: 1,
     textAlign: "center",
-    marginHorizontal: 12,
+    marginHorizontal: 8,
   },
-  editBtn: {
+  navRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  navActionBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface2,
+  },
+  trashNavBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.dangerBg,
   },
   loadingBox: {
     flex: 1,
@@ -288,7 +361,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    color: "#a1a1aa",
+    color: colors.textMuted,
     fontSize: 13,
   },
   content: {
@@ -296,17 +369,23 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   badgeCard: {
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 16,
+    gap: 14,
+  },
+  badgeCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   itemName: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#f4f4f5",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 4,
   },
   metaRow: {
     flexDirection: "row",
@@ -314,27 +393,42 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   templatePill: {
-    backgroundColor: "rgba(167, 139, 250, 0.15)",
+    backgroundColor: colors.accentBg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   templatePillText: {
-    color: "#a78bfa",
+    color: colors.accent,
     fontSize: 10,
     fontWeight: "700",
   },
   folderText: {
-    color: "#a1a1aa",
+    color: colors.textMuted,
     fontSize: 12,
+  },
+  launchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.text,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8,
+  },
+  launchBtnText: {
+    color: colors.bg,
+    fontSize: 13,
+    fontWeight: "700",
   },
   fieldsGroup: {
     gap: 12,
   },
   fieldBox: {
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 14,
   },
@@ -357,19 +451,19 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: colors.textMuted,
   },
   actionBtn: {
     padding: 4,
   },
   fieldValue: {
     fontSize: 14,
-    color: "#f4f4f5",
+    color: colors.text,
     fontFamily: "monospace",
   },
   noteText: {
     fontSize: 13,
-    color: "#f4f4f5",
+    color: colors.text,
     lineHeight: 18,
   },
   footerNote: {
@@ -381,6 +475,6 @@ const styles = StyleSheet.create({
   },
   footerNoteText: {
     fontSize: 11,
-    color: "#52525b",
+    color: colors.textDim,
   },
 });
