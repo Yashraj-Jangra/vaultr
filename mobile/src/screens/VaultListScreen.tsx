@@ -121,19 +121,31 @@ export function VaultListScreen({ navigation }: Props) {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My vault</Text>
+        <View style={styles.headerLeft}>
+          <Image
+            source={require("../../assets/brand/logo-dark.png")}
+            style={styles.headerBrandLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.zeroKnowledgeBadge}>
+            <View style={styles.greenDot} />
+            <Text style={styles.zeroKnowledgeText}>AES-256</Text>
+          </View>
+        </View>
+
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={styles.headerActionBtn}
+            style={styles.headerIconOnlyBtn}
             onPress={() => navigation.navigate("VaultFiltered", {
               title: "Search",
               filterType: undefined,
               filterFolder: undefined,
               openSearch: true,
             })}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
           >
-            <Search size={17} color="#a1a1aa" />
+            <Search size={20} color="#e4e4e7" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -345,45 +357,62 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: "#09090b",
+    borderBottomWidth: 1,
+    borderBottomColor: "#141417",
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#ffffff",
-    letterSpacing: -0.5,
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "#111111",
+  headerBrandLogo: {
+    height: 22,
+    width: 95,
+    opacity: 0.95,
+  },
+  zeroKnowledgeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 10,
+    backgroundColor: "rgba(16,185,129,0.08)",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "rgba(16,185,129,0.2)",
+  },
+  greenDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#10b981" },
+  zeroKnowledgeText: { fontSize: 9.5, color: "#34d399", fontWeight: "600", fontFamily: "monospace" },
+
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  headerIconOnlyBtn: {
+    padding: 4,
     alignItems: "center",
     justifyContent: "center",
   },
   accountAvatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#7c3aed",
   },
-  avatarImg: { width: 36, height: 36, borderRadius: 18 },
+  avatarImg: { width: 34, height: 34, borderRadius: 17 },
   avatarFallback: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#7c3aed",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: { fontSize: 14, fontWeight: "700", color: "#ffffff" },
+  avatarInitial: { fontSize: 13, fontWeight: "700", color: "#ffffff" },
 
   // ── Section ──
   section: {

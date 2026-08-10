@@ -12,9 +12,11 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Empty State Illustrations Layout & Scale Overhaul**:
-  - **Larger Scale Vectors**: Increased illustration dimensions across all empty state screens (`throw-away_k2t5` in Trash, `vault_tyfh` in Vault List & Filtered views, `two-factor-authentication_ofho` in Authenticator, `forgot-password_nttj` and `mobile-encryption_flk2` in Unlock Screen) to `240px - 260px` width and `180px - 210px` height.
-  - **Centered Vertical Alignment**: Adjusted container padding (`paddingTop: 130px`) across empty states so illustrations position further down the screen, creating a perfectly balanced centered layout on tall mobile viewports.
+- [x] **Vault Screen Top Bar Branding & Clean Avatar Overhaul**:
+  - **Brand Header & Zero-Knowledge Badge**: Rendered Vaultr brand logo (`logo-dark.png`, `22px` height) with `AES-256` zero-knowledge indicator badge on the top left of the header.
+  - **Clean Search Icon Button**: Removed background box container/border around the search button (`headerIconOnlyBtn`), leaving a clean touchable `Search` icon button (`20px`, `#e4e4e7`).
+  - **Borderless Avatar Profile Button**: Removed purple border ring (`borderWidth: 2, borderColor: "#7c3aed"`) from avatar container (`accountAvatarBtn`), creating a clean borderless circular profile avatar (`34px × 34px`).
+  - **Consistent Vertical Alignment**: Aligned brand logo, search action, and profile avatar heights consistently with 12px vertical header padding and 14px item gap.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:
