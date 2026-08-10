@@ -7,9 +7,10 @@
 ## ✅ Completed This Session (2026-08-10)
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
-- [x] **Website & Extension Pixel-Match Auth & Unlock Screens (`AuthScreen.tsx`, `UnlockScreen.tsx`)**:
-  - **`UnlockScreen.tsx`**: Ported the website/extension's `#09090b` dark background, `#0d0d0d` lock container with `#27272a` borders, `radial-gradient` purple halo glow (`rgba(124, 106, 250, 0.15)`), official `lock-brand-dark.png` asset, `logo-dark.png` header, red error alert pill box with animated dot indicator, and `#f4f4f5` primary unlock button.
-  - **`AuthScreen.tsx`**: Ported the website/extension's `#0d0d0d` card surface with rounded-2xl borders, `#09090b` inset input fields with `#71717a` vector icons, `logo-dark.png` title header, error alert pill box, and `#f4f4f5` primary sign-in button.
+- [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:
+  - **Mobile Fetch Client (`vaultStore.ts`)**: Injected explicit `Origin` and `Referer` headers matching the target server URL into mobile sign-in requests, resolving HTTP 403 `MISSING_OR_NULL_ORIGIN` errors thrown by Better Auth on native Android requests.
+  - **Server Trusted Origins Evaluation (`auth.ts`)**: Made `trustedOrigins` dynamic in `betterAuth({ ... })` to automatically evaluate and validate incoming API requests matching the server's own host and local network endpoints.
+  - **Core API Client (`api-client.ts`)**: Added automatic `Origin` and `Referer` fallback headers to `VaultrApiClient` request builder.
 - [x] **API Client Bearer & Cookie Header Wiring (`vaultStore.ts`)**: Created `getApiClient()` helper that automatically attaches `Authorization: Bearer <token>` and `Cookie: better-auth.session_token=<token>` headers on all network calls (`getItems`, `createItem`, `updateItem`, `deleteItem`), eliminating HTTP 401 unauthenticated errors.
 - [x] **PBKDF2 Per-User Salt Key Derivation (`vaultStore.ts`)**: Fixed `deriveKey(masterPassword, salt)` to derive keys using `accountUser.id` instead of a static `"vaultr_default_salt"`, ensuring on-device decryption keys match the web application.
 - [x] **Auth Sign-In Error Handling & Response Parsing (`vaultStore.ts` & `auth.ts`)**: Updated `signInAccount` to throw an explicit error on HTTP non-200 responses, eliminating fake fallback token generation and ensuring invalid credentials report clear feedback.

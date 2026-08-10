@@ -32,6 +32,13 @@ export class VaultrApiClient {
       headers.set("Content-Type", "application/json");
     }
 
+    if (!headers.has("Origin") && this.baseUrl) {
+      headers.set("Origin", this.baseUrl);
+    }
+    if (!headers.has("Referer") && this.baseUrl) {
+      headers.set("Referer", `${this.baseUrl}/`);
+    }
+
     if (this.getToken) {
       const token = await this.getToken();
       if (token) {

@@ -17,14 +17,28 @@ import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // ── Trusted Origins ──────────────────────────────────────────────────────────
-// Only explicitly listed origins are trusted. No wildcards.
-// Add extra origins via TRUSTED_ORIGINS env var (comma-separated).
-const trustedOrigins: string[] = [
-  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-  ...(process.env.TRUSTED_ORIGINS
-    ? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
-    : []),
-];
+async function getTrustedOrigins(request?: Request): Promise<string[]> {
+  const origins: string[] = [
+    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    ...(process.env.TRUSTED_ORIGINS
+      ? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+      : []),
+  ];
+
+  if (request) {
+    const originHeader = request.headers.get("origin") || request.headers.get("referer");
+    if (originHeader && originHeader !== "null") {
+      try {
+        const u = new URL(originHeader);
+        if (!origins.includes(u.origin)) {
+          origins.push(u.origin);
+        }
+      } catch {}
+    }
+  }
+
+  return origins;
+}
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -149,9 +163,7 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
 
   // ── Trusted origins (CORS) ────────────────────────────────────────────────
-  // Wildcard patterns are NOT supported — list origins explicitly.
-  // Use TRUSTED_ORIGINS env var for additional origins (e.g. LAN IPs for dev).
-  trustedOrigins,
+  trustedOrigins: getTrustedOrigins,
 });
 
 export type Session = typeof auth.$Infer.Session;

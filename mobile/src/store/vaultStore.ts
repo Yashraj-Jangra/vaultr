@@ -105,7 +105,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       const cleanUrl = url.replace(/\/+$/, "");
       const res = await fetch(`${cleanUrl}/api/auth/sign-in/email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Origin": cleanUrl,
+          "Referer": `${cleanUrl}/`,
+        },
         body: JSON.stringify({ email, password }),
       });
 
