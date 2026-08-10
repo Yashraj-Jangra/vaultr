@@ -214,7 +214,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Illustration name="vault_tyfh" width={160} height={130} style={{ marginBottom: 12 }} />
+            <Illustration name="vault_tyfh" width={250} height={200} style={{ marginBottom: 18 }} />
             <Text style={styles.emptyTitle}>
               {searchQuery ? "No results found" : "Nothing here yet"}
             </Text>
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   totpBadgeText: { fontSize: 9, color: "#a78bfa", fontWeight: "700", letterSpacing: 0.5 },
   itemRightWrap: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 8 },
 
-  emptyState: { alignItems: "center", paddingTop: 80, paddingHorizontal: 24 },
+  emptyState: { alignItems: "center", paddingTop: 130, paddingHorizontal: 24 },
   emptyTitle: { color: "#737373", fontSize: 15, fontWeight: "600", marginTop: 14, letterSpacing: -0.3 },
   emptyDesc: { color: "#525252", fontSize: 12, marginTop: 6, textAlign: "center" },
 });

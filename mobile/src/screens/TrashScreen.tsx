@@ -116,7 +116,7 @@ export function TrashScreen({ navigation }: any) {
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Illustration name="throw-away_k2t5" width={180} height={130} style={{ marginBottom: 16 }} />
+            <Illustration name="throw-away_k2t5" width={260} height={200} style={{ marginBottom: 20 }} />
             <Text style={styles.emptyTitle}>Trash is Empty</Text>
             <Text style={styles.emptyDesc}>Items moved to trash will appear here.</Text>
           </View>
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   emptyBox: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 80,
+    paddingTop: 130,
     paddingHorizontal: 24,
   },
   emptyTitle: {

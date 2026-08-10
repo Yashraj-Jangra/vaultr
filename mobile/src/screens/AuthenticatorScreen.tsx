@@ -4,7 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
-import { KeyRound, ShieldCheck } from "lucide-react-native";
+import { KeyRound } from "lucide-react-native";
+import { Illustration } from "../components/Illustration";
 
 function AuthenticatorItemRow({ item }: { item: any }) {
   const { decryptItemBlob } = useVaultStore();
@@ -74,7 +75,7 @@ export function AuthenticatorScreen() {
         renderItem={({ item }) => <AuthenticatorItemRow item={item} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <ShieldCheck size={40} color={colors.surface3} style={{ marginBottom: 12 }} />
+            <Illustration name="two-factor-authentication_ofho" width={260} height={200} style={{ marginBottom: 20 }} />
             <Text style={styles.emptyTitle}>No TOTP Tokens Enrolled</Text>
             <Text style={styles.emptyDesc}>
               Add 2FA secret seeds to your login items to view live authenticator codes here.
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
   emptyBox: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 80,
+    paddingTop: 130,
     paddingHorizontal: 24,
   },
   emptyTitle: {

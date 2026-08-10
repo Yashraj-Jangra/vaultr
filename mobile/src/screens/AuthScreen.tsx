@@ -225,9 +225,9 @@ export function AuthScreen() {
             {/* Hero illustration — exact match with web auth page */}
             <Illustration
               name={isSignUp ? "authentication_1evl" : "secure-login_m11a"}
-              width={160}
-              height={110}
-              style={{ alignSelf: "center", marginVertical: 6 }}
+              width={200}
+              height={140}
+              style={{ alignSelf: "center", marginVertical: 8 }}
             />
 
             {/* Heading */}

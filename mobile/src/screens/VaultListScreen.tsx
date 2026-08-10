@@ -164,7 +164,7 @@ export function VaultListScreen({ navigation }: Props) {
         {isEmpty ? (
           /* Empty vault illustration */
           <View style={styles.emptyWrap}>
-            <Illustration name="vault_tyfh" width={200} height={170} style={{ marginBottom: 16 }} />
+            <Illustration name="vault_tyfh" width={260} height={210} style={{ marginBottom: 20 }} />
             <Text style={styles.emptyTitle}>Your vault is empty</Text>
             <Text style={styles.emptyDesc}>Tap + to add your first entry</Text>
           </View>
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   // ── Empty State ──
   emptyWrap: {
     alignItems: "center",
-    paddingTop: 80,
+    paddingTop: 130,
     paddingHorizontal: 32,
   },
   emptyTitle: {
