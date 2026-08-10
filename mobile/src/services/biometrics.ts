@@ -35,16 +35,35 @@ export async function isBiometricEnabled(): Promise<boolean> {
   }
 }
 
-/** Enroll current master password into hardware secure store protected by biometrics. */
-export async function enrollBiometricPassword(masterPassword: string): Promise<boolean> {
+/** Confirm user biometric authentication & enroll master password into hardware secure store. */
+export async function enrollBiometricPassword(masterPassword: string): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!masterPassword) return false;
+    if (!masterPassword) {
+      return { success: false, error: "Vault must be unlocked with master password first." };
+    }
+
+    // 1. Prompt native OS biometric authentication to confirm user presence
+    const authResult = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Confirm Fingerprint / Face ID to enable Biometric Unlock",
+      fallbackLabel: "Cancel",
+      cancelLabel: "Cancel",
+      disableDeviceFallback: false,
+    });
+
+    if (!authResult.success) {
+      return {
+        success: false,
+        error: authResult.error === "user_cancel" ? "cancel" : authResult.error || "Biometric verification failed.",
+      };
+    }
+
+    // 2. Save master password to hardware SecureStore after successful verification
     await SecureStore.setItemAsync(SECURE_KEY, masterPassword);
     await SecureStore.setItemAsync(ENABLED_KEY, "true");
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error("[Biometrics] Failed to enroll password:", err);
-    return false;
+    return { success: false, error: err?.message || "Failed to register hardware biometrics." };
   }
 }
 

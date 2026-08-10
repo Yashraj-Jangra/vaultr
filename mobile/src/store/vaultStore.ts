@@ -312,6 +312,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   signOutAccount: async () => {
+    await clearBiometricPassword();
     await clearAccountSession();
     get().lock();
     set({
@@ -387,7 +388,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   lock: () => {
-    clearBiometricPassword();
     set({
       items: [],
       cryptoKey: null,

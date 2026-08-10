@@ -50,12 +50,15 @@ export function SecuritySettingsScreen({ navigation }: any) {
         Alert.alert("Error", "Vault must be unlocked with master password first.");
         return;
       }
-      const success = await enrollBiometricPassword(masterPassword);
-      if (success) {
+      const res = await enrollBiometricPassword(masterPassword);
+      if (res.success) {
         setBiometricsEnabled(true);
-        Alert.alert("Success", "Biometric unlock enrolled successfully!");
+        Alert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!");
       } else {
-        Alert.alert("Enrollment Failed", "Hardware biometrics could not be registered.");
+        setBiometricsEnabled(false);
+        if (res.error && res.error !== "cancel") {
+          Alert.alert("Enrollment Cancelled", res.error);
+        }
       }
     } else {
       await clearBiometricPassword();
