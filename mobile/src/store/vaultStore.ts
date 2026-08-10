@@ -25,6 +25,7 @@ interface VaultState {
   // Actions
   initSession: () => Promise<void>;
   signInAccount: (email: string, pass: string, url: string) => Promise<void>;
+  registerAccount: (name: string, username: string, email: string, pass: string, url: string) => Promise<void>;
   signOutAccount: () => Promise<void>;
   setServerUrl: (url: string) => void;
   setSearchQuery: (query: string) => void;
@@ -129,6 +130,54 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         id: data.user?.id || data.session?.userId || "user_" + Date.now(),
         email: data.user?.email || email,
         name: data.user?.name || email.split("@")[0],
+        image: data.user?.image,
+      };
+      const token = data.token || data.session?.token || data.session?.id || "";
+
+      await saveAccountSession(token, user, cleanUrl);
+      set({
+        accountToken: token,
+        accountUser: user,
+        isAuthenticated: true,
+        serverUrl: cleanUrl,
+        isLoading: false,
+      });
+    } catch (err: any) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  registerAccount: async (name, username, email, password, url) => {
+    set({ isLoading: true });
+    try {
+      const cleanUrl = url.replace(/\/+$/, "");
+      const res = await fetch(`${cleanUrl}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Origin": cleanUrl,
+          "Referer": `${cleanUrl}/`,
+        },
+        body: JSON.stringify({ name, username, email, password }),
+      });
+
+      if (!res.ok) {
+        let errorMessage = "Registration failed.";
+        try {
+          const errData = await res.json();
+          if (errData.message || errData.error) {
+            errorMessage = errData.message || errData.error;
+          }
+        } catch {}
+        throw new Error(errorMessage);
+      }
+
+      const data = await res.json();
+      const user: AccountUser = {
+        id: data.user?.id || "user_" + Date.now(),
+        email: data.user?.email || email,
+        name: data.user?.name || name,
         image: data.user?.image,
       };
       const token = data.token || data.session?.token || data.session?.id || "";

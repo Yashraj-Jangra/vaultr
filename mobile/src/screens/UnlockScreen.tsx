@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,309 +7,569 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  ActivityIndicator,
-  Alert,
+  Animated,
   Image,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from "react-native";
+import { Lock, Shield, Eye, EyeOff, LogOut } from "lucide-react-native";
 import { useVaultStore } from "../store/vaultStore";
-import { colors } from "../theme/colors";
-import { Lock, Fingerprint, LogOut, Shield } from "lucide-react-native";
+
+const { width } = Dimensions.get("window");
+
+type UnlockView = "main" | "forgot" | "why";
 
 export function UnlockScreen() {
-  const {
-    isLoading,
-    unlock,
-    unlockWithBiometrics,
-    accountUser,
-    signOutAccount,
-  } = useVaultStore();
+  const { accountUser, unlock, lock, signOutAccount } = useVaultStore();
+  const [masterPassword, setMasterPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
+  const [currentView, setCurrentView] = useState<UnlockView>("main");
 
-  const [passwordInput, setPasswordInput] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+  // Animations
+  const haloAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const fadeInAnim = useRef(new Animated.Value(0)).current;
 
-  const handleUnlockSubmit = async () => {
-    if (!passwordInput || isLoading) return;
-    setErrorMsg("");
+  useEffect(() => {
+    // Fade in on mount
+    Animated.timing(fadeInAnim, {
+      toValue: 1,
+      duration: 450,
+      useNativeDriver: true,
+    }).start();
+
+    // Pulsing halo animation
+    const pulsing = Animated.loop(
+      Animated.sequence([
+        Animated.timing(haloAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(haloAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
+      ])
+    );
+    pulsing.start();
+    return () => pulsing.stop();
+  }, []);
+
+  const doShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -3, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const handleUnlock = async () => {
+    if (!masterPassword || unlocking) return;
+    setUnlocking(true);
+    setUnlockError("");
     try {
-      await unlock(passwordInput);
+      await unlock(masterPassword);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Incorrect master password");
+      const msg = err?.message || "Incorrect password";
+      setUnlockError(msg.includes("decrypt") ? "Incorrect master password." : msg);
+      doShake();
+    } finally {
+      setUnlocking(false);
     }
   };
 
-  const handleBiometricUnlock = async () => {
-    const success = await unlockWithBiometrics();
-    if (!success) {
-      Alert.alert("Biometrics Failed", "Could not unlock with fingerprint/face.");
-    }
-  };
+  const haloOpacity = haloAnim.interpolate ? haloAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.08, 0.18],
+  }) : 0.12;
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
-
-      {/* Grid Dot Pattern Background Accent */}
-      <View style={styles.contentWrap}>
-        {/* Halo Radial Glow & Lock Box */}
-        <View style={styles.lockHaloWrap}>
-          <View style={styles.haloGlow} />
-          <View style={[styles.lockBox, isLoading && styles.lockBoxUnlocking]}>
+  // ── Main unlock view ──────────────────────────────────────────────────────────
+  const renderMain = () => (
+    <Animated.View style={{ opacity: fadeInAnim }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* Halo + lock icon */}
+        <View style={styles.iconWrap}>
+          <Animated.View style={[styles.halo, { opacity: haloOpacity }]} />
+          <Animated.View style={[styles.haloInner, { opacity: haloAnim }]} />
+          <View style={[styles.lockBox, unlocking && styles.lockBoxUnlocking]}>
             <Image
               source={require("../../assets/brand/lock-brand-dark.png")}
-              style={styles.lockBrandImg}
+              style={[styles.lockBrand, { opacity: unlocking ? 1.0 : 0.6 }]}
               resizeMode="contain"
             />
           </View>
         </View>
 
-        {/* Header Branding Info */}
-        <View style={styles.headerInfo}>
+        {/* Brand + headings */}
+        <View style={styles.headingWrap}>
           <Image
             source={require("../../assets/brand/logo-dark.png")}
-            style={styles.brandLogo}
+            style={styles.logoImage}
             resizeMode="contain"
           />
           <Text style={styles.title}>
-            {isLoading ? "Decrypting vault…" : "Unlock your vault"}
+            {unlocking ? "Decrypting vault…" : "Unlock your vault"}
           </Text>
-          {accountUser?.email && (
-            <Text style={styles.emailText} numberOfLines={1}>
-              {accountUser.email}
-            </Text>
-          )}
+          <Text style={styles.emailHint} numberOfLines={1}>
+            {accountUser?.email || ""}
+          </Text>
         </View>
 
-        {/* Form Inputs */}
-        <View style={styles.formWrap}>
-          {errorMsg ? (
-            <View style={styles.errorAlert}>
+        {/* Error alert — matches web's pill style */}
+        <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+          {unlockError ? (
+            <View style={styles.errorPill}>
               <View style={styles.errorDot} />
-              <Text style={styles.errorAlertText}>{errorMsg}</Text>
+              <Text style={styles.errorText}>{unlockError}</Text>
             </View>
           ) : null}
 
-          <View style={styles.inputContainer}>
+          {/* Password input */}
+          <View style={styles.inputWrap}>
             <TextInput
-              style={styles.formInput}
-              value={passwordInput}
-              onChangeText={setPasswordInput}
+              style={styles.input}
+              value={masterPassword}
+              onChangeText={setMasterPassword}
               placeholder="Master password"
-              placeholderTextColor="#52525b"
-              secureTextEntry
-              autoFocus
-              editable={!isLoading}
+              placeholderTextColor="#404040"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!unlocking}
+              returnKeyType="done"
+              onSubmitEditing={handleUnlock}
             />
-            <Lock size={16} color="#71717a" style={styles.inputLockIcon} />
+            <TouchableOpacity
+              style={styles.inputIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              {showPassword
+                ? <EyeOff size={15} color="#525252" />
+                : <Eye size={15} color="#525252" />}
+            </TouchableOpacity>
           </View>
 
-          {/* Primary Unlock Button */}
+          {/* Unlock button */}
           <TouchableOpacity
-            style={[
-              styles.primaryBtn,
-              (!passwordInput || isLoading) && styles.primaryBtnDisabled,
-            ]}
-            onPress={handleUnlockSubmit}
-            disabled={!passwordInput || isLoading}
-            activeOpacity={0.8}
+            style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
+            onPress={handleUnlock}
+            disabled={!masterPassword || unlocking}
+            activeOpacity={0.85}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#09090b" />
+            {unlocking ? (
+              // Spinner
+              <View style={styles.spinner} />
             ) : (
-              <View style={styles.btnRow}>
+              <>
                 <Lock size={14} color="#09090b" />
-                <Text style={styles.primaryBtnText}>Unlock vault</Text>
-              </View>
+                <Text style={styles.unlockBtnText}>Unlock vault</Text>
+              </>
             )}
           </TouchableOpacity>
+        </Animated.View>
 
-          {/* Biometrics Action */}
+        {/* Footer links */}
+        <View style={styles.footerRow}>
+          <TouchableOpacity onPress={() => setCurrentView("forgot")}>
+            <Text style={styles.footerLink}>Forgot password?</Text>
+          </TouchableOpacity>
           <TouchableOpacity
-            style={styles.biometricBtn}
-            onPress={handleBiometricUnlock}
-            activeOpacity={0.7}
+            style={styles.footerWhyBtn}
+            onPress={() => setCurrentView("why")}
           >
-            <Fingerprint size={16} color="#a78bfa" style={{ marginRight: 8 }} />
-            <Text style={styles.biometricBtnText}>Unlock with Biometrics</Text>
+            <Shield size={13} color="#525252" />
+            <Text style={styles.footerLink}>Why is this needed?</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Footer Links */}
-        <View style={styles.footerRow}>
+        {/* Sign out */}
+        <View style={styles.signOutWrap}>
           <TouchableOpacity onPress={signOutAccount}>
-            <Text style={styles.footerLinkText}>Switch account</Text>
+            <Text style={styles.signOutText}>Sign out instead</Text>
           </TouchableOpacity>
-          <View style={styles.footerLinkRight}>
-            <Shield size={13} color="#52525b" style={{ marginRight: 4 }} />
-            <Text style={styles.footerLinkText}>Zero-Knowledge</Text>
-          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Animated.View>
+  );
+
+  // ── Forgot password view (mirrors web exactly) ────────────────────────────────
+  const renderForgot = () => (
+    <View>
+      <View style={styles.centeredIconWrap}>
+        <View style={styles.forgotIconBox}>
+          <Lock size={24} color="#f87171" />
+        </View>
+        <Text style={styles.subViewTitle}>Unrecoverable Password</Text>
+      </View>
+
+      <View style={styles.subViewContent}>
+        <Text style={styles.subViewBody}>
+          SecureVault uses strict{" "}
+          <Text style={{ color: "#e4e4e7", fontWeight: "600" }}>
+            Zero-Knowledge Encryption
+          </Text>
+          . Your master password is never sent to our servers. It is strictly used
+          locally to derive your AES-256-GCM decryption keys.
+        </Text>
+
+        <View style={styles.alertBox}>
+          <Shield size={14} color="#f87171" style={{ marginTop: 1 }} />
+          <Text style={styles.alertBoxText}>
+            If you forget your master password,{" "}
+            <Text style={{ fontWeight: "700" }}>
+              your data cannot be recovered by anyone, including us.
+            </Text>
+          </Text>
         </View>
       </View>
+
+      <View style={styles.subViewActions}>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => setCurrentView("main")}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.primaryBtnText}>Try another password</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.ghostBtn}
+          onPress={signOutAccount}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.ghostBtnText}>Sign out</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // ── Why is this needed? view ──────────────────────────────────────────────────
+  const renderWhy = () => (
+    <View>
+      <View style={styles.centeredIconWrap}>
+        <View style={styles.whyIconBox}>
+          <Shield size={24} color="#818cf8" />
+        </View>
+        <Text style={styles.subViewTitle}>Local Decryption</Text>
+      </View>
+
+      <View style={styles.subViewContent}>
+        <Text style={styles.subViewBody}>
+          When you log in, we only authenticate your identity, which pulls down the
+          encrypted blobs from the server.
+        </Text>
+        <Text style={styles.subViewBody}>
+          Your{" "}
+          <Text style={{ color: "#e4e4e7", fontWeight: "600" }}>Master Password</Text>{" "}
+          is mathematically hashed (PBKDF2) locally to derive a cryptographic key.
+        </Text>
+
+        <View style={styles.monoChip}>
+          <Text style={styles.monoChipText}>AES-256-GCM</Text>
+        </View>
+
+        <Text style={styles.subViewBody}>
+          This key then decrypts your vault data locally. Without it, your data
+          remains secure cipher text.
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.primaryBtn}
+        onPress={() => setCurrentView("main")}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.primaryBtnText}>← Back to unlock</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
+
+      {/* Subtle grid background */}
+      <View style={styles.bgGrid} pointerEvents="none" />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          {currentView === "main" && renderMain()}
+          {currentView === "forgot" && renderForgot()}
+          {currentView === "why" && renderWhy()}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#09090b",
+  container: { flex: 1, backgroundColor: "#09090b" },
+
+  // Decorative background grid (opacity 0.02 like web)
+  bgGrid: {
+    ...StyleSheet.absoluteFill,
+    opacity: 0.025,
   },
-  contentWrap: {
-    flex: 1,
-    alignItems: "center",
+
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
-  lockHaloWrap: {
+
+  // Card wrapper (max-w-[340px] on web)
+  card: {
+    width: "100%",
+    maxWidth: 340,
+  },
+
+  // Lock icon halo — matches web's pulse-ring animation
+  iconWrap: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 24,
     position: "relative",
+    height: 100,
   },
-  haloGlow: {
+  halo: {
     position: "absolute",
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "rgba(124, 106, 250, 0.15)",
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
-  lockBox: {
+  haloInner: {
+    position: "absolute",
     width: 80,
     height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  lockBox: {
+    width: 72,
+    height: 72,
     borderRadius: 20,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: "#1f1f1f",
     alignItems: "center",
     justifyContent: "center",
   },
   lockBoxUnlocking: {
-    backgroundColor: "#18181b",
-    borderColor: "#52525b",
+    backgroundColor: "#1f1f1f",
+    borderColor: "#333",
   },
-  lockBrandImg: {
-    width: 48,
-    height: 48,
+  lockBrand: {
+    width: 42,
+    height: 42,
   },
-  headerInfo: {
+
+  // Heading block
+  headingWrap: {
     alignItems: "center",
-    marginBottom: 24,
+    gap: 6,
+    marginBottom: 28,
   },
-  brandLogo: {
-    height: 20,
-    width: 110,
-    marginBottom: 12,
-    opacity: 0.7,
+  logoImage: {
+    height: 18,
+    width: 90,
+    opacity: 0.6,
+    marginBottom: 4,
   },
   title: {
     fontSize: 18,
     fontWeight: "600",
     color: "#f4f4f5",
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
-  emailText: {
+  emailHint: {
     fontSize: 12,
-    color: "#71717a",
+    color: "#525252",
     fontFamily: "monospace",
-    marginTop: 4,
   },
-  formWrap: {
-    width: "100%",
-    gap: 14,
-  },
-  errorAlert: {
+
+  // Error pill — matches web's red border/bg pill
+  errorPill: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(127, 29, 29, 0.25)",
-    borderWidth: 1,
-    borderColor: "rgba(185, 28, 28, 0.4)",
-    borderRadius: 12,
+    alignItems: "flex-start",
+    gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    gap: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(127,29,29,0.25)",
+    borderWidth: 1,
+    borderColor: "rgba(153,27,27,0.4)",
+    marginBottom: 12,
   },
   errorDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#ef4444",
+    backgroundColor: "#f87171",
+    marginTop: 4,
   },
-  errorAlertText: {
-    color: "#f87171",
-    fontSize: 12,
-    flex: 1,
-  },
-  inputContainer: {
+  errorText: { fontSize: 12, color: "#f87171", flex: 1, lineHeight: 18 },
+
+  // Input
+  inputWrap: {
     position: "relative",
-    width: "100%",
-    justifyContent: "center",
+    marginBottom: 12,
   },
-  formInput: {
-    width: "100%",
-    height: 46,
+  input: {
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: "#1f1f1f",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingRight: 44,
-    color: "#e4e4e7",
+    paddingVertical: 14,
     fontSize: 14,
+    color: "#e4e4e7",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
-  inputLockIcon: {
+  inputIcon: {
     position: "absolute",
     right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
-  primaryBtn: {
-    width: "100%",
-    height: 46,
+
+  // Unlock button — matches web's bg-neutral-100 primary button
+  unlockBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     backgroundColor: "#f4f4f5",
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 14,
+    shadowColor: "rgba(255,255,255,0.08)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
   },
-  primaryBtnDisabled: {
-    opacity: 0.5,
+  unlockBtnDisabled: { opacity: 0.4 },
+  unlockBtnText: { fontSize: 13.5, fontWeight: "600", color: "#09090b" },
+
+  // Spinner
+  spinner: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#525252",
+    borderTopColor: "#09090b",
   },
-  btnRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  primaryBtnText: {
-    color: "#09090b",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  biometricBtn: {
-    width: "100%",
-    height: 42,
-    backgroundColor: "#18181b",
-    borderWidth: 1,
-    borderColor: "#27272a",
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  biometricBtnText: {
-    color: "#a78bfa",
-    fontSize: 13,
-    fontWeight: "600",
-  },
+
+  // Footer links
   footerRow: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 28,
+    marginTop: 20,
   },
-  footerLinkText: {
-    fontSize: 12,
-    color: "#71717a",
-  },
-  footerLinkRight: {
-    flexDirection: "row",
+  footerWhyBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
+  footerLink: { fontSize: 12, color: "#525252" },
+
+  signOutWrap: { alignItems: "center", marginTop: 24 },
+  signOutText: { fontSize: 11, color: "#404040" },
+
+  // Sub-views (forgot / why) — centred icon
+  centeredIconWrap: {
     alignItems: "center",
+    marginBottom: 24,
+    gap: 14,
   },
+  forgotIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "rgba(127,29,29,0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(153,27,27,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "rgba(220,38,38,0.1)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
+  },
+  whyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "rgba(67,56,202,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(79,70,229,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "rgba(99,102,241,0.1)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
+  },
+  subViewTitle: { fontSize: 18, fontWeight: "600", color: "#f4f4f5", letterSpacing: -0.4 },
+
+  subViewContent: { gap: 14, marginBottom: 28 },
+  subViewBody: {
+    fontSize: 13,
+    color: "#a3a3a3",
+    lineHeight: 20,
+    textAlign: "center",
+  },
+
+  alertBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(153,27,27,0.4)",
+    backgroundColor: "rgba(127,29,29,0.1)",
+  },
+  alertBoxText: { fontSize: 12, color: "rgba(254,202,202,0.8)", lineHeight: 18, flex: 1 },
+
+  monoChip: {
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    backgroundColor: "#0d0d0d",
+  },
+  monoChipText: { fontSize: 11, color: "#525252", fontFamily: "monospace" },
+
+  subViewActions: { gap: 10, marginBottom: 0 },
+
+  primaryBtn: {
+    backgroundColor: "#f4f4f5",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryBtnText: { fontSize: 13.5, fontWeight: "600", color: "#09090b" },
+
+  ghostBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  ghostBtnText: { fontSize: 13.5, color: "#a3a3a3" },
 });

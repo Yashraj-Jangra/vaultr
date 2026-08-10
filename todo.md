@@ -6,6 +6,14 @@
 
 ## ✅ Completed This Session (2026-08-10)
 
+### Android Mobile App Visual Parity & Complete UI Redesign — Web Design System Match
+- [x] **Design Tokens & Theme Synchronization (`colors.ts`)**: Ported the website's Tailwind neutral scale (`#09090b` background, `#111111` surface, `#1f1f1f` border, `#f4f4f5` text, accent violet, status colors) to mobile theme tokens.
+- [x] **Unlock Screen Visual Overhaul (`UnlockScreen.tsx`)**: Re-built unlock screen to mirror the website's `!cryptoKey` lock view pixel-for-pixel (radial halo pulse ring, brand lock icon box, brand logo header, red error pill with dot indicator, master password input, primary action button, forgot password and local decryption sub-views).
+- [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
+- [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
+- [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
+- [x] **Zero-Error TypeScript Verification (`npx tsc --noEmit`)**: Fixed all type errors and verified clean compilation across mobile package.
+
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:
   - **Mobile Fetch Client (`vaultStore.ts`)**: Injected explicit `Origin` and `Referer` headers matching the target server URL into mobile sign-in requests, resolving HTTP 403 `MISSING_OR_NULL_ORIGIN` errors thrown by Better Auth on native Android requests.
