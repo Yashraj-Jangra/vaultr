@@ -8,9 +8,9 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Image,
 } from "react-native";
+import { vaultAlert } from "../../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
@@ -77,7 +77,7 @@ export function AccountSettingsScreen({ navigation }: any) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert("Permission Required", "Gallery permission is required to choose a profile photo.");
+        vaultAlert.alert("Permission Required", "Gallery permission is required to choose a profile photo.", undefined, { illustration: "cancel_k4w9" });
         return;
       }
 
@@ -124,7 +124,7 @@ export function AccountSettingsScreen({ navigation }: any) {
         }
       }
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to pick image.");
+      vaultAlert.alert("Error", err.message || "Failed to pick image.", undefined, { illustration: "cancel_k4w9" });
     }
   };
 
@@ -169,9 +169,9 @@ export function AccountSettingsScreen({ navigation }: any) {
         } catch { }
       }
 
-      Alert.alert("Success", "Profile updated successfully.");
+      vaultAlert.alert("Success", "Profile updated successfully.", undefined, { illustration: "completed-task_c11d" });
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to update profile.");
+      vaultAlert.alert("Error", e.message || "Failed to update profile.", undefined, { illustration: "cancel_k4w9" });
     } finally {
       setSavingProfile(false);
     }
@@ -199,9 +199,9 @@ export function AccountSettingsScreen({ navigation }: any) {
           throw new Error(data.error || "Failed to save details");
         }
       }
-      Alert.alert("Success", "Personal details saved successfully.");
+      vaultAlert.alert("Success", "Personal details saved successfully.", undefined, { illustration: "completed-task_c11d" });
     } catch (e: any) {
-      Alert.alert("Notice", "Personal details updated locally.");
+      vaultAlert.alert("Notice", "Personal details updated locally.", undefined, { illustration: "completed-task_c11d" });
     } finally {
       setSavingDetails(false);
     }
@@ -210,7 +210,7 @@ export function AccountSettingsScreen({ navigation }: any) {
   // Handle Account Password Change
   const handleAccountPasswordChange = async () => {
     if (!currentAccPw || !newAccPw) {
-      Alert.alert("Error", "Please fill in all account password fields.");
+      vaultAlert.alert("Error", "Please fill in all account password fields.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
     setAccPwLoading(true);
@@ -224,15 +224,15 @@ export function AccountSettingsScreen({ navigation }: any) {
         body: JSON.stringify({ currentPassword: currentAccPw, newPassword: newAccPw }),
       });
       if (res.ok) {
-        Alert.alert("Success", "Account password updated successfully.");
+        vaultAlert.alert("Success", "Account password updated successfully.", undefined, { illustration: "completed-task_c11d" });
         setCurrentAccPw("");
         setNewAccPw("");
       } else {
         const err = await res.json();
-        Alert.alert("Failed", err.message || err.error || "Could not update account password.");
+        vaultAlert.alert("Failed", err.message || err.error || "Could not update account password.", undefined, { illustration: "cancel_k4w9" });
       }
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to communicate with server.");
+      vaultAlert.alert("Error", e.message || "Failed to communicate with server.", undefined, { illustration: "cancel_k4w9" });
     } finally {
       setAccPwLoading(false);
     }
@@ -241,15 +241,15 @@ export function AccountSettingsScreen({ navigation }: any) {
   // Handle Master Password Change
   const handleMasterPasswordChange = async () => {
     if (!currentMasterPw || !newMasterPw) {
-      Alert.alert("Error", "Please fill in all master password fields.");
+      vaultAlert.alert("Error", "Please fill in all master password fields.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
     if (currentMasterPw !== masterPassword) {
-      Alert.alert("Validation Error", "Current master password does not match.");
+      vaultAlert.alert("Validation Error", "Current master password does not match.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
     if (!cryptoKey || !accountUser?.id) {
-      Alert.alert("Error", "Vault must be unlocked to re-encrypt items.");
+      vaultAlert.alert("Error", "Vault must be unlocked to re-encrypt items.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
 
@@ -268,11 +268,11 @@ export function AccountSettingsScreen({ navigation }: any) {
       }
 
       useVaultStore.setState({ masterPassword: newMasterPw, cryptoKey: newKey });
-      Alert.alert("Success", "Master password updated and all items re-encrypted successfully!");
+      vaultAlert.alert("Success", "Master password updated and all items re-encrypted successfully!", undefined, { illustration: "completed-task_c11d" });
       setCurrentMasterPw("");
       setNewMasterPw("");
     } catch (e: any) {
-      Alert.alert("Re-encryption Error", e.message || "Could not re-encrypt items with new master password.");
+      vaultAlert.alert("Re-encryption Error", e.message || "Could not re-encrypt items with new master password.", undefined, { illustration: "cancel_k4w9" });
     } finally {
       setMasterPwLoading(false);
     }

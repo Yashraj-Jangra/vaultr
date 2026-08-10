@@ -7,8 +7,8 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
+import { vaultAlert } from "../../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
@@ -33,13 +33,15 @@ export function DataScreen({ navigation }: any) {
       const jsonStr = JSON.stringify(payload, null, 2);
       await Clipboard.setStringAsync(jsonStr);
       setCopiedJSON(true);
-      Alert.alert(
+      vaultAlert.alert(
         "Export Successful",
-        `Copied encrypted backup JSON (${items.length} items) to clipboard!`
+        `Copied encrypted backup JSON (${items.length} items) to clipboard!`,
+        undefined,
+        { illustration: "completed-task_c11d" }
       );
       setTimeout(() => setCopiedJSON(false), 3000);
     } catch (e: any) {
-      Alert.alert("Export Failed", e.message || "Could not export vault.");
+      vaultAlert.alert("Export Failed", e.message || "Could not export vault.", undefined, { illustration: "cancel_k4w9" });
     } finally {
       setExporting(false);
     }
@@ -47,11 +49,11 @@ export function DataScreen({ navigation }: any) {
 
   const handleExportDecryptedCSV = async () => {
     if (!cryptoKey) {
-      Alert.alert("Error", "Vault must be unlocked.");
+      vaultAlert.alert("Error", "Vault must be unlocked.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
 
-    Alert.alert(
+    vaultAlert.alert(
       "Export Unencrypted CSV",
       "WARNING: This will generate plain-text CSV data containing your decrypted passwords. Are you sure?",
       [
@@ -94,12 +96,14 @@ export function DataScreen({ navigation }: any) {
 
               const csvContent = csvRows.join("\n");
               await Clipboard.setStringAsync(csvContent);
-              Alert.alert(
+              vaultAlert.alert(
                 "Export Complete",
-                `Decrypted CSV (${items.length} entries) copied to clipboard!`
+                `Decrypted CSV (${items.length} entries) copied to clipboard!`,
+                undefined,
+                { illustration: "completed-task_c11d" }
               );
             } catch (err: any) {
-              Alert.alert("Export Error", err.message || "Failed to generate CSV.");
+              vaultAlert.alert("Export Error", err.message || "Failed to generate CSV.", undefined, { illustration: "cancel_k4w9" });
             } finally {
               setExporting(false);
             }

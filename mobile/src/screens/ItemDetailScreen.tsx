@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Alert,
+  Dimensions,
   Linking,
 } from "react-native";
+import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
@@ -59,7 +60,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         }
       } catch (err) {
         if (mounted) {
-          Alert.alert("Decryption Failed", "Could not decrypt this item's payload.");
+          vaultAlert.alert("Decryption Failed", "Could not decrypt this item's payload.", undefined, { illustration: "cancel_k4w9" });
         }
       } finally {
         if (mounted) setLoading(false);
@@ -84,12 +85,12 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       formatted = "https://" + formatted;
     }
     Linking.openURL(formatted).catch(() => {
-      Alert.alert("Error", `Could not open URL: ${formatted}`);
+      vaultAlert.alert("Error", `Could not open URL: ${formatted}`, undefined, { illustration: "cancel_k4w9" });
     });
   };
 
   const handleMoveToTrash = () => {
-    Alert.alert(
+    vaultAlert.alert(
       "Move to Trash",
       `Are you sure you want to move "${item.name}" to Trash?`,
       [
@@ -427,7 +428,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                         style={styles.attachDetailRow}
                         onPress={() => {
                           if (att.uri) {
-                            Linking.openURL(att.uri).catch(() => Alert.alert("Notice", "Cannot preview file. File URI is local or encrypted."));
+                            Linking.openURL(att.uri).catch(() => vaultAlert.alert("Notice", "Cannot preview file. File URI is local or encrypted.", undefined, { illustration: "cancel_k4w9" }));
                           }
                         }}
                         activeOpacity={0.7}

@@ -21,11 +21,11 @@ export function SiteIcon({
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
 
   if (template !== "login" || !effectiveDomain || hasError) {
-    let icon = <Globe size={size * 0.55} color={colors.textMuted} />;
-    if (template === "card") icon = <CreditCard size={size * 0.55} color={colors.accent} />;
-    if (template === "note") icon = <FileText size={size * 0.55} color={colors.warning} />;
-    if (template === "address") icon = <MapPin size={size * 0.55} color={colors.success} />;
-    if (template === "profile") icon = <User size={size * 0.55} color={colors.cardBlue} />;
+    let icon = <Globe size={size * 0.7} color={colors.textMuted} />;
+    if (template === "card") icon = <CreditCard size={size * 0.7} color={colors.accent} />;
+    if (template === "note") icon = <FileText size={size * 0.7} color={colors.warning} />;
+    if (template === "address") icon = <MapPin size={size * 0.7} color={colors.success} />;
+    if (template === "profile") icon = <User size={size * 0.7} color={colors.cardBlue} />;
 
     return (
       <View style={[styles.fallbackContainer, { width: size, height: size, borderRadius: size * 0.3 }]}>

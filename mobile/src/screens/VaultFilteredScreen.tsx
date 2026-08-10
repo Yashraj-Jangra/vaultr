@@ -59,7 +59,7 @@ function ItemIconBadge({ item }: { item: any }) {
 
   return (
     <View style={[styles.templateIconBox, { backgroundColor: tc.bg }]}>
-      <IconComp size={18} color={tc.icon} />
+      <IconComp size={20} color={tc.icon} />
     </View>
   );
 }

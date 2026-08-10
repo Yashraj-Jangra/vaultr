@@ -224,7 +224,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
                 className="form-input"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="http://localhost:3000"
+                placeholder="https://vaultr.cvweb.qzz.io"
                 style={{ flex: 1, height: 38, fontSize: 12, background: "#0d0d0d", borderRadius: 10 }}
               />
               <button

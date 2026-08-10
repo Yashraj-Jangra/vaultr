@@ -5,7 +5,7 @@
 
 import { VaultrApiClient, decrypt, encrypt, deriveKey, resolveDomain, VaultItem, DecryptedLoginPayload, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
 
-const DEFAULT_SERVER_URL = "http://localhost:3000";
+const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
 
 interface ServiceWorkerState {
   serverUrl: string;

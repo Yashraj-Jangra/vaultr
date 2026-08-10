@@ -60,7 +60,7 @@ function SmallIconBadge({ item }: { item: any }) {
   }
   return (
     <View style={[styles.smallIconBox, { backgroundColor: tc.bg }]}>
-      <IconComp size={15} color={tc.icon} />
+      <IconComp size={18} color={tc.icon} />
     </View>
   );
 }
@@ -235,7 +235,7 @@ export function VaultListScreen({ navigation }: Props) {
                         onPress={() => navigateFiltered(TEMPLATE_LABELS[t], t)}
                       >
                         <View style={[styles.listRowIcon, { backgroundColor: tc.bg, borderRadius: 10, width: 36, height: 36 }]}>
-                          <IconComp size={16} color={tc.icon} />
+                          <IconComp size={20} color={tc.icon} />
                         </View>
                         <Text style={styles.listRowTitle}>{TEMPLATE_LABELS[t]}</Text>
                         <View style={{ flex: 1 }} />
@@ -268,7 +268,7 @@ export function VaultListScreen({ navigation }: Props) {
                           activeOpacity={0.7}
                         >
                           <View style={styles.listRowIcon}>
-                            <Folder size={18} color="#71717a" />
+                            <Folder size={22} color="#71717a" />
                           </View>
                           <Text style={styles.listRowTitle}>{displayName}</Text>
                           <View style={{ flex: 1 }} />

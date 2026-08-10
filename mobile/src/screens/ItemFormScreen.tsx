@@ -8,8 +8,10 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
+import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
@@ -152,7 +154,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
         ]);
       }
     } catch (err: any) {
-      Alert.alert("Error", "Could not pick file attachment.");
+      vaultAlert.alert("Error", "Could not pick file attachment.", undefined, { illustration: "cancel_k4w9" });
     }
   };
 
@@ -162,11 +164,11 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert("Validation Error", "Please enter an item name.");
+      vaultAlert.alert("Validation Error", "Please enter an item name.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
     if (!cryptoKey) {
-      Alert.alert("Error", "Vault is locked.");
+      vaultAlert.alert("Error", "Vault is locked.", undefined, { illustration: "cancel_k4w9" });
       return;
     }
 
@@ -243,7 +245,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert("Save Failed", err?.message || "Could not save entry.");
+      vaultAlert.alert("Save Failed", err?.message || "Could not save entry.", undefined, { illustration: "cancel_k4w9" });
     } finally {
       setSaving(false);
     }

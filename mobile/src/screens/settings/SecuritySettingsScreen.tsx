@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Alert,
 } from "react-native";
+import { vaultAlert } from "../../store/alertStore";
 import { CustomSwitch } from "../../components/CustomSwitch";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
@@ -47,17 +47,17 @@ export function SecuritySettingsScreen({ navigation }: any) {
   const handleToggleBiometrics = async (val: boolean) => {
     if (val) {
       if (!masterPassword) {
-        Alert.alert("Error", "Vault must be unlocked with master password first.");
+        vaultAlert.alert("Error", "Vault must be unlocked with master password first.", undefined, { illustration: "cancel_k4w9" });
         return;
       }
       const res = await enrollBiometricPassword(masterPassword);
       if (res.success) {
         setBiometricsEnabled(true);
-        Alert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!");
+        vaultAlert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!", undefined, { illustration: "completed-task_c11d" });
       } else {
         setBiometricsEnabled(false);
         if (res.error && res.error !== "cancel") {
-          Alert.alert("Enrollment Cancelled", res.error);
+          vaultAlert.alert("Enrollment Cancelled", res.error, undefined, { illustration: "cancel_k4w9" });
         }
       }
     } else {

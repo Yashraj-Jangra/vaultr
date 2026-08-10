@@ -7,6 +7,8 @@ import { RootNavigator } from "./navigation/RootNavigator";
 import { initAutoLockService } from "./services/autoLock";
 import { setCustomPbkdf2 } from "@vaultr/core";
 
+import { CustomAlertOverlay } from "./components/CustomAlertOverlay";
+
 // Inject native C++ OpenSSL PBKDF2 engine into @vaultr/core if available (Custom Dev Client / Prod).
 // In Expo Go, this gracefully falls back to the pure JS implementation (which takes ~3.5s).
 try {
@@ -33,6 +35,7 @@ export default function App() {
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: "#09090b" }}>
       <RootNavigator />
+      <CustomAlertOverlay />
     </SafeAreaProvider>
   );
 }

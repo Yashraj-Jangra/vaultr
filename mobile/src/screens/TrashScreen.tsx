@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   StatusBar,
   FlatList,
-  Alert,
 } from "react-native";
+import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
@@ -22,14 +22,14 @@ export function TrashScreen({ navigation }: any) {
   const handleRestore = async (id: string, name: string) => {
     try {
       await restoreItem(id);
-      Alert.alert("Restored", `Restored "${name}" to vault.`);
+      vaultAlert.alert("Restored", `Restored "${name}" to vault.`, undefined, { illustration: "completed-task_c11d" });
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to restore item.");
+      vaultAlert.alert("Error", e.message || "Failed to restore item.", undefined, { illustration: "cancel_k4w9" });
     }
   };
 
   const handlePermanentDelete = (id: string, name: string) => {
-    Alert.alert(
+    vaultAlert.alert(
       "Permanent Delete",
       `Are you sure you want to permanently delete "${name}"? This cannot be undone.`,
       [
@@ -41,7 +41,7 @@ export function TrashScreen({ navigation }: any) {
             try {
               await deleteItem(id);
             } catch (e: any) {
-              Alert.alert("Error", e.message || "Failed to delete item.");
+              vaultAlert.alert("Error", e.message || "Failed to delete item.", undefined, { illustration: "cancel_k4w9" });
             }
           },
         },
@@ -51,7 +51,7 @@ export function TrashScreen({ navigation }: any) {
 
   const handleEmptyTrash = () => {
     if (trashedItems.length === 0) return;
-    Alert.alert(
+    vaultAlert.alert(
       "Empty Trash",
       `Permanently delete all ${trashedItems.length} items in Trash?`,
       [

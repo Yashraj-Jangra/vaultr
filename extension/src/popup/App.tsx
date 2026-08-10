@@ -34,7 +34,7 @@ export interface AccountInfo {
 
 export function App() {
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [serverUrl, setServerUrl] = useState("http://localhost:3000");
+  const [serverUrl, setServerUrl] = useState("https://vaultr.cvweb.qzz.io");
   const [items, setItems] = useState<VaultItem[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("vault");
@@ -57,7 +57,7 @@ export function App() {
       if (chrome.runtime.lastError) { setLoading(false); return; }
       if (res) {
         setIsUnlocked(res.isUnlocked);
-        setServerUrl(res.serverUrl || "http://localhost:3000");
+        setServerUrl(res.serverUrl || "https://vaultr.cvweb.qzz.io");
         if (res.isUnlocked) {
           fetchItems();
           fetchAccountInfo();

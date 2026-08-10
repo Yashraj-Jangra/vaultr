@@ -99,7 +99,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   masterPassword: null,
   isUnlocked: false,
   isLoading: false,
-  serverUrl: "http://localhost:3000",
+  serverUrl: "https://vaultr.cvweb.qzz.io",
   searchQuery: "",
   selectedFolder: "ALL",
   selectedTemplate: "ALL",

@@ -11,8 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
-  Alert,
 } from "react-native";
+import { vaultAlert } from "../store/alertStore";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -69,9 +69,11 @@ export function UnlockScreen() {
     try {
       const enabled = await isBiometricEnabled();
       if (!enabled) {
-        Alert.alert(
+        vaultAlert.alert(
           "Biometrics Not Enrolled",
-          "Please unlock your vault with your Master Password first, then enable Biometric Unlock in Security Settings."
+          "Please unlock your vault with your Master Password first, then enable Biometric Unlock in Security Settings.",
+          undefined,
+          { illustration: "cancel_k4w9" }
         );
         return;
       }
@@ -82,12 +84,12 @@ export function UnlockScreen() {
         await unlock(res.password);
       } else if (res.error && res.error !== "cancel") {
         setUnlockError(res.error);
-        Alert.alert("Biometric Unlock Error", res.error);
+        vaultAlert.alert("Biometric Unlock Error", res.error, undefined, { illustration: "cancel_k4w9" });
       }
     } catch (err: any) {
       const msg = err?.message || "Failed to authenticate with biometrics.";
       setUnlockError(msg);
-      Alert.alert("Biometric Error", msg);
+      vaultAlert.alert("Biometric Error", msg, undefined, { illustration: "cancel_k4w9" });
     } finally {
       setUnlocking(false);
     }

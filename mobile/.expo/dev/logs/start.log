@@ -2618,3 +2618,122 @@
 {"_e":"metro:client_log","_t":1786387432745,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}
 {"_e":"metro:client_log","_t":1786387706598,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}
 {"_e":"metro:client_log","_t":1786387734120,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}
+{"_e":"metro:client_log","_t":1786387896825,"level":"log","data":["[AutoLock] App in background for 2s >= 0m timeout. Locking vault."]}
+{"_e":"metro:client_log","_t":1786387896897,"level":"log","data":["[AutoLock] App in background for 2s >= 0m timeout. Locking vault."]}
+{"_e":"metro:client_log","_t":1786387896897,"level":"log","data":["[AutoLock] App in background for 2s >= 0m timeout. Locking vault."]}
+{"_e":"metro:bundling:started","_t":1786387914409,"id":"g","platform":"android","environment":null,"entry":"mobile\\src\\App.tsx"}
+{"_e":"metro:bundling:progress","_t":1786387914409,"id":"g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1786387914704,"id":"g","total":1,"ms":295.1645}
+{"_e":"metro:client_log","_t":1786387920075,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}
+{"_e":"metro:client_log","_t":1786387979877,"level":"log","data":["[AutoLock] App in background for 5s >= 0m timeout. Locking vault."]}
+{"_e":"metro:bundling:started","_t":1786388228498,"id":"h","platform":"android","environment":null,"entry":"mobile\\src\\App.tsx"}
+{"_e":"metro:bundling:progress","_t":1786388228499,"id":"h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1786388228796,"id":"h","total":1,"ms":297.442}
+{"_e":"metro:client_log","_t":1786388233426,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}
+{"_e":"metro:bundling:started","_t":1786389057943,"id":"o","platform":"android","environment":null,"entry":"mobile\\src\\App.tsx"}
+{"_e":"metro:bundling:progress","_t":1786389057943,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389057953,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389058055,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389058161,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389059143,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389059604,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389059704,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389059804,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389059904,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060004,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060104,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060204,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060304,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060404,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060504,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060604,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060704,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060813,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389060913,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061015,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061114,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061214,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061314,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061414,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061514,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061615,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061716,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389061864,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:failed","_t":1786389062120,"id":"o","message":"SyntaxError: D:\\Projects\\_vaultr\\mobile\\src\\screens\\UnlockScreen.tsx: Identifier 'Dimensions' has already been declared. (14:2)\n\n  12 |   Platform,\n  13 |   Dimensions,\n> 14 |   Dimensions,\n     |   ^\n  15 | } from \"react-native\";\n  16 | import { vaultAlert } from \"../store/alertStore\";\n  17 | import Animated, {","importStack":null,"filename":"src\\screens\\UnlockScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:started","_t":1786389168155,"id":"p","platform":"android","environment":null,"entry":"mobile\\src\\App.tsx"}
+{"_e":"metro:bundling:progress","_t":1786389168155,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389168165,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389168265,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389168771,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169131,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169232,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169333,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169432,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169532,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169632,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169732,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169832,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389169932,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170032,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170154,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170259,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170360,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170460,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170565,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170666,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170766,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170866,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389170966,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171066,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171166,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171266,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171444,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171487,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171668,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389171927,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:failed","_t":1786389171992,"id":"p","message":"SyntaxError: D:\\Projects\\_vaultr\\mobile\\src\\screens\\settings\\SecuritySettingsScreen.tsx: Identifier 'ScrollView' has already been declared. (9:2)\n\n   7 |   StatusBar,\n   8 |   ScrollView,\n>  9 |   ScrollView,\n     |   ^\n  10 | } from \"react-native\";\n  11 | import { vaultAlert } from \"../../store/alertStore\";\n  12 | import { CustomSwitch } from \"../../components/CustomSwitch\";","importStack":null,"filename":"src\\screens\\settings\\SecuritySettingsScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:started","_t":1786389281835,"id":"q","platform":"android","environment":null,"entry":"mobile\\src\\App.tsx"}
+{"_e":"metro:bundling:progress","_t":1786389281835,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389281844,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389281944,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389282447,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389282810,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389282910,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283012,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283112,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283212,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283312,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283412,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283512,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283612,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283713,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283814,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389283915,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284015,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284116,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284216,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284319,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284418,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284518,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284618,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284718,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284821,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389284926,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389285065,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389285259,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389285299,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389285466,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389285473,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1786389285860,"id":"q","total":1,"ms":4025.4141}
+{"_e":"metro:client_log","_t":1786389290495,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}
+{"_e":"metro:client_log","_t":1786389292435,"level":"error","data":["React has detected a change in the order of Hooks called by CustomAlertOverlay. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useCallback                useCallback\n2. useCallback                useCallback\n3. useSyncExternalStore       useSyncExternalStore\n4. useDebugValue              useDebugValue\n5. useState                   useState\n6. useEffect                  useEffect\n7. useState                   useState\n8. useEffect                  useEffect\n9. useEffect                  useEffect\n10. undefined                 useRef\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1786389292515,"level":"error","data":["[Error: Rendered more hooks than during the previous render.]"]}
+{"_e":"metro:client_log","_t":1786389465188,"level":"log","data":["[AutoLock] App in background for 6s >= 0m timeout. Locking vault."]}
+{"_e":"metro:bundling:started","_t":1786389930741,"id":"w","platform":"android","environment":null,"entry":"mobile\\src\\App.tsx"}
+{"_e":"metro:bundling:progress","_t":1786389930742,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389930745,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389930846,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389931030,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1786389931171,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1786389931486,"id":"w","total":1,"ms":744.2692}
+{"_e":"metro:client_log","_t":1786389935311,"level":"log","data":["[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async."]}

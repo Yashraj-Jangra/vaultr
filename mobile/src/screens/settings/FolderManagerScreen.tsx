@@ -51,7 +51,7 @@ export function FolderManagerScreen({ navigation }: any) {
             onPress={() => handleSelectFolder(item.name)}
           >
             <View style={styles.iconCircle}>
-              <Folder size={18} color={colors.accent} />
+              <Folder size={22} color={colors.accent} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.folderName}>{item.name}</Text>

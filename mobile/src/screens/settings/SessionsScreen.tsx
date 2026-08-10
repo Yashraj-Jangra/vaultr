@@ -7,10 +7,10 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Platform,
 } from "react-native";
+import { vaultAlert } from "../../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
@@ -156,7 +156,7 @@ export function SessionsScreen({ navigation }: any) {
   };
 
   const handleRevokeSession = (sessionId: string, deviceName: string) => {
-    Alert.alert(
+    vaultAlert.alert(
       "Revoke Session",
       `Are you sure you want to sign out ${deviceName}?`,
       [
@@ -175,10 +175,10 @@ export function SessionsScreen({ navigation }: any) {
                 setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
               } else {
                 const data = await res.json().catch(() => ({}));
-                Alert.alert("Error", data.error || "Failed to revoke session.");
+                vaultAlert.alert("Error", data.error || "Failed to revoke session.", undefined, { illustration: "cancel_k4w9" });
               }
             } catch (err: any) {
-              Alert.alert("Error", err?.message || "Network error revoking session.");
+              vaultAlert.alert("Error", err?.message || "Network error revoking session.", undefined, { illustration: "cancel_k4w9" });
             } finally {
               setRevokingId(null);
             }
@@ -192,7 +192,7 @@ export function SessionsScreen({ navigation }: any) {
     const otherCount = sessions.filter((s) => !s.isCurrent).length;
     if (otherCount === 0) return;
 
-    Alert.alert(
+    vaultAlert.alert(
       "Sign Out All Other Devices",
       `Are you sure you want to sign out ${otherCount} other active device session${otherCount > 1 ? "s" : ""}?`,
       [
@@ -209,13 +209,13 @@ export function SessionsScreen({ navigation }: any) {
               });
               if (res.ok) {
                 setSessions((prev) => prev.filter((s) => s.isCurrent));
-                Alert.alert("Sessions Revoked", "All other device sessions have been logged out.");
+                vaultAlert.alert("Sessions Revoked", "All other device sessions have been logged out.", undefined, { illustration: "completed-task_c11d" });
               } else {
                 const data = await res.json().catch(() => ({}));
-                Alert.alert("Error", data.error || "Failed to revoke all sessions.");
+                vaultAlert.alert("Error", data.error || "Failed to revoke all sessions.", undefined, { illustration: "cancel_k4w9" });
               }
             } catch (err: any) {
-              Alert.alert("Error", err?.message || "Network error.");
+              vaultAlert.alert("Error", err?.message || "Network error.", undefined, { illustration: "cancel_k4w9" });
             } finally {
               setRevokingAll(false);
             }
