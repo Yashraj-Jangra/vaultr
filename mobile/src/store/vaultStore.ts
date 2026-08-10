@@ -28,6 +28,7 @@ interface VaultState {
   signInAccount: (email: string, pass: string, url: string) => Promise<void>;
   registerAccount: (name: string, username: string, email: string, pass: string, url: string) => Promise<void>;
   signInWithGoogle: (url?: string) => Promise<void>;
+  updateAccountUser: (updates: Partial<AccountUser>) => Promise<void>;
   signOutAccount: () => Promise<void>;
   setServerUrl: (url: string) => void;
   setSearchQuery: (query: string) => void;
@@ -263,6 +264,16 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       set({ isLoading: false });
       throw err;
     }
+  },
+
+  updateAccountUser: async (updates) => {
+    const { accountUser, accountToken, serverUrl } = get();
+    if (!accountUser) return;
+    const newUser = { ...accountUser, ...updates };
+    if (accountToken && serverUrl) {
+      await saveAccountSession(accountToken, newUser, serverUrl);
+    }
+    set({ accountUser: newUser });
   },
 
   signOutAccount: async () => {

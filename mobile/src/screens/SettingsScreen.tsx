@@ -78,7 +78,11 @@ export function SettingsScreen({ navigation }: any) {
           activeOpacity={0.75}
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+            {accountUser?.image ? (
+              <Image source={{ uri: accountUser.image }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+            )}
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName} numberOfLines={1}>
@@ -229,16 +233,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#1f1f1f",
-    borderWidth: 1,
-    borderColor: "#262626",
+    backgroundColor: "#7c3aed",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  avatarImg: { width: 44, height: 44, borderRadius: 22 },
   avatarLetter: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#f4f4f5",
+    color: "#ffffff",
   },
   profileInfo: { flex: 1 },
   profileName: { fontSize: 14, fontWeight: "600", color: "#f4f4f5" },

@@ -12,11 +12,10 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Vault Screen Top Bar Branding & Clean Avatar Overhaul**:
-  - **Larger Brand Logo**: Scaled Vaultr brand logo (`logo-dark.png`) to `26px` height × `112px` width with `1.0` full opacity.
-  - **Removed AES-256 Badge**: Completely removed the `AES-256` zero-knowledge badge tag and all associated stylesheet classes (`zeroKnowledgeBadge`, `greenDot`, `zeroKnowledgeText`, `headerLeft`).
-  - **Clean Search Icon Button**: Removed background box container/border around the search button (`headerIconOnlyBtn`), leaving a clean touchable `Search` icon button (`20px`, `#e4e4e7`).
-  - **Borderless Avatar Profile Button**: Removed purple border ring (`borderWidth: 2, borderColor: "#7c3aed"`) from avatar container (`accountAvatarBtn`), creating a clean borderless circular profile avatar (`34px × 34px`).
+- [x] **Account Settings Redesign & Avatar Visibility Fix**:
+  - **Full Web Feature Port (`AccountSettingsScreen.tsx`)**: Built complete dark neutral card layout featuring Primary Profile editing (Display Name, custom Avatar Image URL with 1-tap save/remove), Personal Details (First/Last name, Phone), Live Vault Storage Meter (`14.5 KB / 100 MB` usage track), Sign-In Providers status list (`Email / Password` active, `Google` linked), Master Password zero-knowledge re-encryption form, and Account Password update form.
+  - **Profile Avatar Rendering Fix**: Fixed avatar image/initial rendering across `VaultListScreen.tsx`, `SettingsScreen.tsx`, and `AccountSettingsScreen.tsx`. Displays custom profile photo when `accountUser.image` URL exists or vibrant `#7c3aed` initial badge fallback (`YA` / `V`) with white text.
+  - **State Store Integration (`vaultStore.ts`)**: Added `updateAccountUser` helper to update profile name & avatar image in store state and persist to secure storage (`saveAccountSession`).
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:
