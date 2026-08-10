@@ -13,10 +13,10 @@
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
 - [x] **Vault Screen Top Bar Branding & Clean Avatar Overhaul**:
-  - **Brand Header & Zero-Knowledge Badge**: Rendered Vaultr brand logo (`logo-dark.png`, `22px` height) with `AES-256` zero-knowledge indicator badge on the top left of the header.
+  - **Larger Brand Logo**: Scaled Vaultr brand logo (`logo-dark.png`) to `26px` height × `112px` width with `1.0` full opacity.
+  - **Removed AES-256 Badge**: Completely removed the `AES-256` zero-knowledge badge tag and all associated stylesheet classes (`zeroKnowledgeBadge`, `greenDot`, `zeroKnowledgeText`, `headerLeft`).
   - **Clean Search Icon Button**: Removed background box container/border around the search button (`headerIconOnlyBtn`), leaving a clean touchable `Search` icon button (`20px`, `#e4e4e7`).
   - **Borderless Avatar Profile Button**: Removed purple border ring (`borderWidth: 2, borderColor: "#7c3aed"`) from avatar container (`accountAvatarBtn`), creating a clean borderless circular profile avatar (`34px × 34px`).
-  - **Consistent Vertical Alignment**: Aligned brand logo, search action, and profile avatar heights consistently with 12px vertical header padding and 14px item gap.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

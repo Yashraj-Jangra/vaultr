@@ -121,17 +121,11 @@ export function VaultListScreen({ navigation }: Props) {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Image
-            source={require("../../assets/brand/logo-dark.png")}
-            style={styles.headerBrandLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.zeroKnowledgeBadge}>
-            <View style={styles.greenDot} />
-            <Text style={styles.zeroKnowledgeText}>AES-256</Text>
-          </View>
-        </View>
+        <Image
+          source={require("../../assets/brand/logo-dark.png")}
+          style={styles.headerBrandLogo}
+          resizeMode="contain"
+        />
 
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -363,29 +357,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#141417",
   },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   headerBrandLogo: {
-    height: 22,
-    width: 95,
-    opacity: 0.95,
+    height: 26,
+    width: 112,
+    opacity: 1,
   },
-  zeroKnowledgeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
-    backgroundColor: "rgba(16,185,129,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.2)",
-  },
-  greenDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#10b981" },
-  zeroKnowledgeText: { fontSize: 9.5, color: "#34d399", fontWeight: "600", fontFamily: "monospace" },
 
   headerRight: {
     flexDirection: "row",
