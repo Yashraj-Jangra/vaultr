@@ -7,11 +7,13 @@ export function SiteIcon({
   name,
   url,
   size = 36,
+  className,
 }: {
   domain?: string;
   name: string;
   url?: string;
   size?: number;
+  className?: string;
 }) {
   const [hasError, setHasError] = useState(false);
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
@@ -20,7 +22,7 @@ export function SiteIcon({
   const roundedClass = size >= 32 ? "rounded-xl" : size >= 20 ? "rounded-lg" : "rounded";
 
   if (!effectiveDomain || hasError) {
-    return <Globe className={`${sizeClass} shrink-0 text-neutral-400 select-none`} />;
+    return <Globe className={`${sizeClass} shrink-0 text-neutral-400 select-none ${className || ""}`} />;
   }
 
   const src = `/api/favicon?domain=${encodeURIComponent(effectiveDomain)}`;
@@ -32,7 +34,7 @@ export function SiteIcon({
       src={src}
       alt="Site Icon"
       onError={() => setHasError(true)}
-      className={`${sizeClass} shrink-0 ${roundedClass} object-contain select-none`}
+      className={`${sizeClass} shrink-0 ${roundedClass} object-contain select-none ${className || ""}`}
     />
   );
 }

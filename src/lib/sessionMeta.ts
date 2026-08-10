@@ -326,22 +326,34 @@ export async function getAllSessions(opts: {
 
   return {
     total,
-    sessions: rows.map((r) => ({
-      sessionId:    r.sessionId,
-      createdAt:    r.createdAt,
-      expiresAt:    r.expiresAt,
-      isCurrent:    false,
-      userId:       r.userId,
-      userEmail:    r.userEmail,
-      userName:     r.userName,
-      deviceName:   r.deviceName ?? "Unknown Device",
-      browser:      r.browser    ?? "Unknown",
-      os:           r.os         ?? "Unknown",
-      ipAddress:    r.ipAddress  ?? null,
-      country:      r.country    ?? null,
-      city:         r.city       ?? null,
-      lastActiveAt: r.lastActiveAt ?? null,
-    })),
+    sessions: rows.map((r) => {
+      const osLower = (r.os || "").toLowerCase();
+      const browserLower = (r.browser || "").toLowerCase();
+      const devLower = (r.deviceName || "").toLowerCase();
+
+      const isMobileApp = browserLower.includes("vaultr mobile") || devLower.includes("vaultr mobile");
+      const isMobileDevice = isMobileApp || osLower.includes("android") || osLower.includes("iphone") || osLower.includes("ipad") || devLower.includes("mobile");
+      const clientType = isMobileApp ? "mobile_app" : isMobileDevice ? "mobile_browser" : "desktop_web";
+
+      return {
+        sessionId:    r.sessionId,
+        createdAt:    r.createdAt,
+        expiresAt:    r.expiresAt,
+        isCurrent:    false,
+        userId:       r.userId,
+        userEmail:    r.userEmail,
+        userName:     r.userName,
+        deviceName:   r.deviceName ?? "Unknown Device",
+        browser:      r.browser    ?? "Unknown",
+        os:           r.os         ?? "Unknown",
+        isMobile:     isMobileDevice,
+        clientType,
+        ipAddress:    r.ipAddress  ?? null,
+        country:      r.country    ?? null,
+        city:         r.city       ?? null,
+        lastActiveAt: r.lastActiveAt ?? null,
+      };
+    }),
   };
 }
 

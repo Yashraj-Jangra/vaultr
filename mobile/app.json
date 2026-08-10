@@ -3,7 +3,7 @@
     "name": "Vaultr",
     "slug": "vaultr-mobile",
     "scheme": "vaultr",
-    "version": "1.0.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -22,7 +22,8 @@
         "USE_BIOMETRIC",
         "USE_FINGERPRINT",
         "BIND_AUTOFILL_SERVICE"
-      ]
+      ],
+      "versionCode": 2
     },
     "plugins": [
       [

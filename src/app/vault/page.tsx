@@ -1029,19 +1029,6 @@ export default function VaultPage() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const handleUnlock = async () => {
-    if (!masterPassword) return;
-    setUnlockError("");
-    setUnlocking(true);
-    // ctxUnlock validates password, saves session, and returns an error string on failure
-    const err = await ctxUnlock(masterPassword);
-    if (err) {
-      setUnlockError(err);
-      setShakeKey(k => k + 1);
-    }
-    setUnlocking(false);
-  };
-
   const handleSave = async (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editIdParams?: string): Promise<string | undefined> => {
     if (!cryptoKey || !user) return;
     const blob = await encryptData(JSON.stringify(payload));
