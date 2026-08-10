@@ -198,7 +198,7 @@ export function UnlockScreen() {
   const renderForgot = () => (
     <View>
       <View style={styles.centeredIconWrap}>
-        <Illustration name="forgot_password" width={180} height={130} style={{ marginBottom: 12 }} />
+        <Illustration name="forgot-password_nttj" width={180} height={130} style={{ marginBottom: 12 }} />
         <Text style={styles.subViewTitle}>Unrecoverable Password</Text>
       </View>
 
@@ -246,7 +246,7 @@ export function UnlockScreen() {
   const renderWhy = () => (
     <View>
       <View style={styles.centeredIconWrap}>
-        <Illustration name="authentication" width={180} height={130} style={{ marginBottom: 12 }} />
+        <Illustration name="mobile-encryption_flk2" width={180} height={130} style={{ marginBottom: 12 }} />
         <Text style={styles.subViewTitle}>Local Decryption</Text>
       </View>
 

@@ -201,9 +201,9 @@ export function AuthScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Hero illustration — matches web auth page */}
+            {/* Hero illustration — exact match with web auth page */}
             <Illustration
-              name={isSignUp ? "authentication" : "secure_login"}
+              name={isSignUp ? "authentication_1evl" : "secure-login_m11a"}
               width={160}
               height={110}
               style={{ alignSelf: "center", marginVertical: 6 }}

@@ -116,7 +116,7 @@ export function TrashScreen({ navigation }: any) {
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Illustration name="empty_trash" width={180} height={130} style={{ marginBottom: 16 }} />
+            <Illustration name="throw-away_k2t5" width={180} height={130} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyTitle}>Trash is Empty</Text>
             <Text style={styles.emptyDesc}>Items moved to trash will appear here.</Text>
           </View>

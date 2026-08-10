@@ -315,7 +315,7 @@ export function VaultListScreen({ navigation }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Illustration name="empty_vault" width={180} height={150} style={{ marginBottom: 12 }} />
+            <Illustration name="vault_tyfh" width={180} height={150} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>
               {searchQuery ? "No results found" : "Your vault is empty"}
             </Text>
