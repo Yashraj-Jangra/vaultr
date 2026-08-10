@@ -12,11 +12,9 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Vault List Screen Overhaul & Layout Fixes (`VaultListScreen.tsx`)**:
-  - **Android Status Bar Notch Padding**: Applied `paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0` to container styling, ensuring the brand header and account avatar never overlap or clip under the Android status bar notch.
-  - **Unconstrained Filter Pill Scroll**: Removed rigid `maxHeight` constraints and updated pill typography (`fontSize: 12`, `paddingVertical: 6`, `paddingHorizontal: 13`), preventing text truncation and vertical squishing on template pills (`Logins`, `Cards`, `Notes`, `Addresses`, `Profiles`).
-  - **Search Input Layout Fix**: Realigned search input and count pill (`278 items`) to prevent placeholder text truncation.
-  - **Item Row Visual Refinements**: Enlarged icon badges (`36px × 36px`, `borderRadius: 10px`), increased item name contrast (`14px font-semibold #f4f4f5`), refined sub-line typography (`11.5px monospace #71717a`), and aligned date labels (`11px #525252`).
+- [x] **Cross-Platform Safe Area & Status Bar / Navigation Bar Insets Overhaul**:
+  - **Cross-Platform `SafeAreaView` (`react-native-safe-area-context`)**: Upgraded all screen layouts (`VaultListScreen`, `AuthScreen`, `UnlockScreen`, `SettingsScreen`, `GeneratorScreen`, `AuthenticatorScreen`, `ItemDetailScreen`, `ItemFormScreen`, `TrashScreen`, and all settings sub-screens) to use `SafeAreaView` from `react-native-safe-area-context`. This enforces hardware notch, status bar, and bottom gesture bar insets on both Android and iOS.
+  - **Dynamic Bottom Navigation Insets (`MainTabs.tsx`)**: Refactored `tabBarStyle` to use `useSafeAreaInsets()`, dynamically adjusting bottom tab bar padding (`54px + insets.bottom`) to ensure bottom navigation tabs float cleanly above Android system gesture/navigation bars.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

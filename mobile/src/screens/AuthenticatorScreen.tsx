@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, SafeAreaView, StatusBar, FlatList, ActivityIndicator } from "react-native";
+import { StyleSheet, Text, View, StatusBar, FlatList, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";

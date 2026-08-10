@@ -4,11 +4,11 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   FlatList,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
 import { Trash2, RotateCcw, ArrowLeft, ShieldAlert } from "lucide-react-native";

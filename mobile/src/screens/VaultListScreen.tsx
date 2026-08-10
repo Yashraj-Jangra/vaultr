@@ -6,13 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   RefreshControl,
   Image,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
 import { SiteIcon } from "../components/SiteIcon";
 import { colors, TEMPLATE_COLORS } from "../theme/colors";
@@ -362,11 +362,7 @@ export function VaultListScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#09090b",
-    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 28) : 0,
-  },
+  container: { flex: 1, backgroundColor: "#09090b" },
 
   // Header
   header: {
