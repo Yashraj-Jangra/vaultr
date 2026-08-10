@@ -12,9 +12,9 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Master Password Unlock Screen Enhancements (`UnlockScreen.tsx`)**:
-  - **Background Grid Pattern (`GridBackground`)**: Rendered the exact `40px x 40px` dotted SVG grid overlay (`<Pattern>` with `0.05` opacity lines) matching the browser extension and web application's `.unlock-bg-grid` background.
-  - **Enlarged Hero Security Logo**: Increased security lock box dimensions (`96px x 96px`, `borderRadius: 26px`), brand lock icon (`60px x 60px`), outer halo rings (`160px` & `120px`), and `_vaultr` header logo mark (`110px x 22px`).
+- [x] **Zero-Knowledge Master Password Decryption Verification (`vaultStore.ts`)**:
+  - Added sample item blob test decryption (`decrypt(key, testItem.encryptedBlob)`) during `unlock()` execution in `vaultStore.ts`.
+  - Ensures invalid master passwords throw an explicit `"Incorrect master password."` error before unlocking, triggering error alert feedback and shake animation on `UnlockScreen.tsx` instead of allowing unauthenticated access.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

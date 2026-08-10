@@ -304,6 +304,16 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         items = await getCachedVaultItems();
       }
 
+      // Zero-Knowledge Master Password Validation: test decrypting a sample item
+      const testItem = items.find((i) => !!i.encryptedBlob);
+      if (testItem) {
+        try {
+          await decrypt(key, testItem.encryptedBlob);
+        } catch (err) {
+          throw new Error("Incorrect master password.");
+        }
+      }
+
       set({
         cryptoKey: key,
         masterPassword,
