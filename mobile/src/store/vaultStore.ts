@@ -3,6 +3,7 @@ import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, NewVaultItemPa
 import { cacheVaultItems, getCachedVaultItems, flushOfflineQueue, queueOfflineAction } from "../services/sync";
 import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
+import { syncAutofillCredentials } from "../services/autofill";
 
 interface VaultState {
   // Auth state
@@ -189,6 +190,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         isLoading: false,
         serverUrl,
       });
+
+      // Async sync logins to native AutofillCredentialStore
+      setTimeout(() => {
+        syncAutofillStore();
+      }, 100);
     } catch (err) {
       set({ isLoading: false });
       throw err;
@@ -378,4 +384,29 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     await cacheVaultItems(updatedItems);
   },
 }));
+
+/** Decrypts active login entries in background and syncs credentials to native AutofillCredentialStore. */
+async function syncAutofillStore() {
+  const { items, cryptoKey } = useVaultStore.getState();
+  if (!cryptoKey) return;
+  const loginItems = items.filter((i) => (i.template || "login") === "login" && !i.deletedAt);
+  const datasets: any[] = [];
+  for (const item of loginItems) {
+    try {
+      const raw = await decrypt(cryptoKey, item.encryptedBlob);
+      const p = JSON.parse(raw);
+      if (p.username || p.password) {
+        datasets.push({
+          id: item.id,
+          name: item.name,
+          domain: item.domain || p.url,
+          username: p.username || "",
+          password: p.password || "",
+        });
+      }
+    } catch {}
+  }
+  await syncAutofillCredentials(datasets);
+}
+
 

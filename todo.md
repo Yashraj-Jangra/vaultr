@@ -6,7 +6,7 @@
 
 ## ✅ Completed This Session (2026-08-10)
 
-### Android Mobile App Phase 1 to 7 — Complete Rebuild & Native Android Autofill Service
+### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Template Parity & Native Autofill
 - [x] **API Client Bearer & Cookie Header Wiring (`vaultStore.ts`)**: Created `getApiClient()` helper that automatically attaches `Authorization: Bearer <token>` and `Cookie: better-auth.session_token=<token>` headers on all network calls (`getItems`, `createItem`, `updateItem`, `deleteItem`), eliminating HTTP 401 unauthenticated errors.
 - [x] **PBKDF2 Per-User Salt Key Derivation (`vaultStore.ts`)**: Fixed `deriveKey(masterPassword, salt)` to derive keys using `accountUser.id` instead of a static `"vaultr_default_salt"`, ensuring on-device decryption keys match the web application.
 - [x] **Auth Sign-In Error Handling & Response Parsing (`vaultStore.ts` & `auth.ts`)**: Updated `signInAccount` to throw an explicit error on HTTP non-200 responses, eliminating fake fallback token generation and ensuring invalid credentials report clear feedback.
@@ -21,12 +21,13 @@
   - **`TrashScreen.tsx`**: Trashed items view, item restore button, permanent hard delete button, and Empty Trash action.
   - **`VaultListScreen.tsx`**: Pull-to-refresh (`RefreshControl`), Favorites pill filter, 2FA badge indicator, item favorite star toggle, and quick Trash button.
   - **`ItemDetailScreen.tsx`**: SiteIcon branding, launch URL button, favorite star toggle, move-to-trash action button.
-- [x] **Shared UI Components & Design System**:
-  - **`TotpCode.tsx`**: Live RFC 6238 TOTP generator component with progress countdown bar.
-  - **`PasswordStrengthBar.tsx`**: 4-segment strength meter component.
-  - **`IllustrationEmpty.tsx`**: SVG empty state component with halo radial glow.
-  - **Design System Tokens (`typography.ts`, `spacing.ts`)**: Font scales, spacing scales, and color theme system.
+- [x] **Full Template & 2FA Support (`ItemFormScreen.tsx`, `ItemDetailScreen.tsx`, `AuthenticatorScreen.tsx`)**:
+  - **Live 2FA TOTP Integration**: Integrated `TotpCode` into `ItemDetailScreen.tsx` and `AuthenticatorScreen.tsx` to render live RFC 6238 2FA codes with circular/linear progress bars.
+  - **Card Template**: Cardholder Name, Card Number, Expiry Date, CVV with 3-dot mask `"•••"`.
+  - **Address Template**: Street, City, State, ZIP, Country.
+  - **Profile Template**: First Name, Last Name, Email, Phone.
 - [x] **Native Android Autofill Service (`VaultrAutofillService.kt`, `AutofillCredentialStore.kt`, `VaultrAutofillModule.kt`)**: Built native Kotlin Android `AutofillService` (API 26+) traversing `AssistStructure` to present inline dataset suggestions in keyboard bars and native system fields. Registered `BIND_AUTOFILL_SERVICE` in `AndroidManifest.xml` and created Expo JS NativeModule bridge (`autofill.ts`).
+- [x] **Automatic Background Autofill Credentials Indexing (`vaultStore.ts`)**: Added `syncAutofillStore()` background decryptor that updates `AutofillCredentialStore` whenever vault items are loaded or modified.
 - [x] **Background Auto-Lock Engine (`autoLock.ts`)**: Built AppState background lifecycle listener that tracks background time and automatically locks vault when configured auto-lock duration elapses.
 
 ---

@@ -15,6 +15,7 @@ import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
+import { colors } from "../theme/colors";
 import {
   X,
   Lock,
@@ -23,7 +24,7 @@ import {
   User,
   MapPin,
   Save,
-  Wand2,
+  KeyRound,
 } from "lucide-react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemForm">;
@@ -47,10 +48,33 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [folder, setFolder] = useState(item?.folder || "");
   const [saving, setSaving] = useState(false);
 
-  // Template specific fields
+  // Login fields
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [url, setUrl] = useState("");
+  const [totpSecret, setTotpSecret] = useState("");
+
+  // Card fields
+  const [cardholderName, setCardholderName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expMonth, setExpMonth] = useState("");
+  const [expYear, setExpYear] = useState("");
+  const [cvv, setCvv] = useState("");
+
+  // Address fields
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [stateStr, setStateStr] = useState("");
+  const [zip, setZip] = useState("");
+  const [country, setCountry] = useState("");
+
+  // Profile fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+  // Note fields
   const [note, setNote] = useState("");
   const [entryNotes, setEntryNotes] = useState("");
 
@@ -63,6 +87,25 @@ export function ItemFormScreen({ route, navigation }: Props) {
           if (p.username) setUsername(p.username);
           if (p.password) setPassword(p.password);
           if (p.url) setUrl(p.url);
+          if (p.totpSecret || p.totp_secret) setTotpSecret(p.totpSecret || p.totp_secret);
+          
+          if (p.cardholderName) setCardholderName(p.cardholderName);
+          if (p.cardNumber) setCardNumber(p.cardNumber);
+          if (p.expMonth) setExpMonth(p.expMonth);
+          if (p.expYear) setExpYear(p.expYear);
+          if (p.cvv) setCvv(p.cvv);
+
+          if (p.street) setStreet(p.street);
+          if (p.city) setCity(p.city);
+          if (p.state) setStateStr(p.state);
+          if (p.zip) setZip(p.zip);
+          if (p.country) setCountry(p.country);
+
+          if (p.firstName) setFirstName(p.firstName);
+          if (p.lastName) setLastName(p.lastName);
+          if (p.email) setEmail(p.email);
+          if (p.phone) setPhone(p.phone);
+
           if (p.note) setNote(p.note);
           if (p.entryNotes) setEntryNotes(p.entryNotes);
         } catch {}
@@ -93,11 +136,30 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.password = password;
         unencryptedPayload.url = url.trim();
         unencryptedPayload.urls = url.trim() ? [url.trim()] : [];
+        if (totpSecret.trim()) unencryptedPayload.totpSecret = totpSecret.trim();
+      } else if (template === "card") {
+        unencryptedPayload.cardholderName = cardholderName.trim();
+        unencryptedPayload.cardNumber = cardNumber.trim();
+        unencryptedPayload.expMonth = expMonth.trim();
+        unencryptedPayload.expYear = expYear.trim();
+        unencryptedPayload.cvv = cvv.trim();
+      } else if (template === "address") {
+        unencryptedPayload.street = street.trim();
+        unencryptedPayload.city = city.trim();
+        unencryptedPayload.state = stateStr.trim();
+        unencryptedPayload.zip = zip.trim();
+        unencryptedPayload.country = country.trim();
+      } else if (template === "profile") {
+        unencryptedPayload.firstName = firstName.trim();
+        unencryptedPayload.lastName = lastName.trim();
+        unencryptedPayload.email = email.trim();
+        unencryptedPayload.phone = phone.trim();
       } else if (template === "note") {
         unencryptedPayload.note = note;
       }
 
       const domain = url.trim() || undefined;
+      const hasTotp = template === "login" && !!totpSecret.trim();
 
       if (isEdit && item) {
         await updateItem(item.id, {
@@ -105,6 +167,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
           template,
           folder: folder.trim() || undefined,
           domain,
+          hasTotp,
           unencryptedPayload,
         });
       } else {
@@ -113,6 +176,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
           template,
           folder: folder.trim() || undefined,
           domain,
+          hasTotp,
           unencryptedPayload,
         });
       }
@@ -127,7 +191,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -135,7 +199,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
           style={styles.closeBtn}
           onPress={() => navigation.goBack()}
         >
-          <X size={20} color="#a1a1aa" />
+          <X size={20} color={colors.textMuted} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {isEdit ? "Edit Entry" : "New Entry"}
@@ -146,9 +210,9 @@ export function ItemFormScreen({ route, navigation }: Props) {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#09090b" />
+            <ActivityIndicator size="small" color={colors.bg} />
           ) : (
-            <Save size={18} color="#09090b" />
+            <Save size={18} color={colors.bg} />
           )}
         </TouchableOpacity>
       </View>
@@ -174,7 +238,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
                   >
                     <IconComponent
                       size={14}
-                      color={active ? "#09090b" : "#a1a1aa"}
+                      color={active ? colors.bg : colors.textMuted}
                     />
                     <Text
                       style={[
@@ -198,8 +262,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="e.g. GitHub, Netflix, Work WiFi"
-            placeholderTextColor="#71717a"
+            placeholder="e.g. GitHub, Netflix, Visa Card"
+            placeholderTextColor={colors.textDim}
           />
         </View>
 
@@ -209,8 +273,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
             style={styles.input}
             value={folder}
             onChangeText={setFolder}
-            placeholder="e.g. Work, Personal"
-            placeholderTextColor="#71717a"
+            placeholder="e.g. Work, Personal, Finance"
+            placeholderTextColor={colors.textDim}
           />
         </View>
 
@@ -224,7 +288,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 value={username}
                 onChangeText={setUsername}
                 placeholder="user@example.com"
-                placeholderTextColor="#71717a"
+                placeholderTextColor={colors.textDim}
                 autoCapitalize="none"
               />
             </View>
@@ -236,7 +300,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••••••"
-                placeholderTextColor="#71717a"
+                placeholderTextColor={colors.textDim}
                 secureTextEntry
               />
             </View>
@@ -248,8 +312,203 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 value={url}
                 onChangeText={setUrl}
                 placeholder="https://github.com"
-                placeholderTextColor="#71717a"
+                placeholderTextColor={colors.textDim}
                 autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>2FA TOTP Secret Key (Optional)</Text>
+              <TextInput
+                style={[styles.input, { fontFamily: "monospace" }]}
+                value={totpSecret}
+                onChangeText={setTotpSecret}
+                placeholder="JBSWY3DPEHPK3PXP"
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="characters"
+              />
+            </View>
+          </>
+        )}
+
+        {/* Card Template Fields */}
+        {template === "card" && (
+          <>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Cardholder Name</Text>
+              <TextInput
+                style={styles.input}
+                value={cardholderName}
+                onChangeText={setCardholderName}
+                placeholder="John Doe"
+                placeholderTextColor={colors.textDim}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Card Number</Text>
+              <TextInput
+                style={[styles.input, { fontFamily: "monospace" }]}
+                value={cardNumber}
+                onChangeText={setCardNumber}
+                placeholder="4532 •••• •••• 8892"
+                placeholderTextColor={colors.textDim}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Exp Month</Text>
+                <TextInput
+                  style={styles.input}
+                  value={expMonth}
+                  onChangeText={setExpMonth}
+                  placeholder="08"
+                  placeholderTextColor={colors.textDim}
+                  keyboardType="numeric"
+                  maxLength={2}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Exp Year</Text>
+                <TextInput
+                  style={styles.input}
+                  value={expYear}
+                  onChangeText={setExpYear}
+                  placeholder="2028"
+                  placeholderTextColor={colors.textDim}
+                  keyboardType="numeric"
+                  maxLength={4}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>CVV</Text>
+                <TextInput
+                  style={[styles.input, { fontFamily: "monospace" }]}
+                  value={cvv}
+                  onChangeText={setCvv}
+                  placeholder="•••"
+                  placeholderTextColor={colors.textDim}
+                  keyboardType="numeric"
+                  secureTextEntry
+                  maxLength={4}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Address Template Fields */}
+        {template === "address" && (
+          <>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Street Address</Text>
+              <TextInput
+                style={styles.input}
+                value={street}
+                onChangeText={setStreet}
+                placeholder="123 Main St, Apt 4B"
+                placeholderTextColor={colors.textDim}
+              />
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>City</Text>
+                <TextInput
+                  style={styles.input}
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder="San Francisco"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>State / Province</Text>
+                <TextInput
+                  style={styles.input}
+                  value={stateStr}
+                  onChangeText={setStateStr}
+                  placeholder="CA"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>ZIP / Postal Code</Text>
+                <TextInput
+                  style={styles.input}
+                  value={zip}
+                  onChangeText={setZip}
+                  placeholder="94105"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Country</Text>
+                <TextInput
+                  style={styles.input}
+                  value={country}
+                  onChangeText={setCountry}
+                  placeholder="United States"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Profile Template Fields */}
+        {template === "profile" && (
+          <>
+            <View style={styles.rowTwo}>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>First Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Jane"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Doe"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="jane.doe@example.com"
+                placeholderTextColor={colors.textDim}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+1 (555) 019-2834"
+                placeholderTextColor={colors.textDim}
+                keyboardType="phone-pad"
               />
             </View>
           </>
@@ -264,7 +523,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
               value={note}
               onChangeText={setNote}
               placeholder="Type secure note here..."
-              placeholderTextColor="#71717a"
+              placeholderTextColor={colors.textDim}
               multiline
               numberOfLines={6}
             />
@@ -279,7 +538,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
             value={entryNotes}
             onChangeText={setEntryNotes}
             placeholder="Additional details..."
-            placeholderTextColor="#71717a"
+            placeholderTextColor={colors.textDim}
             multiline
             numberOfLines={3}
           />
@@ -292,7 +551,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#09090b",
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: "row",
@@ -301,22 +560,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#18181b",
+    borderBottomColor: colors.border,
   },
   closeBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface2,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#f4f4f5",
+    color: colors.text,
   },
   saveBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#f4f4f5",
+    backgroundColor: colors.text,
   },
   content: {
     padding: 16,
@@ -325,18 +584,22 @@ const styles = StyleSheet.create({
   formGroup: {
     gap: 6,
   },
+  rowTwo: {
+    flexDirection: "row",
+    gap: 10,
+  },
   label: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: colors.textMuted,
   },
   input: {
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
-    color: "#f4f4f5",
+    color: colors.text,
     fontSize: 14,
   },
   textArea: {
@@ -351,23 +614,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#18181b",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
   },
   templatePillActive: {
-    backgroundColor: "#f4f4f5",
-    borderColor: "#f4f4f5",
+    backgroundColor: colors.text,
+    borderColor: colors.text,
   },
   templatePillText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#a1a1aa",
+    color: colors.textMuted,
   },
   templatePillTextActive: {
-    color: "#09090b",
+    color: colors.bg,
   },
 });

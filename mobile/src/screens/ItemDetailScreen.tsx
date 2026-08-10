@@ -16,6 +16,7 @@ import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import * as Clipboard from "expo-clipboard";
 import { SiteIcon } from "../components/SiteIcon";
+import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import {
   ArrowLeft,
@@ -189,6 +190,11 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             )}
           </View>
 
+          {/* Live 2FA TOTP Code */}
+          {payload && (payload.totpSecret || payload.totp_secret) ? (
+            <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
+          ) : null}
+
           {/* Fields List */}
           {payload && (
             <View style={styles.fieldsGroup}>
@@ -227,6 +233,115 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     copyToClipboard("url", payload.url || item.domain)
                   }
                   isCopied={copiedField === "url"}
+                />
+              ) : null}
+
+              {/* Card Template Fields */}
+              {payload.cardholderName ? (
+                <DetailRow
+                  icon={<User size={16} color={colors.textMuted} />}
+                  label="Cardholder Name"
+                  value={payload.cardholderName}
+                  onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
+                  isCopied={copiedField === "cardholderName"}
+                />
+              ) : null}
+
+              {payload.cardNumber ? (
+                <DetailRow
+                  icon={<CreditCard size={16} color={colors.cardBlue} />}
+                  label="Card Number"
+                  value={showPassword ? payload.cardNumber : "•••• •••• •••• " + payload.cardNumber.slice(-4)}
+                  onCopy={() => copyToClipboard("cardNumber", payload.cardNumber)}
+                  isCopied={copiedField === "cardNumber"}
+                  onToggleShow={() => setShowPassword(!showPassword)}
+                  isPassword
+                  showPassword={showPassword}
+                />
+              ) : null}
+
+              {payload.expMonth || payload.expYear ? (
+                <DetailRow
+                  icon={<CreditCard size={16} color={colors.textMuted} />}
+                  label="Expiry Date"
+                  value={`${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
+                  onCopy={() => copyToClipboard("exp", `${payload.expMonth}/${payload.expYear}`)}
+                  isCopied={copiedField === "exp"}
+                />
+              ) : null}
+
+              {payload.cvv ? (
+                <DetailRow
+                  icon={<Lock size={16} color={colors.textMuted} />}
+                  label="CVV / Security Code"
+                  value={showPassword ? payload.cvv : "•••"}
+                  onCopy={() => copyToClipboard("cvv", payload.cvv)}
+                  isCopied={copiedField === "cvv"}
+                  onToggleShow={() => setShowPassword(!showPassword)}
+                  isPassword
+                  showPassword={showPassword}
+                />
+              ) : null}
+
+              {/* Address Template Fields */}
+              {payload.street ? (
+                <DetailRow
+                  icon={<FileText size={16} color={colors.textMuted} />}
+                  label="Street Address"
+                  value={payload.street}
+                  onCopy={() => copyToClipboard("street", payload.street)}
+                  isCopied={copiedField === "street"}
+                />
+              ) : null}
+
+              {payload.city || payload.state || payload.zip ? (
+                <DetailRow
+                  icon={<FileText size={16} color={colors.textMuted} />}
+                  label="City, State & ZIP"
+                  value={[payload.city, payload.state, payload.zip].filter(Boolean).join(", ")}
+                  onCopy={() => copyToClipboard("cityState", [payload.city, payload.state, payload.zip].filter(Boolean).join(", "))}
+                  isCopied={copiedField === "cityState"}
+                />
+              ) : null}
+
+              {payload.country ? (
+                <DetailRow
+                  icon={<Globe size={16} color={colors.textMuted} />}
+                  label="Country"
+                  value={payload.country}
+                  onCopy={() => copyToClipboard("country", payload.country)}
+                  isCopied={copiedField === "country"}
+                />
+              ) : null}
+
+              {/* Profile Template Fields */}
+              {payload.firstName || payload.lastName ? (
+                <DetailRow
+                  icon={<User size={16} color={colors.textMuted} />}
+                  label="Full Name"
+                  value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
+                  onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
+                  isCopied={copiedField === "fullName"}
+                />
+              ) : null}
+
+              {payload.email ? (
+                <DetailRow
+                  icon={<User size={16} color={colors.textMuted} />}
+                  label="Email Address"
+                  value={payload.email}
+                  onCopy={() => copyToClipboard("email", payload.email)}
+                  isCopied={copiedField === "email"}
+                />
+              ) : null}
+
+              {payload.phone ? (
+                <DetailRow
+                  icon={<User size={16} color={colors.textMuted} />}
+                  label="Phone Number"
+                  value={payload.phone}
+                  onCopy={() => copyToClipboard("phone", payload.phone)}
+                  isCopied={copiedField === "phone"}
                 />
               ) : null}
 

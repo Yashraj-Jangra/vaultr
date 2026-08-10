@@ -1,13 +1,60 @@
-import React from "react";
-import { StyleSheet, Text, View, SafeAreaView, StatusBar, FlatList } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Text, View, SafeAreaView, StatusBar, FlatList, ActivityIndicator } from "react-native";
 import { useVaultStore } from "../store/vaultStore";
+import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { KeyRound, ShieldCheck } from "lucide-react-native";
+
+function AuthenticatorItemRow({ item }: { item: any }) {
+  const { decryptItemBlob } = useVaultStore();
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await decryptItemBlob(item.encryptedBlob);
+        const p = JSON.parse(raw);
+        if (mounted && (p.totpSecret || p.totp_secret)) {
+          setTotpSecret(p.totpSecret || p.totp_secret);
+        }
+      } catch {
+        // failed to decrypt
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [item.encryptedBlob]);
+
+  if (loading) {
+    return (
+      <View style={styles.cardLoading}>
+        <ActivityIndicator size="small" color={colors.accent} />
+        <Text style={styles.loadingText}>Decrypting 2FA seed for {item.name}...</Text>
+      </View>
+    );
+  }
+
+  if (!totpSecret) {
+    return (
+      <View style={styles.cardFallback}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.subtext}>No TOTP secret string stored in payload</Text>
+      </View>
+    );
+  }
+
+  return <TotpCode secret={totpSecret} name={item.name} />;
+}
 
 export function AuthenticatorScreen() {
   const { items } = useVaultStore();
 
-  const totpItems = items.filter((i) => i.hasTotp);
+  const totpItems = items.filter((i) => i.hasTotp && !i.deletedAt);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -15,7 +62,7 @@ export function AuthenticatorScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <KeyRound size={20} color={colors.accent} />
-          <Text style={styles.headerTitle}>Authenticator</Text>
+          <Text style={styles.headerTitle}>Authenticator ({totpItems.length})</Text>
         </View>
       </View>
 
@@ -23,18 +70,13 @@ export function AuthenticatorScreen() {
         data={totpItems}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.subtext}>{item.domain || "2FA Token"}</Text>
-          </View>
-        )}
+        renderItem={({ item }) => <AuthenticatorItemRow item={item} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <ShieldCheck size={40} color={colors.surface3} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>No TOTP Tokens Enrolled</Text>
             <Text style={styles.emptyDesc}>
-              Add 2FA seeds to your login items to view live authenticator codes here.
+              Add 2FA secret seeds to your login items to view live authenticator codes here.
             </Text>
           </View>
         }
@@ -66,14 +108,28 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    gap: 10,
+    gap: 12,
   },
-  card: {
+  cardLoading: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  cardFallback: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 16,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: 13,
   },
   itemName: {
     fontSize: 15,
@@ -82,7 +138,7 @@ const styles = StyleSheet.create({
   },
   subtext: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: colors.textDim,
     marginTop: 4,
   },
   emptyBox: {
