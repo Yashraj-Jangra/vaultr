@@ -12,10 +12,9 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Google OAuth Mobile Social Sign-In Integration (`signInWithGoogle`, `mobile-callback`, `AuthScreen.tsx`)**:
-  - **Expo WebBrowser Integration (`expo-web-browser`)**: Integrated `WebBrowser.openAuthSessionAsync` in `vaultStore.ts` to trigger in-app browser OAuth authentication sessions against server's Better Auth social endpoint (`/api/auth/sign-in/social?provider=google`).
-  - **Server Mobile OAuth Callback Route (`src/app/api/auth/mobile-callback/route.ts`)**: Built server-side handler that verifies authenticated session from Better Auth, extracts session token, and triggers deep link redirect (`vaultr://auth-callback?token=...&id=...&email=...&name=...`) back to mobile app.
-  - **Mobile Sign-In UI Button & Handlers (`AuthScreen.tsx`)**: Added `GoogleIcon` vector brand asset, `<TouchableOpacity>` "Continue with Google" button, `OR` text divider, and `handleGoogleLogin` handler to `AuthScreen.tsx`.
+- [x] **Master Password Unlock Screen Enhancements (`UnlockScreen.tsx`)**:
+  - **Background Grid Pattern (`GridBackground`)**: Rendered the exact `40px x 40px` dotted SVG grid overlay (`<Pattern>` with `0.05` opacity lines) matching the browser extension and web application's `.unlock-bg-grid` background.
+  - **Enlarged Hero Security Logo**: Increased security lock box dimensions (`96px x 96px`, `borderRadius: 26px`), brand lock icon (`60px x 60px`), outer halo rings (`160px` & `120px`), and `_vaultr` header logo mark (`110px x 22px`).
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

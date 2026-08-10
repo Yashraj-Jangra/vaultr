@@ -15,8 +15,23 @@ import {
   Dimensions,
 } from "react-native";
 import { Lock, Shield, Eye, EyeOff, LogOut } from "lucide-react-native";
+import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
+
+function GridBackground() {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width="100%" height="100%">
+        <Pattern id="unlock-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <Line x1="0" y1="0" x2="40" y2="0" stroke="#ffffff" strokeWidth="1" opacity="0.05" />
+          <Line x1="0" y1="0" x2="0" y2="40" stroke="#ffffff" strokeWidth="1" opacity="0.05" />
+        </Pattern>
+        <Rect width="100%" height="100%" fill="url(#unlock-grid)" />
+      </Svg>
+    </View>
+  );
+}
 
 const { width } = Dimensions.get("window");
 
@@ -286,7 +301,7 @@ export function UnlockScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       {/* Subtle grid background */}
-      <View style={styles.bgGrid} pointerEvents="none" />
+      <GridBackground />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -306,12 +321,6 @@ export function UnlockScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#09090b" },
 
-  // Decorative background grid (opacity 0.02 like web)
-  bgGrid: {
-    ...StyleSheet.absoluteFill,
-    opacity: 0.025,
-  },
-
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
@@ -326,45 +335,49 @@ const styles = StyleSheet.create({
     maxWidth: 340,
   },
 
-  // Lock icon halo — matches web's pulse-ring animation
+  // Lock icon halo — larger hero visual matching website/extension
   iconWrap: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
+    marginBottom: 28,
     position: "relative",
-    height: 100,
+    height: 140,
   },
   halo: {
     position: "absolute",
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   haloInner: {
     position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: "rgba(255,255,255,0.04)",
   },
   lockBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 96,
+    height: 96,
+    borderRadius: 26,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
     borderColor: "#1f1f1f",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
   },
   lockBoxUnlocking: {
     backgroundColor: "#1f1f1f",
     borderColor: "#333",
   },
   lockBrand: {
-    width: 42,
-    height: 42,
+    width: 60,
+    height: 60,
   },
 
   // Heading block
