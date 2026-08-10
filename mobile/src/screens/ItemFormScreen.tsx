@@ -16,6 +16,7 @@ import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
+import { ItemPreviewCard } from "../components/ItemPreviewCard";
 import * as DocumentPicker from "expo-document-picker";
 import {
   X,
@@ -25,10 +26,8 @@ import {
   User,
   MapPin,
   Save,
-  KeyRound,
-  Plus,
-  Trash2,
 } from "lucide-react-native";
+import { Modal, Pressable } from "react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemForm">;
 
@@ -63,6 +62,18 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [expMonth, setExpMonth] = useState("");
   const [expYear, setExpYear] = useState("");
   const [cvv, setCvv] = useState("");
+  const [cardBrand, setCardBrand] = useState("");
+  const [showNetworkPicker, setShowNetworkPicker] = useState(false);
+
+  const CARD_NETWORKS = [
+    { value: "",            label: "Auto-detect" },
+    { value: "Visa",        label: "Visa" },
+    { value: "Mastercard",  label: "Mastercard" },
+    { value: "AMEX",        label: "AMEX" },
+    { value: "Discover",    label: "Discover" },
+    { value: "RuPay",       label: "RuPay" },
+    { value: "Other",       label: "Other" },
+  ];
 
   // Address fields
   const [street, setStreet] = useState("");
@@ -95,11 +106,12 @@ export function ItemFormScreen({ route, navigation }: Props) {
           if (p.url) setUrl(p.url);
           if (p.totpSecret || p.totp_secret) setTotpSecret(p.totpSecret || p.totp_secret);
           
-          if (p.cardholderName) setCardholderName(p.cardholderName);
+          if (p.cardholderName || p.cardName) setCardholderName(p.cardholderName || p.cardName);
           if (p.cardNumber) setCardNumber(p.cardNumber);
           if (p.expMonth) setExpMonth(p.expMonth);
           if (p.expYear) setExpYear(p.expYear);
           if (p.cvv) setCvv(p.cvv);
+          if (p.cardBrand) setCardBrand(p.cardBrand);
 
           if (p.street) setStreet(p.street);
           if (p.city) setCity(p.city);
@@ -174,10 +186,12 @@ export function ItemFormScreen({ route, navigation }: Props) {
         if (totpSecret.trim()) unencryptedPayload.totpSecret = totpSecret.trim();
       } else if (template === "card") {
         unencryptedPayload.cardholderName = cardholderName.trim();
+        unencryptedPayload.cardName = cardholderName.trim(); // web compat
         unencryptedPayload.cardNumber = cardNumber.trim();
         unencryptedPayload.expMonth = expMonth.trim();
         unencryptedPayload.expYear = expYear.trim();
         unencryptedPayload.cvv = cvv.trim();
+        if (cardBrand.trim()) unencryptedPayload.cardBrand = cardBrand.trim();
       } else if (template === "address") {
         unencryptedPayload.street = street.trim();
         unencryptedPayload.city = city.trim();
@@ -257,6 +271,31 @@ export function ItemFormScreen({ route, navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Dynamic Live Preview Canvas */}
+        <View style={styles.previewCanvasWrap}>
+          <ItemPreviewCard
+            template={template}
+            name={name}
+            username={username}
+            url={url}
+            cardholderName={cardholderName}
+            cardNumber={cardNumber}
+            expMonth={expMonth}
+            expYear={expYear}
+            cvv={cvv}
+            cardBrand={cardBrand}
+            street={street}
+            city={city}
+            state={stateStr}
+            zip={zip}
+            country={country}
+            fullName={firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
+            email={email}
+            phone={phone}
+            note={note}
+          />
+        </View>
+
         {/* Template selector pills */}
         {!isEdit && (
           <View style={styles.formGroup}>
@@ -373,16 +412,64 @@ export function ItemFormScreen({ route, navigation }: Props) {
         {/* Card Template Fields */}
         {template === "card" && (
           <>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Cardholder Name</Text>
-              <TextInput
-                style={styles.input}
-                value={cardholderName}
-                onChangeText={setCardholderName}
-                placeholder="John Doe"
-                placeholderTextColor={colors.textDim}
-              />
+            <View style={styles.rowTwo}>
+              <View style={[styles.formGroup, { flex: 2 }]}>
+                <Text style={styles.label}>Cardholder Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={cardholderName}
+                  onChangeText={setCardholderName}
+                  placeholder="John Doe"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Network</Text>
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowNetworkPicker(true)}
+                >
+                  <Text style={[styles.pickerBtnText, !cardBrand && { color: colors.textDim }]}>
+                    {cardBrand || "Auto-detect"}
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 10, marginLeft: 4 }}>▼</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {/* Network Picker Modal */}
+            <Modal
+              visible={showNetworkPicker}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowNetworkPicker(false)}
+            >
+              <Pressable style={styles.pickerOverlay} onPress={() => setShowNetworkPicker(false)}>
+                <View style={styles.pickerSheet}>
+                  <Text style={styles.pickerSheetTitle}>Card Network</Text>
+                  {CARD_NETWORKS.map((n) => (
+                    <TouchableOpacity
+                      key={n.value}
+                      style={[
+                        styles.pickerOption,
+                        cardBrand === n.value && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => {
+                        setCardBrand(n.value);
+                        setShowNetworkPicker(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.pickerOptionText,
+                        cardBrand === n.value && styles.pickerOptionTextActive,
+                      ]}>
+                        {n.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Pressable>
+            </Modal>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Card Number</Text>
@@ -574,7 +661,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
           <View style={styles.attachHeader}>
             <Text style={styles.label}>File Attachments ({attachments.length})</Text>
             <TouchableOpacity style={styles.attachPillBtn} onPress={handlePickDocument} activeOpacity={0.75}>
-              <FileText size={12} color="#a78bfa" />
+              <FileText size={12} color={colors.textMuted} />
               <Text style={styles.attachPillText}>+ Attach File</Text>
             </TouchableOpacity>
           </View>
@@ -648,6 +735,9 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
   },
+  previewCanvasWrap: {
+    marginBottom: 4,
+  },
   formGroup: {
     gap: 6,
   },
@@ -682,14 +772,66 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(124,58,237,0.12)",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(139,92,246,0.3)",
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  attachPillText: { fontSize: 11, fontWeight: "600", color: "#a78bfa" },
+  attachPillText: { fontSize: 11, fontWeight: "600", color: colors.textMuted },
+  pickerBtn: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pickerBtnText: { fontSize: 14, color: colors.text, flex: 1 },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  pickerSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    paddingBottom: 40,
+    gap: 4,
+  },
+  pickerSheetTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  pickerOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  pickerOptionActive: {
+    backgroundColor: colors.text,
+  },
+  pickerOptionText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.text,
+  },
+  pickerOptionTextActive: {
+    color: colors.bg,
+    fontWeight: "700",
+  },
   attachBox: {
     backgroundColor: "#0d0d0d",
     borderWidth: 1,

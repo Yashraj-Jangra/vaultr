@@ -18,6 +18,7 @@ import * as Clipboard from "expo-clipboard";
 import { SiteIcon } from "../components/SiteIcon";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
+import { ItemPreviewCard } from "../components/ItemPreviewCard";
 import {
   ArrowLeft,
   Copy,
@@ -154,6 +155,40 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          {/* Dynamic Live Preview Canvas */}
+          <View style={{ marginBottom: 4 }}>
+            <ItemPreviewCard
+              template={item.template || "login"}
+              name={item.name}
+              username={payload?.username}
+              url={payload?.url || item.domain}
+              domain={item.domain || payload?.url}
+              cardholderName={payload?.cardholderName || payload?.cardName}
+              cardName={payload?.cardName || payload?.cardholderName}
+              cardNumber={payload?.cardNumber}
+              expMonth={payload?.expMonth}
+              expYear={payload?.expYear}
+              expiry={payload?.expiry}
+              cvv={payload?.cvv}
+              cardBrand={payload?.cardBrand}
+              street={payload?.street || payload?.line1}
+              line2={payload?.line2}
+              city={payload?.city}
+              state={payload?.state}
+              zip={payload?.zip}
+              country={payload?.country}
+              fullName={
+                payload?.fullName ||
+                (payload?.firstName && payload?.lastName
+                  ? `${payload.firstName} ${payload.lastName}`
+                  : payload?.firstName || payload?.lastName)
+              }
+              email={payload?.email}
+              phone={payload?.phone}
+              note={payload?.note}
+            />
+          </View>
+
           {/* Header Badge Card */}
           <View style={styles.badgeCard}>
             <View style={styles.badgeCardHeader}>

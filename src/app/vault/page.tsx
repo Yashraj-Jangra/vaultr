@@ -42,8 +42,11 @@ export interface DecryptedPayload {
   url?: string;
   urls?: string[];
   cardName?: string;
+  cardholderName?: string;
   cardNumber?: string;
   expiry?: string;
+  expMonth?: string;
+  expYear?: string;
   cvv?: string;
   pin?: string;
   cardBrand?: string;
@@ -724,11 +727,12 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 
       {t === "card" && <>
         <CreditCardGraphic data={data} />
-        <DetailRow label="Name" value={data.cardName || ""} />
+        {data.cardBrand && <DetailRow label="Network" value={data.cardBrand} />}
+        <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
         <DetailRow label="Number" value={data.cardNumber || ""} masked />
-        <DetailRow label="Expiry" value={data.expiry || ""} />
+        <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "")} />
         <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
-        <DetailRow label="PIN" value={data.pin || ""} masked dots={3} />
+        {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
       </>}
 
       {t === "address" && <>
@@ -815,12 +819,14 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 
 
 function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
+  const cardName = data.cardName || data.cardholderName || "";
+  const expiry = data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "");
   return (
     <div className="w-full max-w-[280px] mx-auto mb-4 scale-95 origin-center">
       <DetailedCardVisual
         cardNumber={data.cardNumber || ""}
-        cardName={data.cardName || ""}
-        expiry={data.expiry || ""}
+        cardName={cardName}
+        expiry={expiry}
         cardBrand={data.cardBrand}
       />
     </div>
