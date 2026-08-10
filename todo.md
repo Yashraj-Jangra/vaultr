@@ -12,10 +12,11 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Vault List Top Header & Search Bar Redesign (`VaultListScreen.tsx`)**:
-  - **Account Option at Top**: Added account user profile avatar button in the top bar (`accountAvatarBtn` displaying user initial or avatar image with `#a78bfa` ring), allowing instant access/navigation to account settings from any screen.
-  - **Brand Header & Zero-Knowledge Badge**: Embedded full `_vaultr` brand mark logo with a green zero-knowledge encryption badge tag (`AES-256-GCM`).
-  - **Redesigned Search Bar**: Rebuilt search input with `#0d0d0d` background, `#1f1f1f` border, search icon, clear button (`X`), item count pill, and active favorite star filter button.
+- [x] **Vault List Screen Overhaul & Layout Fixes (`VaultListScreen.tsx`)**:
+  - **Android Status Bar Notch Padding**: Applied `paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0` to container styling, ensuring the brand header and account avatar never overlap or clip under the Android status bar notch.
+  - **Unconstrained Filter Pill Scroll**: Removed rigid `maxHeight` constraints and updated pill typography (`fontSize: 12`, `paddingVertical: 6`, `paddingHorizontal: 13`), preventing text truncation and vertical squishing on template pills (`Logins`, `Cards`, `Notes`, `Addresses`, `Profiles`).
+  - **Search Input Layout Fix**: Realigned search input and count pill (`278 items`) to prevent placeholder text truncation.
+  - **Item Row Visual Refinements**: Enlarged icon badges (`36px × 36px`, `borderRadius: 10px`), increased item name contrast (`14px font-semibold #f4f4f5`), refined sub-line typography (`11.5px monospace #71717a`), and aligned date labels (`11px #525252`).
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

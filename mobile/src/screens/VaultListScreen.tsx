@@ -11,6 +11,7 @@ import {
   ScrollView,
   RefreshControl,
   Image,
+  Platform,
 } from "react-native";
 import { useVaultStore } from "../store/vaultStore";
 import { SiteIcon } from "../components/SiteIcon";
@@ -361,7 +362,11 @@ export function VaultListScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#09090b" },
+  container: {
+    flex: 1,
+    backgroundColor: "#09090b",
+    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 28) : 0,
+  },
 
   // Header
   header: {
@@ -439,19 +444,21 @@ const styles = StyleSheet.create({
     borderColor: "#1f1f1f",
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 40,
+    height: 42,
   },
-  searchInput: { flex: 1, color: "#f4f4f5", fontSize: 13, height: 40 },
+  searchInput: { flex: 1, color: "#f4f4f5", fontSize: 13, height: 42 },
   itemCountTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
     backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
   },
   itemCountTagText: { fontSize: 10, color: "#71717a", fontFamily: "monospace" },
   favFilterBtn: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
@@ -462,45 +469,45 @@ const styles = StyleSheet.create({
   favFilterBtnActive: { borderColor: "rgba(251,191,36,0.5)", backgroundColor: "rgba(251,191,36,0.1)" },
 
   // Filter pills
-  filterScroll: { maxHeight: 40, borderBottomWidth: 1, borderBottomColor: "#141414" },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 6, gap: 6, alignItems: "center" },
+  filterScroll: { borderBottomWidth: 1, borderBottomColor: "#18181b", backgroundColor: "#09090b" },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: "center" },
   filterPill: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
     borderColor: "#1f1f1f",
   },
   filterPillActive: { backgroundColor: "#f4f4f5", borderColor: "#f4f4f5" },
-  filterPillText: { fontSize: 11, color: "#737373", fontWeight: "500" },
-  filterPillTextActive: { color: "#09090b" },
-  filterDivider: { width: 1, height: 20, backgroundColor: "#1f1f1f", marginHorizontal: 4 },
+  filterPillText: { fontSize: 12, color: "#a1a1aa", fontWeight: "500" },
+  filterPillTextActive: { color: "#09090b", fontWeight: "600" },
+  filterDivider: { width: 1, height: 20, backgroundColor: "#1f1f1f", marginHorizontal: 2 },
 
   // Item row — matches web list view
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
+    paddingVertical: 12,
+    gap: 12,
   },
-  itemIconWrap: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  itemIconWrap: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   templateIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   itemContent: { flex: 1, minWidth: 0 },
-  itemTopRow: { flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
-  itemName: { fontSize: 13.5, fontWeight: "500", color: "#f4f4f5", flexShrink: 1, minWidth: 0 },
+  itemTopRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
+  itemName: { fontSize: 14, fontWeight: "600", color: "#f4f4f5", flexShrink: 1, minWidth: 0 },
   itemSubRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  itemSubLine: { fontSize: 11, color: "#525252", fontFamily: "monospace", flexShrink: 1 },
-  dateText: { fontSize: 10, color: "#404040", fontFamily: "monospace", marginLeft: "auto" },
+  itemSubLine: { fontSize: 11.5, color: "#71717a", fontFamily: "monospace", flexShrink: 1, marginTop: 2 },
+  dateText: { fontSize: 11, color: "#525252", fontFamily: "monospace", marginRight: 4 },
   folderPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -508,25 +515,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(64,64,64,0.5)",
     borderRadius: 20,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  folderPillText: { fontSize: 9, color: "#525252" },
+  folderPillText: { fontSize: 9.5, color: "#71717a" },
   totpBadge: {
     backgroundColor: "rgba(109,40,217,0.3)",
     borderWidth: 1,
     borderColor: "rgba(139,92,246,0.4)",
     borderRadius: 20,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  totpBadgeText: { fontSize: 9, color: "#a78bfa", fontWeight: "700", letterSpacing: 0.5 },
+  totpBadgeText: { fontSize: 9.5, color: "#a78bfa", fontWeight: "700", letterSpacing: 0.5 },
 
   // Action buttons
-  itemActions: { flexDirection: "row", alignItems: "center", gap: 2 },
+  itemActions: { flexDirection: "row", alignItems: "center", gap: 4 },
   actionBtn: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -534,7 +541,7 @@ const styles = StyleSheet.create({
   actionBtnFav: { backgroundColor: "rgba(251,191,36,0.1)" },
 
   // Separator — matches web's 1px divider
-  separator: { height: 1, backgroundColor: "#1a1a1a", marginLeft: 58 },
+  separator: { height: 1, backgroundColor: "#141417", marginLeft: 64 },
 
   // Empty state
   emptyState: { alignItems: "center", paddingTop: 80, paddingHorizontal: 24 },
@@ -546,16 +553,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 20,
     bottom: 24,
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 16,
     backgroundColor: "#f4f4f5",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 8,
   },
 });
