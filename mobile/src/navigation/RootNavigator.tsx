@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import { RootStackParamList } from "./types";
 import { useVaultStore } from "../store/vaultStore";
 
@@ -17,7 +17,7 @@ import { FolderManagerScreen } from "../screens/settings/FolderManagerScreen";
 import { TrashScreen } from "../screens/TrashScreen";
 import { colors } from "../theme/colors";
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const { isAuthenticated, isUnlocked, initSession } = useVaultStore();
@@ -31,27 +31,18 @@ export function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-          animation: "slide_from_right",
+          cardStyle: { backgroundColor: colors.bg },
         }}
       >
         {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : !isUnlocked ? (
-          <Stack.Screen
-            name="Unlock"
-            component={UnlockScreen}
-            options={{ animation: "fade" }}
-          />
+          <Stack.Screen name="Unlock" component={UnlockScreen} />
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
-            <Stack.Screen
-              name="ItemForm"
-              component={ItemFormScreen}
-              options={{ animation: "slide_from_bottom" }}
-            />
+            <Stack.Screen name="ItemForm" component={ItemFormScreen} />
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
             <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <Stack.Screen name="Sessions" component={SessionsScreen} />
