@@ -9,22 +9,31 @@ import {
   ScrollView,
   Switch,
 } from "react-native";
-import { generateRandomPassword, scorePassword } from "@vaultr/core";
+import { generateRandomPassword, generatePassphrase, generatePin } from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
+import { PasswordStrengthBar } from "../components/PasswordStrengthBar";
 import { colors } from "../theme/colors";
-import { Wand2, Copy, Check, RefreshCw, Shield } from "lucide-react-native";
+import { Wand2, Copy, Check, RefreshCw } from "lucide-react-native";
+
+type GenMode = "password" | "passphrase" | "pin";
 
 export function GeneratorScreen() {
+  const [mode, setMode] = useState<GenMode>("password");
   const [length, setLength] = useState(16);
   const [useUpper, setUseUpper] = useState(true);
   const [useLower, setUseLower] = useState(true);
   const [useNumbers, setUseNumbers] = useState(true);
   const [useSymbols, setUseSymbols] = useState(true);
   const [copied, setCopied] = useState(false);
-
   const [seed, setSeed] = useState(0);
 
   const generatedPassword = useMemo(() => {
+    if (mode === "passphrase") {
+      return generatePassphrase({ wordCount: 4, separator: "-", capitalize: true });
+    } else if (mode === "pin") {
+      return generatePin({ length: length > 12 ? 6 : Math.max(4, Math.floor(length / 2)) });
+    }
+
     return generateRandomPassword({
       length,
       useUpper,
@@ -37,9 +46,7 @@ export function GeneratorScreen() {
       minSymbols: 0,
       exclude: "",
     });
-  }, [length, useUpper, useLower, useNumbers, useSymbols, seed]);
-
-  const strength = useMemo(() => scorePassword(generatedPassword), [generatedPassword]);
+  }, [mode, length, useUpper, useLower, useNumbers, useSymbols, seed]);
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(generatedPassword);
@@ -60,6 +67,35 @@ export function GeneratorScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Mode Switcher Pills */}
+        <View style={styles.modeRow}>
+          {(
+            [
+              { id: "password", label: "Password" },
+              { id: "passphrase", label: "Passphrase" },
+              { id: "pin", label: "PIN Code" },
+            ] as const
+          ).map((m) => {
+            const active = mode === m.id;
+            return (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.modePill, active && styles.modePillActive]}
+                onPress={() => setMode(m.id)}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    active && styles.modePillTextActive,
+                  ]}
+                >
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Output Display Card */}
         <View style={styles.outputCard}>
           <Text style={styles.passwordText} selectable numberOfLines={3}>
@@ -92,94 +128,76 @@ export function GeneratorScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Strength Meter Bar */}
-          <View style={styles.strengthRow}>
-            <Text style={styles.strengthLabel}>
-              Strength: {strength.label} ({strength.score}/100)
-            </Text>
-            <View style={styles.meterTrack}>
-              <View
-                style={[
-                  styles.meterFill,
-                  {
-                    width: `${Math.max(10, strength.score)}%`,
-                    backgroundColor:
-                      strength.score > 70
-                        ? colors.success
-                        : strength.score > 40
-                        ? colors.warning
-                        : colors.danger,
-                  },
-                ]}
-              />
-            </View>
-          </View>
+          {/* Strength Bar Component */}
+          <PasswordStrengthBar password={generatedPassword} />
         </View>
 
         {/* Options Card */}
-        <View style={styles.optionsCard}>
-          <Text style={styles.sectionTitle}>CHARACTER OPTIONS</Text>
+        {mode === "password" && (
+          <View style={styles.optionsCard}>
+            <Text style={styles.sectionTitle}>CHARACTER OPTIONS</Text>
 
-          {/* Length Row */}
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>Length ({length})</Text>
-            <View style={styles.lengthControls}>
-              <TouchableOpacity
-                style={styles.lenBtn}
-                onPress={() => setLength((l) => Math.max(8, l - 1))}
-              >
-                <Text style={styles.lenBtnText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.lenValText}>{length}</Text>
-              <TouchableOpacity
-                style={styles.lenBtn}
-                onPress={() => setLength((l) => Math.min(64, l + 1))}
-              >
-                <Text style={styles.lenBtnText}>+</Text>
-              </TouchableOpacity>
+            {/* Length Row */}
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Length ({length})</Text>
+              <View style={styles.lengthControls}>
+                <TouchableOpacity
+                  style={styles.lenBtn}
+                  onPress={() => setLength((l) => Math.max(8, l - 1))}
+                >
+                  <Text style={styles.lenBtnText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.lenValText}>{length}</Text>
+                <TouchableOpacity
+                  style={styles.lenBtn}
+                  onPress={() => setLength((l) => Math.min(64, l + 1))}
+                >
+                  <Text style={styles.lenBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Uppercase Toggle */}
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Uppercase (A-Z)</Text>
+              <Switch
+                value={useUpper}
+                onValueChange={setUseUpper}
+                trackColor={{ false: colors.surface3, true: colors.accent }}
+              />
+            </View>
+
+            {/* Lowercase Toggle */}
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Lowercase (a-z)</Text>
+              <Switch
+                value={useLower}
+                onValueChange={setUseLower}
+                trackColor={{ false: colors.surface3, true: colors.accent }}
+              />
+            </View>
+
+            {/* Numbers Toggle */}
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Numbers (0-9)</Text>
+              <Switch
+                value={useNumbers}
+                onValueChange={setUseNumbers}
+                trackColor={{ false: colors.surface3, true: colors.accent }}
+              />
+            </View>
+
+            {/* Symbols Toggle */}
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Symbols (!@#$%^&*)</Text>
+              <Switch
+                value={useSymbols}
+                onValueChange={setUseSymbols}
+                trackColor={{ false: colors.surface3, true: colors.accent }}
+              />
             </View>
           </View>
-
-          {/* Uppercase Toggle */}
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>Uppercase (A-Z)</Text>
-            <Switch
-              value={useUpper}
-              onValueChange={setUseUpper}
-              trackColor={{ false: colors.surface3, true: colors.accent }}
-            />
-          </View>
-
-          {/* Lowercase Toggle */}
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>Lowercase (a-z)</Text>
-            <Switch
-              value={useLower}
-              onValueChange={setUseLower}
-              trackColor={{ false: colors.surface3, true: colors.accent }}
-            />
-          </View>
-
-          {/* Numbers Toggle */}
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>Numbers (0-9)</Text>
-            <Switch
-              value={useNumbers}
-              onValueChange={setUseNumbers}
-              trackColor={{ false: colors.surface3, true: colors.accent }}
-            />
-          </View>
-
-          {/* Symbols Toggle */}
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>Symbols (!@#$%^&*)</Text>
-            <Switch
-              value={useSymbols}
-              onValueChange={setUseSymbols}
-              trackColor={{ false: colors.surface3, true: colors.accent }}
-            />
-          </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -209,6 +227,31 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 16,
+  },
+  modeRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  modePill: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  modePillActive: {
+    backgroundColor: colors.text,
+    borderColor: colors.text,
+  },
+  modePillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  modePillTextActive: {
+    color: colors.bg,
   },
   outputCard: {
     backgroundColor: colors.surface,
@@ -261,24 +304,6 @@ const styles = StyleSheet.create({
     color: colors.bg,
     fontWeight: "700",
     fontSize: 13,
-  },
-  strengthRow: {
-    gap: 6,
-  },
-  strengthLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
-  meterTrack: {
-    height: 6,
-    backgroundColor: colors.surface3,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  meterFill: {
-    height: "100%",
-    borderRadius: 3,
   },
   optionsCard: {
     backgroundColor: colors.surface,
