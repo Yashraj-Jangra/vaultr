@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
-import { Shield, KeyRound, Fingerprint, LogOut } from "lucide-react-native";
+import { Lock, Fingerprint, LogOut, Shield } from "lucide-react-native";
 
 export function UnlockScreen() {
   const {
@@ -25,13 +25,15 @@ export function UnlockScreen() {
   } = useVaultStore();
 
   const [passwordInput, setPasswordInput] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleUnlockSubmit = async () => {
-    if (!passwordInput) return;
+    if (!passwordInput || isLoading) return;
+    setErrorMsg("");
     try {
       await unlock(passwordInput);
     } catch (err: any) {
-      Alert.alert("Unlock Error", err?.message || "Failed to derive key with master password.");
+      setErrorMsg(err?.message || "Incorrect master password");
     }
   };
 
@@ -44,69 +46,102 @@ export function UnlockScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-      <View style={styles.unlockCard}>
-        {/* Halo Glow */}
-        <View style={styles.iconHeader}>
+      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
+
+      {/* Grid Dot Pattern Background Accent */}
+      <View style={styles.contentWrap}>
+        {/* Halo Radial Glow & Lock Box */}
+        <View style={styles.lockHaloWrap}>
           <View style={styles.haloGlow} />
-          <View style={styles.iconCircle}>
+          <View style={[styles.lockBox, isLoading && styles.lockBoxUnlocking]}>
             <Image
-              source={require("../../assets/brand/logo-mark-dark.png")}
-              style={styles.brandMark}
+              source={require("../../assets/brand/lock-brand-dark.png")}
+              style={styles.lockBrandImg}
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>Vaultr</Text>
-          <Text style={styles.userBadgeText}>
-            Logged in as {accountUser?.email || "user@vaultr.local"}
-          </Text>
         </View>
 
-        {/* Master Password Input Form */}
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Master Password</Text>
-            <View style={styles.inputWrapper}>
-              <KeyRound size={18} color={colors.textDim} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={passwordInput}
-                onChangeText={setPasswordInput}
-                placeholder="••••••••••••"
-                placeholderTextColor={colors.textDim}
-                secureTextEntry
-                autoFocus
-              />
+        {/* Header Branding Info */}
+        <View style={styles.headerInfo}>
+          <Image
+            source={require("../../assets/brand/logo-dark.png")}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>
+            {isLoading ? "Decrypting vault…" : "Unlock your vault"}
+          </Text>
+          {accountUser?.email && (
+            <Text style={styles.emailText} numberOfLines={1}>
+              {accountUser.email}
+            </Text>
+          )}
+        </View>
+
+        {/* Form Inputs */}
+        <View style={styles.formWrap}>
+          {errorMsg ? (
+            <View style={styles.errorAlert}>
+              <View style={styles.errorDot} />
+              <Text style={styles.errorAlertText}>{errorMsg}</Text>
             </View>
+          ) : null}
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.formInput}
+              value={passwordInput}
+              onChangeText={setPasswordInput}
+              placeholder="Master password"
+              placeholderTextColor="#52525b"
+              secureTextEntry
+              autoFocus
+              editable={!isLoading}
+            />
+            <Lock size={16} color="#71717a" style={styles.inputLockIcon} />
           </View>
 
+          {/* Primary Unlock Button */}
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[
+              styles.primaryBtn,
+              (!passwordInput || isLoading) && styles.primaryBtnDisabled,
+            ]}
             onPress={handleUnlockSubmit}
-            disabled={isLoading}
+            disabled={!passwordInput || isLoading}
+            activeOpacity={0.8}
           >
             {isLoading ? (
-              <ActivityIndicator color={colors.bg} />
+              <ActivityIndicator size="small" color="#09090b" />
             ) : (
-              <Text style={styles.primaryButtonText}>Unlock Vault</Text>
+              <View style={styles.btnRow}>
+                <Lock size={14} color="#09090b" />
+                <Text style={styles.primaryBtnText}>Unlock vault</Text>
+              </View>
             )}
           </TouchableOpacity>
 
+          {/* Biometrics Action */}
           <TouchableOpacity
-            style={styles.secondaryButton}
+            style={styles.biometricBtn}
             onPress={handleBiometricUnlock}
+            activeOpacity={0.7}
           >
-            <Fingerprint size={18} color={colors.accent} style={{ marginRight: 8 }} />
-            <Text style={styles.secondaryButtonText}>Use Biometrics</Text>
+            <Fingerprint size={16} color="#a78bfa" style={{ marginRight: 8 }} />
+            <Text style={styles.biometricBtnText}>Unlock with Biometrics</Text>
           </TouchableOpacity>
+        </View>
 
-          <TouchableOpacity
-            style={styles.switchAccountBtn}
-            onPress={signOutAccount}
-          >
-            <LogOut size={14} color={colors.textDim} style={{ marginRight: 6 }} />
-            <Text style={styles.switchAccountText}>Switch Server Account</Text>
+        {/* Footer Links */}
+        <View style={styles.footerRow}>
+          <TouchableOpacity onPress={signOutAccount}>
+            <Text style={styles.footerLinkText}>Switch account</Text>
           </TouchableOpacity>
+          <View style={styles.footerLinkRight}>
+            <Shield size={13} color="#52525b" style={{ marginRight: 4 }} />
+            <Text style={styles.footerLinkText}>Zero-Knowledge</Text>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -116,118 +151,165 @@ export function UnlockScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: "#09090b",
   },
-  unlockCard: {
-    padding: 24,
-    justifyContent: "center",
+  contentWrap: {
     flex: 1,
-  },
-  iconHeader: {
     alignItems: "center",
-    marginBottom: 32,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  lockHaloWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    position: "relative",
   },
   haloGlow: {
     position: "absolute",
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(167, 139, 250, 0.15)",
-    top: -10,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(124, 106, 250, 0.15)",
   },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surface2,
+  lockBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#27272a",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+  },
+  lockBoxUnlocking: {
+    backgroundColor: "#18181b",
+    borderColor: "#52525b",
+  },
+  lockBrandImg: {
+    width: 48,
+    height: 48,
+  },
+  headerInfo: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  brandLogo: {
+    height: 20,
+    width: 110,
+    marginBottom: 12,
+    opacity: 0.7,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: colors.text,
-    textAlign: "center",
-    marginBottom: 6,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#f4f4f5",
+    letterSpacing: -0.4,
   },
-  brandMark: {
-    width: 42,
-    height: 42,
+  emailText: {
+    fontSize: 12,
+    color: "#71717a",
+    fontFamily: "monospace",
+    marginTop: 4,
   },
-  userBadgeText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: "center",
-  },
-  form: {
+  formWrap: {
     width: "100%",
+    gap: 14,
   },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.textMuted,
-    marginBottom: 6,
-  },
-  inputWrapper: {
+  errorAlert: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface2,
+    backgroundColor: "rgba(127, 29, 29, 0.25)",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(185, 28, 28, 0.4)",
     borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
   },
-  inputIcon: {
-    marginRight: 8,
+  errorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#ef4444",
   },
-  input: {
+  errorAlertText: {
+    color: "#f87171",
+    fontSize: 12,
     flex: 1,
-    paddingVertical: 12,
-    color: colors.text,
-    fontSize: 14,
   },
-  primaryButton: {
-    backgroundColor: colors.text,
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 8,
+  inputContainer: {
+    position: "relative",
+    width: "100%",
+    justifyContent: "center",
   },
-  primaryButtonText: {
-    color: colors.bg,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  secondaryButton: {
-    backgroundColor: colors.surface2,
+  formInput: {
+    width: "100%",
+    height: 46,
+    backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
+    borderColor: "#27272a",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingRight: 44,
+    color: "#e4e4e7",
+    fontSize: 14,
+  },
+  inputLockIcon: {
+    position: "absolute",
+    right: 14,
+  },
+  primaryBtn: {
+    width: "100%",
+    height: 46,
+    backgroundColor: "#f4f4f5",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryBtnDisabled: {
+    opacity: 0.5,
+  },
+  btnRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  primaryBtnText: {
+    color: "#09090b",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  biometricBtn: {
+    width: "100%",
+    height: 42,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
   },
-  secondaryButtonText: {
-    color: colors.accent,
+  biometricBtnText: {
+    color: "#a78bfa",
+    fontSize: 13,
     fontWeight: "600",
-    fontSize: 14,
   },
-  switchAccountBtn: {
+  footerRow: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 24,
+    justifyContent: "space-between",
+    marginTop: 28,
   },
-  switchAccountText: {
-    color: colors.textDim,
+  footerLinkText: {
     fontSize: 12,
+    color: "#71717a",
+  },
+  footerLinkRight: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 });
