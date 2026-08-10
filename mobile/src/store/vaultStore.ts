@@ -4,6 +4,7 @@ import { cacheVaultItems, getCachedVaultItems, flushOfflineQueue, queueOfflineAc
 import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
 import { syncAutofillCredentials } from "../services/autofill";
+import * as WebBrowser from "expo-web-browser";
 
 interface VaultState {
   // Auth state
@@ -26,6 +27,7 @@ interface VaultState {
   initSession: () => Promise<void>;
   signInAccount: (email: string, pass: string, url: string) => Promise<void>;
   registerAccount: (name: string, username: string, email: string, pass: string, url: string) => Promise<void>;
+  signInWithGoogle: (url?: string) => Promise<void>;
   signOutAccount: () => Promise<void>;
   setServerUrl: (url: string) => void;
   setSearchQuery: (query: string) => void;
@@ -190,6 +192,73 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         serverUrl: cleanUrl,
         isLoading: false,
       });
+    } catch (err: any) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  signInWithGoogle: async (url) => {
+    set({ isLoading: true });
+    try {
+      const cleanUrl = (url || get().serverUrl).replace(/\/+$/, "");
+      const callbackURL = `${cleanUrl}/api/auth/mobile-callback`;
+
+      const res = await fetch(`${cleanUrl}/api/auth/sign-in/social`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Origin": cleanUrl,
+          "Referer": `${cleanUrl}/`,
+        },
+        body: JSON.stringify({
+          provider: "google",
+          callbackURL,
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = "Google OAuth is not configured or failed on this server.";
+        try {
+          const errData = await res.json();
+          if (errData.message || errData.error) errMsg = errData.message || errData.error;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      if (!data.url) throw new Error("Server did not return a valid Google auth URL.");
+
+      const authResult = await WebBrowser.openAuthSessionAsync(data.url, "vaultr://auth-callback");
+
+      if (authResult.type === "success" && authResult.url) {
+        const redirectUri = authResult.url;
+        const queryStr = redirectUri.includes("?") ? redirectUri.split("?")[1] : "";
+        const params = new URLSearchParams(queryStr);
+        const token = params.get("token");
+        const id = params.get("id");
+        const email = params.get("email");
+        const name = params.get("name");
+
+        if (token && id) {
+          const user: AccountUser = {
+            id,
+            email: email || "google-user@vaultr.local",
+            name: name || "Google User",
+          };
+          await saveAccountSession(token, user, cleanUrl);
+          set({
+            accountToken: token,
+            accountUser: user,
+            isAuthenticated: true,
+            serverUrl: cleanUrl,
+            isLoading: false,
+          });
+          return;
+        }
+      }
+
+      set({ isLoading: false });
     } catch (err: any) {
       set({ isLoading: false });
       throw err;
