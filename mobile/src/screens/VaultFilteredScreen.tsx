@@ -242,12 +242,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "#111111",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
+    padding: 4,
     alignItems: "center",
     justifyContent: "center",
   },

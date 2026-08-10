@@ -201,9 +201,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.surface2,
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
   navTitle: {
     fontSize: 18,

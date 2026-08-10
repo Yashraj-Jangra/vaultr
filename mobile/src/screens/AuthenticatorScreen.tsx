@@ -59,7 +59,7 @@ export function AuthenticatorScreen() {
   const totpItems = items.filter((i) => i.hasTotp && !i.deletedAt);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
       <View style={styles.header}>
         <View style={styles.headerLeft}>

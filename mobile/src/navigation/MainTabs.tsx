@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export function MainTabs() {
   const insets = useSafeAreaInsets();
-  const bottomInset = insets.bottom > 0 ? insets.bottom : 8;
+  const bottomInset = insets.bottom > 0 ? insets.bottom : 4;
 
   return (
     <Tab.Navigator
@@ -26,9 +26,9 @@ export function MainTabs() {
           backgroundColor: colors.surface,
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          height: 54 + bottomInset,
+          height: 52 + bottomInset,
           paddingBottom: bottomInset,
-          paddingTop: 6,
+          paddingTop: 4,
         },
         tabBarLabelStyle: {
           fontSize: 11,

@@ -117,7 +117,7 @@ export function VaultListScreen({ navigation }: Props) {
   const isEmpty = activeItems.length === 0;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       {/* ── Header ── */}
@@ -327,7 +327,7 @@ export function VaultListScreen({ navigation }: Props) {
         )}
 
         {/* Bottom spacer for FAB */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 28 }} />
       </ScrollView>
 
       {/* ── FAB ── */}
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: 20,
-    bottom: 24,
+    bottom: 16,
     width: 54,
     height: 54,
     borderRadius: 18,

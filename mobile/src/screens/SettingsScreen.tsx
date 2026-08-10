@@ -60,7 +60,7 @@ export function SettingsScreen({ navigation }: any) {
   const avatarLetter = (accountUser?.name || accountUser?.email || "V")[0].toUpperCase();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       {/* Header */}

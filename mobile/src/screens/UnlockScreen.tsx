@@ -234,12 +234,13 @@ export function UnlockScreen() {
 
           {biometricsAvailable ? (
             <TouchableOpacity
-              style={styles.biometricIconBtn}
+              style={styles.plainBiometricBtn}
               onPress={handleBiometricUnlock}
               disabled={unlocking}
-              activeOpacity={0.82}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
             >
-              <Fingerprint size={26} color="#09090b" strokeWidth={2.2} />
+              <Fingerprint size={28} color="#ffffff" strokeWidth={2} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -539,17 +540,10 @@ const styles = StyleSheet.create({
   },
   unlockBtnDisabled: { opacity: 0.4 },
   unlockBtnText: { fontSize: 14, fontWeight: "600", color: "#09090b" },
-  biometricIconBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: "#ffffff",
+  plainBiometricBtn: {
+    padding: 6,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "rgba(255,255,255,0.1)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
   },
 
   // Spinner

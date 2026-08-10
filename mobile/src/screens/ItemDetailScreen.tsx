@@ -472,9 +472,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   backBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.surface2,
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
   navTitle: {
     fontSize: 16,

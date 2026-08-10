@@ -20,11 +20,11 @@ export const colors = {
   textDim: "#737373",      // neutral-500
   textFaint: "#525252",    // neutral-600
 
-  // Accent — violet/purple from design
-  accent: "#a78bfa",       // violet-400
-  accentBg: "rgba(167, 139, 250, 0.1)",
-  accentBorder: "rgba(167, 139, 250, 0.2)",
-  accentGlow: "rgba(124, 106, 250, 0.18)",
+  // Accent — clean white from design system
+  accent: "#ffffff",       // white
+  accentBg: "rgba(255, 255, 255, 0.08)",
+  accentBorder: "rgba(255, 255, 255, 0.15)",
+  accentGlow: "rgba(255, 255, 255, 0.12)",
 
   // Status
   success: "#10b981",      // emerald-500
@@ -42,11 +42,11 @@ export const colors = {
   cardBlue: "#38bdf8",     // sky-400
   cardGreen: "#34d399",    // emerald-400
   cardAmber: "#fbbf24",    // amber-400
-  cardPurple: "#a78bfa",   // violet-400
+  cardPurple: "#ffffff",   // white
   cardIndigo: "#818cf8",   // indigo-400
 
   // Template meta colors
-  violet: "#8b5cf6",       // violet-500
+  violet: "#ffffff",       // white
   emerald: "#059669",      // emerald-600
   amber: "#d97706",        // amber-600
 

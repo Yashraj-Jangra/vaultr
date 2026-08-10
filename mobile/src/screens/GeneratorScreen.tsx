@@ -55,7 +55,7 @@ export function GeneratorScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       {/* Header */}
