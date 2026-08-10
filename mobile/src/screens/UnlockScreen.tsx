@@ -103,109 +103,107 @@ export function UnlockScreen() {
   // ── Main unlock view ──────────────────────────────────────────────────────────
   const renderMain = () => (
     <Animated.View style={{ opacity: fadeInAnim }}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {/* Halo + lock icon */}
-        <View style={styles.iconWrap}>
-          <Animated.View style={[styles.halo, { opacity: haloOpacity }]} />
-          <Animated.View style={[styles.haloInner, { opacity: haloAnim }]} />
-          <View style={[styles.lockBox, unlocking && styles.lockBoxUnlocking]}>
-            <Image
-              source={require("../../assets/brand/lock-brand-dark.png")}
-              style={[styles.lockBrand, { opacity: unlocking ? 1.0 : 0.6 }]}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
-
-        {/* Brand + headings */}
-        <View style={styles.headingWrap}>
+      {/* Halo + lock icon */}
+      <View style={styles.iconWrap}>
+        <Animated.View style={[styles.halo, { opacity: haloOpacity }]} />
+        <Animated.View style={[styles.haloInner, { opacity: haloAnim }]} />
+        <View style={[styles.lockBox, unlocking && styles.lockBoxUnlocking]}>
           <Image
-            source={require("../../assets/brand/logo-dark.png")}
-            style={styles.logoImage}
+            source={require("../../assets/brand/lock-brand-dark.png")}
+            style={[styles.lockBrand, { opacity: unlocking ? 1.0 : 0.6 }]}
             resizeMode="contain"
           />
-          <Text style={styles.title}>
-            {unlocking ? "Decrypting vault…" : "Unlock your vault"}
-          </Text>
-          <Text style={styles.emailHint} numberOfLines={1}>
-            {accountUser?.email || ""}
-          </Text>
         </View>
+      </View>
 
-        {/* Error alert — matches web's pill style */}
-        <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
-          {unlockError ? (
-            <View style={styles.errorPill}>
-              <View style={styles.errorDot} />
-              <Text style={styles.errorText}>{unlockError}</Text>
-            </View>
-          ) : null}
+      {/* Brand + headings */}
+      <View style={styles.headingWrap}>
+        <Image
+          source={require("../../assets/brand/logo-dark.png")}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>
+          {unlocking ? "Decrypting vault…" : "Unlock your vault"}
+        </Text>
+        <Text style={styles.emailHint} numberOfLines={1}>
+          {accountUser?.email || ""}
+        </Text>
+      </View>
 
-          {/* Password input */}
-          <View style={styles.inputWrap}>
-            <TextInput
-              style={styles.input}
-              value={masterPassword}
-              onChangeText={setMasterPassword}
-              placeholder="Master password"
-              placeholderTextColor="#404040"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!unlocking}
-              returnKeyType="done"
-              onSubmitEditing={handleUnlock}
-            />
-            <TouchableOpacity
-              style={styles.inputIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              {showPassword
-                ? <EyeOff size={15} color="#525252" />
-                : <Eye size={15} color="#525252" />}
-            </TouchableOpacity>
+      {/* Error alert — matches web's pill style */}
+      <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+        {unlockError ? (
+          <View style={styles.errorPill}>
+            <View style={styles.errorDot} />
+            <Text style={styles.errorText}>{unlockError}</Text>
           </View>
+        ) : null}
 
-          {/* Unlock button */}
+        {/* Password input */}
+        <View style={styles.inputWrap}>
+          <TextInput
+            style={styles.input}
+            value={masterPassword}
+            onChangeText={setMasterPassword}
+            placeholder="Master password"
+            placeholderTextColor="#404040"
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!unlocking}
+            returnKeyType="done"
+            onSubmitEditing={handleUnlock}
+          />
           <TouchableOpacity
-            style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
-            onPress={handleUnlock}
-            disabled={!masterPassword || unlocking}
-            activeOpacity={0.85}
+            style={styles.inputIcon}
+            onPress={() => setShowPassword(!showPassword)}
           >
-            {unlocking ? (
-              // Spinner
-              <View style={styles.spinner} />
-            ) : (
-              <>
-                <Lock size={14} color="#09090b" />
-                <Text style={styles.unlockBtnText}>Unlock vault</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Footer links */}
-        <View style={styles.footerRow}>
-          <TouchableOpacity onPress={() => setCurrentView("forgot")}>
-            <Text style={styles.footerLink}>Forgot password?</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.footerWhyBtn}
-            onPress={() => setCurrentView("why")}
-          >
-            <Shield size={13} color="#525252" />
-            <Text style={styles.footerLink}>Why is this needed?</Text>
+            {showPassword
+              ? <EyeOff size={15} color="#525252" />
+              : <Eye size={15} color="#525252" />}
           </TouchableOpacity>
         </View>
 
-        {/* Sign out */}
-        <View style={styles.signOutWrap}>
-          <TouchableOpacity onPress={signOutAccount}>
-            <Text style={styles.signOutText}>Sign out instead</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+        {/* Unlock button */}
+        <TouchableOpacity
+          style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
+          onPress={handleUnlock}
+          disabled={!masterPassword || unlocking}
+          activeOpacity={0.85}
+        >
+          {unlocking ? (
+            // Spinner
+            <View style={styles.spinner} />
+          ) : (
+            <>
+              <Lock size={14} color="#09090b" />
+              <Text style={styles.unlockBtnText}>Unlock vault</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Footer links */}
+      <View style={styles.footerRow}>
+        <TouchableOpacity onPress={() => setCurrentView("forgot")}>
+          <Text style={styles.footerLink}>Forgot password?</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.footerWhyBtn}
+          onPress={() => setCurrentView("why")}
+        >
+          <Shield size={13} color="#525252" />
+          <Text style={styles.footerLink}>Why is this needed?</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Sign out */}
+      <View style={styles.signOutWrap}>
+        <TouchableOpacity onPress={signOutAccount}>
+          <Text style={styles.signOutText}>Sign out instead</Text>
+        </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 
@@ -300,20 +298,27 @@ export function UnlockScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
-      {/* Subtle grid background */}
+      {/* Decorative extension/web grid pattern background */}
       <GridBackground />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <View style={styles.card}>
-          {currentView === "main" && renderMain()}
-          {currentView === "forgot" && renderForgot()}
-          {currentView === "why" && renderWhy()}
-        </View>
-      </ScrollView>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={true}
+        >
+          <View style={styles.card}>
+            {currentView === "main" && renderMain()}
+            {currentView === "forgot" && renderForgot()}
+            {currentView === "why" && renderWhy()}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -325,14 +330,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
 
-  // Card wrapper (max-w-[340px] on web)
+  // Card wrapper (max-w-[340px] surface card on web/extension)
   card: {
     width: "100%",
     maxWidth: 340,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.8,
+    shadowRadius: 30,
+    elevation: 10,
   },
 
   // Lock icon halo — larger hero visual matching website/extension
@@ -432,19 +447,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#09090b",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#27272a",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingRight: 44,
-    paddingVertical: 14,
+    paddingVertical: Platform.OS === "ios" ? 14 : 12,
     fontSize: 14,
     color: "#e4e4e7",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
   },
   inputIcon: {
     position: "absolute",
