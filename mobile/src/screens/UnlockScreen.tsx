@@ -14,10 +14,11 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Lock, Shield, Eye, EyeOff, LogOut } from "lucide-react-native";
+import { Lock, Shield, Eye, EyeOff, LogOut, Fingerprint } from "lucide-react-native";
 import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
+import { isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
 
 function GridBackground() {
   return (
@@ -45,10 +46,29 @@ export function UnlockScreen() {
   const [unlockError, setUnlockError] = useState("");
   const [currentView, setCurrentView] = useState<UnlockView>("main");
 
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+
   // Animations
   const haloAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
+
+  const handleBiometricUnlock = async () => {
+    if (unlocking) return;
+    setUnlocking(true);
+    setUnlockError("");
+    try {
+      const savedPw = await unlockWithBiometrics();
+      if (savedPw) {
+        setMasterPassword(savedPw);
+        await unlock(savedPw);
+      }
+    } catch (err: any) {
+      // Biometrics failed or cancelled
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   useEffect(() => {
     // Fade in on mount
@@ -57,6 +77,18 @@ export function UnlockScreen() {
       duration: 450,
       useNativeDriver: true,
     }).start();
+
+    // Check if biometric unlock is enabled in settings
+    (async () => {
+      const enabled = await isBiometricEnabled();
+      if (enabled) {
+        setBiometricsAvailable(true);
+        // Auto trigger biometric prompt after view mounts
+        setTimeout(() => {
+          handleBiometricUnlock();
+        }, 300);
+      }
+    })();
 
     // Pulsing halo animation
     const pulsing = Animated.loop(
@@ -182,6 +214,19 @@ export function UnlockScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Biometrics button (if enabled in settings) */}
+        {biometricsAvailable ? (
+          <TouchableOpacity
+            style={styles.biometricBtn}
+            onPress={handleBiometricUnlock}
+            disabled={unlocking}
+            activeOpacity={0.85}
+          >
+            <Fingerprint size={16} color="#a78bfa" />
+            <Text style={styles.biometricBtnText}>Unlock with Biometrics</Text>
+          </TouchableOpacity>
+        ) : null}
       </Animated.View>
 
       {/* Footer links */}
@@ -583,4 +628,18 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   ghostBtnText: { fontSize: 13.5, color: "#a3a3a3" },
+
+  biometricBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(124,58,237,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.3)",
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginTop: 10,
+  },
+  biometricBtnText: { fontSize: 13.5, fontWeight: "600", color: "#a78bfa" },
 });

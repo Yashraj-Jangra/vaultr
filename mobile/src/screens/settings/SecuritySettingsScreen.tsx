@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
-import { isBiometricAvailable, enrollBiometricPassword, clearBiometricPassword } from "../../services/biometrics";
+import { isBiometricAvailable, isBiometricEnabled, enrollBiometricPassword, clearBiometricPassword } from "../../services/biometrics";
 import { Fingerprint, Shield, Clock, Copy, ArrowLeft, CheckCircle2 } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -31,6 +31,10 @@ export function SecuritySettingsScreen({ navigation }: any) {
     (async () => {
       const avail = await isBiometricAvailable();
       setBiometricsSupported(avail);
+      if (avail) {
+        const enabled = await isBiometricEnabled();
+        setBiometricsEnabled(enabled);
+      }
 
       const savedAutoLock = await AsyncStorage.getItem(AUTO_LOCK_KEY);
       if (savedAutoLock) setAutoLockTimeout(savedAutoLock);

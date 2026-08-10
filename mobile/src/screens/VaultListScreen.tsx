@@ -144,7 +144,7 @@ export function VaultListScreen({ navigation }: Props) {
 
           <TouchableOpacity
             style={styles.accountAvatarBtn}
-            onPress={() => navigation.navigate("Settings")}
+            onPress={() => navigation.navigate("AccountSettings")}
             activeOpacity={0.85}
           >
             {accountUser?.image ? (
