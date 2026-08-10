@@ -12,9 +12,9 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Master Password Unlock Card Surface Shading & Keyboard Avoidance (`UnlockScreen.tsx`)**:
-  - **Surface Card Color Synchronization**: Wrapped the unlock prompt inside an elevated `#0d0d0d` surface card with `#1f1f1f` border and high-contrast `#09090b` input fields (`borderColor: #27272a`), mirroring the exact web & extension dialog card shades.
-  - **Mobile Keyboard Auto-Scroll Fix**: Wrapped the screen inside an outer `KeyboardAvoidingView` (`behavior="height"` on Android / `"padding"` on iOS) and enabled `automaticallyAdjustKeyboardInsets={true}` on `ScrollView`, ensuring the input field automatically scrolls above the mobile software keyboard when focused.
+- [x] **Minimal, Card-Free Unlock Screen Layout (`UnlockScreen.tsx`)**:
+  - Removed container div box background, borders, and shadows per design guidelines (`card: { width: "100%", maxWidth: 340 }`), making the unlock container completely invisible and allowing the security logo, grid pattern, and inputs to sit directly on the background.
+  - Set input styling to sleek `#0d0d0d` background with `#1f1f1f` border matching the website & extension form elements.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

@@ -334,20 +334,10 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
 
-  // Card wrapper (max-w-[340px] surface card on web/extension)
+  // Minimal, card-free container (completely invisible wrapper)
   card: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "#0d0d0d",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.8,
-    shadowRadius: 30,
-    elevation: 10,
   },
 
   // Lock icon halo — larger hero visual matching website/extension
@@ -447,9 +437,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    backgroundColor: "#09090b",
+    backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: "#27272a",
+    borderColor: "#1f1f1f",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingRight: 44,
