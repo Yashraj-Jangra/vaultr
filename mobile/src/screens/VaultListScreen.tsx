@@ -10,6 +10,7 @@ import {
   StatusBar,
   ScrollView,
   RefreshControl,
+  Image,
 } from "react-native";
 import { useVaultStore } from "../store/vaultStore";
 import { SiteIcon } from "../components/SiteIcon";
@@ -99,9 +100,11 @@ export function VaultListScreen({ navigation }: Props) {
       {/* Top Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.brandBadge}>
-            <Shield size={18} color={colors.accent} />
-          </View>
+          <Image
+            source={require("../../assets/brand/logo-mark-dark.png")}
+            style={styles.headerBrandMark}
+            resizeMode="contain"
+          />
           <Text style={styles.headerTitle}>Vaultr</Text>
           <View style={styles.countBadge}>
             <Text style={styles.countBadgeText}>{filteredItems.length}</Text>
@@ -315,6 +318,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  headerBrandMark: {
+    width: 28,
+    height: 28,
   },
   headerRight: {
     flexDirection: "row",

@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
@@ -49,7 +50,11 @@ export function UnlockScreen() {
         <View style={styles.iconHeader}>
           <View style={styles.haloGlow} />
           <View style={styles.iconCircle}>
-            <Shield size={36} color={colors.accent} />
+            <Image
+              source={require("../../assets/brand/logo-mark-dark.png")}
+              style={styles.brandMark}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>Vaultr</Text>
           <Text style={styles.userBadgeText}>
@@ -147,6 +152,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: "center",
     marginBottom: 6,
+  },
+  brandMark: {
+    width: 42,
+    height: 42,
   },
   userBadgeText: {
     fontSize: 13,

@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from "react-native";
 import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
@@ -47,10 +48,11 @@ export function AuthScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Brand Header */}
           <View style={styles.brandHeader}>
-            <View style={styles.logoBadge}>
-              <Shield size={36} color={colors.accent} />
-            </View>
-            <Text style={styles.appName}>Vaultr</Text>
+            <Image
+              source={require("../../assets/brand/logo-dark.png")}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.appTagline}>
               Zero-Knowledge Password Manager & Safe
             </Text>
@@ -151,6 +153,11 @@ const styles = StyleSheet.create({
   brandHeader: {
     alignItems: "center",
     marginBottom: 32,
+  },
+  brandLogo: {
+    width: 200,
+    height: 54,
+    marginBottom: 10,
   },
   logoBadge: {
     width: 72,
