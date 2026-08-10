@@ -28,6 +28,7 @@ import {
   MapPin,
   User,
   Shield,
+  X,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 
@@ -61,6 +62,7 @@ function ItemIconBadge({ item }: { item: any }) {
 
 export function VaultListScreen({ navigation }: Props) {
   const {
+    accountUser,
     items,
     searchQuery,
     setSearchQuery,
@@ -134,37 +136,33 @@ export function VaultListScreen({ navigation }: Props) {
           <ItemIconBadge item={item} />
         </View>
 
-        {/* Content */}
+        {/* Name + preview */}
         <View style={styles.itemContent}>
           <View style={styles.itemTopRow}>
-            <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-            {item.favorite && (
-              <Star size={13} color="#fbbf24" fill="#fbbf24" style={{ marginLeft: 4 }} />
-            )}
+            <Text style={styles.itemName} numberOfLines={1}>
+              {item.name}
+            </Text>
             {item.hasTotp && (
               <View style={styles.totpBadge}>
+                <KeyRound size={10} color="#a78bfa" />
                 <Text style={styles.totpBadgeText}>2FA</Text>
               </View>
             )}
-            {dateStr && (
-              <Text style={styles.dateText}>{dateStr}</Text>
-            )}
           </View>
-          <View style={styles.itemSubRow}>
-            <Text style={styles.itemSubLine} numberOfLines={1}>{subLine}</Text>
-            {item.folder && selectedFolder === "ALL" && (
-              <View style={styles.folderPill}>
-                <Folder size={9} color="#525252" style={{ marginRight: 2 }} />
-                <Text style={styles.folderPillText}>{item.folder.split("/").pop()}</Text>
-              </View>
-            )}
-          </View>
+
+          <Text style={styles.itemSubLine} numberOfLines={1}>
+            {subLine}
+          </Text>
         </View>
 
-        {/* Action buttons */}
+        {/* Folder pill + Actions */}
         <View style={styles.itemActions}>
+          {dateStr ? (
+            <Text style={styles.dateText}>{dateStr}</Text>
+          ) : null}
+
           <TouchableOpacity
-            style={[styles.actionBtn, item.favorite && styles.actionBtnFav]}
+            style={styles.actionBtn}
             onPress={() => toggleFavorite(item.id)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -173,13 +171,6 @@ export function VaultListScreen({ navigation }: Props) {
               color={item.favorite ? "#fbbf24" : "#404040"}
               fill={item.favorite ? "#fbbf24" : "none"}
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => {/* trash */}}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Trash2 size={13} color="#404040" />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -199,17 +190,17 @@ export function VaultListScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
-      {/* Top Header */}
+      {/* Top Header — web & mobile premium header bar */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Image
-            source={require("../../assets/brand/logo-mark-dark.png")}
-            style={styles.headerBrandMark}
+            source={require("../../assets/brand/logo-dark.png")}
+            style={styles.headerBrandLogo}
             resizeMode="contain"
           />
-          <Text style={styles.headerTitle}>Vaultr</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{filteredItems.length}</Text>
+          <View style={styles.zeroKnowledgeBadge}>
+            <View style={styles.greenDot} />
+            <Text style={styles.zeroKnowledgeText}>AES-256</Text>
           </View>
         </View>
 
@@ -217,40 +208,68 @@ export function VaultListScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.headerActionBtn}
             onPress={() => navigation.navigate("Trash")}
+            activeOpacity={0.7}
           >
-            <Trash2 size={16} color={colors.textDim} />
+            <Trash2 size={15} color="#a1a1aa" />
           </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.headerActionBtn}
             onPress={lock}
+            activeOpacity={0.7}
           >
-            <Lock size={16} color={colors.textDim} />
+            <Lock size={15} color="#a1a1aa" />
+          </TouchableOpacity>
+
+          {/* Account Profile Avatar Option at Top */}
+          <TouchableOpacity
+            style={styles.accountAvatarBtn}
+            onPress={() => navigation.navigate("Settings")}
+            activeOpacity={0.85}
+          >
+            {accountUser?.image ? (
+              <Image source={{ uri: accountUser.image }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitial}>
+                  {(accountUser?.name || accountUser?.email || "U")[0].toUpperCase()}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Search bar — matches site's search input style */}
+      {/* Search bar — website & extension high-contrast styling */}
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>
-          <Search size={14} color="#525252" style={{ marginRight: 8 }} />
+          <Search size={14} color="#71717a" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search vault…"
-            placeholderTextColor="#404040"
+            placeholder="Search passwords, domains, notes…"
+            placeholderTextColor="#525252"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
-          {showOnlyFavorites && (
-            <TouchableOpacity onPress={() => setShowOnlyFavorites(false)}>
-              <Star size={14} color="#fbbf24" fill="#fbbf24" />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 4 }}>
+              <X size={14} color="#71717a" />
             </TouchableOpacity>
+          ) : (
+            <View style={styles.itemCountTag}>
+              <Text style={styles.itemCountTagText}>{filteredItems.length} items</Text>
+            </View>
           )}
         </View>
+
         <TouchableOpacity
           style={[styles.favFilterBtn, showOnlyFavorites && styles.favFilterBtnActive]}
           onPress={() => setShowOnlyFavorites(!showOnlyFavorites)}
+          activeOpacity={0.8}
         >
-          <Star size={14} color={showOnlyFavorites ? "#fbbf24" : "#525252"} fill={showOnlyFavorites ? "#fbbf24" : "none"} />
+          <Star size={14} color={showOnlyFavorites ? "#fbbf24" : "#71717a"} fill={showOnlyFavorites ? "#fbbf24" : "none"} />
         </TouchableOpacity>
       </View>
 
@@ -350,33 +369,55 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    backgroundColor: "#09090b",
     borderBottomWidth: 1,
-    borderBottomColor: "#1a1a1a",
+    borderBottomColor: "#18181b",
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerBrandMark: { width: 24, height: 24 },
-  headerTitle: { fontSize: 15, fontWeight: "600", color: "#f4f4f5", letterSpacing: -0.3 },
-  countBadge: {
-    backgroundColor: "#1f1f1f",
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerBrandLogo: { height: 20, width: 95, opacity: 0.9 },
+  zeroKnowledgeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: "rgba(16,185,129,0.08)",
     borderWidth: 1,
-    borderColor: "#262626",
-    borderRadius: 20,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    borderColor: "rgba(16,185,129,0.2)",
   },
-  countBadgeText: { fontSize: 10, color: "#525252", fontFamily: "monospace" },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  greenDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#10b981" },
+  zeroKnowledgeText: { fontSize: 10, color: "#34d399", fontWeight: "600", fontFamily: "monospace" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "#111",
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#111111",
     borderWidth: 1,
     borderColor: "#1f1f1f",
     alignItems: "center",
     justifyContent: "center",
   },
+  accountAvatarBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    borderColor: "#a78bfa",
+  },
+  avatarImg: { width: 34, height: 34, borderRadius: 17 },
+  avatarFallback: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#7c3aed",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: { fontSize: 13, fontWeight: "700", color: "#ffffff" },
 
   // Search
   searchWrap: {
@@ -385,6 +426,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    backgroundColor: "#09090b",
     borderBottomWidth: 1,
     borderBottomColor: "#141414",
   },
@@ -395,22 +437,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
     borderColor: "#1f1f1f",
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    height: 36,
+    height: 40,
   },
-  searchInput: { flex: 1, color: "#e4e4e7", fontSize: 13, height: 36 },
+  searchInput: { flex: 1, color: "#f4f4f5", fontSize: 13, height: 40 },
+  itemCountTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "#18181b",
+  },
+  itemCountTagText: { fontSize: 10, color: "#71717a", fontFamily: "monospace" },
   favFilterBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
     borderColor: "#1f1f1f",
     alignItems: "center",
     justifyContent: "center",
   },
-  favFilterBtnActive: { borderColor: "rgba(251,191,36,0.4)", backgroundColor: "rgba(251,191,36,0.08)" },
+  favFilterBtnActive: { borderColor: "rgba(251,191,36,0.5)", backgroundColor: "rgba(251,191,36,0.1)" },
 
   // Filter pills
   filterScroll: { maxHeight: 40, borderBottomWidth: 1, borderBottomColor: "#141414" },
