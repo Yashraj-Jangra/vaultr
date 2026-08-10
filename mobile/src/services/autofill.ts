@@ -3,7 +3,9 @@
  * Manages autofill credential indexing and Android system integration.
  */
 
-import { VaultItem } from "@vaultr/core";
+import { NativeModules, Platform } from "react-native";
+
+const { VaultrAutofillModule } = NativeModules;
 
 export interface AutofillDataset {
   id: string;
@@ -15,11 +17,30 @@ export interface AutofillDataset {
 
 /** Check if Vaultr is registered as the default Android Autofill Provider. */
 export async function checkAutofillStatus(): Promise<boolean> {
-  // In native Android, this calls AutofillManager.hasEnabledAutofillServices()
-  return true;
+  if (Platform.OS !== "android" || !VaultrAutofillModule) return false;
+  try {
+    return await VaultrAutofillModule.checkStatus();
+  } catch {
+    return false;
+  }
 }
 
-/** Sync decrypted credentials with Android Autofill Service cache. */
+/** Open Android Settings screen to enable Vaultr as system Autofill Provider. */
+export function openAutofillSettings(): void {
+  if (Platform.OS !== "android" || !VaultrAutofillModule) return;
+  try {
+    VaultrAutofillModule.openSettings();
+  } catch {}
+}
+
+/** Sync decrypted credentials with Android Autofill Service native store. */
 export async function syncAutofillCredentials(logins: AutofillDataset[]): Promise<void> {
-  console.log(`[Android Autofill] Indexed ${logins.length} credentials for system autofill.`);
+  if (Platform.OS !== "android" || !VaultrAutofillModule) return;
+  try {
+    const jsonString = JSON.stringify(logins);
+    await VaultrAutofillModule.syncCredentials(jsonString);
+    console.log(`[Android Autofill] Indexed ${logins.length} credentials into native store.`);
+  } catch (err) {
+    console.error("[Android Autofill] Failed to sync credentials to native store:", err);
+  }
 }

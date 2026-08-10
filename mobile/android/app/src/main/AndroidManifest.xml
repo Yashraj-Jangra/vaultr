@@ -25,5 +25,18 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+
+    <service
+        android:name=".VaultrAutofillService"
+        android:label="Vaultr Password Manager"
+        android:permission="android.permission.BIND_AUTOFILL_SERVICE"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.service.autofill.AutofillService" />
+      </intent-filter>
+      <meta-data
+          android:name="android.autofill"
+          android:resource="@xml/autofill_service_config" />
+    </service>
   </application>
 </manifest>
