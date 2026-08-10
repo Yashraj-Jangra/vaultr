@@ -1,110 +1,69 @@
 import React from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { MainTabParamList } from "./types";
 import { VaultListScreen } from "../screens/VaultListScreen";
 import { GeneratorScreen } from "../screens/GeneratorScreen";
+import { AuthenticatorScreen } from "../screens/AuthenticatorScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { colors } from "../theme/colors";
-import { Shield, Wand2, Settings as SettingsIcon } from "lucide-react-native";
+import { Shield, Wand2, KeyRound, Settings as SettingsIcon } from "lucide-react-native";
 
-export function MainTabs({ navigation }: any) {
-  const [activeTab, setActiveTab] = React.useState<"vault" | "generator" | "settings">("vault");
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
+export function MainTabs() {
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        {activeTab === "vault" && <VaultListScreen navigation={navigation} />}
-        {activeTab === "generator" && <GeneratorScreen />}
-        {activeTab === "settings" && <SettingsScreen />}
-      </View>
-
-      {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab("vault")}
-        >
-          <Shield
-            size={20}
-            color={activeTab === "vault" ? colors.accent : colors.textDim}
-          />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "vault" && styles.tabLabelActive,
-            ]}
-          >
-            Vault
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab("generator")}
-        >
-          <Wand2
-            size={20}
-            color={activeTab === "generator" ? colors.accent : colors.textDim}
-          />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "generator" && styles.tabLabelActive,
-            ]}
-          >
-            Generator
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab("settings")}
-        >
-          <SettingsIcon
-            size={20}
-            color={activeTab === "settings" ? colors.accent : colors.textDim}
-          />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "settings" && styles.tabLabelActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textDim,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
+      }}
+    >
+      <Tab.Screen
+        name="VaultTab"
+        component={VaultListScreen}
+        options={{
+          tabBarLabel: "Vault",
+          tabBarIcon: ({ color, size }) => <Shield size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="GeneratorTab"
+        component={GeneratorScreen}
+        options={{
+          tabBarLabel: "Generator",
+          tabBarIcon: ({ color, size }) => <Wand2 size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="AuthenticatorTab"
+        component={AuthenticatorScreen}
+        options={{
+          tabBarLabel: "2FA",
+          tabBarIcon: ({ color, size }) => <KeyRound size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="SettingsTab"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: "Settings",
+          tabBarIcon: ({ color, size }) => <SettingsIcon size={size} color={color} />,
+        }}
+      />
+    </Tab.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  content: {
-    flex: 1,
-  },
-  tabBar: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingVertical: 8,
-    paddingBottom: 16,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textDim,
-  },
-  tabLabelActive: {
-    color: colors.accent,
-  },
-});

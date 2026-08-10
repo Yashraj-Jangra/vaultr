@@ -21,6 +21,8 @@
     "@aws-sdk/client-s3": "^3.1067.0",
     "@aws-sdk/lib-storage": "^3.1067.0",
     "@aws-sdk/s3-request-presigner": "^3.1067.0",
+    "@noble/ciphers": "^2.3.0",
+    "@noble/hashes": "^2.3.0",
     "@types/nodemailer": "^8.0.0",
     "@types/papaparse": "^5.5.2",
     "@types/ua-parser-js": "^0.7.39",

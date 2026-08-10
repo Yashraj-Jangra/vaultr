@@ -6,10 +6,18 @@ export type RootStackParamList = {
   MainTabs: undefined;
   ItemDetail: { item: VaultItem };
   ItemForm: { item?: VaultItem };
+  AccountSettings: undefined;
+  SecuritySettings: undefined;
+  DataSettings: undefined;
+  Sessions: undefined;
+  FolderManager: undefined;
+  Trash: undefined;
 };
 
 export type MainTabParamList = {
-  Vault: undefined;
-  Generator: undefined;
-  Settings: undefined;
+  VaultTab: undefined;
+  GeneratorTab: undefined;
+  AuthenticatorTab: undefined;
+  SettingsTab: undefined;
 };
+

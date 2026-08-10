@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./types";
 import { useVaultStore } from "../store/vaultStore";
 
@@ -11,11 +11,7 @@ import { ItemDetailScreen } from "../screens/ItemDetailScreen";
 import { ItemFormScreen } from "../screens/ItemFormScreen";
 import { colors } from "../theme/colors";
 
-const Stack = createStackNavigator<RootStackParamList>();
-
-const NavContainer = NavigationContainer as any;
-const StackNavigator = Stack.Navigator as any;
-const StackScreen = Stack.Screen as any;
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const { isAuthenticated, isUnlocked, initSession } = useVaultStore();
@@ -25,25 +21,34 @@ export function RootNavigator() {
   }, []);
 
   return (
-    <NavContainer>
-      <StackNavigator
+    <NavigationContainer>
+      <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          cardStyle: { backgroundColor: colors.bg },
+          contentStyle: { backgroundColor: colors.bg },
+          animation: "slide_from_right",
         }}
       >
         {!isAuthenticated ? (
-          <StackScreen name="Auth" component={AuthScreen} />
+          <Stack.Screen name="Auth" component={AuthScreen} />
         ) : !isUnlocked ? (
-          <StackScreen name="Unlock" component={UnlockScreen} />
+          <Stack.Screen
+            name="Unlock"
+            component={UnlockScreen}
+            options={{ animation: "fade" }}
+          />
         ) : (
           <>
-            <StackScreen name="MainTabs" component={MainTabs} />
-            <StackScreen name="ItemDetail" component={ItemDetailScreen} />
-            <StackScreen name="ItemForm" component={ItemFormScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
+            <Stack.Screen
+              name="ItemForm"
+              component={ItemFormScreen}
+              options={{ animation: "slide_from_bottom" }}
+            />
           </>
         )}
-      </StackNavigator>
-    </NavContainer>
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }

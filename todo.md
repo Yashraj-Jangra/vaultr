@@ -6,11 +6,12 @@
 
 ## ✅ Completed This Session (2026-08-10)
 
-### Android Mobile App Phase 1 — Data Layer & Authentication Overhaul
+### Android Mobile App Phase 1 & 2 — Data Layer & Navigation Architecture Overhaul
 - [x] **API Client Bearer & Cookie Header Wiring (`vaultStore.ts`)**: Created `getApiClient()` helper that automatically attaches `Authorization: Bearer <token>` and `Cookie: better-auth.session_token=<token>` headers on all network calls (`getItems`, `createItem`, `updateItem`, `deleteItem`), eliminating HTTP 401 unauthenticated errors.
 - [x] **PBKDF2 Per-User Salt Key Derivation (`vaultStore.ts`)**: Fixed `deriveKey(masterPassword, salt)` to derive keys using `accountUser.id` instead of a static `"vaultr_default_salt"`, ensuring on-device decryption keys match the web application.
 - [x] **Auth Sign-In Error Handling & Response Parsing (`vaultStore.ts` & `auth.ts`)**: Updated `signInAccount` to throw an explicit error on HTTP non-200 responses, eliminating fake fallback token generation and ensuring invalid credentials report clear feedback.
 - [x] **Complete Mobile Vault CRUD Store Actions (`vaultStore.ts` & `ItemFormScreen.tsx`)**: Added `createItem`, `updateItem`, `trashItem`, `restoreItem`, `deleteItem` (permanent delete), and `toggleFavorite` actions to Zustand store with automatic offline caching and sync queueing. Re-wired `ItemFormScreen` to use store actions directly.
+- [x] **Native Stack & Bottom Tabs Navigation Overhaul (`RootNavigator.tsx`, `MainTabs.tsx` & `types.ts`)**: Upgraded navigation to `@react-navigation/native-stack` for 60fps native transitions (`slide_from_right`, `slide_from_bottom`) and `@react-navigation/bottom-tabs` for proper Android back-stack handling. Added 4 tabs: Vault, Generator, 2FA Authenticator (`AuthenticatorScreen.tsx`), and Settings. Expanded route param definitions (`types.ts`) for all sub-screens.
 
 ---
 
