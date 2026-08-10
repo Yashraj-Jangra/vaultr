@@ -9,6 +9,12 @@ import * as SecureStore from "expo-secure-store";
 const SECURE_KEY = "vaultr_master_password";
 const ENABLED_KEY = "vaultr_biometric_enabled";
 
+export interface BiometricAuthResult {
+  success: boolean;
+  password?: string;
+  error?: string;
+}
+
 /** Check if hardware biometric unlock is supported. */
 export async function isBiometricAvailable(): Promise<boolean> {
   try {
@@ -43,10 +49,12 @@ export async function enrollBiometricPassword(masterPassword: string): Promise<b
 }
 
 /** Prompt user for fingerprint / face authentication and retrieve master password. */
-export async function unlockWithBiometrics(): Promise<string | null> {
+export async function unlockWithBiometrics(): Promise<BiometricAuthResult> {
   try {
     const enabled = await isBiometricEnabled();
-    if (!enabled) return null;
+    if (!enabled) {
+      return { success: false, error: "Biometric unlock is not enabled in Security Settings." };
+    }
 
     const authResult = await LocalAuthentication.authenticateAsync({
       promptMessage: "Unlock Vaultr",
@@ -55,13 +63,25 @@ export async function unlockWithBiometrics(): Promise<string | null> {
       disableDeviceFallback: false,
     });
 
-    if (!authResult.success) return null;
+    if (!authResult.success) {
+      return {
+        success: false,
+        error: authResult.error === "user_cancel" ? "cancel" : authResult.error || "Biometric authentication failed.",
+      };
+    }
 
     const savedPassword = await SecureStore.getItemAsync(SECURE_KEY);
-    return savedPassword;
-  } catch (err) {
+    if (!savedPassword) {
+      return {
+        success: false,
+        error: "No stored master password found. Please re-enable biometrics in Settings.",
+      };
+    }
+
+    return { success: true, password: savedPassword };
+  } catch (err: any) {
     console.error("[Biometrics] Failed to unlock with biometrics:", err);
-    return null;
+    return { success: false, error: err?.message || "Biometric hardware error." };
   }
 }
 

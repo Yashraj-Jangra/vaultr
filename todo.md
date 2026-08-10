@@ -12,14 +12,8 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Avatar Upload & Absolute URI Resolver (`AccountSettingsScreen.tsx`, `getAvatarUri`, `VaultListScreen.tsx`)**:
-  - **Removed Avatar URL Input Box**: Removed manual Avatar Image URL text input box in `AccountSettingsScreen.tsx`.
-  - **Native Photo Picker Integration**: Integrated `expo-image-picker` with `ImagePicker.launchImageLibraryAsync` on tapping avatar circle or camera edit badge, uploading to server endpoint `/api/settings/avatar` and updating local state.
-  - **Remove Photo Action**: Added "Remove photo" trash link under avatar circle to clear profile picture.
-  - **Server Relative URL Resolution**: Created `getAvatarUri(image, serverUrl)` helper in `avatar.ts`, automatically prepending `serverUrl` to relative paths (e.g. `/api/settings/avatar/...`) so images load reliably across all app headers.
-- [x] **Vault Item File Attachments (`ItemFormScreen.tsx` & `ItemDetailScreen.tsx`)**:
-  - **File Attachment Picker (`ItemFormScreen.tsx`)**: Added `expo-document-picker` to select files with vault entries, storing attachment metadata in encrypted payload.
-  - **Item Detail Attachments List (`ItemDetailScreen.tsx`)**: Added **ATTACHMENTS** section displaying attached files with name, formatted file size, and 1-tap download/preview actions.
+- [x] **Biometric Button Redesign (`UnlockScreen.tsx`)**:
+  - **Prominent Fingerprint Icon Button**: Enlarged fingerprint icon (`Fingerprint` size 26, strokeWidth 2.2) inside a 52x52px solid white square (`#ffffff`, radius 14) perfectly aligned with the main **Unlock vault** button.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

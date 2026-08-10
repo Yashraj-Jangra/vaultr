@@ -345,9 +345,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   unlockWithBiometrics: async () => {
-    const savedPassword = await unlockWithBiometrics();
-    if (!savedPassword) return false;
-    await get().unlock(savedPassword);
+    const res = await unlockWithBiometrics();
+    if (!res.success || !res.password) return false;
+    await get().unlock(res.password);
     return true;
   },
 

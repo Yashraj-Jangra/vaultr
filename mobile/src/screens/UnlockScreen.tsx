@@ -12,13 +12,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Lock, Shield, Eye, EyeOff, LogOut, Fingerprint } from "lucide-react-native";
 import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
-import { isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
+import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
 
 function GridBackground() {
   return (
@@ -58,13 +59,27 @@ export function UnlockScreen() {
     setUnlocking(true);
     setUnlockError("");
     try {
-      const savedPw = await unlockWithBiometrics();
-      if (savedPw) {
-        setMasterPassword(savedPw);
-        await unlock(savedPw);
+      const enabled = await isBiometricEnabled();
+      if (!enabled) {
+        Alert.alert(
+          "Biometrics Not Enrolled",
+          "Please unlock your vault with your Master Password first, then enable Biometric Unlock in Security Settings."
+        );
+        return;
+      }
+
+      const res = await unlockWithBiometrics();
+      if (res.success && res.password) {
+        setMasterPassword(res.password);
+        await unlock(res.password);
+      } else if (res.error && res.error !== "cancel") {
+        setUnlockError(res.error);
+        Alert.alert("Biometric Unlock Error", res.error);
       }
     } catch (err: any) {
-      // Biometrics failed or cancelled
+      const msg = err?.message || "Failed to authenticate with biometrics.";
+      setUnlockError(msg);
+      Alert.alert("Biometric Error", msg);
     } finally {
       setUnlocking(false);
     }
@@ -78,15 +93,17 @@ export function UnlockScreen() {
       useNativeDriver: true,
     }).start();
 
-    // Check if biometric unlock is enabled in settings
+    // Check if biometric hardware is supported and if enabled
     (async () => {
-      const enabled = await isBiometricEnabled();
-      if (enabled) {
+      const supported = await isBiometricAvailable();
+      if (supported) {
         setBiometricsAvailable(true);
-        // Auto trigger biometric prompt after view mounts
-        setTimeout(() => {
-          handleBiometricUnlock();
-        }, 300);
+        const enabled = await isBiometricEnabled();
+        if (enabled) {
+          setTimeout(() => {
+            handleBiometricUnlock();
+          }, 400);
+        }
       }
     })();
 
@@ -197,36 +214,35 @@ export function UnlockScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Unlock button */}
-        <TouchableOpacity
-          style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
-          onPress={handleUnlock}
-          disabled={!masterPassword || unlocking}
-          activeOpacity={0.85}
-        >
-          {unlocking ? (
-            // Spinner
-            <View style={styles.spinner} />
-          ) : (
-            <>
-              <Lock size={14} color="#09090b" />
-              <Text style={styles.unlockBtnText}>Unlock vault</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* Biometrics button (if enabled in settings) */}
-        {biometricsAvailable ? (
+        {/* Actions row: Unlock button + Fingerprint icon button */}
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            style={styles.biometricBtn}
-            onPress={handleBiometricUnlock}
-            disabled={unlocking}
+            style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
+            onPress={handleUnlock}
+            disabled={!masterPassword || unlocking}
             activeOpacity={0.85}
           >
-            <Fingerprint size={16} color="#a78bfa" />
-            <Text style={styles.biometricBtnText}>Unlock with Biometrics</Text>
+            {unlocking ? (
+              <View style={styles.spinner} />
+            ) : (
+              <>
+                <Lock size={14} color="#09090b" />
+                <Text style={styles.unlockBtnText}>Unlock vault</Text>
+              </>
+            )}
           </TouchableOpacity>
-        ) : null}
+
+          {biometricsAvailable ? (
+            <TouchableOpacity
+              style={styles.biometricIconBtn}
+              onPress={handleBiometricUnlock}
+              disabled={unlocking}
+              activeOpacity={0.82}
+            >
+              <Fingerprint size={26} color="#09090b" strokeWidth={2.2} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </Animated.View>
 
       {/* Footer links */}
@@ -500,22 +516,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // Unlock button — matches web's bg-neutral-100 primary button
+  // Action row & buttons
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
   unlockBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#f4f4f5",
-    borderRadius: 12,
-    paddingVertical: 14,
-    shadowColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    height: 52,
+    shadowColor: "rgba(255,255,255,0.1)",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 16,
   },
   unlockBtnDisabled: { opacity: 0.4 },
-  unlockBtnText: { fontSize: 13.5, fontWeight: "600", color: "#09090b" },
+  unlockBtnText: { fontSize: 14, fontWeight: "600", color: "#09090b" },
+  biometricIconBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "rgba(255,255,255,0.1)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+  },
 
   // Spinner
   spinner: {
