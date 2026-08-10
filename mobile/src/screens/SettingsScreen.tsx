@@ -79,8 +79,8 @@ export function SettingsScreen({ navigation }: any) {
           activeOpacity={0.75}
         >
           <View style={styles.avatar}>
-            {getAvatarUri(accountUser?.image, serverUrl) ? (
-              <Image source={{ uri: getAvatarUri(accountUser?.image, serverUrl)! }} style={styles.avatarImg} />
+            {getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl) ? (
+              <Image source={{ uri: getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl)! }} style={styles.avatarImg} />
             ) : (
               <Text style={styles.avatarLetter}>{avatarLetter}</Text>
             )}

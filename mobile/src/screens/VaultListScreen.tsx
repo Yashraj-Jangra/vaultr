@@ -148,8 +148,8 @@ export function VaultListScreen({ navigation }: Props) {
             onPress={() => navigation.navigate("AccountSettings")}
             activeOpacity={0.85}
           >
-            {getAvatarUri(accountUser?.image, serverUrl) ? (
-              <Image source={{ uri: getAvatarUri(accountUser?.image, serverUrl)! }} style={styles.avatarImg} />
+            {getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl) ? (
+              <Image source={{ uri: getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl)! }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatarFallback}>
                 <Text style={styles.avatarInitial}>{avatarInitial}</Text>

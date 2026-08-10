@@ -9,6 +9,7 @@ export interface AccountUser {
   email: string;
   name?: string;
   image?: string;
+  avatarUrl?: string;
 }
 
 export async function saveAccountSession(token: string, user: AccountUser, serverUrl: string): Promise<void> {

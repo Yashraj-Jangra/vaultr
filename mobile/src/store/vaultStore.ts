@@ -25,6 +25,7 @@ interface VaultState {
 
   // Actions
   initSession: () => Promise<void>;
+  syncUserProfile: () => Promise<void>;
   signInAccount: (email: string, pass: string, url: string) => Promise<void>;
   registerAccount: (name: string, username: string, email: string, pass: string, url: string) => Promise<void>;
   signInWithGoogle: (url?: string) => Promise<void>;
@@ -100,7 +101,35 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (serverUrl) set({ serverUrl });
     if (token && user) {
       set({ accountToken: token, accountUser: user, isAuthenticated: true });
+      get().syncUserProfile();
     }
+  },
+
+  syncUserProfile: async () => {
+    const { accountToken, serverUrl, accountUser } = get();
+    if (!accountToken || !serverUrl) return;
+    try {
+      const cleanUrl = serverUrl.replace(/\/+$/, "");
+      const res = await fetch(`${cleanUrl}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${accountToken}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.id) {
+          const updatedUser: AccountUser = {
+            id: data.id,
+            email: data.email || accountUser?.email || "",
+            name: data.displayName || data.name || accountUser?.name || "",
+            image: data.avatarUrl || data.image || accountUser?.image,
+            avatarUrl: data.avatarUrl || data.image || accountUser?.avatarUrl,
+          };
+          await saveAccountSession(accountToken, updatedUser, cleanUrl);
+          set({ accountUser: updatedUser });
+        }
+      }
+    } catch {}
   },
 
   signInAccount: async (email, password, url) => {
@@ -269,7 +298,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   updateAccountUser: async (updates) => {
     const { accountUser, accountToken, serverUrl } = get();
     if (!accountUser) return;
-    const newUser = { ...accountUser, ...updates };
+    const img = updates.image ?? updates.avatarUrl ?? accountUser.image ?? accountUser.avatarUrl;
+    const newUser: AccountUser = {
+      ...accountUser,
+      ...updates,
+      image: img,
+      avatarUrl: img,
+    };
     if (accountToken && serverUrl) {
       await saveAccountSession(accountToken, newUser, serverUrl);
     }
@@ -363,6 +398,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   fetchItems: async () => {
     const api = getApiClient();
+    get().syncUserProfile();
     try {
       const items = await api.getItems();
       await cacheVaultItems(items);

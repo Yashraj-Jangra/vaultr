@@ -39,6 +39,7 @@ export function AccountSettingsScreen({ navigation }: any) {
     serverUrl,
     accountToken,
     updateAccountUser,
+    syncUserProfile,
   } = useVaultStore();
 
   // Primary Profile state
@@ -67,7 +68,7 @@ export function AccountSettingsScreen({ navigation }: any) {
   useEffect(() => {
     if (accountUser) {
       setDisplayName(accountUser.name || "");
-      setPhotoURL(accountUser.image || "");
+      setPhotoURL(accountUser.image || accountUser.avatarUrl || "");
     }
   }, [accountUser]);
 
@@ -113,7 +114,8 @@ export function AccountSettingsScreen({ navigation }: any) {
               const data = await res.json();
               if (data.avatarUrl) {
                 setPhotoURL(data.avatarUrl);
-                await updateAccountUser({ image: data.avatarUrl });
+                await updateAccountUser({ image: data.avatarUrl, avatarUrl: data.avatarUrl });
+                await syncUserProfile();
               }
             }
           } catch (err) {
@@ -129,13 +131,14 @@ export function AccountSettingsScreen({ navigation }: any) {
   // Handle Remove Photo
   const handleRemoveAvatar = async () => {
     setPhotoURL("");
-    await updateAccountUser({ image: undefined });
+    await updateAccountUser({ image: undefined, avatarUrl: undefined });
     if (accountToken && serverUrl) {
       try {
         await fetch(`${serverUrl}/api/settings/avatar`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${accountToken}` },
         });
+        await syncUserProfile();
       } catch {}
     }
   };

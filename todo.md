@@ -12,8 +12,9 @@
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
 - [x] **Vault List View Overhaul (`VaultListScreen.tsx`)**: Redesigned list screen to mirror web's item list rows (`ItemIconBadge` with `SiteIcon` favicons, template icon badges, domain/preview sub-lines, 2FA badges, date labels, folder pills, favorite star actions, horizontal template/folder filter strip, search bar, and empty states).
 - [x] **Settings Screen Redesign (`SettingsScreen.tsx`)**: Rebuilt settings screen into structured dark neutral card groups (`SECURITY`, `SESSIONS`, `VAULT MANAGEMENT`, `SERVER`) with avatar profile card, custom row icons, section dividers, lock button, and brand watermark.
-- [x] **Biometric Button Redesign (`UnlockScreen.tsx`)**:
-  - **Prominent Fingerprint Icon Button**: Enlarged fingerprint icon (`Fingerprint` size 26, strokeWidth 2.2) inside a 52x52px solid white square (`#ffffff`, radius 14) perfectly aligned with the main **Unlock vault** button.
+- [x] **Cross-Platform Profile Picture Synchronization (`vaultStore.ts`, `AccountSettingsScreen.tsx`)**:
+  - **Live Server Profile Sync (`syncUserProfile`)**: Added `syncUserProfile()` action in `vaultStore.ts` fetching `/api/auth/me` on app launch (`initSession`) and vault refresh (`fetchItems`).
+  - **Identical Image Source Across Platforms**: Uploaded avatars saved on web or mobile now map directly to `/api/avatars/{userId}/avatar.webp` on MinIO server storage. Both mobile app and web site load the exact same server profile picture.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:
