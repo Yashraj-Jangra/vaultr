@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { RootStackParamList } from "./types";
 import { useVaultStore } from "../store/vaultStore";
@@ -20,6 +20,17 @@ import { colors } from "../theme/colors";
 
 const Stack = createStackNavigator<RootStackParamList>();
 
+const navTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: colors.bg,
+    card: colors.surface,
+    text: colors.text,
+    border: colors.border,
+  },
+};
+
 export function RootNavigator() {
   const { isAuthenticated, isUnlocked, initSession } = useVaultStore();
 
@@ -28,7 +39,7 @@ export function RootNavigator() {
   }, []);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

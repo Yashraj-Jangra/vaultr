@@ -3,7 +3,7 @@
  * Works in browsers, Chrome extension background service workers, Node.js (19+), and React Native / Hermes (via 0-dependency @noble fallback).
  */
 
-import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
+import { pbkdf2, pbkdf2Async } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { gcm } from "@noble/ciphers/aes.js";
 
@@ -27,9 +27,18 @@ function getRandomValues(len: number): Uint8Array {
   }
   return arr;
 }
+let customPbkdf2: ((password: string, salt: string) => Promise<Uint8Array>) | null = null;
+
+export const setCustomPbkdf2 = (fn: typeof customPbkdf2) => {
+  customPbkdf2 = fn;
+};
 
 // Derives an AES-GCM key from a password string using PBKDF2
 export const deriveKey = async (password: string, salt: string): Promise<CryptoKey | Uint8Array> => {
+  if (customPbkdf2) {
+    return customPbkdf2(password, salt);
+  }
+
   const subtle = getNativeSubtle();
   const enc = new TextEncoder();
 
@@ -59,7 +68,7 @@ export const deriveKey = async (password: string, salt: string): Promise<CryptoK
   // Pure JS Fallback (React Native Hermes / Expo Go)
   const passBytes = enc.encode(password);
   const saltBytes = enc.encode(salt);
-  return pbkdf2(sha256, passBytes, saltBytes, { c: 100000, dkLen: 32 });
+  return pbkdf2Async(sha256, passBytes, saltBytes, { c: 100000, dkLen: 32 });
 };
 
 // Encrypts plaintext string using AES-256-GCM with a random 12-byte IV

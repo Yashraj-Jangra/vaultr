@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     const token = sessionResult.session.token || sessionResult.session.id;
     const { id, email, name } = sessionResult.user;
 
-    const deepLink = `vaultr://auth-callback?token=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}&email=${encodeURIComponent(email || "")}&name=${encodeURIComponent(name || "")}`;
+    const appUrl = req.nextUrl.searchParams.get("appUrl") || "vaultr://auth-callback";
+    const deepLink = `${appUrl}?token=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}&email=${encodeURIComponent(email || "")}&name=${encodeURIComponent(name || "")}`;
 
     const html = `<!DOCTYPE html>
 <html>

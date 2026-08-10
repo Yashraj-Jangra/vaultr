@@ -176,17 +176,40 @@ function CopyBtn({ value, size = "sm" }: { value: string; size?: "sm" | "xs" }) 
   );
 }
 
-function MaskedValue({ value, mono = true, dots = 12 }: { value: string; mono?: boolean; dots?: number }) {
+function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }: { value: string; mono?: boolean; dots?: number; isCard?: boolean; onToggle?: (v: boolean) => void }) {
   const [visible, setVisible] = useState(false);
-  const maskText = "•".repeat(dots);
+
+  const displayVal = useMemo(() => {
+    if (!visible) {
+      if (isCard && value.replace(/\D/g, "").length >= 4) {
+        return "•••• •••• •••• " + value.replace(/\D/g, "").slice(-4);
+      }
+      return "•".repeat(dots);
+    }
+    if (isCard) {
+      const clean = value.replace(/\D/g, "");
+      if (!clean) return value;
+      const groups = clean.length === 15 ? [4, 6, 5] : [4, 4, 4, 4];
+      const parts: string[] = [];
+      let idx = 0;
+      for (const g of groups) {
+        if (idx >= clean.length) break;
+        parts.push(clean.slice(idx, idx + g));
+        idx += g;
+      }
+      if (idx < clean.length) parts.push(clean.slice(idx));
+      return parts.join(" ");
+    }
+    return value;
+  }, [visible, value, isCard, dots]);
 
   return (
     <div className="flex items-center justify-between gap-1 min-w-0">
-      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!visible ? "tracking-widest" : ""}`}>
-        {visible ? value : maskText}
+      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!visible && !isCard ? "tracking-widest" : ""}`}>
+        {displayVal}
       </span>
       <div className="flex items-center shrink-0">
-        <button onClick={() => setVisible(v => !v)} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
+        <button onClick={() => { setVisible(v => { const next = !v; onToggle?.(next); return next; }) }} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
           {visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
         </button>
         <CopyBtn value={value} />
@@ -627,15 +650,15 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
 
 // ─── Row detail renderer ──────────────────────────────────────────────────────
 
-function DetailRow({ label, value, masked = false, isUrl = false, dots = 12 }: {
-  label: string; value: string; masked?: boolean; isUrl?: boolean; dots?: number;
+function DetailRow({ label, value, masked = false, isUrl = false, isCard = false, dots = 12, onToggle }: {
+  label: string; value: string; masked?: boolean; isUrl?: boolean; isCard?: boolean; dots?: number; onToggle?: (v: boolean) => void
 }) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-2.5 min-w-0">
       <span className="text-[10.5px] text-neutral-500 font-medium w-16 sm:w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
       <div className="flex-1 min-w-0">
-        {masked ? <MaskedValue value={value} dots={dots} /> :
+        {masked ? <MaskedValue value={value} dots={dots} isCard={isCard} onToggle={onToggle} /> :
           isUrl ? (
             <div className="flex items-center justify-between gap-1 min-w-0">
               <a
@@ -701,6 +724,7 @@ function TotpDisplay({ secret }: { secret: string }) {
 }
 
 function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean }) {
+  const [showCard, setShowCard] = useState(false);
   const t = data._template ?? "login";
   return (
     <div className={inGrid 
@@ -726,10 +750,10 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
       </>}
 
       {t === "card" && <>
-        <CreditCardGraphic data={data} />
+        <CreditCardGraphic data={data} showCard={showCard} />
         {data.cardBrand && <DetailRow label="Network" value={data.cardBrand} />}
         <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
-        <DetailRow label="Number" value={data.cardNumber || ""} masked />
+        <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
         <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "")} />
         <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
         {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
@@ -818,7 +842,7 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 }
 
 
-function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
+function CreditCardGraphic({ data, showCard }: { data: DecryptedPayload; showCard?: boolean }) {
   const cardName = data.cardName || data.cardholderName || "";
   const expiry = data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "");
   return (
@@ -828,6 +852,7 @@ function CreditCardGraphic({ data }: { data: DecryptedPayload }) {
         cardName={cardName}
         expiry={expiry}
         cardBrand={data.cardBrand}
+        isNumberVisible={showCard}
       />
     </div>
   );
@@ -893,7 +918,6 @@ export default function VaultPage() {
     cryptoKey,
     isLoading,
     items,
-    unlock: ctxUnlock,
     encryptData,
     decryptItem,
     folders: ctxFolders,
@@ -907,27 +931,6 @@ export default function VaultPage() {
     updateItem,
     batchAction,
   } = useVault();
-
-  const [masterPassword, setMasterPassword] = useState("");
-  const [unlockError, setUnlockError] = useState("");
-  const [unlocking, setUnlocking] = useState(false);
-  const [shakeKey, setShakeKey] = useState(0);
-  const [unlockOverlay, setUnlockOverlay] = useState<"main" | "forgot" | "why">("main");
-
-  // Random SVG pair — picked once on mount using lazy initializer (avoids setState-in-effect)
-  const [randomSvgs] = useState<[string, string]>(() => {
-    const svgs = [
-      "/illustrations/vault_tyfh.svg",
-      "/illustrations/safe_0mei.svg",
-      "/illustrations/security_0ubl.svg",
-      "/illustrations/firewall_cfej.svg",
-      "/illustrations/private-files_m2bw.svg",
-      "/illustrations/two-factor-authentication_ofho.svg",
-      "/illustrations/mobile-encryption_flk2.svg"
-    ];
-    const shuffled = [...svgs].sort(() => 0.5 - Math.random());
-    return [shuffled[0], shuffled[1]];
-  });
 
   const searchParams = useSearchParams();
   const activeFolder = searchParams.get("folder"); // null = all, "" = uncategorized
@@ -1042,7 +1045,16 @@ export default function VaultPage() {
   const handleSave = async (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editIdParams?: string): Promise<string | undefined> => {
     if (!cryptoKey || !user) return;
     const blob = await encryptData(JSON.stringify(payload));
-    const domain = payload.url ? extractDomain(payload.url) : "";
+    let domain = payload.url ? extractDomain(payload.url) : "";
+    if (template === "card" && payload.cardNumber) {
+      const clean = payload.cardNumber.replace(/\D/g, "");
+      if (clean.length >= 4) {
+        const last4 = clean.slice(-4);
+        const brand = payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "";
+        const displayBrand = brand.toLowerCase() === "other" || !brand ? "Credit Card" : brand;
+        domain = `${displayBrand} •••• ${last4}`;
+      }
+    }
 
     if (editIdParams) {
       const updates: Partial<VaultItem> = {
@@ -1263,244 +1275,6 @@ export default function VaultPage() {
     </div>
   );
 
-  // ── Locked — advanced unlock screen
-  if (!cryptoKey) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg)] text-[var(--fg)] overflow-hidden">
-
-      {/* ══════════════════════ DECORATIVE BACKGROUND ══════════════════════ */}
-
-      {/* Grid pattern */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{
-        backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
-        backgroundSize: "40px 40px",
-      }} />
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,255,255,0.015) 0%, transparent 70%)" }} />
-
-      {/* Left side illustration */}
-      <div key={`left-${randomSvgs[0]}`} className="absolute top-1/2 -translate-y-1/2 -left-16 hidden md:block w-[400px] h-[400px] pointer-events-none select-none opacity-[0.04]">
-        <Image src={randomSvgs[0]} alt="" width={400} height={400} className="object-contain" priority />
-      </div>
-
-      {/* Bottom right illustration */}
-      <div key={`right-${randomSvgs[1]}`} className="absolute -bottom-16 -right-16 hidden md:block w-[450px] h-[450px] pointer-events-none select-none opacity-[0.04]">
-        <Image src={randomSvgs[1]} alt="" width={450} height={450} className="object-contain" priority />
-      </div>
-
-      {/* Mobile background illustration (fall back) */}
-      <div key={`mob-${randomSvgs[0]}`} className="absolute bottom-10 right-0 w-48 h-48 pointer-events-none select-none md:hidden opacity-[0.03]">
-        <Image src={randomSvgs[0]} alt="" width={192} height={192} className="object-contain" />
-      </div>
-
-      {/* ══════════════════════ CENTER FORM ══════════════════════ */}
-      <div className="w-full max-w-[340px] relative z-10">
-
-        {/* ✨ Main Unlock View ✨ */}
-        <div
-          className="w-full transition-all duration-500"
-          style={{
-            opacity: unlockOverlay === "main" ? 1 : 0,
-            transform: unlockOverlay === "main" ? "translateY(0)" : "translateY(20px)",
-            pointerEvents: unlockOverlay === "main" ? "auto" : "none",
-            position: unlockOverlay === "main" ? "relative" : "absolute",
-            top: 0, left: 0
-          }}
-        >
-          {/* Lock icon halo */}
-          <div className="flex flex-col items-center gap-5 animate-auth-panel-in">
-            <div className="relative flex items-center justify-center mb-2">
-              <div
-                className="absolute w-28 h-28 rounded-full opacity-20 animate-pulse-ring"
-                style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
-              />
-              <div
-                className={`w-20 h-20 rounded-2xl border flex items-center justify-center transition-all duration-300 relative z-10 ${unlocking
-                  ? "bg-neutral-800 border-neutral-600 scale-105"
-                  : "bg-[#0d0d0d] border-[var(--border)]"
-                  }`}
-              >
-                <Image
-                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
-                  alt="_vaultr"
-                  width={48}
-                  height={48}
-                  className={`w-12 h-12 object-contain transition-all duration-300 ${unlocking ? "opacity-100" : "opacity-60"}`}
-                />
-              </div>
-            </div>
-
-            <div className="text-center space-y-1.5 mb-2">
-              <div className="flex items-center justify-center mb-1 opacity-60">
-                <Image
-                  src="/brand/logo-dark.png"
-                  alt="_vaultr"
-                  width={100}
-                  height={20}
-                  className="h-5 w-auto object-contain"
-                />
-              </div>
-              <h1 className="text-[18px] font-semibold text-neutral-100 tracking-tight">
-                {unlocking ? "Decrypting vault…" : "Unlock your vault"}
-              </h1>
-              <p className="text-[12px] text-neutral-500 font-mono truncate max-w-[260px]">
-                {user.email}
-              </p>
-            </div>
-          </div>
-
-          <div key={shakeKey} className={`space-y-4 mt-6 ${unlockError && shakeKey > 0 ? "animate-shake" : ""}`}>
-            {unlockError && (
-              <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border border-red-900/40 bg-red-950/25 animate-auth-form-in">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1" />
-                <p className="text-[12px] text-red-400">{unlockError}</p>
-              </div>
-            )}
-
-            <div className="relative">
-              <input
-                type="password"
-                value={masterPassword}
-                onChange={e => setMasterPassword(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleUnlock()}
-                placeholder="Master password"
-                autoFocus
-                disabled={unlocking}
-                className="w-full bg-[#0d0d0d] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-neutral-200 placeholder-neutral-700 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-white/5 transition-all duration-200 pr-12 disabled:opacity-40 shadow-[0_4px_24px_rgba(0,0,0,0.2)]"
-              />
-              <Lock className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-700 pointer-events-none" />
-            </div>
-
-            <button
-              onClick={handleUnlock}
-              disabled={!masterPassword || unlocking}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 shadow-[0_4px_16px_rgba(255,255,255,0.05)]"
-            >
-              {unlocking
-                ? <span className="w-4 h-4 border-2 border-neutral-600 border-t-neutral-900 rounded-full animate-spin" />
-                : <><Lock className="w-3.5 h-3.5" /> Unlock vault</>}
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between mt-6 text-[12px]">
-            <button
-              onClick={() => { setUnlockOverlay("forgot"); }}
-              className="text-neutral-600 hover:text-neutral-300 transition-colors"
-            >
-              Forgot password?
-            </button>
-            <button
-              onClick={() => { setUnlockOverlay("why"); }}
-              className="flex items-center gap-1.5 text-neutral-600 hover:text-neutral-300 transition-colors"
-            >
-              <Shield className="w-3.5 h-3.5" /> Why is this needed?
-            </button>
-          </div>
-
-          <div className="mt-8 text-center">
-            <button
-              onClick={async () => { await logout(); router.push("/"); }}
-              className="text-[11px] text-neutral-700 hover:text-neutral-500 transition-colors cursor-pointer"
-            >
-              Sign out instead
-            </button>
-          </div>
-        </div>
-
-        {/* ✨ Forgot Password View ✨ */}
-        <div
-          className="w-full transition-all duration-500"
-          style={{
-            opacity: unlockOverlay === "forgot" ? 1 : 0,
-            transform: unlockOverlay === "forgot" ? "translateY(0)" : "translateY(20px)",
-            pointerEvents: unlockOverlay === "forgot" ? "auto" : "none",
-            position: unlockOverlay === "forgot" ? "relative" : "absolute",
-            top: 0, left: 0
-          }}
-        >
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-red-950/20 border border-red-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(220,38,38,0.1)]">
-              <Lock className="w-6 h-6 text-red-500" />
-            </div>
-            <h2 className="text-[18px] font-semibold text-neutral-100">Unrecoverable Password</h2>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-              SecureVault uses strict <strong>Zero-Knowledge Encryption</strong>. Your master password is never sent to our servers. It is strictly used locally to derive your AES-256-GCM decryption keys.
-            </p>
-            <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-900/40 bg-red-950/10">
-              <Shield className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-[12px] text-red-200/80 leading-relaxed">
-                This means if you forget your master password, <strong>your data cannot be recovered by anyone, including us.</strong>
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 space-y-3">
-            <button
-              onClick={() => { setUnlockOverlay("main"); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
-            >
-              Try another password
-            </button>
-            <button
-              onClick={async () => { await logout(); router.push("/"); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] text-neutral-400 hover:text-neutral-200 hover:border-neutral-600 transition-all active:scale-[0.98] bg-transparent"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-
-        {/* ✨ Why Is This Needed View ✨ */}
-        <div
-          className="w-full transition-all duration-500"
-          style={{
-            opacity: unlockOverlay === "why" ? 1 : 0,
-            transform: unlockOverlay === "why" ? "translateY(0)" : "translateY(20px)",
-            pointerEvents: unlockOverlay === "why" ? "auto" : "none",
-            position: unlockOverlay === "why" ? "relative" : "absolute",
-            top: 0, left: 0
-          }}
-        >
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-950/20 border border-indigo-900/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(99,102,241,0.1)]">
-              <Shield className="w-6 h-6 text-indigo-400" />
-            </div>
-            <h2 className="text-[18px] font-semibold text-neutral-100">Local Decryption</h2>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-              When you log in, we only authenticate your identity, which pulls down the encrypted blobs from the server.
-            </p>
-            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-              Your <strong>Master Password</strong> is mathematically hashed (PBKDF2) locally inside your browser to derive a cryptographic key.
-            </p>
-            <div className="flex justify-center py-2">
-              <div className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[#0d0d0d] font-mono text-[11px] text-neutral-500">
-                AES-256-GCM
-              </div>
-            </div>
-            <p className="text-[13px] text-neutral-400 leading-relaxed text-center">
-              This key then decrypts your vault data locally. Without it, your data remains secure cipher text.
-            </p>
-          </div>
-
-          <div className="mt-8">
-            <button
-              onClick={() => { setUnlockOverlay("main"); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-neutral-100 hover:bg-white text-neutral-900 text-[13px] font-medium transition-all active:scale-[0.98]"
-            >
-              ← Back to unlock
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-
   // ── Unlocked ──────────────────────────────────────────────────────────────
 
   const renderItem = (item: VaultItem) => {
@@ -1517,7 +1291,7 @@ export default function VaultPage() {
       if (template === "login") {
         subLine = revealedData.username || revealedData.email || (revealedData.urls?.[0] ? extractDomain(revealedData.urls[0]) : "");
       } else if (template === "card") {
-        subLine = revealedData.cardNumber ? `•••• •••• •••• ${revealedData.cardNumber.slice(-4)}` : revealedData.cardName || "";
+        subLine = revealedData.cardNumber ? `•••• ${revealedData.cardNumber.replace(/\D/g, "").slice(-4)}` : (item.domain || revealedData.cardName || "");
       } else if (template === "note") {
         subLine = revealedData.note ? revealedData.note.slice(0, 60) : "";
       } else if (template === "profile") {
@@ -1530,7 +1304,7 @@ export default function VaultPage() {
     } else {
       // Masked hints before reveal
       if (template === "login") subLine = item.domain ? `${item.domain}` : "Login credential";
-      else if (template === "card") subLine = "•••• •••• •••• ••••";
+      else if (template === "card") subLine = item.domain || "•••• ••••";
       else if (template === "note") subLine = "Encrypted note";
       else if (template === "profile") subLine = "Identity profile";
       else if (template === "address") subLine = "Saved address";

@@ -129,7 +129,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             onPress={() => toggleFavorite(item.id)}
           >
             <Star
-              size={18}
+              size={20}
               color={item.favorite ? colors.warning : colors.textMuted}
               fill={item.favorite ? colors.warning : "none"}
             />
@@ -139,11 +139,11 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             style={styles.navActionBtn}
             onPress={() => navigation.navigate("ItemForm", { item })}
           >
-            <Edit2 size={18} color={colors.accent} />
+            <Edit2 size={20} color={colors.accent} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
-            <Trash2 size={18} color={colors.danger} />
+            <Trash2 size={20} color={colors.danger} />
           </TouchableOpacity>
         </View>
       </View>
@@ -166,6 +166,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               cardholderName={payload?.cardholderName || payload?.cardName}
               cardName={payload?.cardName || payload?.cardholderName}
               cardNumber={payload?.cardNumber}
+              isNumberVisible={showPassword}
               expMonth={payload?.expMonth}
               expYear={payload?.expYear}
               expiry={payload?.expiry}
@@ -286,7 +287,26 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                 <DetailRow
                   icon={<CreditCard size={16} color={colors.cardBlue} />}
                   label="Card Number"
-                  value={showPassword ? payload.cardNumber : "•••• •••• •••• " + payload.cardNumber.slice(-4)}
+                  value={
+                    showPassword
+                      ? (() => {
+                          const clean = payload.cardNumber.replace(/\D/g, "");
+                          if (!clean) return payload.cardNumber;
+                          const groups = clean.length === 15 ? [4, 6, 5] : [4, 4, 4, 4];
+                          const parts: string[] = [];
+                          let idx = 0;
+                          for (const g of groups) {
+                            if (idx >= clean.length) break;
+                            parts.push(clean.slice(idx, idx + g));
+                            idx += g;
+                          }
+                          if (idx < clean.length) parts.push(clean.slice(idx));
+                          return parts.join(" ");
+                        })()
+                      : (payload.cardNumber.replace(/\D/g, "").length >= 4
+                          ? "•••• •••• •••• " + payload.cardNumber.replace(/\D/g, "").slice(-4)
+                          : "•••• •••• •••• ••••")
+                  }
                   onCopy={() => copyToClipboard("cardNumber", payload.cardNumber)}
                   isCopied={copiedField === "cardNumber"}
                   onToggleShow={() => setShowPassword(!showPassword)}
@@ -461,33 +481,33 @@ function DetailRow({
 }) {
   return (
     <View style={styles.fieldBox}>
-      <View style={styles.fieldHeader}>
+      <View style={styles.fieldContent}>
         <View style={styles.fieldHeaderLeft}>
           {icon}
           <Text style={styles.fieldLabel}>{label}</Text>
         </View>
-        <View style={styles.fieldHeaderActions}>
-          {isPassword && onToggleShow && (
-            <TouchableOpacity style={styles.actionBtn} onPress={onToggleShow}>
-              {showPassword ? (
-                <EyeOff size={16} color={colors.textMuted} />
-              ) : (
-                <Eye size={16} color={colors.textMuted} />
-              )}
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.actionBtn} onPress={onCopy}>
-            {isCopied ? (
-              <Check size={16} color={colors.success} />
+        <Text style={styles.fieldValue} selectable>
+          {value}
+        </Text>
+      </View>
+      <View style={styles.fieldHeaderActions}>
+        {isPassword && onToggleShow && (
+          <TouchableOpacity style={styles.actionBtn} onPress={onToggleShow}>
+            {showPassword ? (
+              <EyeOff size={20} color={colors.textMuted} />
             ) : (
-              <Copy size={16} color={colors.textMuted} />
+              <Eye size={20} color={colors.textMuted} />
             )}
           </TouchableOpacity>
-        </View>
+        )}
+        <TouchableOpacity style={styles.actionBtn} onPress={onCopy}>
+          {isCopied ? (
+            <Check size={20} color={colors.success} />
+          ) : (
+            <Copy size={20} color={colors.textMuted} />
+          )}
+        </TouchableOpacity>
       </View>
-      <Text style={styles.fieldValue} selectable>
-        {value}
-      </Text>
     </View>
   );
 }
@@ -603,30 +623,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   fieldsGroup: {
-    gap: 12,
+    gap: 10,
   },
   fieldBox: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    padding: 14,
-  },
-  fieldHeader: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+  },
+  fieldContent: {
+    flex: 1,
+    paddingRight: 8,
   },
   fieldHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    marginBottom: 3,
   },
   fieldHeaderActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
   },
   attachDetailRow: {
     flexDirection: "row",
@@ -646,7 +669,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   actionBtn: {
-    padding: 4,
+    padding: 6,
   },
   fieldValue: {
     fontSize: 14,

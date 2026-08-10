@@ -4,7 +4,10 @@ import { cacheVaultItems, getCachedVaultItems, flushOfflineQueue, queueOfflineAc
 import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
 import { syncAutofillCredentials } from "../services/autofill";
-import * as WebBrowser from "expo-web-browser";
+import { Platform } from "react-native";
+import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 
 interface VaultState {
   // Auth state
@@ -78,6 +81,11 @@ function getApiClient(): VaultrApiClient {
     baseUrl: serverUrl,
     getToken: () => accountToken || "",
     getCookies: () => (accountToken ? `better-auth.session_token=${accountToken}` : ""),
+    customFetch: (url, init = {}) => {
+      const headers = new Headers(init.headers || {});
+      headers.set("User-Agent", `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`);
+      return fetch(url, { ...init, headers });
+    },
   });
 }
 
@@ -115,21 +123,31 @@ export const useVaultStore = create<VaultState>((set, get) => ({
           Authorization: `Bearer ${accountToken}`,
         },
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.id) {
-          const updatedUser: AccountUser = {
-            id: data.id,
-            email: data.email || accountUser?.email || "",
-            name: data.displayName || data.name || accountUser?.name || "",
-            image: data.avatarUrl || data.image || accountUser?.image,
-            avatarUrl: data.avatarUrl || data.image || accountUser?.avatarUrl,
-          };
-          await saveAccountSession(accountToken, updatedUser, cleanUrl);
-          set({ accountUser: updatedUser });
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          console.warn("[VaultStore] Session revoked on server during sync (401), logging out mobile device...");
+          await get().signOutAccount();
         }
+        return;
       }
-    } catch {}
+
+      const data = await res.json();
+      if (data.id) {
+        const updatedUser: AccountUser = {
+          id: data.id,
+          email: data.email || accountUser?.email || "",
+          name: data.displayName || data.name || accountUser?.name || "",
+          image: data.avatarUrl || data.image || accountUser?.image,
+          avatarUrl: data.avatarUrl || data.image || accountUser?.avatarUrl,
+        };
+        await saveAccountSession(accountToken, updatedUser, cleanUrl);
+        set({ accountUser: updatedUser });
+      }
+    } catch (err) {
+      // Network errors (offline) should be ignored, don't log out.
+      console.warn("[VaultStore] Failed to sync user profile", err);
+    }
   },
 
   signInAccount: async (email, password, url) => {
@@ -140,6 +158,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
           "Origin": cleanUrl,
           "Referer": `${cleanUrl}/`,
         },
@@ -188,6 +207,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
           "Origin": cleanUrl,
           "Referer": `${cleanUrl}/`,
         },
@@ -232,12 +252,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ isLoading: true });
     try {
       const cleanUrl = (url || get().serverUrl).replace(/\/+$/, "");
-      const callbackURL = `${cleanUrl}/api/auth/mobile-callback`;
+      const redirectUri = Linking.createURL("auth-callback");
+      const callbackURL = `${cleanUrl}/api/auth/mobile-callback?appUrl=${encodeURIComponent(redirectUri)}`;
 
       const res = await fetch(`${cleanUrl}/api/auth/sign-in/social`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
           "Origin": cleanUrl,
           "Referer": `${cleanUrl}/`,
         },
@@ -259,7 +281,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       const data = await res.json();
       if (!data.url) throw new Error("Server did not return a valid Google auth URL.");
 
-      const authResult = await WebBrowser.openAuthSessionAsync(data.url, "vaultr://auth-callback");
+      const authResult = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
       if (authResult.type === "success" && authResult.url) {
         const redirectUri = authResult.url;
@@ -312,6 +334,24 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   signOutAccount: async () => {
+    const { serverUrl, accountToken } = get();
+    if (serverUrl && accountToken) {
+      const cleanUrl = serverUrl.replace(/\/+$/, "");
+      try {
+        await fetch(`${cleanUrl}/api/auth/sign-out`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accountToken}`,
+            "Cookie": `better-auth.session_token=${accountToken}`,
+            "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
+          },
+        });
+      } catch (err) {
+        console.warn("[VaultStore] Failed to sign out on server", err);
+      }
+    }
+
     await clearBiometricPassword();
     await clearAccountSession();
     get().lock();
@@ -346,7 +386,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         items = await api.getItems();
         await cacheVaultItems(items);
         await flushOfflineQueue(api);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.status === 401 || (err?.message && (err.message.includes("401") || err.message.toLowerCase().includes("unauthorized")))) {
+          console.warn("[VaultStore] Session revoked on server (401) during unlock, logging out mobile device...");
+          await get().signOutAccount();
+          throw new Error("Session revoked. Please sign in again.");
+        }
         console.warn("[VaultStore] Remote fetch failed during unlock, loading offline cache:", err);
         items = await getCachedVaultItems();
       }
@@ -403,7 +448,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       const items = await api.getItems();
       await cacheVaultItems(items);
       set({ items });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.status === 401 || (err?.message && (err.message.includes("401") || err.message.toLowerCase().includes("unauthorized")))) {
+        console.warn("[VaultStore] Session revoked on server (401), logging out mobile device...");
+        await get().signOutAccount();
+        return;
+      }
       console.error("[VaultStore] Failed to fetch online items, loading cache:", err);
       const cached = await getCachedVaultItems();
       set({ items: cached });

@@ -105,7 +105,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
     const template = item.template || "login";
     const subLine =
       template === "login" ? (item.domain || "Login credential") :
-      template === "card" ? "•••• •••• •••• ••••" :
+      template === "card" ? (item.domain || "•••• ••••") :
       template === "note" ? "Encrypted note" :
       template === "profile" ? "Identity profile" :
       template === "address" ? "Saved address" : "";

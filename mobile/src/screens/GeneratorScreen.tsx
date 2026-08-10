@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,50 +6,164 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { generateRandomPassword, generatePassphrase, generatePin } from "@vaultr/core";
+import {
+  generateRandom,
+  generatePassphrase,
+  generatePin,
+  scorePassword,
+  GeneratorMode,
+  StrengthResult,
+} from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
-import { PasswordStrengthBar } from "../components/PasswordStrengthBar";
 import { colors } from "../theme/colors";
-import { Wand2, Copy, Check, RefreshCw } from "lucide-react-native";
+import { CustomSwitch } from "../components/CustomSwitch";
+import { Wand2, Copy, Check, RefreshCw, History } from "lucide-react-native";
 
-type GenMode = "password" | "passphrase" | "pin";
+type Mode = "random" | "passphrase" | "pin";
+
+interface HistoryEntry {
+  id: string;
+  value: string;
+  mode: Mode;
+  strength: StrengthResult;
+}
+
+// ── Colorize Character Helper ──────────────────────────────────────────────
+type CharClass = "lower" | "upper" | "digit" | "symbol";
+
+function classifyChar(c: string): CharClass {
+  if (/[a-z]/.test(c)) return "lower";
+  if (/[A-Z]/.test(c)) return "upper";
+  if (/[0-9]/.test(c)) return "digit";
+  return "symbol";
+}
+
+const CHAR_COLOR: Record<CharClass, string> = {
+  lower: "#e4e4e7",
+  upper: "#38bdf8",
+  digit: "#fbbf24",
+  symbol: "#fb7185",
+};
+
+function ColorizedOutput({ value, mode }: { value: string; mode: Mode }) {
+  if (!value) return <Text style={{ color: "#525252" }}>—</Text>;
+
+  if (mode === "pin") {
+    return (
+      <Text style={[styles.outputText, { color: "#fbbf24", letterSpacing: 4 }]}>
+        {value}
+      </Text>
+    );
+  }
+
+  if (mode === "passphrase") {
+    return (
+      <Text style={[styles.outputText, { color: "#7dd3fc" }]}>
+        {value}
+      </Text>
+    );
+  }
+
+  return (
+    <Text style={styles.outputText}>
+      {value.split("").map((c, i) => (
+        <Text key={i} style={{ color: CHAR_COLOR[classifyChar(c)] }}>
+          {c}
+        </Text>
+      ))}
+    </Text>
+  );
+}
 
 export function GeneratorScreen() {
-  const [mode, setMode] = useState<GenMode>("password");
+  const [mode, setMode] = useState<Mode>("random");
+  
+  // Random options
   const [length, setLength] = useState(16);
   const [useUpper, setUseUpper] = useState(true);
   const [useLower, setUseLower] = useState(true);
-  const [useNumbers, setUseNumbers] = useState(true);
+  const [useDigits, setUseDigits] = useState(true);
   const [useSymbols, setUseSymbols] = useState(true);
+
+  // Passphrase options
+  const [wordCount, setWordCount] = useState(4);
+  const [separator, setSeparator] = useState("-");
+  const [capitalize, setCapitalize] = useState(true);
+
+  // PIN options
+  const [pinLength, setPinLength] = useState(6);
+
+  // Copy state
   const [copied, setCopied] = useState(false);
-  const [seed, setSeed] = useState(0);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const generatedPassword = useMemo(() => {
-    if (mode === "passphrase") {
-      return generatePassphrase({ wordCount: 4, separator: "-", capitalize: true });
-    } else if (mode === "pin") {
-      return generatePin({ length: length > 12 ? 6 : Math.max(4, Math.floor(length / 2)) });
+  // Generate current password
+  const currentPassword = useMemo(() => {
+    try {
+      if (mode === "random") {
+        return generateRandom({
+          length,
+          useLower,
+          useUpper,
+          useDigits,
+          useSymbols,
+          pronounceable: false,
+          minUpper: 0,
+          minDigits: 0,
+          minSymbols: 0,
+          exclude: "",
+        });
+      }
+      if (mode === "passphrase") {
+        return generatePassphrase({
+          wordCount,
+          separator,
+          capitalize,
+        });
+      }
+      if (mode === "pin") {
+        return generatePin({ length: pinLength });
+      }
+    } catch {
+      return "";
     }
+    return "";
+  }, [mode, length, useUpper, useLower, useDigits, useSymbols, wordCount, separator, capitalize, pinLength, seed]);
 
-    return generateRandomPassword({
-      length,
-      useUpper,
-      useLower,
-      useDigits: useNumbers,
-      useSymbols,
-      pronounceable: false,
-      minUpper: 0,
-      minDigits: 0,
-      minSymbols: 0,
-      exclude: "",
-    });
-  }, [mode, length, useUpper, useLower, useNumbers, useSymbols, seed]);
+  const strength = useMemo(() => scorePassword(currentPassword), [currentPassword]);
 
-  const copyToClipboard = async () => {
-    await Clipboard.setStringAsync(generatedPassword);
+  // Character counts
+  const charCounts = useMemo(() => {
+    let lower = 0, upper = 0, digit = 0, symbol = 0;
+    for (const c of currentPassword) {
+      const cls = classifyChar(c);
+      if (cls === "lower") lower++;
+      if (cls === "upper") upper++;
+      if (cls === "digit") digit++;
+      if (cls === "symbol") symbol++;
+    }
+    return { lower, upper, digit, symbol };
+  }, [currentPassword]);
+
+  // Regenerate manual trigger & push to history
+  const [seed, setSeed] = useState(0);
+  const handleRegenerate = useCallback(() => {
+    setSeed((s) => s + 1);
+    if (currentPassword) {
+      setHistory((prev) => [
+        { id: String(Date.now()), value: currentPassword, mode, strength },
+        ...prev.slice(0, 19),
+      ]);
+    }
+  }, [currentPassword, mode, strength]);
+
+  const handleCopy = async (val?: string) => {
+    const textToCopy = val || currentPassword;
+    if (!textToCopy) return;
+    await Clipboard.setStringAsync(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -57,145 +171,303 @@ export function GeneratorScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-
+      
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
+        <View style={styles.headerLeft}>
           <Wand2 size={20} color={colors.accent} />
-          <Text style={styles.headerTitle}>Password Generator</Text>
+          <Text style={styles.headerTitle}>Generator</Text>
         </View>
+        <TouchableOpacity
+          style={[styles.historyBtn, showHistory && styles.historyBtnActive]}
+          onPress={() => setShowHistory(!showHistory)}
+        >
+          <History size={18} color={showHistory ? "#ffffff" : colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Mode Switcher Pills */}
-        <View style={styles.modeRow}>
-          {(
-            [
-              { id: "password", label: "Password" },
-              { id: "passphrase", label: "Passphrase" },
-              { id: "pin", label: "PIN Code" },
-            ] as const
-          ).map((m) => {
-            const active = mode === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.modePill, active && styles.modePillActive]}
-                onPress={() => setMode(m.id)}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    active && styles.modePillTextActive,
-                  ]}
-                >
-                  {m.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Mode Selector Tabs */}
+        <View style={styles.modeTabs}>
+          {(["random", "passphrase", "pin"] as Mode[]).map((m) => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.modeTab, mode === m && styles.modeTabActive]}
+              onPress={() => setMode(m)}
+            >
+              <Text style={[styles.modeTabText, mode === m && styles.modeTabTextActive]}>
+                {m === "random" ? "Password" : m === "passphrase" ? "Passphrase" : "PIN"}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Output Display Card */}
+        {/* ── Generated Password Output Display Card ── */}
         <View style={styles.outputCard}>
-          <Text style={styles.passwordText} selectable numberOfLines={3}>
-            {generatedPassword}
-          </Text>
+          <View style={styles.outputBox}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ColorizedOutput value={currentPassword} mode={mode} />
+            </ScrollView>
 
-          <View style={styles.outputActions}>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setSeed((s) => s + 1)}
-            >
-              <RefreshCw size={18} color={colors.textMuted} />
-              <Text style={styles.actionBtnText}>Regenerate</Text>
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.iconBtn} onPress={handleRegenerate}>
+                <RefreshCw size={18} color="#a1a1aa" />
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.copyBtn} onPress={copyToClipboard}>
-              {copied ? (
-                <>
-                  <Check size={18} color={colors.success} />
-                  <Text style={[styles.copyBtnText, { color: colors.success }]}>
-                    Copied
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Copy size={18} color={colors.bg} />
-                  <Text style={styles.copyBtnText}>Copy Password</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.copyMainBtn} onPress={() => handleCopy()}>
+                {copied ? (
+                  <>
+                    <Check size={16} color="#34d399" />
+                    <Text style={styles.copiedText}>Copied!</Text>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} color="#09090b" />
+                    <Text style={styles.copyBtnText}>Copy Password</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Strength Bar Component */}
-          <PasswordStrengthBar password={generatedPassword} />
+          {/* Color Legend (for Random mode) */}
+          {mode === "random" && (
+            <View style={styles.colorLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#e4e4e7" }]} />
+                <Text style={styles.legendText}>a-z</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#38bdf8" }]} />
+                <Text style={[styles.legendText, { color: "#38bdf8" }]}>A-Z</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#fbbf24" }]} />
+                <Text style={[styles.legendText, { color: "#fbbf24" }]}>0-9</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#fb7185" }]} />
+                <Text style={[styles.legendText, { color: "#fb7185" }]}>!@#</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Strength Bar + Stats */}
+          {strength.label ? (
+            <View style={styles.strengthSection}>
+              <View style={styles.strengthTrack}>
+                {[1, 2, 3, 4].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.strengthSegment,
+                      {
+                        backgroundColor: i <= strength.score ? strength.color : "#1f1f23",
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <View style={styles.statsRow}>
+                <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                  {strength.label}
+                </Text>
+                <Text style={styles.statDot}>•</Text>
+                <Text style={styles.statText}>{strength.entropy} bits</Text>
+                <Text style={styles.statDot}>•</Text>
+                <Text style={styles.statText}>
+                  Crack: <Text style={{ color: "#f4f4f5" }}>{strength.crackTime}</Text>
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Character Breakdown Counts */}
+          {mode === "random" && (
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownText}>
+                {charCounts.lower} lower  •  {charCounts.upper} upper  •  {charCounts.digit} digits  •  {charCounts.symbol} symbols
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Options Card */}
-        {mode === "password" && (
-          <View style={styles.optionsCard}>
-            <Text style={styles.sectionTitle}>CHARACTER OPTIONS</Text>
+        {/* ── Mode Specific Controls ── */}
 
-            {/* Length Row */}
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Length ({length})</Text>
-              <View style={styles.lengthControls}>
+        {/* 1. RANDOM PASSWORD CONTROLS */}
+        {mode === "random" && (
+          <View style={styles.controlsCard}>
+            <View style={styles.controlHeader}>
+              <Text style={styles.controlTitle}>Length: {length}</Text>
+              <View style={styles.counterGroup}>
                 <TouchableOpacity
-                  style={styles.lenBtn}
+                  style={styles.counterBtn}
                   onPress={() => setLength((l) => Math.max(8, l - 1))}
                 >
-                  <Text style={styles.lenBtnText}>-</Text>
+                  <Text style={styles.counterBtnText}>-</Text>
                 </TouchableOpacity>
-                <Text style={styles.lenValText}>{length}</Text>
+                <Text style={styles.counterValue}>{length}</Text>
                 <TouchableOpacity
-                  style={styles.lenBtn}
+                  style={styles.counterBtn}
                   onPress={() => setLength((l) => Math.min(64, l + 1))}
                 >
-                  <Text style={styles.lenBtnText}>+</Text>
+                  <Text style={styles.counterBtnText}>+</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Uppercase Toggle */}
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Uppercase (A-Z)</Text>
-              <Switch
-                value={useUpper}
-                onValueChange={setUseUpper}
-                trackColor={{ false: colors.surface3, true: colors.accent }}
-              />
+            {/* Quick length presets */}
+            <View style={styles.presetRow}>
+              {[12, 16, 24, 32, 64].map((l) => (
+                <TouchableOpacity
+                  key={l}
+                  style={[styles.presetPill, length === l && styles.presetPillActive]}
+                  onPress={() => setLength(l)}
+                >
+                  <Text style={[styles.presetText, length === l && styles.presetTextActive]}>
+                    {l}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            {/* Lowercase Toggle */}
+            <View style={styles.divider} />
+
             <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Lowercase (a-z)</Text>
-              <Switch
-                value={useLower}
-                onValueChange={setUseLower}
-                trackColor={{ false: colors.surface3, true: colors.accent }}
-              />
+              <Text style={styles.optionLabel}>Uppercase Characters (A-Z)</Text>
+              <CustomSwitch value={useUpper} onValueChange={setUseUpper} />
             </View>
 
-            {/* Numbers Toggle */}
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Lowercase Characters (a-z)</Text>
+              <CustomSwitch value={useLower} onValueChange={setUseLower} />
+            </View>
+
             <View style={styles.optionRow}>
               <Text style={styles.optionLabel}>Numbers (0-9)</Text>
-              <Switch
-                value={useNumbers}
-                onValueChange={setUseNumbers}
-                trackColor={{ false: colors.surface3, true: colors.accent }}
-              />
+              <CustomSwitch value={useDigits} onValueChange={setUseDigits} />
             </View>
 
-            {/* Symbols Toggle */}
             <View style={styles.optionRow}>
               <Text style={styles.optionLabel}>Symbols (!@#$%^&*)</Text>
-              <Switch
-                value={useSymbols}
-                onValueChange={setUseSymbols}
-                trackColor={{ false: colors.surface3, true: colors.accent }}
-              />
+              <CustomSwitch value={useSymbols} onValueChange={setUseSymbols} />
             </View>
+          </View>
+        )}
+
+        {/* 2. PASSPHRASE CONTROLS */}
+        {mode === "passphrase" && (
+          <View style={styles.controlsCard}>
+            <View style={styles.controlHeader}>
+              <Text style={styles.controlTitle}>Words: {wordCount}</Text>
+              <View style={styles.counterGroup}>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setWordCount((w) => Math.max(3, w - 1))}
+                >
+                  <Text style={styles.counterBtnText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{wordCount}</Text>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setWordCount((w) => Math.min(10, w + 1))}
+                >
+                  <Text style={styles.counterBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <Text style={styles.sectionSubLabel}>Word Separator</Text>
+            <View style={styles.presetRow}>
+              {[
+                { label: "Hyphen (-)", val: "-" },
+                { label: "Period (.)", val: "." },
+                { label: "Underscore (_)", val: "_" },
+                { label: "Space", val: " " },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.val}
+                  style={[styles.presetPill, separator === item.val && styles.presetPillActive]}
+                  onPress={() => setSeparator(item.val)}
+                >
+                  <Text style={[styles.presetText, separator === item.val && styles.presetTextActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Capitalize Words</Text>
+              <CustomSwitch value={capitalize} onValueChange={setCapitalize} />
+            </View>
+          </View>
+        )}
+
+        {/* 3. PIN CONTROLS */}
+        {mode === "pin" && (
+          <View style={styles.controlsCard}>
+            <View style={styles.controlHeader}>
+              <Text style={styles.controlTitle}>PIN Length: {pinLength}</Text>
+              <View style={styles.counterGroup}>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setPinLength((l) => Math.max(4, l - 1))}
+                >
+                  <Text style={styles.counterBtnText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{pinLength}</Text>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setPinLength((l) => Math.min(12, l + 1))}
+                >
+                  <Text style={styles.counterBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.presetRow}>
+              {[4, 6, 8, 10, 12].map((l) => (
+                <TouchableOpacity
+                  key={l}
+                  style={[styles.presetPill, pinLength === l && styles.presetPillActive]}
+                  onPress={() => setPinLength(l)}
+                >
+                  <Text style={[styles.presetText, pinLength === l && styles.presetTextActive]}>
+                    {l} Digits
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── Recent History Panel ── */}
+        {showHistory && history.length > 0 && (
+          <View style={styles.historyCard}>
+            <Text style={styles.historyTitle}>Recent Passwords ({history.length})</Text>
+            {history.map((h) => (
+              <TouchableOpacity
+                key={h.id}
+                style={styles.historyRow}
+                onPress={() => handleCopy(h.value)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyValue} numberOfLines={1}>
+                    {h.value}
+                  </Text>
+                  <Text style={styles.historyMeta}>
+                    {h.mode.toUpperCase()} • {h.strength.entropy} bits
+                  </Text>
+                </View>
+                <Copy size={16} color="#71717a" />
+              </TouchableOpacity>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -209,12 +481,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerTitleRow: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -224,137 +499,316 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  historyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyBtnActive: {
+    backgroundColor: "#27272a",
+    borderColor: "#3f3f46",
+  },
   content: {
     padding: 16,
     gap: 16,
+    paddingBottom: 40,
   },
-  modeRow: {
+
+  // Mode Tabs
+  modeTabs: {
     flexDirection: "row",
-    gap: 8,
-  },
-  modePill: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "#111111",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#1c1c1e",
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  modeTab: {
+    flex: 1,
     paddingVertical: 8,
-    borderRadius: 20,
+    alignItems: "center",
+    borderRadius: 8,
   },
-  modePillActive: {
-    backgroundColor: colors.text,
-    borderColor: colors.text,
+  modeTabActive: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
   },
-  modePillText: {
-    fontSize: 12,
+  modeTabText: {
+    fontSize: 13,
     fontWeight: "600",
-    color: colors.textMuted,
+    color: "#71717a",
   },
-  modePillTextActive: {
-    color: colors.bg,
+  modeTabTextActive: {
+    color: "#f4f4f5",
   },
+
+  // Output Card
   outputCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: "#111111",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#1c1c1e",
     borderRadius: 16,
-    padding: 20,
-    gap: 16,
-  },
-  passwordText: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.text,
-    fontFamily: "monospace",
-    letterSpacing: 1,
-    textAlign: "center",
-  },
-  outputActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-  },
-  actionBtnText: {
-    color: colors.textMuted,
-    fontWeight: "600",
-    fontSize: 13,
-  },
-  copyBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.text,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-  },
-  copyBtnText: {
-    color: colors.bg,
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  optionsCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 20,
+    padding: 16,
     gap: 14,
   },
-  sectionTitle: {
-    fontSize: 11,
+  outputBox: {
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+  outputText: {
+    fontFamily: "monospace",
+    fontSize: 19,
     fontWeight: "700",
-    color: colors.textDim,
-    letterSpacing: 1,
-    marginBottom: 4,
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#18181b",
+    paddingTop: 10,
+  },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  copyMainBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#f4f4f5",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  copyBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#09090b",
+  },
+  copiedText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#059669",
+  },
+
+  // Color Legend
+  colorLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  legendText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#a1a1aa",
+    fontFamily: "monospace",
+  },
+
+  // Strength Bar & Stats
+  strengthSection: {
+    gap: 8,
+  },
+  strengthTrack: {
+    flexDirection: "row",
+    gap: 4,
+    height: 4,
+  },
+  strengthSegment: {
+    flex: 1,
+    borderRadius: 2,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  strengthLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  statDot: {
+    color: "#3f3f46",
+    fontSize: 10,
+  },
+  statText: {
+    fontSize: 11.5,
+    color: "#71717a",
+  },
+
+  // Breakdown Row
+  breakdownRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#18181b",
+    paddingTop: 8,
+  },
+  breakdownText: {
+    fontSize: 11,
+    color: "#71717a",
+    textAlign: "center",
+  },
+
+  // Controls Card
+  controlsCard: {
+    backgroundColor: "#111111",
+    borderWidth: 1,
+    borderColor: "#1c1c1e",
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+  },
+  controlHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  controlTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#f4f4f5",
+  },
+  counterGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 10,
+    padding: 4,
+  },
+  counterBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: "#18181b",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  counterBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f4f4f5",
+  },
+  counterValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#f4f4f5",
+    paddingHorizontal: 8,
+    fontFamily: "monospace",
+  },
+  presetRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  presetPill: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  presetPillActive: {
+    backgroundColor: "#f4f4f5",
+    borderColor: "#ffffff",
+  },
+  presetText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#a1a1aa",
+  },
+  presetTextActive: {
+    color: "#09090b",
+    fontWeight: "700",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#1c1c1e",
+  },
+  sectionSubLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#71717a",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingVertical: 2,
   },
   optionLabel: {
-    fontSize: 14,
-    color: colors.text,
+    fontSize: 13.5,
     fontWeight: "500",
+    color: "#f4f4f5",
   },
-  lengthControls: {
+
+  // History Card
+  historyCard: {
+    backgroundColor: "#111111",
+    borderWidth: 1,
+    borderColor: "#1c1c1e",
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#f4f4f5",
+    marginBottom: 4,
+  },
+  historyRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-  },
-  lenBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.surface2,
+    backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: "#1f1f1f",
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
   },
-  lenBtnText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
+  historyValue: {
+    fontFamily: "monospace",
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#f4f4f5",
   },
-  lenValText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    minWidth: 24,
-    textAlign: "center",
+  historyMeta: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#71717a",
+    marginTop: 2,
   },
 });

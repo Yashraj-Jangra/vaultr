@@ -104,11 +104,6 @@ export default function AuthenticatorPage() {
   // Decrypted secrets store: { [itemId]: secret }
   const [secrets, setSecrets] = useState<Record<string, string>>({});
 
-  const [masterPassword, setMasterPassword] = useState("");
-  const [unlockError, setUnlockError] = useState("");
-  const [unlocking, setUnlocking] = useState(false);
-  const [shakeKey, setShakeKey] = useState(0);
-
   const totpItems = items
     .filter(i => i.hasTotp && !i.deletedAt)
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -142,92 +137,6 @@ export default function AuthenticatorPage() {
     return () => { isStale = true; };
   }, [cryptoKey, totpItems, decrypt, secrets]);
 
-
-  const handleUnlock = async () => {
-    if (!masterPassword) return;
-    setUnlockError("");
-    setUnlocking(true);
-    const err = await ctxUnlock(masterPassword);
-    if (err) {
-      setUnlockError(err);
-      setShakeKey(k => k + 1);
-    }
-    setUnlocking(false);
-  };
-
-  // Locked State — uses shared VaultContext key, so if vault page is already
-  // unlocked this screen will also be unlocked automatically (no re-prompt)
-  if (!cryptoKey) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden h-full min-h-[500px]">
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 50% 55% at 50% 45%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 40%, transparent 70%)" }}
-        />
-        {/* Authenticator illustration — faint background */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-          <Image
-            src="/illustrations/two-factor-authentication_ofho.svg"
-            alt=""
-            width={380}
-            height={380}
-            className="object-contain opacity-[0.05]"
-          />
-        </div>
-        <div className={`relative w-full max-w-[320px] space-y-7 ${unlocking ? "animate-unlock-open" : "animate-fade-up"}`}>
-          <div className="flex flex-col items-center gap-5">
-            <div className="relative flex items-center justify-center">
-              <div
-                className="absolute w-24 h-24 rounded-full opacity-20 animate-pulse-ring"
-                style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
-              />
-              <div
-                className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 ${unlocking ? "bg-neutral-800 border-neutral-600 scale-105" : "bg-neutral-900 border-neutral-800"}`}
-              >
-                <Fingerprint className={`w-6 h-6 transition-all duration-300 ${unlocking ? "text-neutral-200" : "text-neutral-400"}`} />
-              </div>
-            </div>
-
-            <div className="text-center space-y-1.5">
-              <div className="flex items-center justify-center gap-1.5 mb-2 opacity-40">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                <span className="text-[11px] font-medium tracking-widest uppercase text-neutral-500">_vaultr_2fa</span>
-              </div>
-              <h1 className="text-[17px] font-semibold text-neutral-100 tracking-tight">
-                {unlocking ? "Decrypting codes..." : "Unlock Authenticator"}
-              </h1>
-              <p className="text-[12px] text-neutral-600 font-mono truncate max-w-[260px]">
-                {user?.email}
-              </p>
-            </div>
-          </div>
-
-          <div key={shakeKey} className={`space-y-3 ${unlockError && shakeKey > 0 ? "animate-shake" : ""}`}>
-            {unlockError && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-900/40 bg-red-950/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                <p className="text-[12px] text-red-200">{unlockError}</p>
-              </div>
-            )}
-            <Input
-              type="password" autoFocus
-              placeholder="Master password"
-              value={masterPassword} onChange={e => setMasterPassword(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleUnlock()}
-            />
-            <Button
-              className="w-full"
-              variant="primary" onClick={handleUnlock}
-              disabled={!masterPassword || unlocking}
-            >
-              Unlock codes
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Unlocked State
   return (

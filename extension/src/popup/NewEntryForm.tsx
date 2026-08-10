@@ -146,56 +146,60 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
   const [name, setName] = useState(initialData?.name || "");
   const [folder, setFolder] = useState(initialData?.folder || "");
   const [newFolder, setNewFolder] = useState("");
-  const [tags, setTags] = useState<string>(initialData?.tags?.join(", ") || "");
+  const [tags, setTags] = useState<string>(
+    Array.isArray(initialData?.tags) ? initialData.tags.join(", ") : ""
+  );
   const [saving, setSaving] = useState(false);
   const [showGen, setShowGen] = useState(false);
 
   // Login
-  const [username, setUsername] = useState(initialData?.payload.username || "");
-  const [password, setPassword] = useState(initialData?.payload.password || "");
+  const [username, setUsername] = useState(initialData?.payload?.username || "");
+  const [password, setPassword] = useState(initialData?.payload?.password || "");
   const [urls, setUrls] = useState<string[]>(() => {
-    const arr = initialData?.payload.urls ? [...initialData.payload.urls] : [];
-    if (initialData?.payload.url && !arr.includes(initialData.payload.url)) {
+    const arr = Array.isArray(initialData?.payload?.urls) ? [...initialData.payload.urls] : [];
+    if (initialData?.payload?.url && !arr.includes(initialData.payload.url)) {
       arr.unshift(initialData.payload.url);
     }
     return arr.length > 0 ? arr : [""];
   });
-  const [totpSecret, setTotpSecret] = useState(initialData?.payload.totpSecret || "");
-  const [showTotpField, setShowTotpField] = useState(!!initialData?.payload.totpSecret);
+  const [totpSecret, setTotpSecret] = useState(initialData?.payload?.totpSecret || "");
+  const [showTotpField, setShowTotpField] = useState(!!initialData?.payload?.totpSecret);
 
   // Card
-  const [cardName, setCardName] = useState(initialData?.payload.cardName || "");
-  const [cardNumber, setCardNumber] = useState(initialData?.payload.cardNumber || "");
-  const [expiry, setExpiry] = useState(initialData?.payload.expiry || "");
-  const [cvv, setCvv] = useState(initialData?.payload.cvv || "");
-  const [pin, setPin] = useState(initialData?.payload.pin || "");
+  const [cardName, setCardName] = useState(initialData?.payload?.cardName || "");
+  const [cardNumber, setCardNumber] = useState(initialData?.payload?.cardNumber || "");
+  const [expiry, setExpiry] = useState(initialData?.payload?.expiry || "");
+  const [cvv, setCvv] = useState(initialData?.payload?.cvv || "");
+  const [pin, setPin] = useState(initialData?.payload?.pin || "");
 
   // Address
-  const [line1, setLine1] = useState(initialData?.payload.line1 || "");
-  const [line2, setLine2] = useState(initialData?.payload.line2 || "");
-  const [city, setCity] = useState(initialData?.payload.city || "");
-  const [stateVal, setStateVal] = useState(initialData?.payload.state || "");
-  const [zip, setZip] = useState(initialData?.payload.zip || "");
-  const [country, setCountry] = useState(initialData?.payload.country || "");
+  const [line1, setLine1] = useState(initialData?.payload?.line1 || "");
+  const [line2, setLine2] = useState(initialData?.payload?.line2 || "");
+  const [city, setCity] = useState(initialData?.payload?.city || "");
+  const [stateVal, setStateVal] = useState(initialData?.payload?.state || "");
+  const [zip, setZip] = useState(initialData?.payload?.zip || "");
+  const [country, setCountry] = useState(initialData?.payload?.country || "");
 
   // Profile
-  const [fullName, setFullName] = useState(initialData?.payload.fullName || "");
-  const [dob, setDob] = useState(initialData?.payload.dob || "");
-  const [idNumber, setIdNumber] = useState(initialData?.payload.idNumber || "");
-  const [profEmail, setProfEmail] = useState(initialData?.payload.email || "");
-  const [phone, setPhone] = useState(initialData?.payload.phone || "");
+  const [fullName, setFullName] = useState(initialData?.payload?.fullName || "");
+  const [dob, setDob] = useState(initialData?.payload?.dob || "");
+  const [idNumber, setIdNumber] = useState(initialData?.payload?.idNumber || "");
+  const [profEmail, setProfEmail] = useState(initialData?.payload?.email || "");
+  const [phone, setPhone] = useState(initialData?.payload?.phone || "");
 
   // Note
-  const [note, setNote] = useState(initialData?.payload.note || "");
+  const [note, setNote] = useState(initialData?.payload?.note || "");
 
   // Custom fields
   const [customFields, setCustomFields] = useState<CustomField[]>(() =>
-    initialData?.payload.customFields?.map(f => ({ id: Math.random().toString(), key: f.key, value: f.value })) || []
+    Array.isArray(initialData?.payload?.customFields)
+      ? initialData.payload.customFields.map(f => ({ id: Math.random().toString(), key: f?.key || "", value: f?.value || "" }))
+      : []
   );
   const addCustom = () => setCustomFields(p => [...p, { id: Math.random().toString(), key: "", value: "" }]);
 
   // Shared
-  const [entryNotes, setEntryNotes] = useState(initialData?.payload.entryNotes || "");
+  const [entryNotes, setEntryNotes] = useState(initialData?.payload?.entryNotes || "");
 
   const activeFolder = folder === "__new__" ? newFolder.trim() : folder;
 

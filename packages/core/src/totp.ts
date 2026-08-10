@@ -4,17 +4,10 @@
  * Portable across browser, extension service worker, Node.js, and React Native.
  */
 
-const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+import { hmac } from "@noble/hashes/hmac.js";
+import { sha1 } from "@noble/hashes/legacy.js";
 
-function getCryptoSubtle(): SubtleCrypto {
-  if (typeof globalThis !== "undefined" && globalThis.crypto?.subtle) {
-    return globalThis.crypto.subtle;
-  }
-  if (typeof window !== "undefined" && window.crypto?.subtle) {
-    return window.crypto.subtle;
-  }
-  throw new Error("WebCrypto API is not available in this runtime environment.");
-}
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 /**
  * Decodes a Base32 string into a Uint8Array.
@@ -75,28 +68,11 @@ export async function generateTOTP(
   timeMs: number = Date.now(),
   stepMs: number = 30000
 ): Promise<string> {
-  const subtle = getCryptoSubtle();
   const keyBytes = base32ToUint8Array(base32Secret);
   const counter = Math.floor(timeMs / stepMs);
   const counterBytes = numberToUint8Array(counter);
 
-  const cryptoKey = await subtle.importKey(
-    "raw",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    keyBytes as any,
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await subtle.sign(
-    "HMAC",
-    cryptoKey,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    counterBytes as any
-  );
-
-  const hash = new Uint8Array(signature as ArrayBuffer);
+  const hash = hmac(sha1, keyBytes, counterBytes);
 
   // Dynamic truncation (RFC 4226)
   const offset = hash[hash.length - 1] & 0xf;

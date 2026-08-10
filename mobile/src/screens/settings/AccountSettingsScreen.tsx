@@ -139,7 +139,7 @@ export function AccountSettingsScreen({ navigation }: any) {
           headers: { Authorization: `Bearer ${accountToken}` },
         });
         await syncUserProfile();
-      } catch {}
+      } catch { }
     }
   };
 
@@ -166,7 +166,7 @@ export function AccountSettingsScreen({ navigation }: any) {
               image: photoURL.trim() || undefined,
             }),
           });
-        } catch {}
+        } catch { }
       }
 
       Alert.alert("Success", "Profile updated successfully.");
@@ -607,7 +607,9 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#27272a",
+    borderWidth: 1,
+    borderColor: "#3f3f46",
     alignItems: "center",
     justifyContent: "center",
   },

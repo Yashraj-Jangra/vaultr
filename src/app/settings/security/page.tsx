@@ -136,6 +136,8 @@ interface SessionData {
   deviceName:   string;
   browser:      string;
   os:           string;
+  isMobile?:    boolean;
+  clientType?:  "mobile_app" | "mobile_browser" | "desktop_web";
   ipAddress:    string | null;
   country:      string | null;
   city:         string | null;
@@ -148,19 +150,27 @@ interface SessionData {
 
 function relativeTime(iso: string | null | undefined): string {
   if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  const s = Math.floor(diff / 1000);
-  if (s < 60)  return "just now";
-  if (s < 3600)  return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  try {
+    const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diffSec < 60) return "Just now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  } catch {
+    return "—";
+  }
 }
 
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-  });
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 // ── Session card ─────────────────────────────────────────────────────────────
@@ -177,6 +187,9 @@ function SessionCard({
   const location = [s.city, s.country].filter(Boolean).join(", ");
   const isRevoking = revoking === s.sessionId;
 
+  const isMobileApp = s.clientType === "mobile_app" || s.browser.toLowerCase().includes("vaultr mobile") || s.deviceName.toLowerCase().includes("vaultr mobile");
+  const isMobile = s.isMobile || isMobileApp || s.os.toLowerCase().includes("iphone") || s.os.toLowerCase().includes("android") || s.os.toLowerCase().includes("mobile");
+
   return (
     <div
       className={`relative flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl border transition-all ${
@@ -187,10 +200,10 @@ function SessionCard({
     >
       {/* Device icon */}
       <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-        s.isCurrent ? "bg-emerald-900/40" : "bg-neutral-800/60"
+        s.isCurrent ? "bg-emerald-900/40" : isMobileApp ? "bg-violet-950/50" : isMobile ? "bg-amber-950/50" : "bg-neutral-800/60"
       }`}>
-        {s.os.toLowerCase().includes("iphone") || s.os.toLowerCase().includes("android") || s.os.toLowerCase().includes("mobile")
-          ? <Smartphone className={`w-5 h-5 ${s.isCurrent ? "text-emerald-400" : "text-neutral-400"}`} />
+        {isMobile
+          ? <Smartphone className={`w-5 h-5 ${s.isCurrent ? "text-emerald-400" : isMobileApp ? "text-violet-400" : "text-amber-400"}`} />
           : <Monitor className={`w-5 h-5 ${s.isCurrent ? "text-emerald-400" : "text-neutral-400"}`} />
         }
       </div>
@@ -204,6 +217,19 @@ function SessionCard({
           {s.isCurrent && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400 border border-emerald-800/50">
               <ShieldCheck className="w-2.5 h-2.5" /> THIS DEVICE
+            </span>
+          )}
+          {isMobileApp ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-950/60 text-violet-300 border border-violet-800/60">
+              <Smartphone className="w-2.5 h-2.5 text-violet-400" /> MOBILE APP
+            </span>
+          ) : isMobile ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/60">
+              <Smartphone className="w-2.5 h-2.5 text-amber-400" /> MOBILE BROWSER
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-900 text-neutral-400 border border-neutral-800">
+              <Monitor className="w-2.5 h-2.5 text-neutral-500" /> DESKTOP WEB
             </span>
           )}
         </div>

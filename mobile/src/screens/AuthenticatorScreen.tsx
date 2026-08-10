@@ -50,7 +50,7 @@ function AuthenticatorItemRow({ item }: { item: any }) {
     );
   }
 
-  return <TotpCode secret={totpSecret} name={item.name} />;
+  return <TotpCode secret={totpSecret} name={item.name} domain={item.domain} />;
 }
 
 export function AuthenticatorScreen() {

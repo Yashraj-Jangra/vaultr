@@ -3,7 +3,7 @@
  * Handles secure session caching, server communication, domain matching, auto-lock timers, and session restoration.
  */
 
-import { VaultrApiClient, decrypt, encrypt, deriveKey, VaultItem, DecryptedLoginPayload, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
+import { VaultrApiClient, decrypt, encrypt, deriveKey, resolveDomain, VaultItem, DecryptedLoginPayload, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "http://localhost:3000";
 
@@ -482,11 +482,13 @@ function getBaseRootDomain(hostname: string): string {
           try {
             const key = await deriveKey(state.masterPassword, state.userId || "");
             const encryptedBlob = await encrypt(key, JSON.stringify(message.payload));
+            const itemDomain = message.domain || resolveDomain(undefined, message.name, message.payload?.url || message.payload?.urls?.[0]);
+
             const api = await getApiClient();
             const newItem = await api.createItem({
               name: message.name,
               encryptedBlob,
-              domain: message.domain || null,
+              domain: itemDomain || null,
               folder: message.folder || null,
               template: message.template || "login",
               tags: message.tags || [],
@@ -498,6 +500,7 @@ function getBaseRootDomain(hostname: string): string {
             state.decryptedItemsCache[newItem.id] = message.payload;
             sendResponse({ success: true, item: newItem });
           } catch (err: any) {
+            console.error("[Vaultr SW] SAVE_ITEM error:", err);
             sendResponse({ error: err?.message || "Failed to save item" });
           }
           break;
@@ -514,11 +517,14 @@ function getBaseRootDomain(hostname: string): string {
             const { id, name, folder, tags, template, payload } = message;
             const key = await deriveKey(state.masterPassword, state.userId || "");
             const encryptedBlob = await encrypt(key, JSON.stringify(payload));
+            const itemDomain = message.domain || resolveDomain(undefined, name, payload?.url || payload?.urls?.[0]);
+
             const api = await getApiClient();
 
             const updatedItem = await api.updateItem(id, {
               name,
               encryptedBlob,
+              domain: itemDomain || null,
               folder: folder || null,
               tags: tags || [],
               template: template || "login",
@@ -531,6 +537,7 @@ function getBaseRootDomain(hostname: string): string {
 
             sendResponse({ success: true, item: updatedItem });
           } catch (err: any) {
+            console.error("[Vaultr SW] UPDATE_ITEM error:", err);
             sendResponse({ error: err?.message || "Failed to update item" });
           }
           break;

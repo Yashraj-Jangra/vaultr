@@ -1,22 +1,23 @@
 import React, { useMemo } from "react";
 import { Lock, Globe, User } from "lucide-react";
+import { SiteIcon } from "@/components/vault/SiteIcon";
 
 // ── Credit Card Visual (Untouched & Preserved, with subtle watermark) ──────────
-export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fallbackBrand }: { cardNumber: string; cardName: string; expiry: string; cardBrand?: string; fallbackBrand?: string }) {
+export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fallbackBrand, isNumberVisible }: { cardNumber: string; cardName: string; expiry: string; cardBrand?: string; fallbackBrand?: string; isNumberVisible?: boolean }) {
   const isVisa = cardBrand?.toLowerCase() === "visa";
   const isMC = cardBrand?.toLowerCase() === "mastercard";
   const isAmex = cardBrand?.toLowerCase() === "amex";
   const isDiscover = cardBrand?.toLowerCase() === "discover";
   const isRuPay = cardBrand?.toLowerCase() === "rupay";
   const isOther = cardBrand?.toLowerCase() === "other";
-  
+
   const num = cardNumber.replace(/\D/g, "");
 
   let bgClass = "from-[#22252c] to-[#0f1013]";
   let graphics = null;
   let bankLogo = null;
   let logoImg = null;
-  
+
   if (isVisa) {
     bgClass = "from-[#0A0D1A] via-[#151233] to-[#2B1B54]";
     logoImg = <img src="/logos/Visa.svg" className="h-[7cqw] w-auto object-contain" alt="Visa" />;
@@ -99,7 +100,7 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
       rem -= 4;
     }
   }
-  
+
   const digitGroups = [];
   let charIndex = 0;
   for (let g = 0; g < groups.length; g++) {
@@ -107,18 +108,18 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
     for (let i = 0; i < groups[g]; i++) {
       const idx = charIndex++;
       const isEntered = idx < num.length;
-      const isVisibleBlock = g === groups.length - 1; 
-      
+      const isVisibleBlock = g === groups.length - 1;
+
       let char = "-";
       let op = isLight ? "opacity-20" : "opacity-30";
       let scale = "scale-90";
-      
+
       if (isEntered) {
-        char = isVisibleBlock ? num[idx] : "•";
+        char = (isVisibleBlock || isNumberVisible) ? num[idx] : "•";
         op = "opacity-100";
         scale = "scale-100";
       }
-      
+
       groupSpan.push(
         <span key={idx} className={`inline-block transition-all duration-300 transform ${op} ${scale} ${char === '•' ? 'translate-y-[-2px] text-[1.2em]' : ''} w-[4cqw] text-center`}>
           {char}
@@ -132,7 +133,7 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
     <div className="@container relative w-full max-w-[440px] mx-auto aspect-[1.586/1] select-none">
       <div className={`absolute inset-0 rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between ${textColor} p-[6cqw] transition-colors duration-500`}>
         {graphics}
-        
+
         {/* Subtle security watermark illustration inside card */}
         <img src="/illustrations/fingerprint_kdwq.svg" className="absolute right-4 bottom-4 w-28 h-28 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
 
@@ -141,19 +142,19 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
           <div className="flex items-center h-full">
             {bankLogo || <div className="w-[10cqw] h-[7cqw] rounded-[1cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[1.5cqw] py-[1cqw]"><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /></div>}
           </div>
-          
+
           <div className="flex items-center justify-end max-w-[50%]">
-             {logoImg || (
-               <>
-                 {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
-                 {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
-                 {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
-                 {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
-                 {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
-                 {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
-                 {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
-               </>
-             )}
+            {logoImg || (
+              <>
+                {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
+                {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
+                {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
+                {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
+                {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
+                {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
+                {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
+              </>
+            )}
           </div>
         </div>
 
@@ -170,7 +171,7 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
               {cardName || "Name"}
             </span>
           </div>
-          
+
           <div className="flex flex-col shrink-0 text-right">
             <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Expiry Date</span>
             <span className="text-[4cqw] font-medium font-mono">
@@ -199,17 +200,15 @@ function LoginKeycardPreview({ name, username, url }: { name: string; username: 
   return (
     <div className="w-full max-w-[440px] mx-auto aspect-[1.586/1] rounded-2xl bg-gradient-to-br from-[var(--surface-hover)] to-[var(--surface)] border border-[var(--border)] p-6 flex flex-col justify-between shadow-lg relative overflow-hidden select-none">
       <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-[var(--accent)]/5 blur-2xl pointer-events-none" />
-      
-      {/* Decorative Illustration */}
-      <img src="/illustrations/authentication_1evl.svg" className="absolute right-4 bottom-10 w-36 h-36 opacity-20 pointer-events-none select-none" alt="" />
 
       <div className="flex items-start justify-between relative z-10">
         <div className="space-y-1">
           <div className="text-[10px] uppercase font-bold text-[var(--fg-muted)] tracking-wider">Access Keycard</div>
           <div className="text-sm font-semibold text-[var(--fg)] truncate max-w-[200px]">{name || "Untitled Login"}</div>
         </div>
+        <SiteIcon domain={domain} name={name} url={url} size={48} className="drop-shadow-md rounded-[2cqw]" />
       </div>
-      
+
       <div className="space-y-3 relative z-10 mt-auto">
         <div className="font-mono text-xs text-[var(--fg-muted)] space-y-1">
           <div className="text-[9px] uppercase tracking-wider text-[var(--fg-muted)]/50">Identity</div>
@@ -227,7 +226,7 @@ function LoginKeycardPreview({ name, username, url }: { name: string; username: 
 function AddressLabelPreview({ name, line1, line2, city, state, zip, country }: { name: string; line1: string; line2: string; city: string; state: string; zip: string; country: string }) {
   return (
     <div className="w-full max-w-[440px] mx-auto aspect-[1.586/1] rounded-2xl bg-[var(--surface)] border-2 border-dashed border-[var(--border)] p-6 flex flex-col justify-between shadow-lg font-mono relative overflow-hidden select-none">
-      
+
       {/* Decorative Illustration */}
       <img src="/illustrations/connected-world_anke.svg" className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none select-none" alt="" />
 
@@ -235,7 +234,7 @@ function AddressLabelPreview({ name, line1, line2, city, state, zip, country }: 
         <Globe className="w-4 h-4 mb-0.5 text-[var(--fg-muted)]/40" />
         POSTAGE
       </div>
-      
+
       <div className="flex-1 flex flex-col justify-center space-y-1 text-xs text-[var(--fg)] relative z-10">
         <div className="font-sans font-bold text-sm tracking-tight text-[var(--accent)] mb-1 truncate max-w-[200px]">{name || "Shipping Address"}</div>
         <div className="truncate max-w-[220px]">{line1 || "123 Main Street"}</div>
@@ -252,18 +251,18 @@ function ProfileBadgePreview({ name, fullName, email, phone, dob, idNumber }: { 
     <div className="w-full max-w-[440px] mx-auto aspect-[1.586/1] rounded-2xl bg-gradient-to-b from-[#111115] to-[#070709] border border-neutral-800/80 p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden select-none">
       {/* Accent left border glow */}
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[var(--accent)] to-purple-600" />
-      
+
       {/* Background security emblem vector illustration */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/illustrations/personal-settings_8xv3.svg" className="absolute -right-6 -bottom-6 w-36 h-36 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
-      
+
       {/* Top row: Chip and Title */}
       <div className="flex justify-between items-start relative z-10 w-full">
         <div className="space-y-1">
           <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-widest font-mono">SECURE ACCESS BADGE</div>
           <div className="text-sm font-bold text-neutral-100 truncate max-w-[220px]">{fullName || name || "Identity Profile"}</div>
         </div>
-        
+
         {/* EMV Microchip graphic representation */}
         <div className="w-9 h-7 rounded bg-gradient-to-br from-amber-400 via-amber-300 to-yellow-600 border border-yellow-700/30 opacity-80 flex flex-col justify-between p-1 shadow-md shrink-0">
           <div className="grid grid-cols-3 gap-0.5 h-full opacity-60">
@@ -303,7 +302,7 @@ function NotePaperPreview({ name, note }: { name: string; note: string }) {
   return (
     <div className="w-full max-w-[440px] mx-auto aspect-[1.586/1] rounded-2xl bg-[var(--surface)] border border-[var(--border)] p-6 flex flex-col justify-between shadow-lg relative overflow-hidden font-mono text-[11px] leading-relaxed text-[var(--fg-muted)] select-none">
       <div className="absolute left-0 top-0 right-0 h-1.5 bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600" />
-      
+
       {/* Decorative Illustration */}
       <img src="/illustrations/confidential-letter_k1ni.svg" className="absolute right-4 bottom-10 w-36 h-36 opacity-25 pointer-events-none select-none" alt="" />
 

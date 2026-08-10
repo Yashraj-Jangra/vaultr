@@ -29,6 +29,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
+import { PressableScale } from "../components/PressableScale";
 
 type Props = { navigation: any };
 
@@ -188,17 +189,16 @@ export function VaultListScreen({ navigation }: Props) {
                     const template = item.template || "login";
                     const subLine =
                       template === "login" ? (item.domain || "Login") :
-                      template === "card" ? "•••• •••• •••• ••••" :
+                      template === "card" ? (item.domain || "•••• ••••") :
                       template === "note" ? "Secure note" :
                       template === "profile" ? "Identity profile" :
                       template === "address" ? "Saved address" : "";
                     const isLast = idx === favoriteItems.length - 1;
                     return (
                       <React.Fragment key={item.id}>
-                        <TouchableOpacity
+                        <PressableScale
                           style={styles.listRow}
                           onPress={() => navigation.navigate("ItemDetail", { item })}
-                          activeOpacity={0.7}
                         >
                           <View style={styles.listRowIcon}>
                             <SmallIconBadge item={item} />
@@ -208,7 +208,7 @@ export function VaultListScreen({ navigation }: Props) {
                             <Text style={styles.listRowSub} numberOfLines={1}>{subLine}</Text>
                           </View>
                           <ChevronRight size={15} color="#3f3f46" />
-                        </TouchableOpacity>
+                        </PressableScale>
                         {!isLast && <View style={styles.rowDivider} />}
                       </React.Fragment>
                     );
@@ -230,10 +230,9 @@ export function VaultListScreen({ navigation }: Props) {
                   const isLast = idx === arr.length - 1;
                   return (
                     <React.Fragment key={t}>
-                      <TouchableOpacity
+                      <PressableScale
                         style={styles.listRow}
                         onPress={() => navigateFiltered(TEMPLATE_LABELS[t], t)}
-                        activeOpacity={0.7}
                       >
                         <View style={[styles.listRowIcon, { backgroundColor: tc.bg, borderRadius: 10, width: 36, height: 36 }]}>
                           <IconComp size={16} color={tc.icon} />
@@ -242,7 +241,7 @@ export function VaultListScreen({ navigation }: Props) {
                         <View style={{ flex: 1 }} />
                         <Text style={styles.listRowCount}>{count}</Text>
                         <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
-                      </TouchableOpacity>
+                      </PressableScale>
                       {!isLast && <View style={styles.rowDivider} />}
                     </React.Fragment>
                   );
@@ -385,7 +384,9 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#27272a",
+    borderWidth: 1,
+    borderColor: "#3f3f46",
     alignItems: "center",
     justifyContent: "center",
   },

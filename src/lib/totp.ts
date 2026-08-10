@@ -12,7 +12,7 @@ const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
  */
 export function base32ToUint8Array(base32Secret: string): Uint8Array {
   let secret = base32Secret;
-  
+
   // Extract secret if user accidentally pastes full URI
   if (secret.startsWith("otpauth://")) {
     try {
@@ -26,7 +26,7 @@ export function base32ToUint8Array(base32Secret: string): Uint8Array {
 
   // Clean up input: remove spaces, hyphens, equals signs, convert to uppercase
   const cleaned = secret.replace(/[\s=_-]/g, "").toUpperCase();
-  
+
   let bits = 0;
   let value = 0;
   let index = 0;
@@ -96,7 +96,7 @@ export async function generateTOTP(
   );
 
   const hash = new Uint8Array(signature as ArrayBuffer);
-  
+
   // Dynamic truncation (RFC 4226)
   const offset = hash[hash.length - 1] & 0xf;
   const binary =
@@ -121,5 +121,5 @@ export function getTotpCountdown(timeMs: number = Date.now(), stepMs: number = 3
  * Returns the percentage (0-100) remaining in the current 30s TOTP window.
  */
 export function getTotpPercentage(timeMs: number = Date.now(), stepMs: number = 30000): number {
-  return 100 - (((timeMs % stepMs) / stepMs) * 100);
+  return 100 - ((timeMs % stepMs) / stepMs) * 100;
 }

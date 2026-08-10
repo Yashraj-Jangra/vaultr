@@ -1,36 +1,44 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { generateTOTP, getTotpCountdown } from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
 import { colors } from "../theme/colors";
-import { Copy, Check, KeyRound } from "lucide-react-native";
+import { Copy, Check, ShieldCheck } from "lucide-react-native";
+import { SiteIcon } from "./SiteIcon";
 
 interface Props {
   secret: string;
   name?: string;
+  domain?: string;
 }
 
-export function TotpCode({ secret, name }: Props) {
+export function TotpCode({ secret, name, domain }: Props) {
   const [code, setCode] = useState<string>("------");
   const [secondsLeft, setSecondsLeft] = useState<number>(30);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    let timer: any;
+    let mounted = true;
     const updateCode = async () => {
       try {
         const totp = await generateTOTP(secret);
         const countdown = getTotpCountdown();
-        setCode(totp);
-        setSecondsLeft(countdown);
+        if (mounted) {
+          setCode(totp);
+          setSecondsLeft(countdown);
+        }
       } catch {
-        setCode("ERROR");
+        if (mounted) setCode("ERROR");
       }
     };
 
     updateCode();
-    timer = setInterval(updateCode, 1000);
-    return () => clearInterval(timer);
+    const timer = setInterval(updateCode, 1000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
   }, [secret]);
 
   const handleCopy = async () => {
@@ -40,114 +48,211 @@ export function TotpCode({ secret, name }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const progressPercent = (secondsLeft / 30) * 100;
+  const progressPercent = Math.max(0, Math.min(100, (secondsLeft / 30) * 100));
+  const radius = 18;
+  const strokeWidth = 2.5;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - progressPercent / 100);
+  const isExpiring = secondsLeft <= 5;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={handleCopy}
+      style={styles.card}
+    >
+      {/* Header Row: Circular Ring + Identity */}
       <View style={styles.headerRow}>
-        <View style={styles.iconCircle}>
-          <KeyRound size={18} color={colors.accent} />
+        <View style={styles.ringWrapper}>
+          <Svg width={44} height={44} style={styles.svgRing}>
+            {/* Background Track Circle */}
+            <Circle
+              cx="22"
+              cy="22"
+              r={radius}
+              stroke="#1f1f23"
+              strokeWidth={strokeWidth}
+              fill="none"
+            />
+            {/* Animated Progress Circle */}
+            <Circle
+              cx="22"
+              cy="22"
+              r={radius}
+              stroke={isExpiring ? "#f87171" : "#38bdf8"}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={`${circumference}`}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              transform="rotate(-90 22 22)"
+            />
+          </Svg>
+          {/* Favicon or Fallback Icon centered in ring */}
+          <View style={styles.iconInsideRing}>
+            {domain ? (
+              <SiteIcon domain={domain} name={name || ""} size={22} />
+            ) : (
+              <ShieldCheck size={18} color={isExpiring ? "#f87171" : "#a1a1aa"} />
+            )}
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.nameText}>{name || "2FA Authenticator Code"}</Text>
-          <Text style={styles.timerText}>{secondsLeft}s remaining</Text>
+
+        <View style={styles.infoCol}>
+          <Text style={styles.itemName} numberOfLines={1}>
+            {name || "2FA Authenticator"}
+          </Text>
+          <View style={styles.timerRow}>
+            <Text style={[styles.timerText, isExpiring && styles.timerExpiring]}>
+              {secondsLeft}s remaining
+            </Text>
+            {copied && <Text style={styles.copiedBadge}>• COPIED TO CLIPBOARD</Text>}
+          </View>
         </View>
 
         <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
           {copied ? (
-            <Check size={18} color={colors.success} />
+            <Check size={18} color="#34d399" />
           ) : (
-            <Copy size={18} color={colors.textMuted} />
+            <Copy size={18} color="#71717a" />
           )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.codeRow}>
-        <Text style={styles.codeText}>{code.slice(0, 3)}</Text>
-        <Text style={styles.codeSpacer}> </Text>
-        <Text style={styles.codeText}>{code.slice(3)}</Text>
+      {/* Code Display: Split Monospace Segments */}
+      <View style={styles.codeContainer}>
+        {code === "ERROR" || code === "------" ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>Invalid TOTP Secret</Text>
+          </View>
+        ) : (
+          <View style={styles.segmentedRow}>
+            <View style={styles.segmentPill}>
+              <Text style={styles.codeSegment}>{code.slice(0, 3)}</Text>
+            </View>
+            <Text style={styles.dashDivider}>-</Text>
+            <View style={styles.segmentPill}>
+              <Text style={styles.codeSegment}>{code.slice(3, 6)}</Text>
+            </View>
+          </View>
+        )}
       </View>
-
-      {/* Progress Track */}
-      <View style={styles.track}>
-        <View
-          style={[
-            styles.bar,
-            {
-              width: `${progressPercent}%`,
-              backgroundColor: secondsLeft < 6 ? colors.danger : colors.accent,
-            },
-          ]}
-        />
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: "#111111",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#1c1c1e",
     borderRadius: 16,
     padding: 16,
-    gap: 12,
+    gap: 14,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: colors.accentBg,
+  ringWrapper: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  svgRing: {
+    position: "absolute",
+  },
+  iconInsideRing: {
     alignItems: "center",
     justifyContent: "center",
   },
-  nameText: {
+  infoCol: {
+    flex: 1,
+  },
+  itemName: {
     fontSize: 15,
     fontWeight: "700",
-    color: colors.text,
+    color: "#f4f4f5",
+    letterSpacing: -0.2,
   },
-  timerText: {
-    fontSize: 11,
-    color: colors.textDim,
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     marginTop: 2,
   },
-  copyBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.surface2,
+  timerText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#71717a",
+    fontFamily: "monospace",
   },
-  codeRow: {
+  timerExpiring: {
+    color: "#f87171",
+  },
+  copiedBadge: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#34d399",
+    letterSpacing: 0.5,
+  },
+  copyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Code layout
+  codeContainer: {
+    paddingTop: 2,
+  },
+  segmentedRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface2,
-    borderRadius: 12,
-    paddingVertical: 12,
+    gap: 8,
   },
-  codeText: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: colors.text,
-    letterSpacing: 4,
+  segmentPill: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minWidth: 110,
+    alignItems: "center",
+  },
+  codeSegment: {
     fontFamily: "monospace",
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#f4f4f5",
+    letterSpacing: 4,
   },
-  codeSpacer: {
-    fontSize: 28,
-    width: 12,
+  dashDivider: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#3f3f46",
   },
-  track: {
-    height: 4,
-    backgroundColor: colors.surface3,
-    borderRadius: 2,
-    overflow: "hidden",
+  errorBox: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
   },
-  bar: {
-    height: "100%",
-    borderRadius: 2,
+  errorText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#f87171",
   },
 });

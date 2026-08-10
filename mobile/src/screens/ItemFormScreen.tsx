@@ -211,7 +211,14 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.attachments = attachments;
       }
 
-      const domain = url.trim() || undefined;
+      let domain = url.trim() || undefined;
+      if (template === "card" && cardNumber.replace(/\D/g, "").length >= 4) {
+        const cleanNum = cardNumber.replace(/\D/g, "");
+        const last4 = cleanNum.slice(-4);
+        const brand = cardBrand && cardBrand !== "auto-detect" ? cardBrand : "";
+        const displayBrand = brand.toLowerCase() === "other" || !brand ? "Credit Card" : brand;
+        domain = `${displayBrand} •••• ${last4}`;
+      }
       const hasTotp = template === "login" && !!totpSecret.trim();
 
       if (isEdit && item) {

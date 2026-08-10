@@ -8,6 +8,22 @@ import { NewEntryForm } from "./NewEntryForm";
 import { KeyRound, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
 import "./popup.css";
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{ color: "red", padding: 20, background: "#000", height: "100%", width: "100%", whiteSpace: "pre-wrap" }}>{this.state.error?.stack}</div>;
+    }
+    return this.props.children;
+  }
+}
+
 type Tab = "vault" | "generator" | "settings";
 
 export interface AccountInfo {
@@ -59,7 +75,8 @@ export function App() {
     });
     chrome.runtime.sendMessage({ type: "GET_FOLDERS" }, (res) => {
       if (res?.folders) {
-        setFolders(res.folders);
+        const mappedFolders = res.folders.map((f: any) => typeof f === "string" ? f : f.name);
+        setFolders(mappedFolders);
       }
     });
   };
@@ -272,20 +289,20 @@ export function App() {
         )}
 
         {/* Slide-up overlays */}
-        {isNewEntryOpen && (
-          <NewEntryForm
-            folders={folders}
-            onSave={handleSaveItem}
-            onCancel={() => setIsNewEntryOpen(false)}
-          />
-        )}
-        {editingItem && (
-          <NewEntryForm
-            folders={folders}
-            onSave={handleSaveItem}
-            onCancel={() => setEditingItem(null)}
-            initialData={editingItem}
-          />
+        {(isNewEntryOpen || editingItem) && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <ErrorBoundary>
+              <NewEntryForm
+                folders={folders}
+                onSave={handleSaveItem}
+                onCancel={() => {
+                  setIsNewEntryOpen(false);
+                  setEditingItem(null);
+                }}
+                initialData={editingItem || undefined}
+              />
+            </ErrorBoundary>
+          </div>
         )}
       </div>
 

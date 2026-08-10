@@ -6,7 +6,18 @@
 
 ## ✅ Completed This Session (2026-08-10)
 
-### Android Mobile App Visual Parity & Complete UI Redesign — Web Design System Match
+### Sessions & Devices Management Overhaul
+- [x] **Mobile Sign-Out & Server Session Termination (`vaultStore.ts`)**: Updated `signOutAccount()` to explicitly `await` the `fetch` to `/api/auth/sign-out` on the server backend before clearing local storage, ensuring active database sessions are cleanly removed when signing out from mobile, preventing the network request from being aborted by component unmounting.
+- [x] **HTTP 401 Unauthorized Auto-Revocation (`vaultStore.ts`, `api-client.ts`)**: Configured mobile store to catch HTTP 401 status when a session is revoked from the web site or another device, automatically triggering `signOutAccount()` and redirecting the mobile user back to the login screen. Also enforced strict 401 checks during app initialization (`syncUserProfile`) and master password unlock (`unlock()`) so revoked sessions immediately drop offline cache access.
+- [x] **Explicit Mobile User-Agent & OS Recognition (`vaultStore.ts`)**: Injected `User-Agent: VaultrMobile/1.0 (Android)` across all mobile network requests (`signInAccount`, `registerAccount`, `signInWithGoogle`, `getApiClient`, `signOutAccount`), guaranteeing the server correctly identifies the OS as `Android` instead of `Unknown OS`.
+- [x] **Reanimated Setup & Configuration (`package.json`, `babel.config.js`)**: Installed `react-native-reanimated` (~3.16.1) and configured Babel plugin for native thread animations.
+- [x] **Unlock Screen Smooth Animations (`UnlockScreen.tsx`)**: Replaced standard React Native `Animated` with Reanimated `useSharedValue`, `useAnimatedStyle`, `withSpring`, `withRepeat`, and `withSequence` for 60fps/120fps halo pulsing, fade entrance, and spring shake feedback.
+- [x] **Spring Pressable Component (`PressableScale.tsx`)**: Created reusable `PressableScale` component with spring scale physics (`0.97` scale down on press) for tactile item card touch feedback.
+- [x] **Vault List Interactive Rows (`VaultListScreen.tsx`)**: Replaced static `TouchableOpacity` rows in favorites and type categories with `PressableScale` for buttery smooth spring animation feedback.
+
+### Mobile OAuth & Master Password Prompt Unification
+- [x] **Mobile Google OAuth Deep Link Fix (`vaultStore.ts`, `app.json`, `mobile-callback/route.ts`)**: Added `Linking.createURL("auth-callback")` to dynamically handle Expo Go (`exp://...`) and standalone (`vaultr://...`) redirect schemes, passed `appUrl` parameter to server, and added `"scheme": "vaultr"` in `app.json`.
+- [x] **Unified Master Password Prompt (`MasterPasswordPrompt.tsx`, `layout.tsx`, `page.tsx`, `authenticator/page.tsx`)**: Extracted 250-line master password lock screen into a shared component rendered globally at `layout.tsx`, eliminating duplicate lock screens across Vault and Authenticator sub-routes.
 - [x] **Design Tokens & Theme Synchronization (`colors.ts`)**: Ported the website's Tailwind neutral scale (`#09090b` background, `#111111` surface, `#1f1f1f` border, `#f4f4f5` text, accent violet, status colors) to mobile theme tokens.
 - [x] **Unlock Screen Visual Overhaul (`UnlockScreen.tsx`)**: Re-built unlock screen to mirror the website's `!cryptoKey` lock view pixel-for-pixel (radial halo pulse ring, brand lock icon box, brand logo header, red error pill with dot indicator, master password input, primary action button, forgot password and local decryption sub-views).
 - [x] **Auth Screen Sign-In / Sign-Up Redesign (`AuthScreen.tsx` & `vaultStore.ts`)**: Ported web sign-in/sign-up layout with tab switcher, morphing first name/username input fields, password strength meter (`StrengthMeter`), brand header, collapsible server endpoint URL configuration box, and `registerAccount` Better Auth API integration.
@@ -17,9 +28,13 @@
   - **Site Favicon on Login Keycard**: Replaced static icon with dynamic domain favicon (`SiteIcon` resolution via Google Favicon API) on the top-right of `LoginKeycardVisual`.
   - **Card Number Masking**: Formatted card numbers to bullet-mask all groups except the last group (matching web `•••• •••• •••• 1234`).
   - **Desktop Expand Parity (`src/app/vault/page.tsx`)**: Updated `CreditCardGraphic` and `DetailRow` on web desktop so expanding a card item correctly displays the Card Network, Cardholder Name, Expiry Date (`MM / YYYY`), and matching brand visual theme when saved from mobile or web.
-- [x] **Root Cause Fix — Erroneous Biometric Wipe on Lock (`vaultStore.ts`)**:
-  - **Identified Root Cause**: Found that `vaultStore.ts` `lock()` action was explicitly executing `clearBiometricPassword()` every single time the vault locked, which deleted `SECURE_KEY` and set `vaultr_biometric_enabled=false` on every lock event!
-  - **Corrected Lifecycle Boundary**: Removed `clearBiometricPassword()` from `lock()`. `clearBiometricPassword()` is now strictly invoked only when the user explicitly signs out (`signOutAccount()`). Biometrics now persists across vault locks and unlocks cleanly!
+- [x] **Master Password Unlock & Field Layout Refinements (`UnlockScreen.tsx`, `ItemDetailScreen.tsx`)**:
+  - **In-Display Fingerprint Sensor**: Moved fingerprint biometric trigger to a dedicated middle-centered row below footer links and above sign-out link. Increased fingerprint icon size (`48px` icon in `60px` container) with soft breathing animation ring matching flagship phone in-display sensor placement.
+  - **Hero Lock Icon Sizing**: Enlarged the top lock brand image size from `60px` to `78px` within the existing lock box.
+- [x] **Card Number Spacing & List View Last 4 Digits (`ItemDetailScreen.tsx`, `ItemFormScreen.tsx`, `VaultListScreen.tsx`, `VaultFilteredScreen.tsx`, `page.tsx`)**:
+  - **Spaced Card Numbers When Unmasked**: Formatted card numbers into 4-digit groups (e.g. `4111 1111 1111 1111` or `3782 822461 27100` for AMEX) when unmasked/displayed in detail views and previews.
+  - **Card Last 4 Digits in List View**: Automatically store and display `Credit Card •••• 1234` (or `Visa •••• 1234`) as the list view row subtitle for payment card items across mobile and web. Displays "Credit Card" instead of just the bullet points when the card brand is empty or set to 'Other'.
+  - **Sync Card Graphic Visibility**: Pressing the 'Eye' icon button to reveal the card number in the detail list now dynamically unmasks the digits directly on the top Preview Card Graphic for both Web and Mobile.
 
 ### Android Mobile App Phase 1 to 8 — Complete App Rebuild, Brand Assets & Native Autofill
 - [x] **Better Auth Missing/Null Origin Fix (`auth.ts`, `vaultStore.ts`, `api-client.ts`)**:

@@ -11,6 +11,8 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import { ToastContainer } from "@/components/common/ToastContainer";
 import { useToast } from "@/hooks/useToast";
 
+import { MasterPasswordPrompt } from "@/components/vault/MasterPasswordPrompt";
+
 // VaultShell no longer handles device verification — that gate lives in vault/page.tsx,
 // before the master password screen. The banner is intentionally removed; when
 // requireVerificationOnNew is OFF (the default), users should see zero "unverified" UI.
@@ -35,12 +37,10 @@ function VaultShell({ children }: { children: React.ReactNode }) {
 
   if (!cryptoKey) {
     return (
-      <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+      <>
+        <MasterPasswordPrompt />
         <ToastContainer toasts={toasts} onRemove={removeToast} />
-      </div>
+      </>
     );
   }
 

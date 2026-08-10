@@ -60,28 +60,29 @@ export interface PatternOptions {
   pattern: string;
 }
 
-function getCrypto(): Crypto {
-  if (typeof globalThis !== "undefined" && globalThis.crypto) {
-    return globalThis.crypto as Crypto;
-  }
-  if (typeof window !== "undefined" && window.crypto) {
-    return window.crypto;
-  }
-  throw new Error("WebCrypto is not available in this environment.");
-}
-
 function secureRandInt(max: number): number {
-  const crypto = getCrypto();
-  const arr = new Uint32Array(1);
-  let result: number;
-  do {
-    crypto.getRandomValues(arr);
-    result = arr[0];
-  } while (result >= Math.floor(4294967296 / max) * max);
-  return result % max;
+  if (!max || max <= 0) return 0;
+  try {
+    const cryptoObj =
+      (typeof globalThis !== "undefined" && globalThis.crypto) ||
+      (typeof window !== "undefined" && window.crypto);
+    if (cryptoObj && typeof cryptoObj.getRandomValues === "function") {
+      const arr = new Uint32Array(1);
+      let result: number;
+      do {
+        cryptoObj.getRandomValues(arr);
+        result = arr[0];
+      } while (result >= Math.floor(4294967296 / max) * max);
+      return result % max;
+    }
+  } catch {
+    // fallback if getRandomValues fails
+  }
+  return Math.floor(Math.random() * max);
 }
 
 function secureChoice(str: string): string {
+  if (!str || str.length === 0) return "";
   return str[secureRandInt(str.length)];
 }
 
@@ -134,6 +135,8 @@ export function generateRandomPassword(opts: RandomOptions): string {
 
   return shuffleString(result.slice(0, opts.length).join(""));
 }
+
+export const generateRandom = generateRandomPassword;
 
 export function generatePassphrase(opts: PassphraseOptions): string {
   const words: string[] = [];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,59 +8,141 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  RefreshControl,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
-import { Monitor, Smartphone, Globe, Trash2, ArrowLeft, ShieldAlert } from "lucide-react-native";
+import {
+  Monitor,
+  Smartphone,
+  Globe,
+  Trash2,
+  ArrowLeft,
+  ShieldAlert,
+  ShieldCheck,
+  MapPin,
+  RefreshCw,
+  Clock,
+  LogIn,
+} from "lucide-react-native";
 
-export interface SessionMeta {
-  id: string;
-  userAgent?: string;
-  ipAddress?: string;
-  updatedAt?: string;
-  isCurrent?: boolean;
+export interface SessionWithMeta {
+  sessionId: string;
+  isCurrent: boolean;
+  deviceName: string;
+  browser: string;
+  os: string;
+  isMobile?: boolean;
+  clientType?: "mobile_app" | "mobile_browser" | "desktop_web";
+  ipAddress: string | null;
+  country: string | null;
+  city: string | null;
+  lastActiveAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return "Just now";
+  try {
+    const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diffSec < 60) return "Just now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  } catch {
+    return "Just now";
+  }
+}
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "Recent";
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 export function SessionsScreen({ navigation }: any) {
   const { serverUrl, accountToken } = useVaultStore();
 
-  const [sessions, setSessions] = useState<SessionMeta[]>([]);
+  const [sessions, setSessions] = useState<SessionWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokingAll, setRevokingAll] = useState(false);
 
-  const fetchSessions = async () => {
-    setLoading(true);
+  const cleanUrl = (serverUrl || "").replace(/\/+$/, "");
+
+  const getHeaders = useCallback(() => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "User-Agent": "VaultrMobile/1.0 (Android)",
+    };
+    if (accountToken) {
+      headers["Authorization"] = `Bearer ${accountToken}`;
+      headers["Cookie"] = `better-auth.session_token=${accountToken}`;
+    }
+    return headers;
+  }, [accountToken]);
+
+  const fetchSessions = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
-      const res = await fetch(`${serverUrl}/api/auth/sessions`, {
-        headers: { Authorization: `Bearer ${accountToken}` },
+      const res = await fetch(`${cleanUrl}/api/settings/sessions`, {
+        method: "GET",
+        headers: getHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        setSessions(data.sessions || data || []);
+        setSessions(data.sessions || []);
       } else {
-        // Fallback default current session
         setSessions([
           {
-            id: "current_session",
-            userAgent: "Vaultr Android Native App",
-            ipAddress: "Local Device",
-            updatedAt: new Date().toISOString(),
+            sessionId: "current_session",
+            deviceName: "Vaultr Mobile App (Android)",
+            browser: "Vaultr Mobile App",
+            os: "Android",
             isCurrent: true,
+            isMobile: true,
+            clientType: "mobile_app",
+            ipAddress: "Connected Device",
+            country: null,
+            city: null,
+            createdAt: new Date().toISOString(),
+            lastActiveAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 14 * 86400000).toISOString(),
           },
         ]);
       }
-    } catch {
+    } catch (err) {
       setSessions([
         {
-          id: "current_session",
-          userAgent: "Vaultr Android Native App",
-          ipAddress: "Local Device",
-          updatedAt: new Date().toISOString(),
+          sessionId: "current_session",
+          deviceName: "Vaultr Mobile App (Android)",
+          browser: "Vaultr Mobile App",
+          os: "Android",
           isCurrent: true,
+          isMobile: true,
+          clientType: "mobile_app",
+          ipAddress: "Connected Device",
+          country: null,
+          city: null,
+          createdAt: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 14 * 86400000).toISOString(),
         },
       ]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -68,94 +150,271 @@ export function SessionsScreen({ navigation }: any) {
     fetchSessions();
   }, []);
 
-  const handleRevokeSession = async (id: string) => {
-    try {
-      const res = await fetch(`${serverUrl}/api/auth/revoke-session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accountToken}`,
-        },
-        body: JSON.stringify({ sessionId: id }),
-      });
-      if (res.ok) {
-        Alert.alert("Session Revoked", "The selected session has been logged out.");
-        fetchSessions();
-      } else {
-        Alert.alert("Notice", "Session revoked locally.");
-        setSessions(sessions.filter((s) => s.id !== id));
-      }
-    } catch {
-      setSessions(sessions.filter((s) => s.id !== id));
-    }
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSessions(false);
   };
+
+  const handleRevokeSession = (sessionId: string, deviceName: string) => {
+    Alert.alert(
+      "Revoke Session",
+      `Are you sure you want to sign out ${deviceName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Revoke",
+          style: "destructive",
+          onPress: async () => {
+            setRevokingId(sessionId);
+            try {
+              const res = await fetch(`${cleanUrl}/api/settings/sessions/${sessionId}`, {
+                method: "DELETE",
+                headers: getHeaders(),
+              });
+              if (res.ok) {
+                setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+              } else {
+                const data = await res.json().catch(() => ({}));
+                Alert.alert("Error", data.error || "Failed to revoke session.");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Network error revoking session.");
+            } finally {
+              setRevokingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRevokeAllOther = () => {
+    const otherCount = sessions.filter((s) => !s.isCurrent).length;
+    if (otherCount === 0) return;
+
+    Alert.alert(
+      "Sign Out All Other Devices",
+      `Are you sure you want to sign out ${otherCount} other active device session${otherCount > 1 ? "s" : ""}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out All",
+          style: "destructive",
+          onPress: async () => {
+            setRevokingAll(true);
+            try {
+              const res = await fetch(`${cleanUrl}/api/settings/sessions`, {
+                method: "DELETE",
+                headers: getHeaders(),
+              });
+              if (res.ok) {
+                setSessions((prev) => prev.filter((s) => s.isCurrent));
+                Alert.alert("Sessions Revoked", "All other device sessions have been logged out.");
+              } else {
+                const data = await res.json().catch(() => ({}));
+                Alert.alert("Error", data.error || "Failed to revoke all sessions.");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Network error.");
+            } finally {
+              setRevokingAll(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const otherSessions = sessions.filter((s) => !s.isCurrent);
+  const currentSession = sessions.find((s) => s.isCurrent);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
+      {/* Header */}
       <View style={styles.navBar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <ArrowLeft size={20} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Active Sessions</Text>
+        <Text style={styles.navTitle}>Sessions & Devices</Text>
+
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => fetchSessions(true)} disabled={loading}>
+          <RefreshCw size={18} color={colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {loading && !refreshing ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.loadingText}>Fetching active sessions…</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+          }
+        >
+          {/* Banner */}
           <View style={styles.infoBanner}>
             <ShieldAlert size={20} color={colors.accent} />
             <Text style={styles.infoBannerText}>
-              These devices are currently signed in to your Vaultr account. Revoking a session immediately revokes access.
+              All active sessions for your account. Sessions idle for more than 14 days are automatically removed.
             </Text>
           </View>
 
-          {sessions.map((s) => {
-            const isMobile = (s.userAgent || "").toLowerCase().includes("android") || (s.userAgent || "").toLowerCase().includes("mobile");
-            return (
-              <View key={s.id} style={styles.sessionCard}>
-                <View style={styles.iconCircle}>
-                  {isMobile ? (
-                    <Smartphone size={20} color={colors.accent} />
-                  ) : (
-                    <Monitor size={20} color={colors.accent} />
-                  )}
-                </View>
+          {/* Bulk Revoke Header */}
+          {otherSessions.length > 0 && (
+            <View style={styles.bulkRow}>
+              <Text style={styles.sectionHeader}>ACTIVE SESSIONS ({sessions.length})</Text>
+              <TouchableOpacity
+                style={styles.revokeAllBtn}
+                onPress={handleRevokeAllOther}
+                disabled={revokingAll}
+              >
+                {revokingAll ? (
+                  <ActivityIndicator size="small" color={colors.danger} />
+                ) : (
+                  <>
+                    <Trash2 size={14} color={colors.danger} />
+                    <Text style={styles.revokeAllText}>Sign out all other ({otherSessions.length})</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
-                <View style={{ flex: 1 }}>
-                  <View style={styles.titleRow}>
-                    <Text style={styles.deviceName} numberOfLines={1}>
-                      {s.userAgent || "Unknown Device"}
-                    </Text>
-                    {s.isCurrent && (
-                      <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>THIS DEVICE</Text>
+          {/* Sessions List */}
+          <View style={styles.sessionList}>
+            {sessions.map((s) => {
+              const location = [s.city, s.country].filter(Boolean).join(", ");
+              const isMobileApp = s.clientType === "mobile_app" || (s.browser || "").toLowerCase().includes("vaultr mobile") || (s.deviceName || "").toLowerCase().includes("vaultr mobile");
+              const isMobile = s.isMobile || isMobileApp || (s.os || "").toLowerCase().includes("android") || (s.os || "").toLowerCase().includes("iphone") || (s.os || "").toLowerCase().includes("mobile");
+
+              const isRevokingThis = revokingId === s.sessionId;
+
+              return (
+                <View
+                  key={s.sessionId}
+                  style={[
+                    styles.sessionCard,
+                    s.isCurrent && styles.currentCardBorder,
+                  ]}
+                >
+                  <View style={styles.cardHeader}>
+                    {/* Device Icon */}
+                    <View
+                      style={[
+                        styles.iconCircle,
+                        s.isCurrent
+                          ? styles.iconCircleCurrent
+                          : isMobileApp
+                          ? styles.iconCircleMobileApp
+                          : isMobile
+                          ? styles.iconCircleMobileWeb
+                          : styles.iconCircleDesktop,
+                      ]}
+                    >
+                      {isMobile ? (
+                        <Smartphone
+                          size={20}
+                          color={
+                            s.isCurrent
+                              ? "#34d399"
+                              : isMobileApp
+                              ? "#c084fc"
+                              : "#fbbf24"
+                          }
+                        />
+                      ) : (
+                        <Monitor
+                          size={20}
+                          color={s.isCurrent ? "#34d399" : "#a1a1aa"}
+                        />
+                      )}
+                    </View>
+
+                    {/* Main Title & Badges */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.deviceName, s.isCurrent && styles.deviceNameCurrent]} numberOfLines={1}>
+                        {s.deviceName || "Unknown Device"}
+                      </Text>
+
+                      <View style={styles.badgeRow}>
+                        {s.isCurrent && (
+                          <View style={styles.currentBadge}>
+                            <ShieldCheck size={10} color="#34d399" />
+                            <Text style={styles.currentBadgeText}>THIS DEVICE</Text>
+                          </View>
+                        )}
+                        {isMobileApp ? (
+                          <View style={styles.appBadge}>
+                            <Smartphone size={10} color="#c084fc" />
+                            <Text style={styles.appBadgeText}>MOBILE APP</Text>
+                          </View>
+                        ) : isMobile ? (
+                          <View style={styles.mobileBadge}>
+                            <Smartphone size={10} color="#fbbf24" />
+                            <Text style={styles.mobileBadgeText}>MOBILE BROWSER</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.desktopBadge}>
+                            <Monitor size={10} color="#a1a1aa" />
+                            <Text style={styles.desktopBadgeText}>DESKTOP WEB</Text>
+                          </View>
+                        )}
                       </View>
+                    </View>
+
+                    {/* Revoke Action */}
+                    {!s.isCurrent && (
+                      <TouchableOpacity
+                        style={styles.revokeBtn}
+                        onPress={() => handleRevokeSession(s.sessionId, s.deviceName)}
+                        disabled={isRevokingThis}
+                      >
+                        {isRevokingThis ? (
+                          <ActivityIndicator size="small" color={colors.danger} />
+                        ) : (
+                          <Trash2 size={16} color={colors.danger} />
+                        )}
+                      </TouchableOpacity>
                     )}
                   </View>
-                  <Text style={styles.subtext}>IP: {s.ipAddress || "Unknown"}</Text>
-                  {s.updatedAt && (
-                    <Text style={styles.subtext}>
-                      Last active: {new Date(s.updatedAt).toLocaleTimeString()}
-                    </Text>
-                  )}
-                </View>
 
-                {!s.isCurrent && (
-                  <TouchableOpacity
-                    style={styles.revokeBtn}
-                    onPress={() => handleRevokeSession(s.id)}
-                  >
-                    <Trash2 size={16} color={colors.danger} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })}
+                  {/* Metadata Rows */}
+                  <View style={styles.metaRowContainer}>
+                    {s.ipAddress && (
+                      <View style={styles.metaRow}>
+                        <Globe size={13} color="#71717a" />
+                        <Text style={styles.metaTextIp}>{s.ipAddress}</Text>
+                      </View>
+                    )}
+
+                    {location ? (
+                      <View style={styles.metaRow}>
+                        <MapPin size={13} color="#71717a" />
+                        <Text style={styles.metaText}>{location}</Text>
+                      </View>
+                    ) : null}
+
+                    <View style={styles.metaRowDual}>
+                      <View style={styles.metaRow}>
+                        <LogIn size={13} color="#71717a" />
+                        <Text style={styles.metaText}>Signed in {formatDate(s.createdAt)}</Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Clock size={13} color="#71717a" />
+                        <Text style={styles.metaText}>Active {formatRelativeTime(s.lastActiveAt || s.createdAt)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -170,30 +429,36 @@ const styles = StyleSheet.create({
   navBar: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: 12,
   },
   backBtn: {
     padding: 4,
-    alignItems: "center",
-    justifyContent: "center",
   },
   navTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
     color: colors.text,
+  },
+  refreshBtn: {
+    padding: 6,
   },
   loadingBox: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: colors.textMuted,
   },
   content: {
     padding: 16,
-    gap: 12,
+    gap: 14,
   },
   infoBanner: {
     flexDirection: "row",
@@ -204,7 +469,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 14,
     padding: 14,
-    marginBottom: 4,
   },
   infoBannerText: {
     fontSize: 12,
@@ -212,56 +476,179 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-  sessionCard: {
+  bulkRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: colors.textDim,
+  },
+  revokeAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: colors.dangerBg,
+  },
+  revokeAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.danger,
+  },
+  sessionList: {
+    gap: 12,
+  },
+  sessionCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
+    gap: 12,
+  },
+  currentCardBorder: {
+    borderColor: "rgba(6, 95, 70, 0.6)",
+    backgroundColor: "rgba(6, 78, 59, 0.15)",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   iconCircle: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surface2,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  iconCircleCurrent: {
+    backgroundColor: "rgba(6, 95, 70, 0.4)",
+  },
+  iconCircleMobileApp: {
+    backgroundColor: "rgba(88, 28, 135, 0.4)",
+  },
+  iconCircleMobileWeb: {
+    backgroundColor: "rgba(120, 53, 15, 0.4)",
+  },
+  iconCircleDesktop: {
+    backgroundColor: colors.surface2,
   },
   deviceName: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
-    flex: 1,
+  },
+  deviceNameCurrent: {
+    color: "#a7f3d0",
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+    flexWrap: "wrap",
   },
   currentBadge: {
-    backgroundColor: colors.accentBg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(6, 95, 70, 0.5)",
+    borderColor: "rgba(6, 95, 70, 0.6)",
     borderWidth: 1,
-    borderColor: colors.accentBorder,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
   currentBadgeText: {
-    color: colors.accent,
+    color: "#34d399",
     fontSize: 9,
     fontWeight: "700",
   },
-  subtext: {
-    fontSize: 11,
-    color: colors.textDim,
-    marginTop: 2,
+  appBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(88, 28, 135, 0.5)",
+    borderColor: "rgba(107, 33, 168, 0.5)",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  appBadgeText: {
+    color: "#c084fc",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  mobileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(120, 53, 15, 0.5)",
+    borderColor: "rgba(146, 64, 14, 0.5)",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  mobileBadgeText: {
+    color: "#fbbf24",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  desktopBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#18181b",
+    borderColor: "#27272a",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  desktopBadgeText: {
+    color: "#a1a1aa",
+    fontSize: 9,
+    fontWeight: "700",
   },
   revokeBtn: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 10,
+    borderRadius: 10,
     backgroundColor: colors.dangerBg,
+  },
+  metaRowContainer: {
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.05)",
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaRowDual: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  metaTextIp: {
+    fontSize: 12,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: colors.textDim,
+  },
+  metaText: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
 });

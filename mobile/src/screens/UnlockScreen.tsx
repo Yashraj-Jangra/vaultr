@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StatusBar,
-  Animated,
   Image,
   ScrollView,
   KeyboardAvoidingView,
@@ -14,6 +13,15 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withSpring,
+  Easing,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Lock, Shield, Eye, EyeOff, LogOut, Fingerprint } from "lucide-react-native";
 import Svg, { Pattern, Rect, Line } from "react-native-svg";
@@ -49,10 +57,10 @@ export function UnlockScreen() {
 
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
 
-  // Animations
-  const haloAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const fadeInAnim = useRef(new Animated.Value(0)).current;
+  // Reanimated Shared Values for 60fps/120fps UI Thread Performance
+  const haloAnim = useSharedValue(0);
+  const shakeAnim = useSharedValue(0);
+  const fadeInAnim = useSharedValue(0);
 
   const handleBiometricUnlock = async () => {
     if (unlocking) return;
@@ -87,11 +95,7 @@ export function UnlockScreen() {
 
   useEffect(() => {
     // Fade in on mount
-    Animated.timing(fadeInAnim, {
-      toValue: 1,
-      duration: 450,
-      useNativeDriver: true,
-    }).start();
+    fadeInAnim.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
 
     // Check if biometric hardware is supported and if enabled
     (async () => {
@@ -107,55 +111,75 @@ export function UnlockScreen() {
       }
     })();
 
-    // Pulsing halo animation
-    const pulsing = Animated.loop(
-      Animated.sequence([
-        Animated.timing(haloAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(haloAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
-      ])
+    // Pulsing halo animation using Reanimated thread loop
+    haloAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
     );
-    pulsing.start();
-    return () => pulsing.stop();
   }, []);
 
   const doShake = () => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -3, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
-    ]).start();
+    shakeAnim.value = withSequence(
+      withTiming(-10, { duration: 50 }),
+      withTiming(10, { duration: 50 }),
+      withTiming(-8, { duration: 50 }),
+      withTiming(8, { duration: 50 }),
+      withTiming(-4, { duration: 50 }),
+      withTiming(0, { duration: 50 })
+    );
   };
 
   const handleUnlock = async () => {
     if (!masterPassword || unlocking) return;
     setUnlocking(true);
     setUnlockError("");
-    try {
-      await unlock(masterPassword);
-    } catch (err: any) {
-      const msg = err?.message || "Incorrect password";
-      setUnlockError(msg.includes("decrypt") ? "Incorrect master password." : msg);
-      doShake();
-    } finally {
-      setUnlocking(false);
-    }
+
+    setTimeout(async () => {
+      try {
+        await unlock(masterPassword);
+      } catch (err: any) {
+        const msg = err?.message || "Incorrect password";
+        setUnlockError(msg.includes("decrypt") ? "Incorrect master password." : msg);
+        doShake();
+      } finally {
+        setUnlocking(false);
+      }
+    }, 50);
   };
 
-  const haloOpacity = haloAnim.interpolate ? haloAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.08, 0.18],
-  }) : 0.12;
+  const animatedMainStyle = useAnimatedStyle(() => ({
+    opacity: fadeInAnim.value,
+    transform: [{ translateX: shakeAnim.value }],
+  }));
+
+  const animatedHaloStyle = useAnimatedStyle(() => ({
+    opacity: 0.08 + haloAnim.value * 0.1,
+  }));
+
+  const animatedHaloInnerStyle = useAnimatedStyle(() => ({
+    opacity: haloAnim.value,
+  }));
+
+  const animatedFpHaloStyle = useAnimatedStyle(() => ({
+    opacity: 0.08 + haloAnim.value * 0.1,
+    transform: [{ scale: 0.95 + haloAnim.value * 0.2 }],
+  }));
+
+  const animatedFpRingStyle = useAnimatedStyle(() => ({
+    opacity: 0.2 + haloAnim.value * 0.4,
+  }));
 
   // ── Main unlock view ──────────────────────────────────────────────────────────
   const renderMain = () => (
-    <Animated.View style={{ opacity: fadeInAnim }}>
+    <Animated.View style={animatedMainStyle}>
       {/* Halo + lock icon */}
       <View style={styles.iconWrap}>
-        <Animated.View style={[styles.halo, { opacity: haloOpacity }]} />
-        <Animated.View style={[styles.haloInner, { opacity: haloAnim }]} />
+        <Animated.View style={[styles.halo, animatedHaloStyle]} />
+        <Animated.View style={[styles.haloInner, animatedHaloInnerStyle]} />
         <View style={[styles.lockBox, unlocking && styles.lockBoxUnlocking]}>
           <Image
             source={require("../../assets/brand/lock-brand-dark.png")}
@@ -181,7 +205,7 @@ export function UnlockScreen() {
       </View>
 
       {/* Error alert — matches web's pill style */}
-      <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+      <View>
         {unlockError ? (
           <View style={styles.errorPill}>
             <View style={styles.errorDot} />
@@ -214,7 +238,7 @@ export function UnlockScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Actions row: Unlock button + Fingerprint icon button */}
+        {/* Actions row: Full-width Unlock button */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
@@ -231,40 +255,50 @@ export function UnlockScreen() {
               </>
             )}
           </TouchableOpacity>
+        </View>
 
-          {biometricsAvailable ? (
+        {/* Footer links: Below unlock button, above fingerprint */}
+        <View style={styles.footerRow}>
+          <TouchableOpacity onPress={() => setCurrentView("forgot")}>
+            <Text style={styles.footerLink}>Forgot password?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.footerWhyBtn}
+            onPress={() => setCurrentView("why")}
+          >
+            <Shield size={13} color="#525252" />
+            <Text style={styles.footerLink}>Why is this needed?</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Flagship In-Display Fingerprint Sensor — Middle Centered with Breathing Animation */}
+        {biometricsAvailable ? (
+          <View style={styles.biometricContainer}>
             <TouchableOpacity
-              style={styles.plainBiometricBtn}
               onPress={handleBiometricUnlock}
               disabled={unlocking}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               activeOpacity={0.7}
+              style={styles.biometricTouch}
             >
-              <Fingerprint size={28} color="#ffffff" strokeWidth={2} />
+              {/* Outer breathing halo */}
+              <Animated.View style={[styles.biometricHalo, animatedFpHaloStyle]} />
+
+              {/* Inner glowing ring */}
+              <Animated.View style={[styles.biometricRing, animatedFpRingStyle]} />
+
+              {/* Fingerprint Icon Container */}
+              <View style={styles.biometricIconBox}>
+                <Fingerprint size={48} color="#ffffff" strokeWidth={1.75} />
+              </View>
             </TouchableOpacity>
-          ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.signOutWrap}>
+          <TouchableOpacity onPress={signOutAccount}>
+            <Text style={styles.signOutText}>Sign out instead</Text>
+          </TouchableOpacity>
         </View>
-      </Animated.View>
-
-      {/* Footer links */}
-      <View style={styles.footerRow}>
-        <TouchableOpacity onPress={() => setCurrentView("forgot")}>
-          <Text style={styles.footerLink}>Forgot password?</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.footerWhyBtn}
-          onPress={() => setCurrentView("why")}
-        >
-          <Shield size={13} color="#525252" />
-          <Text style={styles.footerLink}>Why is this needed?</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Sign out */}
-      <View style={styles.signOutWrap}>
-        <TouchableOpacity onPress={signOutAccount}>
-          <Text style={styles.signOutText}>Sign out instead</Text>
-        </TouchableOpacity>
       </View>
     </Animated.View>
   );
@@ -443,8 +477,8 @@ const styles = StyleSheet.create({
     borderColor: "#333",
   },
   lockBrand: {
-    width: 60,
-    height: 60,
+    width: 78,
+    height: 78,
   },
 
   // Heading block
@@ -544,6 +578,47 @@ const styles = StyleSheet.create({
     padding: 6,
     alignItems: "center",
     justifyContent: "center",
+  },
+  biometricContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  biometricTouch: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 88,
+    height: 88,
+  },
+  biometricHalo: {
+    position: "absolute",
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  biometricRing: {
+    position: "absolute",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+  biometricIconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#262626",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
 
   // Spinner

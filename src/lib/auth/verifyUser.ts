@@ -74,10 +74,14 @@ export async function verifyUserToken(req: NextRequest): Promise<UserPayload> {
     const real = await resolveSessionId(rawSessionId);
     if (real) {
       resolvedSessionId = real;
+    } else {
+      // The session no longer exists in the DB (it was revoked or expired).
+      // Even if Better Auth's cookie/jwt cache says it's valid, reject it!
+      throw new Response(
+        JSON.stringify({ error: "Unauthorized — session revoked" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
-    // If resolveSessionId returns null the session is stale/missing — we still
-    // allow the request through (Better Auth already accepted it) but don't
-    // update session_meta. trackSession won't be called below in that case.
   }
 
   // Update session metadata in the background (non-blocking).

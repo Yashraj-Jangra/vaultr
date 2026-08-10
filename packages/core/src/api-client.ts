@@ -64,11 +64,13 @@ export class VaultrApiClient {
       let errorMessage = `HTTP Error ${res.status}: ${res.statusText}`;
       try {
         const errJson = await res.json();
-        if (errJson.error) errorMessage = errJson.error;
+        if (errJson.error || errJson.message) errorMessage = errJson.error || errJson.message;
       } catch {
         // ignore JSON parse error
       }
-      throw new Error(errorMessage);
+      const err = new Error(errorMessage);
+      (err as any).status = res.status;
+      throw err;
     }
 
     return res.json() as Promise<T>;

@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Switch,
   Alert,
 } from "react-native";
+import { CustomSwitch } from "../../components/CustomSwitch";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
@@ -101,10 +101,9 @@ export function SecuritySettingsScreen({ navigation }: any) {
               </Text>
             </View>
             {biometricsSupported && (
-              <Switch
+              <CustomSwitch
                 value={biometricsEnabled}
                 onValueChange={handleToggleBiometrics}
-                trackColor={{ false: colors.surface3, true: colors.accent }}
               />
             )}
           </View>

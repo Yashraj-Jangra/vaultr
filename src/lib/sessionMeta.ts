@@ -38,25 +38,61 @@ export function parseDeviceName(userAgent: string | null | undefined): {
   deviceName: string;
   browser: string;
   os: string;
+  isMobile: boolean;
+  clientType: "mobile_app" | "mobile_browser" | "desktop_web";
 } {
   if (!userAgent) {
-    return { deviceName: "Unknown Device", browser: "Unknown", os: "Unknown" };
+    return {
+      deviceName: "Unknown Device",
+      browser: "Unknown",
+      os: "Unknown",
+      isMobile: false,
+      clientType: "desktop_web",
+    };
   }
 
+  const isNativeApp = /VaultrMobile|Dalvik|okhttp|Expo/i.test(userAgent);
   const parser = new UAParser(userAgent);
   const b = parser.getBrowser();
   const o = parser.getOS();
+  const device = parser.getDevice();
 
-  const browserStr = [b.name, b.major ? b.major : b.version?.split(".")[0]]
+  const isMobileDevice =
+    isNativeApp ||
+    device.type === "mobile" ||
+    device.type === "tablet" ||
+    /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+
+  let browserStr = [b.name, b.major ? b.major : b.version?.split(".")[0]]
     .filter(Boolean)
-    .join(" ") || "Unknown Browser";
+    .join(" ");
 
-  const osStr = [o.name, o.version].filter(Boolean).join(" ") || "Unknown OS";
+  let osStr = [o.name, o.version].filter(Boolean).join(" ");
+
+  if (isNativeApp) {
+    const platform = /iOS/i.test(userAgent) ? "iOS" : "Android";
+    browserStr = "Vaultr Mobile App";
+    osStr = osStr || platform;
+    return {
+      deviceName: `Vaultr Mobile App (${osStr})`,
+      browser: browserStr,
+      os: osStr,
+      isMobile: true,
+      clientType: "mobile_app",
+    };
+  }
+
+  browserStr = browserStr || "Unknown Browser";
+  osStr = osStr || "Unknown OS";
+
+  const clientType = isMobileDevice ? "mobile_browser" : "desktop_web";
 
   return {
     deviceName: `${browserStr} on ${osStr}`,
     browser: browserStr,
     os: osStr,
+    isMobile: isMobileDevice,
+    clientType,
   };
 }
 
@@ -162,6 +198,8 @@ export interface SessionWithMeta {
   deviceName:    string;
   browser:       string;
   os:            string;
+  isMobile:      boolean;
+  clientType:    "mobile_app" | "mobile_browser" | "desktop_web";
   ipAddress:     string | null;
   country:       string | null;
   city:          string | null;
@@ -208,19 +246,31 @@ export async function getUserSessions(
     )
     .orderBy(sql`COALESCE(${sessionMeta.lastActiveAt}, ${session.createdAt}) DESC`);
 
-  return rows.map((r) => ({
-    sessionId:    r.sessionId,
-    createdAt:    r.createdAt,
-    expiresAt:    r.expiresAt,
-    isCurrent:    r.sessionId === currentSessionId,
-    deviceName:   r.deviceName ?? "Unknown Device",
-    browser:      r.browser    ?? "Unknown",
-    os:           r.os         ?? "Unknown",
-    ipAddress:    r.ipAddress  ?? null,
-    country:      r.country    ?? null,
-    city:         r.city       ?? null,
-    lastActiveAt: r.lastActiveAt ?? null,
-  }));
+  return rows.map((r) => {
+    const osLower = (r.os || "").toLowerCase();
+    const browserLower = (r.browser || "").toLowerCase();
+    const devLower = (r.deviceName || "").toLowerCase();
+
+    const isMobileApp = browserLower.includes("vaultr mobile") || devLower.includes("vaultr mobile");
+    const isMobileDevice = isMobileApp || osLower.includes("android") || osLower.includes("iphone") || osLower.includes("ipad") || devLower.includes("mobile");
+    const clientType = isMobileApp ? "mobile_app" : isMobileDevice ? "mobile_browser" : "desktop_web";
+
+    return {
+      sessionId:    r.sessionId,
+      createdAt:    r.createdAt,
+      expiresAt:    r.expiresAt,
+      isCurrent:    r.sessionId === currentSessionId,
+      deviceName:   r.deviceName ?? "Unknown Device",
+      browser:      r.browser    ?? "Unknown",
+      os:           r.os         ?? "Unknown",
+      isMobile:     isMobileDevice,
+      clientType,
+      ipAddress:    r.ipAddress  ?? null,
+      country:      r.country    ?? null,
+      city:         r.city       ?? null,
+      lastActiveAt: r.lastActiveAt ?? null,
+    };
+  });
 }
 
 // ── List ALL sessions (admin view) ────────────────────────────────────────────
