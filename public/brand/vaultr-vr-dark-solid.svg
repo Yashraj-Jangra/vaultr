@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 840 840"
+     width="840" height="840"
+     fill="none"
+     shape-rendering="geometricPrecision">
+  <title>Refined VR Monogram — Black Background</title>
+  <desc>Minimal geometric V and R security monogram.</desc>
+
+  <rect width="840" height="840" fill="#000000"/>
+
+  <path fill="#FFFFFF" d="
+    M 6 84
+    L 354 762
+    L 595 351
+    L 500 352
+    L 356 604
+    L 198 335
+    L 260 373
+    Z"/>
+
+  <path fill="#FFFFFF" fill-rule="evenodd" clip-rule="evenodd" d="
+    M 235 209
+    L 617 208
+    C 657 208 691 222 717 250
+    C 735 269 745 292 745 320
+    L 745 354
+    C 745 389 730 419 704 441
+    C 687 455 668 464 645 469
+    L 827 756
+    L 541 493
+    L 591 416
+    L 617 416
+    C 635 416 650 409 661 397
+    C 670 387 675 373 675 356
+    L 675 344
+    C 675 326 668 310 656 299
+    C 645 288 631 283 613 283
+    L 292 283
+    Z
+  "/>
+</svg>
