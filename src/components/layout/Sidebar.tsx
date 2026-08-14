@@ -549,18 +549,22 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <div className="w-64 md:w-56 flex flex-col h-full shrink-0 overflow-hidden select-none">
           {/* Header */}
           <div className="flex items-center h-14 border-b border-[var(--border)] px-[18px] shrink-0 overflow-hidden">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <Image
-                src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
-                alt={config.name}
-                width={20} height={20}
-                className="w-5 h-5 object-contain shrink-0"
-              />
-              <span className={`text-[14px] font-semibold text-neutral-200 truncate transition-opacity duration-200 whitespace-nowrap ${
-                collapsed ? "opacity-0 pointer-events-none" : "opacity-100"
-              }`}>
-                {config.name}
-              </span>
+            <div className="flex items-center min-w-0 flex-1">
+              {!collapsed ? (
+                <Image
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-full-dark-transparent.png" : "/brand/vaultr-full-light-transparent.png"}
+                  alt={config.name}
+                  width={110} height={22}
+                  className="h-[22px] w-auto object-contain shrink-0"
+                />
+              ) : (
+                <Image
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-vr-dark-transparent.svg" : "/brand/vaultr-vr-light-transparent.svg"}
+                  alt={config.name}
+                  width={28} height={28}
+                  className="w-7 h-7 object-contain shrink-0"
+                />
+              )}
             </div>
             {mobileOpen && (
               <button onClick={onClose} className="md:hidden p-1.5 -mr-1.5 text-neutral-500 hover:text-neutral-300 transition-colors">
@@ -618,7 +622,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               </div>
             </Link>
 
-            <Link href="/vault/generator" className={navLinkCls(pathname === "/vault/generator")}>
+            <Link href="/generator" className={navLinkCls(pathname === "/generator" || pathname === "/vault/generator")}>
               <Wand2 className="w-4 h-4 shrink-0" />
               <span className={`flex-1 truncate transition-opacity duration-200 whitespace-nowrap ${collapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                 Generator

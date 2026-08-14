@@ -47,17 +47,26 @@ export function SecuritySettingsScreen({ navigation }: any) {
   const handleToggleBiometrics = async (val: boolean) => {
     if (val) {
       if (!masterPassword) {
-        vaultAlert.alert("Error", "Vault must be unlocked with master password first.", undefined, { illustration: "cancel_k4w9" });
+        vaultAlert.alert("Error", "Vault must be unlocked with master password first.", undefined, {
+          illustration: "fingerprint_kdwq",
+          glowColor: "rgba(239, 68, 68, 0.12)",
+        });
         return;
       }
       const res = await enrollBiometricPassword(masterPassword);
       if (res.success) {
         setBiometricsEnabled(true);
-        vaultAlert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!", undefined, { illustration: "completed-task_c11d" });
+        vaultAlert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!", undefined, {
+          illustration: "fingerprint_kdwq",
+          glowColor: "rgba(52, 211, 153, 0.12)",
+        });
       } else {
         setBiometricsEnabled(false);
         if (res.error && res.error !== "cancel") {
-          vaultAlert.alert("Enrollment Cancelled", res.error, undefined, { illustration: "cancel_k4w9" });
+          vaultAlert.alert("Enrollment Cancelled", res.error, undefined, {
+            illustration: "fingerprint_kdwq",
+            glowColor: "rgba(239, 68, 68, 0.12)",
+          });
         }
       }
     } else {

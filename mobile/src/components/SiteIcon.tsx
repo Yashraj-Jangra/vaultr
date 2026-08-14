@@ -10,12 +10,16 @@ export function SiteIcon({
   url,
   template = "login",
   size = 32,
+  resizeMode = "contain",
+  fill = false,
 }: {
   domain?: string;
   name: string;
   url?: string;
   template?: string;
   size?: number;
+  resizeMode?: "contain" | "cover";
+  fill?: boolean;
 }) {
   const [hasError, setHasError] = useState(false);
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
@@ -41,13 +45,25 @@ export function SiteIcon({
 
   const src = isAndroid
     ? "https://developer.android.com/static/images/brand/android-head_flat.png"
-    : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`;
+    : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=128`;
+
+  const imgSize = fill ? size : size * 0.7;
 
   return (
-    <View style={[styles.iconWrapper, { width: size, height: size, borderRadius: size * 0.3 }]}>
+    <View
+      style={[
+        styles.iconWrapper,
+        { width: size, height: size, borderRadius: size * 0.3, overflow: "hidden" },
+      ]}
+    >
       <Image
         source={{ uri: src }}
-        style={{ width: size * 0.7, height: size * 0.7, resizeMode: "contain" }}
+        style={{
+          width: imgSize,
+          height: imgSize,
+          borderRadius: fill ? size * 0.3 : 0,
+          resizeMode: resizeMode,
+        }}
         onError={() => setHasError(true)}
       />
     </View>

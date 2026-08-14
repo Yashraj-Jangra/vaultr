@@ -175,7 +175,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-vr-dark-transparent.svg" : "/brand/vaultr-vr-light-transparent.svg"}
                   alt="Vaultr Mark"
                   className="w-5 h-5 object-contain shrink-0 filter drop-shadow-[0_0_8px_rgba(var(--accent-rgb),0.25)]"
                 />
@@ -205,7 +205,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="relative flex items-center justify-center shrink-0 w-6 h-6 rounded bg-[var(--accent)]/5 border border-[var(--accent)]/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                   alt="Lock Icon"
                   className="w-4 h-4 object-contain"
                 />

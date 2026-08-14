@@ -62,7 +62,8 @@ export interface DecryptedPayload {
   email?: string;
   phone?: string;
   note?: string;
-  customFields?: { key: string; value: string }[];
+  customFields?: { key: string; value: string; type?: "text" | "hidden" }[];
+  fields?: { id?: string; name: string; value: string; type?: "text" | "hidden" }[];
   totpSecret?: string;
   entryNotes?: string;
   passwordHistory?: string[];
@@ -204,7 +205,7 @@ function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }
   }, [visible, value, isCard, dots]);
 
   return (
-    <div className="flex items-center justify-between gap-1 min-w-0">
+    <div className="flex items-center justify-end gap-1.5 min-w-0">
       <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!visible && !isCard ? "tracking-widest" : ""}`}>
         {displayVal}
       </span>
@@ -650,21 +651,32 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
 
 // ─── Row detail renderer ──────────────────────────────────────────────────────
 
+function SectionGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1 mt-3 first:mt-0">
+      <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-1">{title}</div>
+      <div className="bg-neutral-900/60 border border-neutral-800/80 rounded-xl overflow-hidden divide-y divide-neutral-800/50">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function DetailRow({ label, value, masked = false, isUrl = false, isCard = false, dots = 12, onToggle }: {
   label: string; value: string; masked?: boolean; isUrl?: boolean; isCard?: boolean; dots?: number; onToggle?: (v: boolean) => void
 }) {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-2.5 min-w-0">
-      <span className="text-[10.5px] text-neutral-500 font-medium w-16 sm:w-20 pt-0.5 shrink-0 uppercase tracking-wider">{label}</span>
-      <div className="flex-1 min-w-0">
+    <div className="flex items-center justify-between px-3 py-2.5 min-w-0">
+      <span className="text-[11px] text-neutral-400 font-medium shrink-0 pr-3">{label}</span>
+      <div className="flex-1 min-w-0 text-right">
         {masked ? <MaskedValue value={value} dots={dots} isCard={isCard} onToggle={onToggle} /> :
           isUrl ? (
-            <div className="flex items-center justify-between gap-1 min-w-0">
+            <div className="flex items-center justify-end gap-1.5 min-w-0">
               <a
                 href={value.startsWith("http") ? value : `https://${value}`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-[12.5px] font-mono text-indigo-400 hover:text-indigo-300 truncate underline decoration-indigo-500/30 min-w-0"
+                className="text-[12px] font-mono text-sky-400 hover:underline truncate min-w-0"
                 title={value}
               >
                 {value}
@@ -672,8 +684,8 @@ function DetailRow({ label, value, masked = false, isUrl = false, isCard = false
               <CopyBtn value={value} />
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-1 min-w-0">
-              <span className="text-[12.5px] font-mono text-neutral-200 truncate min-w-0" title={value}>{value}</span>
+            <div className="flex items-center justify-end gap-1.5 min-w-0">
+              <span className="text-[12px] font-mono text-neutral-200 truncate min-w-0" title={value}>{value}</span>
               <CopyBtn value={value} />
             </div>
           )
@@ -705,20 +717,64 @@ function TotpDisplay({ secret }: { secret: string }) {
     return () => { mounted = false; clearInterval(interval); };
   }, [secret]);
 
+  const isExpiring = percent <= (5 / 30) * 100;
+
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative w-4 h-4 flex items-center justify-center">
-        <svg className="w-4 h-4 -rotate-90 transform" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="text-neutral-800" />
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"
-            className="text-sky-400 transition-all duration-1000 ease-linear"
-            strokeDasharray="62.8"
-            strokeDashoffset={62.8 * (1 - percent / 100)}
-          />
-        </svg>
+    <div className="flex items-center justify-between px-3 py-2.5">
+      <span className="text-[11px] text-neutral-400 font-medium">2FA Code</span>
+      <div className="flex items-center gap-3">
+        <div className="relative w-4 h-4 flex items-center justify-center">
+          <svg className="w-4 h-4 -rotate-90 transform" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="text-neutral-800" />
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"
+              className={isExpiring ? "text-red-500 transition-all duration-1000 ease-linear" : "text-sky-400 transition-all duration-1000 ease-linear"}
+              strokeDasharray="62.8"
+              strokeDashoffset={62.8 * (1 - percent / 100)}
+            />
+          </svg>
+        </div>
+        <span className={`font-mono text-[13px] font-bold tracking-widest ${isExpiring ? "text-red-500" : "text-sky-400"}`}>{code.slice(0, 3)} {code.slice(3, 6)}</span>
+        <CopyBtn value={code} />
       </div>
-      <span className="font-mono text-[13px] text-sky-400 font-bold tracking-widest">{code.slice(0, 3)} {code.slice(3, 6)}</span>
-      <CopyBtn value={code} />
+    </div>
+  );
+}
+
+function PasswordHistoryButton({ history }: { history: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [revealed, setRevealed] = useState<number | null>(null);
+
+  return (
+    <div className="mt-3 pt-2 border-t border-[var(--border)]">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="text-[12px] font-medium text-sky-400 hover:underline cursor-pointer"
+      >
+        Password history: {history.length}
+      </button>
+
+      {open && (
+        <div className="mt-2 bg-neutral-900/60 border border-neutral-800/80 rounded-xl overflow-hidden divide-y divide-neutral-800/50">
+          {history.map((pw, i) => (
+            <div key={i} className="flex justify-between items-center px-3 py-2 text-[12px] font-mono">
+              <span className="text-neutral-300">
+                {revealed === i ? pw : "••••••••••••"}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setRevealed(revealed === i ? null : i)}
+                  className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  {revealed === i ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+                <CopyBtn value={pw} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -731,73 +787,119 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
       ? "p-4 space-y-3 text-sm" 
       : "px-4 pb-4 pt-3 mx-4 mb-1 space-y-2.5 border-t border-[var(--border)] text-sm"
     }>
-      {t === "login" && <>
-        <DetailRow label="User" value={data.username || ""} />
-        <DetailRow label="Password" value={data.password || ""} masked />
-        {data.urls && data.urls.length > 0 ? (
-          data.urls.map((u, i) => <DetailRow key={i} label={i === 0 ? "URL" : `URL ${i+1}`} value={u} isUrl />)
-        ) : (
-          <DetailRow label="URL" value={data.url || ""} isUrl />
-        )}
-        {data.totpSecret && (
-          <div className="flex items-start gap-4">
-            <span className="text-[11px] text-neutral-600 w-20 pt-0.5 shrink-0 uppercase tracking-wider">2FA Code</span>
-            <div className="flex-1 min-w-0">
+      {t === "login" && (
+        <>
+          {(data.username || data.password) && (
+            <SectionGroup title="LOGIN CREDENTIALS">
+              <DetailRow label="Username" value={data.username || ""} />
+              <DetailRow label="Password" value={data.password || ""} masked />
+            </SectionGroup>
+          )}
+
+          {data.totpSecret && (
+            <SectionGroup title="AUTHENTICATOR">
               <TotpDisplay secret={data.totpSecret} />
-            </div>
-          </div>
-        )}
-      </>}
+            </SectionGroup>
+          )}
 
-      {t === "card" && <>
-        <CreditCardGraphic data={data} showCard={showCard} />
-        {data.cardBrand && <DetailRow label="Network" value={data.cardBrand} />}
-        <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
-        <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
-        <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "")} />
-        <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
-        {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
-      </>}
-
-      {t === "address" && <>
-        <DetailRow label="Line 1" value={data.line1 || ""} />
-        <DetailRow label="Line 2" value={data.line2 || ""} />
-        <DetailRow label="City" value={data.city || ""} />
-        <DetailRow label="State" value={data.state || ""} />
-        <DetailRow label="ZIP" value={data.zip || ""} />
-        <DetailRow label="Country" value={data.country || ""} />
-      </>}
-
-      {t === "profile" && <>
-        <DetailRow label="Name" value={data.fullName || ""} />
-        <DetailRow label="Email" value={data.email || ""} />
-        <DetailRow label="Phone" value={data.phone || ""} />
-        <DetailRow label="DOB" value={data.dob || ""} />
-        <DetailRow label="ID / No." value={data.idNumber || ""} masked />
-      </>}
-
-      {t === "note" && data.note && (
-        <div className="space-y-1.5">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Note</span>
-            <CopyBtn value={data.note} />
-          </div>
-          <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.note}</p>
-        </div>
+          {(data.url || (data.urls && data.urls.length > 0)) && (
+            <SectionGroup title="WEBSITE URLS">
+              {data.urls && data.urls.length > 0 ? (
+                data.urls.map((u, i) => <DetailRow key={i} label={i === 0 ? "Website (URI)" : `Website (URI #${i+1})`} value={u} isUrl />)
+              ) : (
+                <DetailRow label="Website (URI)" value={data.url || ""} isUrl />
+              )}
+            </SectionGroup>
+          )}
+        </>
       )}
 
-      {data.customFields?.map((f, i) => f.value ? (
-        <DetailRow key={i} label={f.key || "Field"} value={f.value} masked />
-      ) : null)}
+      {t === "card" && (
+        <>
+          <CreditCardGraphic data={data} showCard={showCard} />
+          <SectionGroup title="CARD DETAILS">
+            {data.cardBrand && <DetailRow label="Network" value={data.cardBrand} />}
+            <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
+            <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
+          </SectionGroup>
 
-      {data.entryNotes && (
-        <div className="space-y-1.5 pt-2 border-t border-[var(--border)] mt-2">
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Private Notes</span>
-            <CopyBtn value={data.entryNotes} />
+          {(data.expiry || data.expMonth || data.expYear || data.cvv || data.pin) && (
+            <SectionGroup title="SECURITY & VALIDITY">
+              <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "")} />
+              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
+              {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
+            </SectionGroup>
+          )}
+        </>
+      )}
+
+      {t === "address" && (
+        <>
+          {(data.line1 || data.line2) && (
+            <SectionGroup title="STREET ADDRESS">
+              <DetailRow label="Line 1" value={data.line1 || ""} />
+              <DetailRow label="Line 2" value={data.line2 || ""} />
+            </SectionGroup>
+          )}
+          {(data.city || data.state || data.zip || data.country) && (
+            <SectionGroup title="LOCATION">
+              <DetailRow label="City" value={data.city || ""} />
+              <DetailRow label="State" value={data.state || ""} />
+              <DetailRow label="ZIP" value={data.zip || ""} />
+              <DetailRow label="Country" value={data.country || ""} />
+            </SectionGroup>
+          )}
+        </>
+      )}
+
+      {t === "profile" && (
+        <>
+          <SectionGroup title="IDENTITY & CONTACT">
+            <DetailRow label="Name" value={data.fullName || ""} />
+            <DetailRow label="Email" value={data.email || ""} />
+            <DetailRow label="Phone" value={data.phone || ""} />
+            <DetailRow label="DOB" value={data.dob || ""} />
+            <DetailRow label="ID / No." value={data.idNumber || ""} masked />
+          </SectionGroup>
+        </>
+      )}
+
+      {t === "note" && (data.note || data.entryNotes) && (
+        <SectionGroup title="SECURE NOTE">
+          <div className="p-3 space-y-1.5">
+            <div className="flex items-start justify-between">
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Note Content</span>
+              <CopyBtn value={data.note || data.entryNotes || ""} />
+            </div>
+            <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.note || data.entryNotes}</p>
           </div>
-          <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.entryNotes}</p>
-        </div>
+        </SectionGroup>
+      )}
+
+      {((data.fields || data.customFields) as any[])?.length > 0 && (
+        <SectionGroup title="CUSTOM FIELDS">
+          {((data.fields || data.customFields) as any[])?.map((f: any, i: number) => {
+            const val = f.value;
+            if (!val) return null;
+            const labelStr = f.name || f.key || "Field";
+            const isHidden = f.type === "hidden";
+            return (
+              <DetailRow key={i} label={labelStr} value={val} masked={isHidden} />
+            );
+          })}
+        </SectionGroup>
+      )}
+
+      {t !== "note" && data.entryNotes && (
+        <SectionGroup title="PRIVATE NOTES">
+          <div className="p-3 space-y-1.5">
+            <div className="flex items-start justify-between">
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Notes</span>
+              <CopyBtn value={data.entryNotes} />
+            </div>
+            <p className="text-[13px] text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed">{data.entryNotes}</p>
+          </div>
+        </SectionGroup>
       )}
 
       {/* Legacy blobs */}
@@ -807,17 +909,7 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
 
       {/* Password History */}
       {data.passwordHistory && data.passwordHistory.length > 0 && (
-        <div className="space-y-1.5 pt-2 border-t border-[var(--border)] mt-2">
-          <span className="text-[11px] text-neutral-600 uppercase tracking-wider">Previous Passwords</span>
-          <div className="flex flex-col gap-1">
-            {data.passwordHistory.map((pw, i) => (
-              <div key={i} className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded text-[11px] font-mono text-neutral-400">
-                <span>{pw}</span>
-                <CopyBtn value={pw} />
-              </div>
-            ))}
-          </div>
-        </div>
+        <PasswordHistoryButton history={data.passwordHistory} />
       )}
 
       {/* Health Check */}

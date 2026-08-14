@@ -51,21 +51,20 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
 
       {/* Brand logo-mark / title */}
       {!onSearchOpen ? (
-        <div className="flex items-center gap-2 mr-4">
+        <div className="flex items-center gap-3 mr-4">
           <Image
-            src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
-            alt="_vaultr"
-            width={22}
-            height={22}
-            className="w-5.5 h-5.5 object-contain shrink-0"
+            src={activeTheme.mode === "dark" ? "/brand/vaultr-full-dark-transparent.png" : "/brand/vaultr-full-light-transparent.png"}
+            alt="Vaultr"
+            width={110}
+            height={24}
+            className="h-6 w-auto object-contain shrink-0"
           />
-          <span className="text-[14px] font-bold text-neutral-200 tracking-tight font-sans">Vaultr</span>
-          <span className="text-[10px] text-neutral-500 font-semibold px-1.5 py-0.5 border border-neutral-800 bg-neutral-900/50 rounded uppercase tracking-wider">Settings</span>
+          <span className="text-[10px] text-neutral-500 font-semibold px-1.5 py-0.5 border border-neutral-800 bg-neutral-900/50 rounded uppercase tracking-wider hidden sm:inline-block">Settings</span>
         </div>
       ) : (
         /* Mobile brand mark — only shown when sidebar is hidden */
         <Image
-          src={activeTheme.mode === "dark" ? "/brand/logo-mark-dark.png" : "/brand/logo-mark-light.png"}
+          src={activeTheme.mode === "dark" ? "/brand/vaultr-vr-dark-transparent.svg" : "/brand/vaultr-vr-light-transparent.svg"}
           alt="_vaultr"
           width={24}
           height={24}

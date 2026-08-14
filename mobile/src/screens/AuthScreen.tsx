@@ -164,7 +164,7 @@ export function AuthScreen() {
             {/* Brand logo */}
             <View style={styles.brandRow}>
               <Image
-                source={require("../../assets/brand/logo-dark.png")}
+                source={require("../../assets/vaultr-full-dark-transparent.png")}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />

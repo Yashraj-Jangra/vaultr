@@ -15,8 +15,8 @@ const nextConfig: NextConfig = {
       //   data: blob:                   — inline images / canvas
       //   lh[3-6].googleusercontent.com — Google OAuth profile pictures
       "img-src 'self' data: blob: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://lh5.googleusercontent.com https://lh6.googleusercontent.com",
-      // API / SSE connections
-      "connect-src 'self'",
+      // API / SSE connections + HaveIBeenPwned k-Anonymity API
+      "connect-src 'self' https://api.pwnedpasswords.com",
       // Media: none needed
       "media-src 'none'",
       // No iframes
@@ -61,6 +61,18 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: headersList,
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/vault/generator",
+        destination: "/generator",
+      },
+      {
+        source: "/health",
+        destination: "/vault/health",
       },
     ];
   },

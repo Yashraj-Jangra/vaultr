@@ -8,6 +8,7 @@ export const colors = {
   surface2: "#0d0d0d",     // form inputs / inset surface
   surface3: "#18181b",     // neutral-900 hover state
   surfaceCard: "rgba(10, 10, 10, 0.8)", // glassmorphic card
+  card: "#18181b",         // card background
 
   // Borders — matches site's --border: #1a1a1a
   border: "#1f1f1f",

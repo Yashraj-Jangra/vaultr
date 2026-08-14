@@ -50,4 +50,13 @@ declare module "lucide-react-native" {
   export const Smartphone: ComponentType<IconProps>;
   export const Database: ComponentType<IconProps>;
   export const RotateCcw: ComponentType<IconProps>;
+  export const Edit3: ComponentType<IconProps>;
+  export const Pencil: ComponentType<IconProps>;
+  export const CornerDownRight: ComponentType<IconProps>;
+  export const FolderPlus: ComponentType<IconProps>;
+  export const FolderOpen: ComponentType<IconProps>;
+  export const LogIn: ComponentType<IconProps>;
+  export const History: ComponentType<IconProps>;
+  export const ChevronDown: ComponentType<IconProps>;
+  export const Inbox: ComponentType<IconProps>;
 }

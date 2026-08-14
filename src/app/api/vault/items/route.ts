@@ -109,10 +109,17 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Cooldown elapsed — perform wipe
+    // 1. Purge all encrypted attachments from S3
+    const { deleteAllUserAttachments } = await import("@/lib/storage");
+    await deleteAllUserAttachments(user.id).catch(() => {});
+
+    // 2. Delete all vault items from DB
     await db.delete(vaultItems).where(eq(vaultItems.userId, user.id));
+
+    // 3. Reset scheduledDeleteAt and storageUsedBytes
     await db
       .update(userProfiles)
-      .set({ scheduledDeleteAt: null })
+      .set({ scheduledDeleteAt: null, storageUsedBytes: 0 })
       .where(eq(userProfiles.userId, user.id));
 
     return NextResponse.json({ success: true });

@@ -26,6 +26,7 @@ import {
   User,
   ChevronRight,
   X,
+  Plus,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 
@@ -36,6 +37,8 @@ type Props = {
       title: string;
       filterType?: string;   // 'login' | 'card' | 'note' | 'address' | 'profile'
       filterFolder?: string; // folder path or 'UNCATEGORIZED'
+      filterFavorite?: boolean;
+      openSearch?: boolean;
     };
   };
 };
@@ -65,11 +68,18 @@ function ItemIconBadge({ item }: { item: any }) {
 }
 
 export function VaultFilteredScreen({ navigation, route }: Props) {
-  const { title, filterType, filterFolder } = route.params;
-  const { items, fetchItems, toggleFavorite } = useVaultStore();
+  const { title, filterType, filterFolder, filterFavorite, openSearch } = route.params;
+  const { items, customFolders, fetchItems, toggleFavorite } = useVaultStore();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+
+  const handleAddItem = () => {
+    navigation.navigate("ItemForm", {
+      initialFolder: filterFolder && filterFolder !== "UNCATEGORIZED" ? filterFolder : undefined,
+      initialTemplate: (filterType as any) || undefined,
+    });
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -79,13 +89,57 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
 
   const activeItems = useMemo(() => items.filter((i) => !i.deletedAt), [items]);
 
+  const childSubfolders = useMemo(() => {
+    if (!filterFolder || filterFolder === "UNCATEGORIZED") return [];
+    const prefix = `${filterFolder}/`;
+    const setChild = new Set<string>();
+
+    activeItems.forEach((i) => {
+      if (i.folder && i.folder.startsWith(prefix)) {
+        const rel = i.folder.slice(prefix.length);
+        const firstSegment = rel.split("/")[0];
+        if (firstSegment) {
+          setChild.add(`${filterFolder}/${firstSegment}`);
+        }
+      }
+    });
+
+    (customFolders || []).forEach((cf) => {
+      const fName = typeof cf === "string" ? cf : (cf as any)?.name || (cf as any)?.path || "";
+      if (fName && fName.startsWith(prefix)) {
+        const rel = fName.slice(prefix.length);
+        const firstSegment = rel.split("/")[0];
+        if (firstSegment) {
+          setChild.add(`${filterFolder}/${firstSegment}`);
+        }
+      }
+    });
+
+    return Array.from(setChild)
+      .sort((a, b) => a.localeCompare(b))
+      .map((subPath) => {
+        const subName = subPath.split("/").pop() || subPath;
+        let count = 0;
+        activeItems.forEach((i) => {
+          if (
+            i.folder &&
+            (i.folder === subPath || i.folder.startsWith(`${subPath}/`))
+          ) {
+            count++;
+          }
+        });
+        return { fullPath: subPath, name: subName, count };
+      });
+  }, [filterFolder, activeItems, customFolders]);
+
   const filteredItems = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return activeItems.filter((item) => {
       const matchesSearch =
         !q ||
         item.name.toLowerCase().includes(q) ||
-        (item.domain || "").toLowerCase().includes(q);
+        (item.domain || "").toLowerCase().includes(q) ||
+        (item.tags || []).some((t: string) => t.toLowerCase().includes(q));
 
       const matchesType = filterType
         ? (item.template || "login") === filterType
@@ -97,9 +151,11 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
           : item.folder === filterFolder
         : true;
 
-      return matchesSearch && matchesType && matchesFolder;
+      const matchesFavorite = filterFavorite ? item.favorite === true : true;
+
+      return matchesSearch && matchesType && matchesFolder && matchesFavorite;
     });
-  }, [activeItems, searchQuery, filterType, filterFolder]);
+  }, [activeItems, searchQuery, filterType, filterFolder, filterFavorite]);
 
   const renderItem = ({ item }: { item: any }) => {
     const template = item.template || "login";
@@ -182,6 +238,15 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
         <View style={styles.headerCountBadge}>
           <Text style={styles.headerCountText}>{filteredItems.length}</Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.headerAddBtn}
+          onPress={handleAddItem}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.75}
+        >
+          <Plus size={18} color="#fafafa" />
+        </TouchableOpacity>
       </View>
 
       {/* Search */}
@@ -195,6 +260,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
           placeholderTextColor="#525252"
           autoCapitalize="none"
           autoCorrect={false}
+          autoFocus={!!openSearch}
         />
         {searchQuery ? (
           <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 4 }}>
@@ -212,6 +278,43 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textDim} />
         }
+        ListHeaderComponent={
+          childSubfolders.length > 0 ? (
+            <View style={styles.subfoldersSection}>
+              <Text style={styles.subfoldersLabel}>
+                SUBFOLDERS ({childSubfolders.length})
+              </Text>
+              <View style={styles.subfoldersCard}>
+                {childSubfolders.map((sub, idx) => (
+                  <React.Fragment key={sub.fullPath}>
+                    <TouchableOpacity
+                      style={styles.subfolderRow}
+                      onPress={() =>
+                        navigation.push("VaultFiltered", {
+                          title: sub.name,
+                          filterFolder: sub.fullPath,
+                        })
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.subfolderIconBox}>
+                        <Folder size={18} color="#fafafa" />
+                      </View>
+                      <View style={{ flex: 1, justifyContent: "center" }}>
+                        <Text style={styles.subfolderTitle}>{sub.name}</Text>
+                        <Text style={styles.subfolderSubtitle}>{sub.count} items</Text>
+                      </View>
+                      <ChevronRight size={16} color="#3f3f46" />
+                    </TouchableOpacity>
+                    {idx < childSubfolders.length - 1 && (
+                      <View style={styles.subfolderDivider} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Illustration name="vault_tyfh" width={250} height={200} style={{ marginBottom: 18 }} />
@@ -224,6 +327,15 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
           </View>
         }
       />
+
+      {/* Floating Add Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleAddItem}
+        activeOpacity={0.85}
+      >
+        <Plus size={22} color="#09090b" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -267,6 +379,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "monospace",
   },
+  headerAddBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+  },
 
   searchWrap: {
     flexDirection: "row",
@@ -306,6 +425,22 @@ const styles = StyleSheet.create({
   },
   itemContent: { flex: 1, minWidth: 0, marginLeft: 12 },
   itemTopRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#fafafa",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 8,
+  },
   itemName: { fontSize: 14.5, fontWeight: "600", color: "#ffffff", flexShrink: 1, minWidth: 0 },
   itemSubRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 3 },
   itemSubLine: { fontSize: 11.5, color: "#71717a", fontFamily: "monospace", flexShrink: 1 },
@@ -337,4 +472,55 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingTop: 130, paddingHorizontal: 24 },
   emptyTitle: { color: "#737373", fontSize: 15, fontWeight: "600", marginTop: 14, letterSpacing: -0.3 },
   emptyDesc: { color: "#525252", fontSize: 12, marginTop: 6, textAlign: "center" },
+
+  /* Subfolders Top Section */
+  subfoldersSection: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  subfoldersLabel: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#71717a",
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  subfoldersCard: {
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#18181b",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  subfolderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  subfolderIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#18181b",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  subfolderTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#f4f4f5",
+  },
+  subfolderSubtitle: {
+    fontSize: 11,
+    color: "#71717a",
+    marginTop: 1,
+  },
+  subfolderDivider: {
+    height: 1,
+    backgroundColor: "#18181b",
+    marginLeft: 60,
+  },
 });

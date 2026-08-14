@@ -17,6 +17,7 @@ import {
   StrengthResult,
 } from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
+import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { colors } from "../theme/colors";
 import { CustomSwitch } from "../components/CustomSwitch";
 import { Wand2, Copy, Check, RefreshCw, History } from "lucide-react-native";
@@ -94,6 +95,7 @@ export function GeneratorScreen() {
 
   // PIN options
   const [pinLength, setPinLength] = useState(6);
+  const [seed, setSeed] = useState(0);
 
   // Copy state
   const [copied, setCopied] = useState(false);
@@ -149,7 +151,6 @@ export function GeneratorScreen() {
   }, [currentPassword]);
 
   // Regenerate manual trigger & push to history
-  const [seed, setSeed] = useState(0);
   const handleRegenerate = useCallback(() => {
     setSeed((s) => s + 1);
     if (currentPassword) {
@@ -163,7 +164,7 @@ export function GeneratorScreen() {
   const handleCopy = async (val?: string) => {
     const textToCopy = val || currentPassword;
     if (!textToCopy) return;
-    await Clipboard.setStringAsync(textToCopy);
+    await copyToClipboardWithAutoClear(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -485,9 +486,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 56,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: "#18181b",
+    backgroundColor: "#09090b",
   },
   headerLeft: {
     flexDirection: "row",

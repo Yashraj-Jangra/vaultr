@@ -16,6 +16,7 @@ import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import * as Clipboard from "expo-clipboard";
+import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { SiteIcon } from "../components/SiteIcon";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
@@ -42,13 +43,29 @@ import {
 type Props = StackScreenProps<RootStackParamList, "ItemDetail">;
 
 export function ItemDetailScreen({ route, navigation }: Props) {
-  const { item } = route.params;
-  const { decryptItemBlob, toggleFavorite, trashItem } = useVaultStore();
+  const rawItem = route.params.item;
+  const item = useVaultStore((state) => state.items.find((i) => i.id === rawItem.id)) || rawItem;
+  const { isOnline, decryptItemBlob, toggleFavorite, trashItem, fetchAttachments, downloadAndDecryptAttachment, deleteAttachment } = useVaultStore();
 
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [serverAttachments, setServerAttachments] = useState<Array<{ id: string; name: string; sizeBytes: number; mimeType: string; createdAt: string }>>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (item.id) {
+      fetchAttachments(item.id)
+        .then((atts) => {
+          if (mounted) setServerAttachments(atts);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [item.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -73,7 +90,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
 
   const copyToClipboard = async (label: string, value: string) => {
     if (!value) return;
-    await Clipboard.setStringAsync(value);
+    await copyToClipboardWithAutoClear(value);
     setCopiedField(label);
     setTimeout(() => setCopiedField(null), 2000);
   };
@@ -89,22 +106,37 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     });
   };
 
-  const handleMoveToTrash = () => {
-    vaultAlert.alert(
-      "Move to Trash",
-      `Are you sure you want to move "${item.name}" to Trash?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Move to Trash",
-          style: "destructive",
-          onPress: async () => {
-            await trashItem(item.id);
-            navigation.goBack();
-          },
-        },
-      ]
-    );
+  const handleToggleFavorite = async () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to update favorites.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
+    try {
+      await toggleFavorite(item.id);
+    } catch (e: any) {
+      vaultAlert.alert("Error", e.message || "Failed to update favorite.", undefined, { illustration: "cancel_k4w9" });
+    }
+  };
+
+  const handleEdit = () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to edit items.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
+    navigation.navigate("ItemForm", { item });
+  };
+
+  const handleMoveToTrash = async () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to move items to trash.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
+    try {
+      await trashItem(item.id);
+      navigation.goBack();
+    } catch (e: any) {
+      vaultAlert.alert("Error", e.message || "Failed to move item to trash.", undefined, { illustration: "cancel_k4w9" });
+    }
   };
 
   return (
@@ -127,7 +159,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         <View style={styles.navRight}>
           <TouchableOpacity
             style={styles.navActionBtn}
-            onPress={() => toggleFavorite(item.id)}
+            onPress={handleToggleFavorite}
           >
             <Star
               size={20}
@@ -138,13 +170,13 @@ export function ItemDetailScreen({ route, navigation }: Props) {
 
           <TouchableOpacity
             style={styles.navActionBtn}
-            onPress={() => navigation.navigate("ItemForm", { item })}
+            onPress={handleEdit}
           >
-            <Edit2 size={20} color={colors.accent} />
+            <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
-            <Trash2 size={20} color={colors.danger} />
+            <Trash2 size={20} color={isOnline ? colors.danger : colors.textMuted} />
           </TouchableOpacity>
         </View>
       </View>
@@ -156,7 +188,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          {/* Dynamic Live Preview Canvas */}
+          {/* Dynamic Live Preview Canvas (Kept as requested) */}
           <View style={{ marginBottom: 4 }}>
             <ItemPreviewCard
               template={item.template || "login"}
@@ -213,10 +245,20 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     <Text style={styles.folderText}>{item.folder}</Text>
                   ) : null}
                 </View>
+                {item.tags && item.tags.length > 0 && (
+                  <View style={styles.tagsRow}>
+                    <Star size={11} color={colors.textMuted} style={{ marginRight: 2 }} />
+                    {item.tags.map((t: string, idx: number) => (
+                      <View key={idx} style={styles.tagBadge}>
+                        <Text style={styles.tagBadgeText}>{t}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
 
-            {(payload?.url || item.domain) && (
+            {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
               <TouchableOpacity
                 style={styles.launchBtn}
                 onPress={() => handleLaunchUrl(payload?.url || item.domain)}
@@ -224,230 +266,384 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                 <ExternalLink size={16} color={colors.bg} />
                 <Text style={styles.launchBtnText}>Launch Website</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
 
           {/* Live 2FA TOTP Code */}
           {payload && (payload.totpSecret || payload.totp_secret) ? (
-            <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
+              <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
+            </View>
           ) : null}
 
-          {/* Fields List */}
+          {/* Grouped Fields Sections */}
           {payload && (
-            <View style={styles.fieldsGroup}>
-              {/* Username */}
-              {payload.username ? (
-                <DetailRow
-                  icon={<User size={16} color={colors.textMuted} />}
-                  label="Username / Email"
-                  value={payload.username}
-                  onCopy={() => copyToClipboard("username", payload.username)}
-                  isCopied={copiedField === "username"}
-                />
-              ) : null}
+            <View style={{ gap: 16 }}>
+              {/* Credentials Section */}
+              {(payload.username || payload.password) && (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>LOGIN CREDENTIALS</Text>
+                  <View style={styles.sectionGroup}>
+                    {payload.username ? (
+                      <FieldRow
+                        label="Username"
+                        value={payload.username}
+                        onCopy={() => copyToClipboard("username", payload.username)}
+                        isCopied={copiedField === "username"}
+                      />
+                    ) : null}
 
-              {/* Password */}
-              {payload.password ? (
-                <DetailRow
-                  icon={<Key size={16} color={colors.textMuted} />}
-                  label="Password"
-                  value={showPassword ? payload.password : "••••••••••••"}
-                  onCopy={() => copyToClipboard("password", payload.password)}
-                  isCopied={copiedField === "password"}
-                  onToggleShow={() => setShowPassword(!showPassword)}
-                  isPassword
-                  showPassword={showPassword}
-                />
-              ) : null}
+                    {payload.password ? (
+                      <FieldRow
+                        label="Password"
+                        value={showPassword ? payload.password : "••••••••••••"}
+                        onCopy={() => copyToClipboard("password", payload.password)}
+                        isCopied={copiedField === "password"}
+                        onToggleShow={() => setShowPassword(!showPassword)}
+                        isPassword
+                        showPassword={showPassword}
+                        hasDivider={false}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              )}
 
-              {/* URL */}
-              {payload.url || item.domain ? (
-                <DetailRow
-                  icon={<Globe size={16} color={colors.textMuted} />}
-                  label="Website URL"
-                  value={payload.url || item.domain}
-                  onCopy={() =>
-                    copyToClipboard("url", payload.url || item.domain)
-                  }
-                  isCopied={copiedField === "url"}
-                />
-              ) : null}
+              {/* URLs Section */}
+              {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>AUTOFILL / WEBSITE OPTIONS</Text>
+                  <View style={styles.sectionGroup}>
+                    <FieldRow
+                      label="Website (URI)"
+                      value={payload?.url || item.domain}
+                      onCopy={() => copyToClipboard("url", payload?.url || item.domain)}
+                      isCopied={copiedField === "url"}
+                      onLaunch={() => handleLaunchUrl(payload?.url || item.domain)}
+                      hasDivider={payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1}
+                    />
 
-              {/* Card Template Fields */}
-              {payload.cardholderName ? (
-                <DetailRow
-                  icon={<User size={16} color={colors.textMuted} />}
-                  label="Cardholder Name"
-                  value={payload.cardholderName}
-                  onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
-                  isCopied={copiedField === "cardholderName"}
-                />
-              ) : null}
-
-              {payload.cardNumber ? (
-                <DetailRow
-                  icon={<CreditCard size={16} color={colors.cardBlue} />}
-                  label="Card Number"
-                  value={
-                    showPassword
-                      ? (() => {
-                          const clean = payload.cardNumber.replace(/\D/g, "");
-                          if (!clean) return payload.cardNumber;
-                          const groups = clean.length === 15 ? [4, 6, 5] : [4, 4, 4, 4];
-                          const parts: string[] = [];
-                          let idx = 0;
-                          for (const g of groups) {
-                            if (idx >= clean.length) break;
-                            parts.push(clean.slice(idx, idx + g));
-                            idx += g;
-                          }
-                          if (idx < clean.length) parts.push(clean.slice(idx));
-                          return parts.join(" ");
-                        })()
-                      : (payload.cardNumber.replace(/\D/g, "").length >= 4
-                          ? "•••• •••• •••• " + payload.cardNumber.replace(/\D/g, "").slice(-4)
-                          : "•••• •••• •••• ••••")
-                  }
-                  onCopy={() => copyToClipboard("cardNumber", payload.cardNumber)}
-                  isCopied={copiedField === "cardNumber"}
-                  onToggleShow={() => setShowPassword(!showPassword)}
-                  isPassword
-                  showPassword={showPassword}
-                />
-              ) : null}
-
-              {payload.expMonth || payload.expYear ? (
-                <DetailRow
-                  icon={<CreditCard size={16} color={colors.textMuted} />}
-                  label="Expiry Date"
-                  value={`${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
-                  onCopy={() => copyToClipboard("exp", `${payload.expMonth}/${payload.expYear}`)}
-                  isCopied={copiedField === "exp"}
-                />
-              ) : null}
-
-              {payload.cvv ? (
-                <DetailRow
-                  icon={<Lock size={16} color={colors.textMuted} />}
-                  label="CVV / Security Code"
-                  value={showPassword ? payload.cvv : "•••"}
-                  onCopy={() => copyToClipboard("cvv", payload.cvv)}
-                  isCopied={copiedField === "cvv"}
-                  onToggleShow={() => setShowPassword(!showPassword)}
-                  isPassword
-                  showPassword={showPassword}
-                />
-              ) : null}
-
-              {/* Address Template Fields */}
-              {payload.street ? (
-                <DetailRow
-                  icon={<FileText size={16} color={colors.textMuted} />}
-                  label="Street Address"
-                  value={payload.street}
-                  onCopy={() => copyToClipboard("street", payload.street)}
-                  isCopied={copiedField === "street"}
-                />
-              ) : null}
-
-              {payload.city || payload.state || payload.zip ? (
-                <DetailRow
-                  icon={<FileText size={16} color={colors.textMuted} />}
-                  label="City, State & ZIP"
-                  value={[payload.city, payload.state, payload.zip].filter(Boolean).join(", ")}
-                  onCopy={() => copyToClipboard("cityState", [payload.city, payload.state, payload.zip].filter(Boolean).join(", "))}
-                  isCopied={copiedField === "cityState"}
-                />
-              ) : null}
-
-              {payload.country ? (
-                <DetailRow
-                  icon={<Globe size={16} color={colors.textMuted} />}
-                  label="Country"
-                  value={payload.country}
-                  onCopy={() => copyToClipboard("country", payload.country)}
-                  isCopied={copiedField === "country"}
-                />
-              ) : null}
-
-              {/* Profile Template Fields */}
-              {payload.firstName || payload.lastName ? (
-                <DetailRow
-                  icon={<User size={16} color={colors.textMuted} />}
-                  label="Full Name"
-                  value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
-                  onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
-                  isCopied={copiedField === "fullName"}
-                />
-              ) : null}
-
-              {payload.email ? (
-                <DetailRow
-                  icon={<User size={16} color={colors.textMuted} />}
-                  label="Email Address"
-                  value={payload.email}
-                  onCopy={() => copyToClipboard("email", payload.email)}
-                  isCopied={copiedField === "email"}
-                />
-              ) : null}
-
-              {payload.phone ? (
-                <DetailRow
-                  icon={<User size={16} color={colors.textMuted} />}
-                  label="Phone Number"
-                  value={payload.phone}
-                  onCopy={() => copyToClipboard("phone", payload.phone)}
-                  isCopied={copiedField === "phone"}
-                />
-              ) : null}
-
-              {/* Note Content */}
-              {payload.note ? (
-                <View style={styles.fieldBox}>
-                  <Text style={styles.fieldLabel}>Note Content</Text>
-                  <Text style={styles.noteText}>{payload.note}</Text>
+                    {payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1 ? (
+                      payload.urls.slice(1).map((extraUrl: string, idx: number) => (
+                        <FieldRow
+                          key={idx}
+                          label={`Website (URI #${idx + 2})`}
+                          value={extraUrl}
+                          onCopy={() => copyToClipboard(`extra_url_${idx}`, extraUrl)}
+                          isCopied={copiedField === `extra_url_${idx}`}
+                          onLaunch={() => handleLaunchUrl(extraUrl)}
+                          hasDivider={idx < payload.urls.length - 2}
+                        />
+                      ))
+                    ) : null}
+                  </View>
                 </View>
               ) : null}
 
-              {/* Private Entry Notes */}
-              {payload.entryNotes ? (
-                <View style={styles.fieldBox}>
-                  <Text style={styles.fieldLabel}>Private Notes</Text>
-                  <Text style={styles.noteText}>{payload.entryNotes}</Text>
+              {/* Card Details Section */}
+              {(payload.cardholderName || payload.cardNumber) && (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>CARD DETAILS</Text>
+                  <View style={styles.sectionGroup}>
+                    {payload.cardholderName ? (
+                      <FieldRow
+                        label="Cardholder Name"
+                        value={payload.cardholderName}
+                        onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
+                        isCopied={copiedField === "cardholderName"}
+                        hasDivider={!!payload.cardNumber}
+                      />
+                    ) : null}
+
+                    {payload.cardNumber ? (
+                      <FieldRow
+                        label="Card Number"
+                        value={
+                          showPassword
+                            ? (() => {
+                                const clean = payload.cardNumber.replace(/\D/g, "");
+                                if (!clean) return payload.cardNumber;
+                                const groups = clean.length === 15 ? [4, 6, 5] : [4, 4, 4, 4];
+                                const parts: string[] = [];
+                                let idx = 0;
+                                for (const g of groups) {
+                                  if (idx >= clean.length) break;
+                                  parts.push(clean.slice(idx, idx + g));
+                                  idx += g;
+                                }
+                                if (idx < clean.length) parts.push(clean.slice(idx));
+                                return parts.join(" ");
+                              })()
+                            : (payload.cardNumber.replace(/\D/g, "").length >= 4
+                                ? "•••• •••• •••• " + payload.cardNumber.replace(/\D/g, "").slice(-4)
+                                : "•••• •••• •••• ••••")
+                        }
+                        onCopy={() => copyToClipboard("cardNumber", payload.cardNumber)}
+                        isCopied={copiedField === "cardNumber"}
+                        onToggleShow={() => setShowPassword(!showPassword)}
+                        isPassword
+                        showPassword={showPassword}
+                        hasDivider={false}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              )}
+
+              {/* Card Validity Section */}
+              {(payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>SECURITY & VALIDITY</Text>
+                  <View style={styles.sectionGroup}>
+                    {payload.expMonth || payload.expYear ? (
+                      <FieldRow
+                        label="Expiry Date"
+                        value={`${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
+                        onCopy={() => copyToClipboard("exp", `${payload.expMonth}/${payload.expYear}`)}
+                        isCopied={copiedField === "exp"}
+                        hasDivider={!!(payload.cvv || payload.pin)}
+                      />
+                    ) : null}
+
+                    {payload.cvv ? (
+                      <FieldRow
+                        label="CVV / Security Code"
+                        value={showPassword ? payload.cvv : "•••"}
+                        onCopy={() => copyToClipboard("cvv", payload.cvv)}
+                        isCopied={copiedField === "cvv"}
+                        onToggleShow={() => setShowPassword(!showPassword)}
+                        isPassword
+                        showPassword={showPassword}
+                        hasDivider={!!payload.pin}
+                      />
+                    ) : null}
+
+                    {payload.pin ? (
+                      <FieldRow
+                        label="ATM PIN"
+                        value={showPassword ? payload.pin : "••••"}
+                        onCopy={() => copyToClipboard("pin", payload.pin)}
+                        isCopied={copiedField === "pin"}
+                        onToggleShow={() => setShowPassword(!showPassword)}
+                        isPassword
+                        showPassword={showPassword}
+                        hasDivider={false}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              )}
+
+              {/* Address Section */}
+              {(payload.street || payload.city || payload.state || payload.zip || payload.country) && (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>ADDRESS DETAILS</Text>
+                  <View style={styles.sectionGroup}>
+                    {payload.street ? (
+                      <FieldRow
+                        label="Street Address"
+                        value={payload.street}
+                        onCopy={() => copyToClipboard("street", payload.street)}
+                        isCopied={copiedField === "street"}
+                        hasDivider={!!(payload.city || payload.state || payload.zip || payload.country)}
+                      />
+                    ) : null}
+
+                    {payload.city || payload.state || payload.zip ? (
+                      <FieldRow
+                        label="City, State & ZIP"
+                        value={[payload.city, payload.state, payload.zip].filter(Boolean).join(", ")}
+                        onCopy={() => copyToClipboard("cityState", [payload.city, payload.state, payload.zip].filter(Boolean).join(", "))}
+                        isCopied={copiedField === "cityState"}
+                        hasDivider={!!payload.country}
+                      />
+                    ) : null}
+
+                    {payload.country ? (
+                      <FieldRow
+                        label="Country"
+                        value={payload.country}
+                        onCopy={() => copyToClipboard("country", payload.country)}
+                        isCopied={copiedField === "country"}
+                        hasDivider={false}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              )}
+
+              {/* Profile Identity Section */}
+              {(payload.firstName || payload.lastName || payload.email || payload.phone) && (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
+                  <View style={styles.sectionGroup}>
+                    {payload.firstName || payload.lastName ? (
+                      <FieldRow
+                        label="Full Name"
+                        value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
+                        onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
+                        isCopied={copiedField === "fullName"}
+                        hasDivider={!!(payload.email || payload.phone)}
+                      />
+                    ) : null}
+
+                    {payload.email ? (
+                      <FieldRow
+                        label="Email Address"
+                        value={payload.email}
+                        onCopy={() => copyToClipboard("email", payload.email)}
+                        isCopied={copiedField === "email"}
+                        hasDivider={!!payload.phone}
+                      />
+                    ) : null}
+
+                    {payload.phone ? (
+                      <FieldRow
+                        label="Phone Number"
+                        value={payload.phone}
+                        onCopy={() => copyToClipboard("phone", payload.phone)}
+                        isCopied={copiedField === "phone"}
+                        hasDivider={false}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              )}
+
+              {/* Note Content */}
+              {(payload.note || ((item.template === "note" || payload._template === "note") && payload.entryNotes)) ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
+                  <View style={styles.noteCardBox}>
+                    <View style={styles.noteCardHeader}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <FileText size={15} color="#fbbf24" />
+                        <Text style={styles.noteCardTitle}>CONTENT</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.noteCopyBtn}
+                        onPress={() => copyToClipboard("noteContent", payload.note || payload.entryNotes)}
+                        activeOpacity={0.7}
+                      >
+                        {copiedField === "noteContent" ? (
+                          <Check size={13} color="#34d399" />
+                        ) : (
+                          <Copy size={13} color="#a1a1aa" />
+                        )}
+                        <Text style={[styles.noteCopyBtnText, copiedField === "noteContent" && { color: "#34d399" }]}>
+                          {copiedField === "noteContent" ? "COPIED" : "COPY"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                      <Text style={styles.noteContentBody} selectable>{payload.note || payload.entryNotes}</Text>
+                    </ScrollView>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Custom Fields */}
+              {((payload.fields && Array.isArray(payload.fields) && payload.fields.length > 0) ||
+                (payload.customFields && Array.isArray(payload.customFields) && payload.customFields.length > 0)) ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>CUSTOM FIELDS</Text>
+                  <View style={styles.sectionGroup}>
+                    {(payload.fields || payload.customFields).map((field: any, idx: number) => {
+                      const isHidden = field.type === "hidden";
+                      const labelStr = field.name || field.key || "Custom Field";
+                      const valStr = String(field.value || "");
+                      const allFields = payload.fields || payload.customFields;
+                      return (
+                        <FieldRow
+                          key={field.id || idx}
+                          label={labelStr}
+                          value={isHidden && !showPassword ? "••••••••••••" : valStr}
+                          onCopy={() => copyToClipboard(`cf_${idx}`, valStr)}
+                          isCopied={copiedField === `cf_${idx}`}
+                          isPassword={isHidden}
+                          showPassword={showPassword}
+                          onToggleShow={isHidden ? () => setShowPassword(!showPassword) : undefined}
+                          hasDivider={idx < allFields.length - 1}
+                        />
+                      );
+                    })}
+                  </View>
                 </View>
               ) : null}
 
               {/* Attachments Section */}
-              {payload.attachments && Array.isArray(payload.attachments) && payload.attachments.length > 0 ? (
-                <View style={styles.fieldBox}>
-                  <Text style={styles.fieldLabel}>File Attachments ({payload.attachments.length})</Text>
-                  <View style={{ gap: 8, marginTop: 6 }}>
-                    {payload.attachments.map((att: any, idx: number) => (
-                      <TouchableOpacity
-                        key={att.id || idx}
-                        style={styles.attachDetailRow}
-                        onPress={() => {
-                          if (att.uri) {
-                            Linking.openURL(att.uri).catch(() => vaultAlert.alert("Notice", "Cannot preview file. File URI is local or encrypted.", undefined, { illustration: "cancel_k4w9" }));
-                          }
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <FileText size={16} color="#60a5fa" />
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.attachDetailName} numberOfLines={1}>{att.name}</Text>
-                          <Text style={styles.attachDetailSize}>
-                            {att.size ? (att.size / 1024).toFixed(1) + " KB" : "Encrypted Attachment"}
-                          </Text>
-                        </View>
-                        <ExternalLink size={14} color="#71717a" />
-                      </TouchableOpacity>
-                    ))}
+              {((payload.attachments && Array.isArray(payload.attachments) && payload.attachments.length > 0) || serverAttachments.length > 0) ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.sectionHeaderLabel}>
+                    FILE ATTACHMENTS ({(serverAttachments.length || payload.attachments?.length || 0)})
+                  </Text>
+                  <View style={styles.sectionGroup}>
+                    {(serverAttachments.length > 0 ? serverAttachments : (payload.attachments || [])).map((att: any, idx: number) => {
+                      const totalCount = serverAttachments.length > 0 ? serverAttachments.length : payload.attachments.length;
+                      return (
+                        <TouchableOpacity
+                          key={att.id || idx}
+                          style={[
+                            styles.attachDetailRow,
+                            idx < totalCount - 1 && styles.rowDivider,
+                          ]}
+                          onPress={async () => {
+                            if (att.uri) {
+                              Linking.openURL(att.uri).catch(() =>
+                                vaultAlert.alert("Notice", "Cannot open local file URI.", undefined, { illustration: "cancel_k4w9" })
+                              );
+                            } else if (att.id) {
+                              try {
+                                const decrypted = await downloadAndDecryptAttachment(att.id, att.encryptedName || att.name);
+                                vaultAlert.alert(
+                                  "Attachment Decrypted",
+                                  `Successfully decrypted "${decrypted.name}" (${(decrypted.bytes.length / 1024).toFixed(1)} KB). File is ready on device.`,
+                                  undefined,
+                                  { illustration: "completed-task_c11d" }
+                                );
+                              } catch (err: any) {
+                                vaultAlert.alert("Download Error", err?.message || "Failed to download attachment.", undefined, { illustration: "cancel_k4w9" });
+                              }
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <FileText size={16} color="#60a5fa" />
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.attachDetailName} numberOfLines={1}>{att.name}</Text>
+                            <Text style={styles.attachDetailSize}>
+                              {att.sizeBytes ? (att.sizeBytes / 1024).toFixed(1) + " KB" : att.size ? (att.size / 1024).toFixed(1) + " KB" : "Encrypted S3 Attachment"}
+                            </Text>
+                          </View>
+                          <ExternalLink size={14} color="#71717a" />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
               ) : null}
             </View>
           )}
+
+          {/* Timestamps & Password History Footer */}
+          <View style={styles.metadataFooter}>
+            {item.updatedAt && (
+              <Text style={styles.metaTimeText}>
+                Last edited: {new Date(item.updatedAt).toLocaleDateString()}
+              </Text>
+            )}
+            {item.createdAt && (
+              <Text style={styles.metaTimeText}>
+                Created: {new Date(item.createdAt).toLocaleDateString()}
+              </Text>
+            )}
+
+            {/* Password History Button */}
+            {payload?.passwordHistory && Array.isArray(payload.passwordHistory) && payload.passwordHistory.length > 0 ? (
+              <PasswordHistoryButton history={payload.passwordHistory} onCopy={copyToClipboard} copiedField={copiedField} />
+            ) : null}
+          </View>
 
           <View style={styles.footerNote}>
             <ShieldCheck size={14} color={colors.textDim} />
@@ -461,8 +657,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   );
 }
 
-function DetailRow({
-  icon,
+function FieldRow({
   label,
   value,
   onCopy,
@@ -470,8 +665,9 @@ function DetailRow({
   isPassword,
   showPassword,
   onToggleShow,
+  onLaunch,
+  hasDivider = true,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
   onCopy: () => void;
@@ -479,36 +675,96 @@ function DetailRow({
   isPassword?: boolean;
   showPassword?: boolean;
   onToggleShow?: () => void;
+  onLaunch?: () => void;
+  hasDivider?: boolean;
 }) {
   return (
-    <View style={styles.fieldBox}>
+    <View style={[styles.fieldRow, hasDivider && styles.rowDivider]}>
       <View style={styles.fieldContent}>
-        <View style={styles.fieldHeaderLeft}>
-          {icon}
-          <Text style={styles.fieldLabel}>{label}</Text>
-        </View>
-        <Text style={styles.fieldValue} selectable>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <Text style={styles.fieldValue} selectable numberOfLines={3}>
           {value}
         </Text>
       </View>
       <View style={styles.fieldHeaderActions}>
+        {onLaunch && (
+          <TouchableOpacity style={styles.actionBtn} onPress={onLaunch}>
+            <ExternalLink size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
         {isPassword && onToggleShow && (
           <TouchableOpacity style={styles.actionBtn} onPress={onToggleShow}>
             {showPassword ? (
-              <EyeOff size={20} color={colors.textMuted} />
+              <EyeOff size={18} color={colors.textMuted} />
             ) : (
-              <Eye size={20} color={colors.textMuted} />
+              <Eye size={18} color={colors.textMuted} />
             )}
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.actionBtn} onPress={onCopy}>
           {isCopied ? (
-            <Check size={20} color={colors.success} />
+            <Check size={18} color={colors.success} />
           ) : (
-            <Copy size={20} color={colors.textMuted} />
+            <Copy size={18} color={colors.textMuted} />
           )}
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+function PasswordHistoryButton({ history, onCopy, copiedField }: { history: string[]; onCopy: (label: string, val: string) => void; copiedField: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const [revealedIdx, setRevealedIdx] = useState<number | null>(null);
+
+  return (
+    <View style={{ marginTop: 6, width: "100%" }}>
+      <TouchableOpacity
+        style={styles.historyToggleBtn}
+        onPress={() => setExpanded(!expanded)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.historyToggleText}>
+          Password history: {history.length}
+        </Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.historyBox}>
+          {history.map((prevPw, idx) => {
+            const isRevealed = revealedIdx === idx;
+            return (
+              <View key={idx} style={[styles.historyRow, idx < history.length - 1 && styles.rowDivider]}>
+                <Text style={styles.historyValue} selectable>
+                  {isRevealed ? prevPw : "••••••••••••"}
+                </Text>
+                <View style={styles.fieldHeaderActions}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => setRevealedIdx(isRevealed ? null : idx)}
+                  >
+                    {isRevealed ? (
+                      <EyeOff size={16} color={colors.textMuted} />
+                    ) : (
+                      <Eye size={16} color={colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => onCopy(`hist_${idx}`, prevPw)}
+                  >
+                    {copiedField === `hist_${idx}` ? (
+                      <Check size={16} color={colors.success} />
+                    ) : (
+                      <Copy size={16} color={colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -608,6 +864,26 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
   },
+  tagsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 6,
+  },
+  tagBadge: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  tagBadgeText: {
+    color: "#d4d4d8",
+    fontSize: 10.5,
+    fontWeight: "500",
+  },
   launchBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -623,64 +899,142 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  fieldsGroup: {
-    gap: 10,
+  sectionHeaderLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#71717a",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginLeft: 4,
+    marginBottom: 2,
   },
-  fieldBox: {
+  sectionGroup: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  fieldRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   fieldContent: {
     flex: 1,
     paddingRight: 8,
   },
-  fieldHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 3,
-  },
-  fieldHeaderActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  attachDetailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#0d0d0d",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
-    borderRadius: 10,
-    padding: 10,
-  },
-  attachDetailName: { fontSize: 13, color: "#f4f4f5", fontWeight: "500" },
-  attachDetailSize: { fontSize: 11, color: "#71717a", fontFamily: "monospace", marginTop: 2 },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "500",
     color: colors.textMuted,
-  },
-  actionBtn: {
-    padding: 6,
+    marginBottom: 3,
   },
   fieldValue: {
     fontSize: 14,
     color: colors.text,
     fontFamily: "monospace",
   },
-  noteText: {
+  fieldHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  actionBtn: {
+    padding: 6,
+  },
+  attachDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  attachDetailName: { fontSize: 13, color: "#f4f4f5", fontWeight: "500" },
+  attachDetailSize: { fontSize: 11, color: "#71717a", fontFamily: "monospace", marginTop: 2 },
+  noteCardBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+  },
+  noteCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  noteCardTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#d4d4d8",
+    letterSpacing: 0.8,
+  },
+  noteCopyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1c1c20",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  noteCopyBtnText: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#a1a1aa",
+  },
+  noteContentBody: {
+    fontSize: 13.5,
+    color: "#f4f4f5",
+    lineHeight: 20,
+    fontFamily: "monospace",
+  },
+  metadataFooter: {
+    marginTop: 8,
+    gap: 4,
+  },
+  metaTimeText: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  historyToggleBtn: {
+    paddingVertical: 4,
+  },
+  historyToggleText: {
+    fontSize: 13,
+    color: "#3b82f6",
+    fontWeight: "500",
+  },
+  historyBox: {
+    marginTop: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  historyValue: {
     fontSize: 13,
     color: colors.text,
-    lineHeight: 18,
+    fontFamily: "monospace",
+    flex: 1,
   },
   footerNote: {
     flexDirection: "row",
@@ -694,3 +1048,4 @@ const styles = StyleSheet.create({
     color: colors.textDim,
   },
 });
+

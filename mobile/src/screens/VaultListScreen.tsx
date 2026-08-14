@@ -22,14 +22,18 @@ import {
   Trash2,
   KeyRound,
   Folder,
+  FolderOpen,
+  ChevronDown,
   CreditCard,
   FileText,
   MapPin,
   User,
   ChevronRight,
+  CornerDownRight,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 import { PressableScale } from "../components/PressableScale";
+import { vaultAlert } from "../store/alertStore";
 
 type Props = { navigation: any };
 
@@ -66,8 +70,14 @@ function SmallIconBadge({ item }: { item: any }) {
 }
 
 export function VaultListScreen({ navigation }: Props) {
-  const { accountUser, serverUrl, items, lock, fetchItems } = useVaultStore();
+  const { accountUser, serverUrl, items, customFolders, lock, fetchItems, isOnline, checkConnection } = useVaultStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
+
+  const toggleCollapse = (folderPath: string) => {
+    setCollapsedMap((prev) => ({ ...prev, [folderPath]: !prev[folderPath] }));
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -103,10 +113,46 @@ export function VaultListScreen({ navigation }: Props) {
     return map;
   }, [activeItems]);
 
-  const folderNames = useMemo(
-    () => Object.keys(folders).filter((f) => f !== "__NONE__").sort(),
-    [folders]
-  );
+  const folderNames = useMemo(() => {
+    const setAll = new Set<string>();
+    activeItems.forEach((i) => {
+      if (i.folder) {
+        const parts = i.folder.split("/").filter(Boolean);
+        let cur = "";
+        for (const p of parts) {
+          cur = cur ? `${cur}/${p}` : p;
+          setAll.add(cur);
+        }
+      }
+    });
+    (customFolders || []).forEach((cf) => {
+      const fName = typeof cf === "string" ? cf : (cf as any)?.name || (cf as any)?.path || "";
+      if (fName) {
+        const parts = fName.split("/").filter(Boolean);
+        let cur = "";
+        for (const p of parts) {
+          cur = cur ? `${cur}/${p}` : p;
+          setAll.add(cur);
+        }
+      }
+    });
+    return Array.from(setAll).sort((a, b) => a.localeCompare(b));
+  }, [activeItems, customFolders]);
+
+  const visibleFolders = useMemo(() => {
+    return folderNames.filter((f) => {
+      const parts = f.split("/").filter(Boolean);
+      let ancestor = "";
+      for (let i = 0; i < parts.length - 1; i++) {
+        ancestor = ancestor ? `${ancestor}/${parts[i]}` : parts[i];
+        if (collapsedMap[ancestor]) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [folderNames, collapsedMap]);
+
   const uncategorizedCount = folders["__NONE__"] || 0;
 
   const navigateFiltered = (title: string, filterType?: string, filterFolder?: string) => {
@@ -124,9 +170,8 @@ export function VaultListScreen({ navigation }: Props) {
       {/* ── Header ── */}
       <View style={styles.header}>
         <Image
-          source={require("../../assets/brand/logo-dark.png")}
-          style={styles.headerBrandLogo}
-          resizeMode="contain"
+          source={require("../../assets/vaultr-full-dark-transparent.png")}
+          style={{ width: 120, height: 28, resizeMode: "contain" }}
         />
 
         <View style={styles.headerRight}>
@@ -160,6 +205,30 @@ export function VaultListScreen({ navigation }: Props) {
         </View>
       </View>
 
+      {/* ── Offline Status Banner ── */}
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <View style={styles.offlineBannerLeft}>
+            <View style={styles.offlineDot} />
+            <Text style={styles.offlineBannerText}>Offline — Viewing local cache (Read-Only)</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={async () => {
+              setCheckingConnection(true);
+              await checkConnection();
+              setCheckingConnection(false);
+            }}
+            disabled={checkingConnection}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.retryBtnText}>
+              {checkingConnection ? "Checking…" : "Retry"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* ── Scrollable Body ── */}
       <ScrollView
         style={styles.scroll}
@@ -169,161 +238,222 @@ export function VaultListScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textDim} />
         }
       >
-        {isEmpty ? (
+        {isEmpty && (
           /* Empty vault illustration */
           <View style={styles.emptyWrap}>
-            <Illustration name="vault_tyfh" width={260} height={210} style={{ marginBottom: 20 }} />
+            <Illustration name="empty_4zx0" width={220} height={180} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyTitle}>Your vault is empty</Text>
             <Text style={styles.emptyDesc}>Tap + to add your first entry</Text>
           </View>
-        ) : (
-          <>
-            {/* ── FAVOURITES section ── */}
-            {favoriteItems.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>
-                  FAVOURITES ({favoriteItems.length})
-                </Text>
-                <View style={styles.listCard}>
-                  {favoriteItems.map((item, idx) => {
-                    const template = item.template || "login";
-                    const subLine =
-                      template === "login" ? (item.domain || "Login") :
-                      template === "card" ? (item.domain || "•••• ••••") :
-                      template === "note" ? "Secure note" :
-                      template === "profile" ? "Identity profile" :
-                      template === "address" ? "Saved address" : "";
-                    const isLast = idx === favoriteItems.length - 1;
-                    return (
-                      <React.Fragment key={item.id}>
-                        <PressableScale
-                          style={styles.listRow}
-                          onPress={() => navigation.navigate("ItemDetail", { item })}
-                        >
-                          <View style={styles.listRowIcon}>
-                            <SmallIconBadge item={item} />
-                          </View>
-                          <View style={styles.listRowContent}>
-                            <Text style={styles.listRowTitle} numberOfLines={1}>{item.name}</Text>
-                            <Text style={styles.listRowSub} numberOfLines={1}>{subLine}</Text>
-                          </View>
-                          <ChevronRight size={15} color="#3f3f46" />
-                        </PressableScale>
-                        {!isLast && <View style={styles.rowDivider} />}
-                      </React.Fragment>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* ── TYPES section ── */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>
-                TYPES ({activeItems.length})
-              </Text>
-              <View style={styles.listCard}>
-                {(["login", "card", "note", "address", "profile"] as const).map((t, idx, arr) => {
-                  const IconComp = TEMPLATE_ICONS[t];
-                  const tc = TEMPLATE_COLORS[t];
-                  const count = typeCounts[t];
-                  const isLast = idx === arr.length - 1;
-                  return (
-                    <React.Fragment key={t}>
-                      <PressableScale
-                        style={styles.listRow}
-                        onPress={() => navigateFiltered(TEMPLATE_LABELS[t], t)}
-                      >
-                        <View style={[styles.listRowIcon, { backgroundColor: tc.bg, borderRadius: 10, width: 36, height: 36 }]}>
-                          <IconComp size={20} color={tc.icon} />
-                        </View>
-                        <Text style={styles.listRowTitle}>{TEMPLATE_LABELS[t]}</Text>
-                        <View style={{ flex: 1 }} />
-                        <Text style={styles.listRowCount}>{count}</Text>
-                        <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
-                      </PressableScale>
-                      {!isLast && <View style={styles.rowDivider} />}
-                    </React.Fragment>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* ── FOLDERS section ── */}
-            {(folderNames.length > 0 || uncategorizedCount > 0) && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>
-                  FOLDERS ({folderNames.length + (uncategorizedCount > 0 ? 1 : 0)})
-                </Text>
-                <View style={styles.listCard}>
-                  {folderNames.map((f, idx) => {
-                    const displayName = f.split("/").pop() || f;
-                    const depth = f.split("/").length - 1;
-                    const isLast = idx === folderNames.length - 1 && uncategorizedCount === 0;
-                    return (
-                      <React.Fragment key={f}>
-                        <TouchableOpacity
-                          style={[styles.listRow, depth > 0 && { paddingLeft: 14 + depth * 16 }]}
-                          onPress={() => navigateFiltered(displayName, undefined, f)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.listRowIcon}>
-                            <Folder size={22} color="#71717a" />
-                          </View>
-                          <Text style={styles.listRowTitle}>{displayName}</Text>
-                          <View style={{ flex: 1 }} />
-                          <Text style={styles.listRowCount}>{folders[f]}</Text>
-                          <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
-                        </TouchableOpacity>
-                        {!isLast && <View style={styles.rowDivider} />}
-                      </React.Fragment>
-                    );
-                  })}
-
-                  {uncategorizedCount > 0 && (
-                    <>
-                      {folderNames.length > 0 && <View style={styles.rowDivider} />}
-                      <TouchableOpacity
-                        style={styles.listRow}
-                        onPress={() => navigateFiltered("No folder", undefined, "UNCATEGORIZED")}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.listRowIcon}>
-                          <Folder size={18} color="#52525b" />
-                        </View>
-                        <Text style={[styles.listRowTitle, { color: "#a1a1aa" }]}>No folder</Text>
-                        <View style={{ flex: 1 }} />
-                        <Text style={styles.listRowCount}>{uncategorizedCount}</Text>
-                        <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {/* ── TRASH row ── */}
-            <View style={styles.section}>
-              <View style={styles.listCard}>
-                <TouchableOpacity
-                  style={styles.listRow}
-                  onPress={() => navigation.navigate("Trash")}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.listRowIcon, { backgroundColor: "rgba(239,68,68,0.1)", borderRadius: 10, width: 36, height: 36 }]}>
-                    <Trash2 size={16} color="#f87171" />
-                  </View>
-                  <Text style={[styles.listRowTitle, { color: "#f87171" }]}>Trash</Text>
-                  <View style={{ flex: 1 }} />
-                  {trashCount > 0 && (
-                    <Text style={[styles.listRowCount, { color: "#f87171" }]}>{trashCount}</Text>
-                  )}
-                  <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </>
         )}
+
+        {/* ── FAVOURITES section ── */}
+        {favoriteItems.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>
+              FAVOURITES ({favoriteItems.length})
+            </Text>
+            <View style={styles.listCard}>
+              {favoriteItems.slice(0, 5).map((item, idx, arr) => {
+                const template = item.template || "login";
+                const subLine =
+                  template === "login" ? (item.domain || "Login") :
+                  template === "card" ? (item.domain || "•••• ••••") :
+                  template === "note" ? "Secure note" :
+                  template === "profile" ? "Identity profile" :
+                  template === "address" ? "Saved address" : "";
+                const isLast = idx === arr.length - 1 && favoriteItems.length <= 5;
+                return (
+                  <React.Fragment key={item.id}>
+                    <PressableScale
+                      style={styles.listRow}
+                      onPress={() => navigation.navigate("ItemDetail", { item })}
+                    >
+                      <View style={styles.listRowIcon}>
+                        <SmallIconBadge item={item} />
+                      </View>
+                      <View style={styles.listRowContent}>
+                        <Text style={styles.listRowTitle} numberOfLines={1}>{item.name}</Text>
+                        {subLine ? <Text style={styles.listRowSub}>{subLine}</Text> : null}
+                      </View>
+                      <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+                    </PressableScale>
+                    {!isLast && <View style={styles.rowDivider} />}
+                  </React.Fragment>
+                );
+              })}
+
+              {favoriteItems.length > 5 && (
+                <TouchableOpacity
+                  style={styles.viewAllRow}
+                  onPress={() => navigation.navigate("VaultFiltered", { title: "Favorites", filterFavorite: true })}
+                >
+                  <Text style={styles.viewAllText}>... View All ({favoriteItems.length})</Text>
+                  <ChevronRight size={15} color="#3f3f46" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── TYPES section (Always visible) ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>
+            TYPES ({activeItems.length})
+          </Text>
+          <View style={styles.listCard}>
+            {(["login", "card", "note", "address", "profile"] as const).map((t, idx, arr) => {
+              const IconComp = TEMPLATE_ICONS[t];
+              const tc = TEMPLATE_COLORS[t];
+              const count = typeCounts[t];
+              const isLast = idx === arr.length - 1;
+              return (
+                <React.Fragment key={t}>
+                  <PressableScale
+                    style={styles.listRow}
+                    onPress={() => navigateFiltered(TEMPLATE_LABELS[t], t)}
+                  >
+                    <View style={[styles.listRowIcon, { backgroundColor: tc.bg, borderRadius: 10, width: 36, height: 36 }]}>
+                      <IconComp size={20} color={tc.icon} />
+                    </View>
+                    <Text style={styles.listRowTitle}>{TEMPLATE_LABELS[t]}</Text>
+                    <View style={{ flex: 1 }} />
+                    <Text style={styles.listRowCount}>{count}</Text>
+                    <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+                  </PressableScale>
+                  {!isLast && <View style={styles.rowDivider} />}
+                </React.Fragment>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── FOLDERS section ── */}
+        {(visibleFolders.length > 0 || uncategorizedCount > 0) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>
+              FOLDERS ({visibleFolders.length + (uncategorizedCount > 0 ? 1 : 0)})
+            </Text>
+            <View style={styles.listCard}>
+              {visibleFolders.map((f, idx) => {
+                const parts = f.split("/").filter(Boolean);
+                const displayName = parts[parts.length - 1];
+                const depth = parts.length - 1;
+                const isLast = idx === visibleFolders.length - 1 && uncategorizedCount === 0;
+
+                // Has child subfolders in folderNames?
+                const hasChildren = folderNames.some((other) => other !== f && other.startsWith(`${f}/`));
+                const isCollapsed = !!collapsedMap[f];
+                const isOpened = hasChildren ? !isCollapsed : true;
+
+                // Calculate total items in this folder or subfolders
+                let count = 0;
+                activeItems.forEach((i) => {
+                  if (i.folder && (i.folder === f || i.folder.startsWith(`${f}/`))) {
+                    count++;
+                  }
+                });
+
+                return (
+                  <React.Fragment key={f}>
+                    <TouchableOpacity
+                      style={[
+                        styles.listRow,
+                        depth > 0 && { paddingLeft: 12 + depth * 14 },
+                      ]}
+                      onPress={() => navigateFiltered(displayName, undefined, f)}
+                      activeOpacity={0.7}
+                    >
+                      {depth > 0 && (
+                        <CornerDownRight size={14} color="#71717a" style={{ marginRight: 4 }} />
+                      )}
+
+                      {/* Folder Icon (FolderOpen if opened/expanded, Folder if collapsed) */}
+                      <View style={styles.listRowIcon}>
+                        {isOpened ? (
+                          <FolderOpen size={22} color="#fafafa" />
+                        ) : (
+                          <Folder size={22} color="#fafafa" />
+                        )}
+                      </View>
+
+                      <View style={{ flex: 1, justifyContent: "center" }}>
+                        <Text style={styles.listRowTitle}>{displayName}</Text>
+                      </View>
+
+                      <Text style={styles.listRowCount}>{count}</Text>
+
+                      {/* Expand / Collapse toggle button if folder has child subfolders */}
+                      {hasChildren ? (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            toggleCollapse(f);
+                          }}
+                          style={{ padding: 6, marginLeft: 4, width: 28, alignItems: "center" }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight size={16} color="#a1a1aa" />
+                          ) : (
+                            <ChevronDown size={16} color="#fafafa" />
+                          )}
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={{ padding: 6, marginLeft: 4, width: 28, alignItems: "center" }}>
+                          <ChevronRight size={16} color="#3f3f46" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    {!isLast && <View style={styles.rowDivider} />}
+                  </React.Fragment>
+                );
+              })}
+
+              {uncategorizedCount > 0 && (
+                <>
+                  {folderNames.length > 0 && <View style={styles.rowDivider} />}
+                  <TouchableOpacity
+                    style={styles.listRow}
+                    onPress={() => navigateFiltered("No folder", undefined, "UNCATEGORIZED")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.listRowIcon}>
+                      <Folder size={22} color="#52525b" />
+                    </View>
+                    <Text style={[styles.listRowTitle, { color: "#a1a1aa" }]}>No folder</Text>
+                    <View style={{ flex: 1 }} />
+                    <Text style={styles.listRowCount}>{uncategorizedCount}</Text>
+                    <View style={{ padding: 6, marginLeft: 4, width: 28, alignItems: "center" }}>
+                      <ChevronRight size={16} color="#3f3f46" />
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── TRASH row (Always visible) ── */}
+        <View style={styles.section}>
+          <View style={styles.listCard}>
+            <TouchableOpacity
+              style={styles.listRow}
+              onPress={() => navigation.navigate("Trash")}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.listRowIcon, { backgroundColor: "rgba(239,68,68,0.1)", borderRadius: 10, width: 36, height: 36 }]}>
+                <Trash2 size={16} color="#f87171" />
+              </View>
+              <Text style={[styles.listRowTitle, { color: "#f87171" }]}>Trash</Text>
+              <View style={{ flex: 1 }} />
+              {trashCount > 0 && (
+                <Text style={[styles.listRowCount, { color: "#f87171" }]}>{trashCount}</Text>
+              )}
+              <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Bottom spacer for FAB */}
         <View style={{ height: 28 }} />
@@ -331,11 +461,22 @@ export function VaultListScreen({ navigation }: Props) {
 
       {/* ── FAB ── */}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate("ItemForm", {})}
+        style={[styles.fab, !isOnline && styles.fabDisabled]}
+        onPress={() => {
+          if (!isOnline) {
+            vaultAlert.alert(
+              "Offline Mode",
+              "Internet connection is required to create new items. Connect to internet to sync and add entries.",
+              undefined,
+              { illustration: "clouds_bmtk" }
+            );
+            return;
+          }
+          navigation.navigate("ItemForm", {});
+        }}
         activeOpacity={0.85}
       >
-        <Plus size={22} color="#09090b" />
+        <Plus size={22} color={isOnline ? "#09090b" : "#71717a"} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -346,16 +487,58 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingTop: 8 },
 
+  // ── Offline Banner ──
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(245, 158, 11, 0.2)",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  offlineBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  offlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#f59e0b",
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    color: "#fcd34d",
+    fontWeight: "500",
+  },
+  retryBtn: {
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 6,
+    backgroundColor: "rgba(245, 158, 11, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.3)",
+  },
+  retryBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#fbbf24",
+  },
+
   // ── Header ──
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 56,
     backgroundColor: "#09090b",
     borderBottomWidth: 1,
-    borderBottomColor: "#141417",
+    borderBottomColor: "#18181b",
   },
   headerBrandLogo: {
     height: 26,
@@ -457,6 +640,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#1c1c1e",
     marginLeft: 62,
   },
+  viewAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#1c1c1e",
+  },
+  viewAllText: {
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: "600",
+  },
 
   // ── Empty State ──
   emptyWrap: {
@@ -494,5 +691,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 14,
     elevation: 8,
+  },
+  fabDisabled: {
+    backgroundColor: "#27272a",
+    borderWidth: 1,
+    borderColor: "#3f3f46",
+    opacity: 0.7,
   },
 });

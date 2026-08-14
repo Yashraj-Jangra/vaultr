@@ -12,10 +12,11 @@ import { CustomAlertOverlay } from "./components/CustomAlertOverlay";
 // Inject native C++ OpenSSL PBKDF2 engine into @vaultr/core if available (Custom Dev Client / Prod).
 // In Expo Go, this gracefully falls back to the pure JS implementation (which takes ~3.5s).
 try {
-  const QuickCrypto = require("react-native-quick-crypto").default;
+  const QuickCryptoModule = require("react-native-quick-crypto");
+  const QuickCrypto = QuickCryptoModule.default || QuickCryptoModule;
   if (QuickCrypto && QuickCrypto.pbkdf2) {
-    setCustomPbkdf2(async (password, salt) => {
-      return new Promise((resolve, reject) => {
+    setCustomPbkdf2(async (password: string, salt: string) => {
+      return new Promise<Uint8Array>((resolve, reject) => {
         QuickCrypto.pbkdf2(password, salt, 100000, 32, "sha256", (err: any, derivedKey: any) => {
           if (err) reject(err);
           else resolve(new Uint8Array(derivedKey));

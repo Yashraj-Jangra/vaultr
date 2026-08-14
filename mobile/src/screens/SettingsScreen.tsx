@@ -7,11 +7,14 @@ import {
   StatusBar,
   ScrollView,
   Image,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
+import { vaultAlert } from "../store/alertStore";
 import { colors } from "../theme/colors";
 import { getAvatarUri } from "../utils/avatar";
+import { openAutofillSettings } from "../services/autofill";
 import {
   Shield,
   Fingerprint,
@@ -23,22 +26,32 @@ import {
   Database,
   ChevronRight,
   Lock,
+  ShieldCheck,
+  Smartphone,
 } from "lucide-react-native";
 
 interface SettingsRowProps {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
+  badgeText?: string;
   onPress?: () => void;
   last?: boolean;
 }
 
-function SettingsRow({ icon, title, subtitle, onPress, last }: SettingsRowProps) {
+function SettingsRow({ icon, title, subtitle, badgeText, onPress, last }: SettingsRowProps) {
   const Inner = (
     <View style={[styles.row, last && styles.rowLast]}>
       <View style={styles.rowIconWrap}>{icon}</View>
       <View style={styles.rowContent}>
-        <Text style={styles.rowTitle}>{title}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={styles.rowTitle}>{title}</Text>
+          {badgeText && (
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>{badgeText}</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.rowSubtitle}>{subtitle}</Text>
       </View>
       {onPress && <ChevronRight size={15} color="#404040" />}
@@ -59,13 +72,50 @@ export function SettingsScreen({ navigation }: any) {
   const { serverUrl, lock, signOutAccount, accountUser } = useVaultStore();
   const avatarLetter = (accountUser?.name || accountUser?.email || "V")[0].toUpperCase();
 
+  const handleOpenAutofill = () => {
+    if (Platform.OS === "android") {
+      openAutofillSettings();
+    } else {
+      vaultAlert.alert(
+        "iOS Autofill",
+        "To enable Autofill on iOS, open iOS Settings > Passwords > Password Options and select Vaultr.",
+        undefined,
+        { illustration: "device-sync_d9ei" }
+      );
+    }
+  };
+
+  const handleComingSoon = (feature: string) => {
+    vaultAlert.alert(
+      "Coming Soon",
+      `${feature} is currently under active development and will be available in the next release!`,
+      undefined,
+      { illustration: "completed-task_c11d" }
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={styles.headerLeft}>
+          <Image
+            source={require("../../assets/vaultr-full-dark-transparent.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerDivider} />
+          <Text style={styles.headerTitle}>Settings</Text>
+        </View>
+
+        {/* Security / Encryption Pill */}
+        <View style={styles.securityPill}>
+          <View style={styles.greenDot} />
+          <ShieldCheck size={11} color="#10b981" />
+          <Text style={styles.securityPillText}>AES-256 Secured</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -93,12 +143,12 @@ export function SettingsScreen({ navigation }: any) {
               {accountUser?.email || ""}
             </Text>
           </View>
-          <ChevronRight size={15} color="#404040" />
+          <ChevronRight size={16} color="#525252" />
         </TouchableOpacity>
 
-        {/* ── Security ─────────────────────────── */}
+        {/* ── Security & Access ────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>SECURITY</Text>
+          <Text style={styles.sectionLabel}>SECURITY & ACCESS</Text>
           <View style={styles.sectionGroup}>
             <SettingsRow
               icon={<User size={15} color={colors.accent} />}
@@ -112,6 +162,13 @@ export function SettingsScreen({ navigation }: any) {
               title="Security & Biometrics"
               subtitle="Fingerprint unlock, auto-lock"
               onPress={() => navigation.navigate("SecuritySettings")}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<Smartphone size={15} color="#38bdf8" />}
+              title="Autofill Credentials"
+              subtitle="Auto-fill logins in browser & apps"
+              onPress={handleOpenAutofill}
               last
             />
           </View>
@@ -131,22 +188,22 @@ export function SettingsScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* ── Vault Data ───────────────────────── */}
+        {/* ── Vault Management ───────────────── */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>VAULT MANAGEMENT</Text>
           <View style={styles.sectionGroup}>
-            <SettingsRow
-              icon={<Database size={15} color={colors.cardIndigo} />}
-              title="Import & Export"
-              subtitle="Bitwarden, CSV, JSON backups"
-              onPress={() => navigation.navigate("DataSettings")}
-            />
-            <View style={styles.groupDivider} />
             <SettingsRow
               icon={<Folder size={15} color={colors.warning} />}
               title="Folder Manager"
               subtitle="Organize vault into folders"
               onPress={() => navigation.navigate("FolderManager")}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<Database size={15} color={colors.cardIndigo} />}
+              title="Import & Export"
+              subtitle="Bitwarden, CSV, JSON backups"
+              onPress={() => navigation.navigate("DataSettings")}
             />
             <View style={styles.groupDivider} />
             <SettingsRow
@@ -186,7 +243,7 @@ export function SettingsScreen({ navigation }: any) {
         {/* Version watermark */}
         <View style={styles.versionWrap}>
           <Image
-            source={require("../../assets/brand/logo-mark-dark.png")}
+            source={require("../../assets/vaultr-lock-dark-transparent.png")}
             style={styles.versionLogo}
             resizeMode="contain"
           />
@@ -201,16 +258,57 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#09090b" },
 
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 56,
     borderBottomWidth: 1,
-    borderBottomColor: "#1a1a1a",
+    borderBottomColor: "#18181b",
+    backgroundColor: "#09090b",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerLogo: {
+    width: 80,
+    height: 22,
+  },
+  headerDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "#27272a",
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#f4f4f5",
-    letterSpacing: -0.4,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#a1a1aa",
+    letterSpacing: -0.2,
+  },
+  securityPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(16, 185, 129, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.25)",
+    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+  },
+  greenDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#10b981",
+  },
+  securityPillText: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#10b981",
+    letterSpacing: 0.2,
   },
 
   content: {
@@ -287,7 +385,19 @@ const styles = StyleSheet.create({
   },
   rowContent: { flex: 1 },
   rowTitle: { fontSize: 13.5, fontWeight: "500", color: "#e4e4e7" },
-  rowSubtitle: { fontSize: 11, color: "#525252", marginTop: 1 },
+  rowSubtitle: { fontSize: 11, color: "#71717a", marginTop: 1 },
+  comingSoonBadge: {
+    backgroundColor: "#27272a",
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  comingSoonText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#a1a1aa",
+    letterSpacing: 0.4,
+  },
   groupDivider: { height: 1, backgroundColor: "#1a1a1a", marginLeft: 58 },
 
   // Lock button

@@ -199,9 +199,9 @@ export function AccountSettingsScreen({ navigation }: any) {
           throw new Error(data.error || "Failed to save details");
         }
       }
-      vaultAlert.alert("Success", "Personal details saved successfully.", undefined, { illustration: "completed-task_c11d" });
+      vaultAlert.alert("Success", "Personal details saved successfully.", undefined, { illustration: "user-account_fvqa", glowColor: "rgba(167, 139, 250, 0.12)" });
     } catch (e: any) {
-      vaultAlert.alert("Notice", "Personal details updated locally.", undefined, { illustration: "completed-task_c11d" });
+      vaultAlert.alert("Notice", "Personal details updated locally.", undefined, { illustration: "user-account_fvqa", glowColor: "rgba(167, 139, 250, 0.12)" });
     } finally {
       setSavingDetails(false);
     }
@@ -210,7 +210,7 @@ export function AccountSettingsScreen({ navigation }: any) {
   // Handle Account Password Change
   const handleAccountPasswordChange = async () => {
     if (!currentAccPw || !newAccPw) {
-      vaultAlert.alert("Error", "Please fill in all account password fields.", undefined, { illustration: "cancel_k4w9" });
+      vaultAlert.alert("Error", "Please fill in all account password fields.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
     setAccPwLoading(true);
@@ -224,15 +224,15 @@ export function AccountSettingsScreen({ navigation }: any) {
         body: JSON.stringify({ currentPassword: currentAccPw, newPassword: newAccPw }),
       });
       if (res.ok) {
-        vaultAlert.alert("Success", "Account password updated successfully.", undefined, { illustration: "completed-task_c11d" });
+        vaultAlert.alert("Success", "Account password updated successfully.", undefined, { illustration: "secure-password_9qv4", glowColor: "rgba(52, 211, 153, 0.12)" });
         setCurrentAccPw("");
         setNewAccPw("");
       } else {
         const err = await res.json();
-        vaultAlert.alert("Failed", err.message || err.error || "Could not update account password.", undefined, { illustration: "cancel_k4w9" });
+        vaultAlert.alert("Failed", err.message || err.error || "Could not update account password.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       }
     } catch (e: any) {
-      vaultAlert.alert("Error", e.message || "Failed to communicate with server.", undefined, { illustration: "cancel_k4w9" });
+      vaultAlert.alert("Error", e.message || "Failed to communicate with server.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
     } finally {
       setAccPwLoading(false);
     }
@@ -241,15 +241,15 @@ export function AccountSettingsScreen({ navigation }: any) {
   // Handle Master Password Change
   const handleMasterPasswordChange = async () => {
     if (!currentMasterPw || !newMasterPw) {
-      vaultAlert.alert("Error", "Please fill in all master password fields.", undefined, { illustration: "cancel_k4w9" });
+      vaultAlert.alert("Error", "Please fill in all master password fields.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
     if (currentMasterPw !== masterPassword) {
-      vaultAlert.alert("Validation Error", "Current master password does not match.", undefined, { illustration: "cancel_k4w9" });
+      vaultAlert.alert("Validation Error", "Current master password does not match.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
     if (!cryptoKey || !accountUser?.id) {
-      vaultAlert.alert("Error", "Vault must be unlocked to re-encrypt items.", undefined, { illustration: "cancel_k4w9" });
+      vaultAlert.alert("Error", "Vault must be unlocked to re-encrypt items.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
 
@@ -259,24 +259,39 @@ export function AccountSettingsScreen({ navigation }: any) {
       const newKey = await deriveKey(newMasterPw, accountUser.id);
       const itemsToReEncrypt = items.map((i) => ({ id: i.id, encryptedBlob: i.encryptedBlob }));
 
-      const reEncrypted = await reEncryptBlobs(itemsToReEncrypt, cryptoKey, newKey);
-
-      for (const updated of reEncrypted) {
-        await useVaultStore.getState().updateItem(updated.id, {
-          unencryptedPayload: undefined,
-        });
+      if (itemsToReEncrypt.length > 0) {
+        const reEncrypted = await reEncryptBlobs(itemsToReEncrypt, cryptoKey, newKey);
+        await useVaultStore.getState().reencryptAllItems(reEncrypted);
       }
 
       useVaultStore.setState({ masterPassword: newMasterPw, cryptoKey: newKey });
-      vaultAlert.alert("Success", "Master password updated and all items re-encrypted successfully!", undefined, { illustration: "completed-task_c11d" });
+
+      // Update biometrics storage if enabled (F-14)
+      const { updateBiometricPassword } = await import("../../services/biometrics");
+      await updateBiometricPassword(newMasterPw);
+
+      vaultAlert.alert("Success", "Master password updated and all items re-encrypted successfully!", undefined, { illustration: "security-on_3ykb", glowColor: "rgba(52, 211, 153, 0.12)" });
       setCurrentMasterPw("");
       setNewMasterPw("");
     } catch (e: any) {
-      vaultAlert.alert("Re-encryption Error", e.message || "Could not re-encrypt items with new master password.", undefined, { illustration: "cancel_k4w9" });
+      vaultAlert.alert("Re-encryption Error", e.message || "Could not re-encrypt items with new master password.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
     } finally {
       setMasterPwLoading(false);
     }
   };
+
+  const isProfileChanged =
+    displayName.trim() !== (accountUser?.name || "") ||
+    photoURL !== (accountUser?.image || accountUser?.avatarUrl || "");
+
+  const isDetailsChanged =
+    firstName.trim().length > 0 || lastName.trim().length > 0 || phone.trim().length > 0;
+
+  const isMasterPwChanged =
+    currentMasterPw.trim().length > 0 && newMasterPw.trim().length > 0;
+
+  const isAccPwChanged =
+    currentAccPw.trim().length > 0 && newAccPw.trim().length > 0;
 
   const initialLetter = (accountUser?.name || accountUser?.email || "V")[0].toUpperCase();
   const formatBytes = (bytes: number) => {
@@ -353,14 +368,25 @@ export function AccountSettingsScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[
+              styles.primaryBtn,
+              (!isProfileChanged || savingProfile) && styles.btnDisabled,
+            ]}
             onPress={handleSaveProfile}
-            disabled={savingProfile}
+            disabled={!isProfileChanged || savingProfile}
+            activeOpacity={0.8}
           >
             {savingProfile ? (
               <ActivityIndicator color="#09090b" size="small" />
             ) : (
-              <Text style={styles.primaryBtnText}>Save Profile</Text>
+              <Text
+                style={[
+                  styles.primaryBtnText,
+                  (!isProfileChanged || savingProfile) && styles.btnDisabledText,
+                ]}
+              >
+                Save Profile
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -421,14 +447,25 @@ export function AccountSettingsScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={styles.secondaryBtn}
+            style={[
+              styles.primaryBtn,
+              (!isDetailsChanged || savingDetails) && styles.btnDisabled,
+            ]}
             onPress={handleSaveDetails}
-            disabled={savingDetails}
+            disabled={!isDetailsChanged || savingDetails}
+            activeOpacity={0.8}
           >
             {savingDetails ? (
-              <ActivityIndicator color="#f4f4f5" size="small" />
+              <ActivityIndicator color="#09090b" size="small" />
             ) : (
-              <Text style={styles.secondaryBtnText}>Save Personal Details</Text>
+              <Text
+                style={[
+                  styles.primaryBtnText,
+                  (!isDetailsChanged || savingDetails) && styles.btnDisabledText,
+                ]}
+              >
+                Save Personal Details
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -498,14 +535,25 @@ export function AccountSettingsScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[
+              styles.primaryBtn,
+              (!isMasterPwChanged || masterPwLoading) && styles.btnDisabled,
+            ]}
             onPress={handleMasterPasswordChange}
-            disabled={masterPwLoading}
+            disabled={!isMasterPwChanged || masterPwLoading}
+            activeOpacity={0.8}
           >
             {masterPwLoading ? (
               <ActivityIndicator color="#09090b" size="small" />
             ) : (
-              <Text style={styles.primaryBtnText}>Re-encrypt Vault & Update</Text>
+              <Text
+                style={[
+                  styles.primaryBtnText,
+                  (!isMasterPwChanged || masterPwLoading) && styles.btnDisabledText,
+                ]}
+              >
+                Re-encrypt Vault & Update
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -545,14 +593,25 @@ export function AccountSettingsScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={styles.secondaryBtn}
+            style={[
+              styles.primaryBtn,
+              (!isAccPwChanged || accPwLoading) && styles.btnDisabled,
+            ]}
             onPress={handleAccountPasswordChange}
-            disabled={accPwLoading}
+            disabled={!isAccPwChanged || accPwLoading}
+            activeOpacity={0.8}
           >
             {accPwLoading ? (
-              <ActivityIndicator color="#f4f4f5" size="small" />
+              <ActivityIndicator color="#09090b" size="small" />
             ) : (
-              <Text style={styles.secondaryBtnText}>Update Account Password</Text>
+              <Text
+                style={[
+                  styles.primaryBtnText,
+                  (!isAccPwChanged || accPwLoading) && styles.btnDisabledText,
+                ]}
+              >
+                Update Account Password
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -675,6 +734,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   primaryBtnText: { fontSize: 13.5, fontWeight: "700", color: "#09090b" },
+  btnDisabled: {
+    backgroundColor: "#27272a",
+    opacity: 0.5,
+  },
+  btnDisabledText: {
+    color: "#71717a",
+  },
   secondaryBtn: {
     backgroundColor: "#18181b",
     borderWidth: 1,

@@ -24,9 +24,9 @@ export const metadata: Metadata = {
   description: "_vaultr is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
   keywords: ["password manager", "zero knowledge", "AES-256", "encrypted", "secure", "vaultr"],
   icons: {
-    icon: "/brand/favicon.ico",
-    shortcut: "/brand/favicon.ico",
-    apple: "/brand/apple-touch-icon.png",
+    icon: "/brand/vaultr-vr-dark-transparent.svg",
+    shortcut: "/brand/vaultr-vr-dark-transparent.svg",
+    apple: "/brand/vaultr-lock-dark-solid.png",
   },
   openGraph: {
     title: "_vaultr — Zero-Knowledge Password Manager",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/brand/og-image.png",
+        url: "/brand/vaultr-full-dark-solid.png",
         width: 1200,
         height: 630,
         alt: "_vaultr",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "_vaultr — Zero-Knowledge Password Manager",
     description: "_vaultr is a zero-knowledge password manager. Your passwords are encrypted before they leave your browser.",
-    images: ["/brand/og-image.png"],
+    images: ["/brand/vaultr-full-dark-solid.png"],
   },
 };
 

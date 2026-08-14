@@ -5,23 +5,24 @@
     "scheme": "vaultr",
     "version": "0.2.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/vaultr-full-dark-transparent.png",
       "resizeMode": "contain",
       "backgroundColor": "#09090b"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/vaultr-lock-dark-transparent.png",
         "backgroundColor": "#09090b"
       },
       "package": "com.vaultr.mobile",
       "permissions": [
         "USE_BIOMETRIC",
         "USE_FINGERPRINT",
-        "BIND_AUTOFILL_SERVICE"
+        "BIND_AUTOFILL_SERVICE",
+        "CAMERA"
       ],
       "versionCode": 2
     },
@@ -32,8 +33,16 @@
           "faceIDPermission": "Allow Vaultr to use Face ID to unlock your secure vault."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Vaultr to access camera to scan 2FA QR codes.",
+          "barcodeScannerEnabled": true
+        }
+      ],
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sharing"
     ]
   }
 }

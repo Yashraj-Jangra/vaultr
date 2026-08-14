@@ -52,14 +52,14 @@ export type TemplateKey =
 
 // ─── Branding Logo CID Attachment Helper ──────────────────────────────────────
 
-export const VAULTR_LOGO_CID = "vaultr-logo-dark@vaultr.app";
+export const VAULTR_LOGO_CID = "vaultr-full-dark-transparent@vaultr.app";
 
 export function getBrandLogoAttachment() {
-  const logoPath = path.join(process.cwd(), "public/brand/logo-dark.png");
+  const logoPath = path.join(process.cwd(), "public/brand/vaultr-full-dark-transparent.png");
   if (fs.existsSync(logoPath)) {
     return [
       {
-        filename: "logo-dark.png",
+        filename: "vaultr-full-dark-transparent.png",
         path: logoPath,
         cid: VAULTR_LOGO_CID,
       },

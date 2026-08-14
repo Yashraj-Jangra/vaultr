@@ -17,15 +17,15 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
-import { vaultItems, configStats } from "@/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { vaultItems, configStats, vaultAttachments, userProfiles } from "@/db/schema";
+import { eq, and, inArray, sql, sum } from "drizzle-orm";
 import { deleteAttachmentsByVaultItem } from "@/lib/storage";
 import { z } from "zod";
 
 const BatchSchema = z.object({
   action: z.enum(["trash", "restore", "favorite", "unfavorite", "move", "purge"]),
-  ids: z.array(z.string().uuid()).min(1).max(500),
-  payload: z.string().max(100).optional(), // folder name for "move"
+  ids: z.array(z.string().min(1)).max(10000).default([]),
+  payload: z.union([z.string().max(100), z.null(), z.undefined()]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = BatchSchema.safeParse(body);
     if (!parsed.success) {
+      console.error("[POST /api/vault/items/batch Validation Error]", parsed.error.format(), body);
       return NextResponse.json(
         { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
         { status: 422 }
@@ -43,15 +44,24 @@ export async function POST(req: NextRequest) {
 
     const { action, ids, payload } = parsed.data;
 
-    // Ownership check: verify all requested ids belong to this user
-    const ownedItems = await db
-      .select({ id: vaultItems.id })
-      .from(vaultItems)
-      .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, ids)));
+    if (ids.length === 0) {
+      return NextResponse.json({ updated: 0 });
+    }
 
-    const ownedIds = ownedItems.map((i) => i.id);
+    const CHUNK_SIZE = 500;
+    const ownedIds: string[] = [];
+
+    // Ownership check: verify all requested ids belong to this user (in chunks of 500)
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const chunkOwned = await db
+        .select({ id: vaultItems.id })
+        .from(vaultItems)
+        .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, chunk)));
+      ownedIds.push(...chunkOwned.map((item) => item.id));
+    }
+
     const notOwned = ids.filter((id) => !ownedIds.includes(id));
-
     if (notOwned.length > 0) {
       return NextResponse.json(
         { error: "Some items not found or not owned by user", notFound: notOwned },
@@ -65,24 +75,57 @@ export async function POST(req: NextRequest) {
 
     // Handle Permanent Deletion / Purge
     if (action === "purge") {
-      // 1. Cascade: delete all S3 attachments for these items
-      await Promise.all(ownedIds.map((id) => deleteAttachmentsByVaultItem(user.id, id).catch(() => {})));
+      let totalDeleted = 0;
+      let totalAttachmentBytes = 0;
 
-      // 2. Hard delete from DB
-      const deleted = await db
-        .delete(vaultItems)
-        .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, ownedIds)))
-        .returning({ id: vaultItems.id });
+      for (let i = 0; i < ownedIds.length; i += CHUNK_SIZE) {
+        const chunk = ownedIds.slice(i, i + CHUNK_SIZE);
 
-      // 3. Decrement global stats counter
-      if (deleted.length > 0) {
+        // 1. Calculate attachment sizes across purged items
+        const [sizeRow] = await db
+          .select({ total: sum(vaultAttachments.sizeBytes) })
+          .from(vaultAttachments)
+          .where(
+            and(
+              eq(vaultAttachments.userId, user.id),
+              inArray(vaultAttachments.vaultItemId, chunk)
+            )
+          );
+
+        totalAttachmentBytes += Number(sizeRow?.total ?? 0);
+
+        // 2. Cascade: delete all S3 attachments for these items
+        await Promise.all(chunk.map((id) => deleteAttachmentsByVaultItem(user.id, id).catch(() => {})));
+
+        // 3. Hard delete from DB (cascades to vaultAttachments rows)
+        const deleted = await db
+          .delete(vaultItems)
+          .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, chunk)))
+          .returning({ id: vaultItems.id });
+
+        totalDeleted += deleted.length;
+      }
+
+      // 4. Decrement user storage counter once
+      if (totalAttachmentBytes > 0) {
         await db
-          .update(configStats)
-          .set({ totalEntries: sql`GREATEST(0, ${configStats.totalEntries} - ${deleted.length})` })
+          .update(userProfiles)
+          .set({
+            storageUsedBytes: sql`GREATEST(${userProfiles.storageUsedBytes} - ${totalAttachmentBytes}, 0)`,
+          })
+          .where(eq(userProfiles.userId, user.id))
           .catch(() => {});
       }
 
-      return NextResponse.json({ updated: deleted.length });
+      // 5. Decrement global stats counter once
+      if (totalDeleted > 0) {
+        await db
+          .update(configStats)
+          .set({ totalEntries: sql`GREATEST(0, ${configStats.totalEntries} - ${totalDeleted})` })
+          .catch(() => {});
+      }
+
+      return NextResponse.json({ updated: totalDeleted });
     }
 
     const now = new Date();
@@ -110,13 +153,18 @@ export async function POST(req: NextRequest) {
         break;
     }
 
-    const updated = await db
-      .update(vaultItems)
-      .set(updatePayload)
-      .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, ownedIds)))
-      .returning({ id: vaultItems.id });
+    let totalUpdated = 0;
+    for (let i = 0; i < ownedIds.length; i += CHUNK_SIZE) {
+      const chunk = ownedIds.slice(i, i + CHUNK_SIZE);
+      const updated = await db
+        .update(vaultItems)
+        .set(updatePayload)
+        .where(and(eq(vaultItems.userId, user.id), inArray(vaultItems.id, chunk)))
+        .returning({ id: vaultItems.id });
+      totalUpdated += updated.length;
+    }
 
-    return NextResponse.json({ updated: updated.length });
+    return NextResponse.json({ updated: totalUpdated });
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[POST /api/vault/items/batch]", err);

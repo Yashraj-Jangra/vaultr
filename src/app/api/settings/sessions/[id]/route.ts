@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
-import { terminateSession } from "@/lib/sessionMeta";
+import { terminateSession, resolveSessionId } from "@/lib/sessionMeta";
 import { db } from "@/db";
 import { session } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -18,10 +18,11 @@ export async function DELETE(
 ) {
   try {
     const me = await verifyUserToken(req);
-    const { id: sessionId } = await params;
+    const { id: rawSessionId } = await params;
+    const resolvedTargetId = (await resolveSessionId(rawSessionId)) || rawSessionId;
 
     // Cannot revoke the current session via this endpoint
-    if (sessionId === me.sessionId) {
+    if (resolvedTargetId === me.sessionId || rawSessionId === me.sessionId) {
       return NextResponse.json(
         { error: "Cannot revoke your current session. Use sign out instead." },
         { status: 400 }
@@ -32,7 +33,7 @@ export async function DELETE(
     const [owned] = await db
       .select({ id: session.id })
       .from(session)
-      .where(and(eq(session.id, sessionId), eq(session.userId, me.id)))
+      .where(and(eq(session.id, resolvedTargetId), eq(session.userId, me.id)))
       .limit(1);
 
     if (!owned) {
@@ -42,7 +43,7 @@ export async function DELETE(
       );
     }
 
-    await terminateSession(sessionId);
+    await terminateSession(resolvedTargetId);
     return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof Response) return err;

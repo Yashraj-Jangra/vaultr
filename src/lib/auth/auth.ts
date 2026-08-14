@@ -17,27 +17,18 @@ import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // ── Trusted Origins ──────────────────────────────────────────────────────────
-async function getTrustedOrigins(request?: Request): Promise<string[]> {
+async function getTrustedOrigins(): Promise<string[]> {
   const origins: string[] = [
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8081",
     ...(process.env.TRUSTED_ORIGINS
       ? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
       : []),
   ];
 
-  if (request) {
-    const originHeader = request.headers.get("origin") || request.headers.get("referer");
-    if (originHeader && originHeader !== "null") {
-      try {
-        const u = new URL(originHeader);
-        if (!origins.includes(u.origin)) {
-          origins.push(u.origin);
-        }
-      } catch {}
-    }
-  }
-
-  return origins;
+  return Array.from(new Set(origins));
 }
 
 export const auth = betterAuth({

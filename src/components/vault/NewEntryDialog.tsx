@@ -23,7 +23,7 @@ import { FolderSelect } from "./FolderSelect";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
-interface CustomField { id: string; key: string; value: string; }
+interface CustomField { id: string; key: string; value: string; type?: "text" | "hidden"; }
 
 export interface DecryptedPayload {
   _template?: Template;
@@ -33,7 +33,8 @@ export interface DecryptedPayload {
   line1?: string; line2?: string; city?: string; state?: string; zip?: string; country?: string;
   fullName?: string; dob?: string; idNumber?: string; email?: string; phone?: string;
   note?: string;
-  customFields?: { key: string; value: string }[];
+  customFields?: { key: string; value: string; type?: "text" | "hidden" }[];
+  fields?: { id?: string; name: string; value: string; type?: "text" | "hidden" }[];
   totpSecret?: string; entryNotes?: string; passwordHistory?: string[]; payload?: string;
 }
 
@@ -467,18 +468,21 @@ function LiveTotpPreview({ secret }: { secret: string }) {
   }, [secret]);
 
   if (!code) return null;
+  const isExpiring = timeLeft <= 5;
+
   return (
-    <div className="flex items-center gap-3 px-3 py-2 mt-2 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)]">
-      <Clock className="w-4 h-4 text-[var(--accent)]" />
-      <span className="font-mono text-lg font-bold text-[var(--fg)] tracking-[0.2em]">{code.slice(0,3)} {code.slice(3)}</span>
-      <div className="ml-auto flex items-center gap-2 text-[11px] text-[var(--fg-muted)]">
-        <div className="relative w-4 h-4 flex items-center justify-center">
-          <svg className="w-4 h-4 transform -rotate-90" viewBox="0 0 16 16">
-            <circle cx="8" cy="8" r="6" stroke="var(--border)" strokeWidth="2" fill="none" />
-            <circle cx="8" cy="8" r="6" stroke="var(--accent)" strokeWidth="2" fill="none" strokeDasharray="37.7" strokeDashoffset={37.7 * (1 - timeLeft/30)} className="transition-all duration-1000 linear" />
+    <div className="flex items-center gap-3 px-3.5 py-2.5 mt-2 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
+      <Clock className={`w-5 h-5 shrink-0 ${isExpiring ? "text-red-400" : "text-[var(--accent)]"}`} />
+      <span className={`font-mono text-xl font-bold tracking-[0.2em] ${isExpiring ? "text-red-400" : "text-[var(--fg)]"}`}>{code.slice(0,3)} {code.slice(3)}</span>
+      <div className="ml-auto flex items-center gap-2">
+        <div className="relative w-6 h-6 flex items-center justify-center">
+          <svg className="w-6 h-6 transform -rotate-90" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke="var(--border)" strokeWidth="2.5" fill="none" />
+            <circle cx="12" cy="12" r="9" stroke={isExpiring ? "#ef4444" : "var(--accent)"} strokeWidth="2.5" fill="none" strokeDasharray="56.5" strokeDashoffset={56.5 * (1 - timeLeft/30)} className="transition-all duration-1000 linear" />
           </svg>
-          <span className="absolute text-[8px] font-bold">{timeLeft}</span>
+          <span className={`absolute text-[10px] font-bold ${isExpiring ? "text-red-400" : "text-[var(--fg-muted)]"}`}>{timeLeft}</span>
         </div>
+        <span className={`text-[12px] font-mono font-medium ${isExpiring ? "text-red-400" : "text-[var(--fg-muted)]"}`}>{timeLeft}s</span>
       </div>
     </div>
   );
@@ -620,8 +624,17 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const [note,         setNote]         = useState(initialData?.payload.note ?? "");
   const [entryNotes,   setEntryNotes]   = useState(initialData?.payload.entryNotes ?? "");
   const [fallbackIndex,setFallbackIndex]= useState<number | null>(null);
-  const [customFields, setCustomFields] = useState<CustomField[]>(() => initialData?.payload.customFields?.map(f => ({ id: crypto.randomUUID(), key: f.key, value: f.value })) ?? []);
-  const addCustomField = () => setCustomFields(p => [...p, { id: crypto.randomUUID(), key: "", value: "" }]);
+  const [customFields, setCustomFields] = useState<CustomField[]>(() => {
+    const raw = initialData?.payload.fields || initialData?.payload.customFields || [];
+    if (!Array.isArray(raw)) return [];
+    return raw.map((f: any) => ({
+      id: crypto.randomUUID(),
+      key: f.key || f.name || "",
+      value: f.value || "",
+      type: f.type === "hidden" ? "hidden" : "text",
+    }));
+  });
+  const addCustomField = () => setCustomFields(p => [...p, { id: crypto.randomUUID(), key: "", value: "", type: "text" }]);
 
   const { config } = useSiteConfig();
 
@@ -686,10 +699,12 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
       return;
     }
     setSaving(true);
+    const validCustom = customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key.trim(), name: f.key.trim(), value: f.value, type: f.type || "text" }));
     const payload: DecryptedPayload = {
       _template: template,
       _folder: activeFolder || undefined,
-      customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key.trim(), value: f.value.trim() })),
+      customFields: validCustom,
+      fields: validCustom.map(f => ({ name: f.key, value: f.value, type: f.type })),
       entryNotes: entryNotes.trim() || undefined,
     };
 
@@ -839,7 +854,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     setPhone(initialData?.payload.phone ?? "");
     setNote(initialData?.payload.note ?? "");
     setEntryNotes(initialData?.payload.entryNotes ?? "");
-    setCustomFields(initialData?.payload.customFields?.map(f => ({ id: crypto.randomUUID(), key: f.key, value: f.value })) ?? []);
+    const rawCustom = initialData?.payload.fields || initialData?.payload.customFields || [];
+    setCustomFields(Array.isArray(rawCustom) ? rawCustom.map((f: any) => ({ id: crypto.randomUUID(), key: f.key || f.name || "", value: f.value || "", type: f.type === "hidden" ? "hidden" : "text" })) : []);
     setShowTotp(!!initialData?.payload.totpSecret);
   }, [open, initialData]);
 
@@ -952,9 +968,17 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                 <div className="space-y-2">
                   {customFields.map(f => (
                     <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" style={{ width: "30%", minWidth: "90px" }} className="shrink-0" />
-                      <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" className="flex-1 min-w-0" />
-                      <button type="button" onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Field Label" className="flex-1 min-w-0" />
+                      {f.type === "hidden" ? (
+                        <SecretInput value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" className="flex-1 min-w-0" />
+                      ) : (
+                        <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" className="flex-1 min-w-0" />
+                      )}
+                      <button type="button" onClick={() => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, type: x.type === "hidden" ? "text" : "hidden" } : x))} className={`shrink-0 h-9 px-2.5 flex items-center gap-1.5 rounded-xl border text-[11px] font-medium transition-all cursor-pointer ${f.type === "hidden" ? "bg-[var(--accent)] text-[#09090b] border-[var(--accent)] font-semibold shadow-sm" : "bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--border)] hover:text-[var(--fg)]"}`} title={f.type === "hidden" ? "Secret field" : "Text field"}>
+                        {f.type === "hidden" ? <Lock className="w-3.5 h-3.5 shrink-0" /> : <FileText className="w-3.5 h-3.5 shrink-0" />}
+                        <span>{f.type === "hidden" ? "Secret" : "Text"}</span>
+                      </button>
+                      <button type="button" onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-8 h-9 flex items-center justify-center rounded-xl text-[var(--fg-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
                     </div>
                   ))}
                 </div>
@@ -1004,7 +1028,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div><FieldLabel>Exp Month</FieldLabel><Input value={expiryMonth} onChange={e => setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0,2))} placeholder="MM" /></div>
             <div><FieldLabel>Exp Year</FieldLabel><Input value={expiryYear} onChange={e => setExpiryYear(e.target.value.replace(/\D/g, "").slice(0,4))} placeholder="YYYY" /></div>
             <div><FieldLabel>CVV</FieldLabel><SecretInput value={cvv} onChange={e => setCvv(e.target.value)} placeholder="•••" /></div>
-            <div><FieldLabel>PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
+            <div><FieldLabel>ATM PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
           </div>
 
           <div className="pt-4 border-t border-[var(--border)] space-y-4">
@@ -1362,7 +1386,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
                   <Image
-                    src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                    src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                     alt=""
                     width={16}
                     height={16}
@@ -1427,7 +1451,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div className="px-5 py-4 border-t border-[var(--border)] flex justify-between items-center bg-[var(--bg)]/40 text-[10px] text-[var(--fg-muted)]">
               <div className="flex items-center gap-1.5 font-mono">
                 <Image
-                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                   alt=""
                   width={12}
                   height={12}
@@ -1487,7 +1511,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center">
                 <Image
-                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                   alt=""
                   width={16}
                   height={16}
@@ -1584,7 +1608,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative z-10">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--fg-muted)]">Security Audit</span>
                       <Image
-                        src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                        src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                         alt=""
                         width={14}
                         height={14}
@@ -1594,7 +1618,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     <div className="space-y-3.5 text-xs text-[var(--fg-muted)] leading-relaxed py-2 text-left">
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--fg)]">
                         <Image
-                          src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                          src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                           alt=""
                           width={16}
                           height={16}

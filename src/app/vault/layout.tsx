@@ -55,7 +55,7 @@ function VaultShell({ children }: { children: React.ReactNode }) {
           onSearchOpen={() => setPaletteOpen(true)}
           onMenuOpen={() => setMobileMenuOpen(true)}
           onGeneratorOpen={() => {
-            window.location.href = "/vault/generator";
+            window.location.href = "/generator";
           }}
         />
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">

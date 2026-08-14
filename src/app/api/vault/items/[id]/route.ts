@@ -88,16 +88,8 @@ export async function DELETE(
     const user = await verifyUserToken(req);
     const { id } = await params;
 
-    const deleted = await db
-      .delete(vaultItems)
-      .where(and(eq(vaultItems.id, id), eq(vaultItems.userId, user.id)))
-      .returning({ id: vaultItems.id });
-
-    if (deleted.length === 0)
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-
-    // ── Cascade: delete all S3 attachments for this vault item ───────────────
-    // Sum up the sizes first so we can decrement storageUsedBytes accurately
+    // ── Cascade: calculate sizes and delete S3 attachments BEFORE deleting item ───
+    // Must run before db.delete(vaultItems) because Postgres ON DELETE CASCADE will erase attachment rows!
     const [sizeRow] = await db
       .select({ total: sum(vaultAttachments.sizeBytes) })
       .from(vaultAttachments)
@@ -110,8 +102,7 @@ export async function DELETE(
 
     const totalAttachmentBytes = Number(sizeRow?.total ?? 0);
 
-    // Delete from S3 (the DB rows cascade-delete when vault_items row is gone,
-    // but we delete S3 objects ourselves since ON DELETE CASCADE doesn't reach S3)
+    // Delete S3 objects
     await deleteAttachmentsByVaultItem(user.id, id).catch(() => {});
 
     // Decrement user storage counter if there were attachments
@@ -124,6 +115,14 @@ export async function DELETE(
         .where(eq(userProfiles.userId, user.id))
         .catch(() => {});
     }
+
+    const deleted = await db
+      .delete(vaultItems)
+      .where(and(eq(vaultItems.id, id), eq(vaultItems.userId, user.id)))
+      .returning({ id: vaultItems.id });
+
+    if (deleted.length === 0)
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
     // Decrement stats counter
     await db

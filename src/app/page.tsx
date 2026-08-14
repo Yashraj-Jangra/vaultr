@@ -150,7 +150,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/brand/logo-dark.png"
+              src="/brand/vaultr-full-dark-transparent.png"
               alt={config.name}
               width={120}
               height={24}
@@ -847,7 +847,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center">
             <Image
-              src="/brand/logo-dark.png"
+              src="/brand/vaultr-full-dark-transparent.png"
               alt={config.name}
               width={100}
               height={20}

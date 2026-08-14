@@ -265,6 +265,20 @@ export async function deleteAttachmentsByVaultItem(
 }
 
 /**
+ * Bulk-delete all attachments belonging to a user across all vault items.
+ * Called on account deletion or scheduled vault wipe.
+ */
+export async function deleteAllUserAttachments(userId: string): Promise<void> {
+  const prefix = `${userId}/`;
+  const listed = await s3.send(
+    new ListObjectsV2Command({ Bucket: ATTACHMENTS_BUCKET, Prefix: prefix })
+  );
+
+  const keys = (listed.Contents ?? []).map((obj) => obj.Key).filter(Boolean) as string[];
+  await Promise.all(keys.map((k) => deleteAttachment(k)));
+}
+
+/**
  * Generate a short-lived pre-signed URL so the browser can download
  * an encrypted attachment directly from MinIO (bypassing Next.js).
  * Default TTL: 5 minutes. The client decrypts the file after download.
@@ -296,15 +310,24 @@ export async function getPresignedUrl(
 }
 
 /**
- * Retrieve the raw encrypted text contents of an attachment directly from S3.
+ * Retrieve the raw encrypted binary byte contents of an attachment directly from S3.
  */
-export async function getAttachmentContent(s3Key: string): Promise<string> {
+export async function getAttachmentBytes(s3Key: string): Promise<Uint8Array> {
   const response = await s3.send(
     new GetObjectCommand({ Bucket: ATTACHMENTS_BUCKET, Key: s3Key })
   );
-  const data = await response.Body?.transformToString();
+  const data = await response.Body?.transformToByteArray();
   if (data === undefined) {
     throw new Error("Failed to read S3 object body");
   }
   return data;
 }
+
+/**
+ * Retrieve the raw encrypted text contents of an attachment directly from S3.
+ */
+export async function getAttachmentContent(s3Key: string): Promise<string> {
+  const bytes = await getAttachmentBytes(s3Key);
+  return Buffer.from(bytes).toString("utf-8");
+}
+

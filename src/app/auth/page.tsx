@@ -290,7 +290,7 @@ export default function AuthPage() {
         {/* ── Logo */}
         <div className="flex items-center relative z-10">
           <Image
-            src="/brand/logo-dark.png"
+            src="/brand/vaultr-full-dark-transparent.png"
             alt={config.name}
             width={120}
             height={24}
@@ -353,7 +353,7 @@ export default function AuthPage() {
           <div className="flex items-center mb-8 lg:hidden">
             <div className="flex items-center">
               <Image
-                src="/brand/logo-dark.png"
+                src="/brand/vaultr-full-dark-transparent.png"
                 alt={config.name}
                 width={100}
                 height={20}

@@ -1,11 +1,17 @@
-import { VaultItem } from "@vaultr/core";
+import { VaultItem, Template } from "@vaultr/core";
 
 export type RootStackParamList = {
   Auth: undefined;
   Unlock: undefined;
   MainTabs: undefined;
   ItemDetail: { item: VaultItem };
-  ItemForm: { item?: VaultItem };
+  ItemForm: {
+    item?: VaultItem;
+    initialFolder?: string;
+    initialTemplate?: Template;
+    initialTotpSecret?: string;
+    initialName?: string;
+  };
   AccountSettings: undefined;
   SecuritySettings: undefined;
   DataSettings: undefined;

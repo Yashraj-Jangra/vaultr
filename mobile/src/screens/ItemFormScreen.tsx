@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { FolderSelectModal } from "../components/FolderSelectModal";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
@@ -22,14 +23,23 @@ import { ItemPreviewCard } from "../components/ItemPreviewCard";
 import * as DocumentPicker from "expo-document-picker";
 import {
   X,
+  Save,
   Lock,
   CreditCard,
   FileText,
-  User,
   MapPin,
-  Save,
+  User,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  Globe,
+  Upload,
+  Star,
+  KeyRound,
 } from "lucide-react-native";
 import { Modal, Pressable } from "react-native";
+import { QrScannerModal } from "../components/QrScannerModal";
 
 type Props = StackScreenProps<RootStackParamList, "ItemForm">;
 
@@ -42,21 +52,24 @@ const TEMPLATES: { id: Template; label: string; icon: any }[] = [
 ];
 
 export function ItemFormScreen({ route, navigation }: Props) {
-  const { item } = route.params || {};
+  const { item, initialFolder, initialTemplate, initialTotpSecret, initialName } = route.params || {};
   const isEdit = !!item;
 
-  const { createItem, updateItem, cryptoKey, decryptItemBlob } = useVaultStore();
+  const { isOnline, createItem, updateItem, uploadAttachment, cryptoKey, decryptItemBlob, items, customFolders } = useVaultStore();
 
-  const [template, setTemplate] = useState<Template>(item?.template || "login");
-  const [name, setName] = useState(item?.name || "");
-  const [folder, setFolder] = useState(item?.folder || "");
+  const [template, setTemplate] = useState<Template>(item?.template || initialTemplate || "login");
+  const [name, setName] = useState(item?.name || initialName || "");
+  const [folder, setFolder] = useState(item?.folder || initialFolder || "");
+  const [tagsStr, setTagsStr] = useState(item?.tags?.join(", ") || "");
   const [saving, setSaving] = useState(false);
 
   // Login fields
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [url, setUrl] = useState("");
-  const [totpSecret, setTotpSecret] = useState("");
+  const [additionalUrls, setAdditionalUrls] = useState<string[]>([]);
+  const [totpSecret, setTotpSecret] = useState(initialTotpSecret || "");
+  const [showQrScanner, setShowQrScanner] = useState(false);
 
   // Card fields
   const [cardholderName, setCardholderName] = useState("");
@@ -64,8 +77,15 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [expMonth, setExpMonth] = useState("");
   const [expYear, setExpYear] = useState("");
   const [cvv, setCvv] = useState("");
+  const [pin, setPin] = useState("");
   const [cardBrand, setCardBrand] = useState("");
   const [showNetworkPicker, setShowNetworkPicker] = useState(false);
+
+  // Sensitive Field Eye Toggles
+  const [showPassword, setShowPassword] = useState(false);
+  const [showTotpSecret, setShowTotpSecret] = useState(false);
+  const [showCvv, setShowCvv] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   const CARD_NETWORKS = [
     { value: "",            label: "Auto-detect" },
@@ -94,8 +114,39 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [note, setNote] = useState("");
   const [entryNotes, setEntryNotes] = useState("");
 
+  // Custom Fields
+  const [customFields, setCustomFields] = useState<
+    Array<{ id: string; name: string; value: string; type: "text" | "hidden"; showValue?: boolean }>
+  >([]);
+
   // Attachments
   const [attachments, setAttachments] = useState<Array<{ id: string; name: string; uri: string; size: number; mimeType?: string }>>([]);
+
+  const existingFoldersList = useMemo(() => {
+    const setAll = new Set<string>();
+    items.forEach((i) => {
+      if (i.folder && !i.deletedAt) {
+        const parts = i.folder.split("/").filter(Boolean);
+        let cur = "";
+        for (const p of parts) {
+          cur = cur ? `${cur}/${p}` : p;
+          setAll.add(cur);
+        }
+      }
+    });
+    (customFolders || []).forEach((cf) => {
+      const fName = typeof cf === "string" ? cf : (cf as any)?.name || (cf as any)?.path || "";
+      if (fName) {
+        const parts = fName.split("/").filter(Boolean);
+        let cur = "";
+        for (const p of parts) {
+          cur = cur ? `${cur}/${p}` : p;
+          setAll.add(cur);
+        }
+      }
+    });
+    return Array.from(setAll).sort((a, b) => a.localeCompare(b));
+  }, [items, customFolders]);
 
   useEffect(() => {
     if (isEdit && item) {
@@ -106,16 +157,33 @@ export function ItemFormScreen({ route, navigation }: Props) {
           if (p.username) setUsername(p.username);
           if (p.password) setPassword(p.password);
           if (p.url) setUrl(p.url);
+          if (p.urls && Array.isArray(p.urls) && p.urls.length > 1) {
+            setAdditionalUrls(p.urls.slice(1));
+          }
           if (p.totpSecret || p.totp_secret) setTotpSecret(p.totpSecret || p.totp_secret);
+
+          const rawFields = p.fields || p.customFields;
+          if (rawFields && Array.isArray(rawFields)) {
+            setCustomFields(
+              rawFields.map((f: any, idx: number) => ({
+                id: f.id || `cf_${idx}_${Date.now()}`,
+                name: f.name || f.key || f.label || "",
+                value: f.value || "",
+                type: f.type === "hidden" ? "hidden" : "text",
+                showValue: false,
+              }))
+            );
+          }
           
           if (p.cardholderName || p.cardName) setCardholderName(p.cardholderName || p.cardName);
           if (p.cardNumber) setCardNumber(p.cardNumber);
           if (p.expMonth) setExpMonth(p.expMonth);
           if (p.expYear) setExpYear(p.expYear);
           if (p.cvv) setCvv(p.cvv);
+          if (p.pin) setPin(p.pin);
           if (p.cardBrand) setCardBrand(p.cardBrand);
 
-          if (p.street) setStreet(p.street);
+          if (p.street || p.line1) setStreet(p.street || p.line1 || "");
           if (p.city) setCity(p.city);
           if (p.state) setStateStr(p.state);
           if (p.zip) setZip(p.zip);
@@ -123,6 +191,11 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
           if (p.firstName) setFirstName(p.firstName);
           if (p.lastName) setLastName(p.lastName);
+          if (!p.firstName && p.fullName) {
+            const parts = p.fullName.trim().split(" ");
+            setFirstName(parts[0] || "");
+            setLastName(parts.slice(1).join(" ") || "");
+          }
           if (p.email) setEmail(p.email);
           if (p.phone) setPhone(p.phone);
 
@@ -163,6 +236,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
   };
 
   const handleSave = async () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to save entries. Please connect to internet to save.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
     if (!name.trim()) {
       vaultAlert.alert("Validation Error", "Please enter an item name.", undefined, { illustration: "cancel_k4w9" });
       return;
@@ -184,7 +261,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.username = username.trim();
         unencryptedPayload.password = password;
         unencryptedPayload.url = url.trim();
-        unencryptedPayload.urls = url.trim() ? [url.trim()] : [];
+        const allUrls = [url.trim(), ...additionalUrls.map((u) => u.trim())].filter(Boolean);
+        unencryptedPayload.urls = allUrls;
         if (totpSecret.trim()) unencryptedPayload.totpSecret = totpSecret.trim();
       } else if (template === "card") {
         unencryptedPayload.cardholderName = cardholderName.trim();
@@ -193,9 +271,12 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.expMonth = expMonth.trim();
         unencryptedPayload.expYear = expYear.trim();
         unencryptedPayload.cvv = cvv.trim();
+        if (pin.trim()) unencryptedPayload.pin = pin.trim();
         if (cardBrand.trim()) unencryptedPayload.cardBrand = cardBrand.trim();
       } else if (template === "address") {
         unencryptedPayload.street = street.trim();
+        unencryptedPayload.line1 = street.trim();
+        unencryptedPayload.line2 = "";
         unencryptedPayload.city = city.trim();
         unencryptedPayload.state = stateStr.trim();
         unencryptedPayload.zip = zip.trim();
@@ -203,6 +284,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
       } else if (template === "profile") {
         unencryptedPayload.firstName = firstName.trim();
         unencryptedPayload.lastName = lastName.trim();
+        unencryptedPayload.fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
         unencryptedPayload.email = email.trim();
         unencryptedPayload.phone = phone.trim();
       } else if (template === "note") {
@@ -212,6 +294,20 @@ export function ItemFormScreen({ route, navigation }: Props) {
       if (attachments.length > 0) {
         unencryptedPayload.attachments = attachments;
       }
+
+      const validCustomFields = customFields
+        .filter((f) => f.name.trim().length > 0)
+        .map((f) => ({ id: f.id, name: f.name.trim(), key: f.name.trim(), value: f.value, type: f.type }));
+
+      if (validCustomFields.length > 0) {
+        unencryptedPayload.fields = validCustomFields;
+        unencryptedPayload.customFields = validCustomFields.map((f) => ({ key: f.name, value: f.value, type: f.type }));
+      }
+
+      const tagsList = tagsStr
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
 
       let domain = url.trim() || undefined;
       if (template === "card" && cardNumber.replace(/\D/g, "").length >= 4) {
@@ -223,24 +319,47 @@ export function ItemFormScreen({ route, navigation }: Props) {
       }
       const hasTotp = template === "login" && !!totpSecret.trim();
 
+      let targetItemId = item?.id || "";
+
       if (isEdit && item) {
         await updateItem(item.id, {
           name: name.trim(),
           template,
           folder: folder.trim() || undefined,
+          tags: tagsList,
           domain,
           hasTotp,
           unencryptedPayload,
         });
       } else {
-        await createItem({
+        const created = await createItem({
           name: name.trim(),
           template,
           folder: folder.trim() || undefined,
+          tags: tagsList,
           domain,
           hasTotp,
           unencryptedPayload,
         });
+        if (created?.id) targetItemId = created.id;
+      }
+
+      // Upload newly added local file attachments to S3
+      if (targetItemId && attachments.length > 0) {
+        for (const att of attachments) {
+          if (att.uri && (att.uri.startsWith("file://") || att.uri.startsWith("content://"))) {
+            try {
+              await uploadAttachment(targetItemId, {
+                uri: att.uri,
+                name: att.name,
+                mimeType: att.mimeType || "application/octet-stream",
+                size: att.size,
+              });
+            } catch (attErr) {
+              console.warn("[ItemForm] Attachment upload warning:", attErr);
+            }
+          }
+        }
       }
 
       navigation.goBack();
@@ -267,19 +386,27 @@ export function ItemFormScreen({ route, navigation }: Props) {
           {isEdit ? "Edit Entry" : "New Entry"}
         </Text>
         <TouchableOpacity
-          style={styles.saveBtn}
+          style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={!name.trim() || saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={colors.bg} />
+            <ActivityIndicator size="small" color="#09090b" />
           ) : (
-            <Save size={18} color={colors.bg} />
+            <Save size={18} color="#09090b" />
           )}
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {/* Dynamic Live Preview Canvas */}
         <View style={styles.previewCanvasWrap}>
           <ItemPreviewCard
@@ -356,13 +483,21 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Folder (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={folder}
-            onChangeText={setFolder}
-            placeholder="e.g. Work, Personal, Finance"
-            placeholderTextColor={colors.textDim}
-          />
+          <FolderSelectModal value={folder} onChange={setFolder} />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Tags (Optional)</Text>
+          <View style={styles.inputEyeRow}>
+            <Star size={15} color={colors.textMuted} style={{ marginLeft: 12 }} />
+            <TextInput
+              style={styles.inputInsideRow}
+              value={tagsStr}
+              onChangeText={setTagsStr}
+              placeholder="e.g. work, finance, personal"
+              placeholderTextColor={colors.textDim}
+            />
+          </View>
         </View>
 
         {/* Login Template Fields */}
@@ -382,39 +517,129 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[styles.input, { fontFamily: "monospace" }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••••••"
-                placeholderTextColor={colors.textDim}
-                secureTextEntry
-              />
+              <View style={styles.inputEyeRow}>
+                <TextInput
+                  key={showPassword ? "pw_shown" : "pw_hidden"}
+                  style={[styles.inputInsideRow, { fontFamily: "monospace" }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••••••"
+                  placeholderTextColor={colors.textDim}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeToggleBtn}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} color={colors.textMuted} />
+                  ) : (
+                    <Eye size={18} color={colors.textMuted} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Website URL</Text>
-              <TextInput
-                style={styles.input}
-                value={url}
-                onChangeText={setUrl}
-                placeholder="https://github.com"
-                placeholderTextColor={colors.textDim}
-                autoCapitalize="none"
-              />
+              <View style={styles.inputEyeRow}>
+                <Globe size={16} color={colors.textMuted} style={{ marginLeft: 12 }} />
+                <TextInput
+                  style={styles.inputInsideRow}
+                  value={url}
+                  onChangeText={setUrl}
+                  placeholder="https://github.com"
+                  placeholderTextColor={colors.textDim}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+              </View>
             </View>
 
+            {/* Additional URIs directly below Website URL */}
+            <View style={styles.formGroup}>
+              {additionalUrls.map((u, idx) => (
+                <View key={idx} style={styles.additionalUrlRow}>
+                  <View style={[styles.inputEyeRow, { flex: 1 }]}>
+                    <Globe size={16} color={colors.textMuted} style={{ marginLeft: 12 }} />
+                    <TextInput
+                      style={styles.inputInsideRow}
+                      value={u}
+                      onChangeText={(text) => {
+                        const next = [...additionalUrls];
+                        next[idx] = text;
+                        setAdditionalUrls(next);
+                      }}
+                      placeholder="https://another-domain.com"
+                      placeholderTextColor={colors.textDim}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.removeSmallBtn}
+                    onPress={() => setAdditionalUrls(additionalUrls.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 size={16} color="#f87171" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                style={styles.addSmallBtn}
+                onPress={() => setAdditionalUrls([...additionalUrls, ""])}
+                activeOpacity={0.75}
+              >
+                <Plus size={13} color="#fafafa" style={{ marginRight: 4 }} />
+                <Text style={styles.addSmallBtnText}>Add Another URL</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 2FA TOTP Secret Key (Optional) */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>2FA TOTP Secret Key (Optional)</Text>
-              <TextInput
-                style={[styles.input, { fontFamily: "monospace" }]}
-                value={totpSecret}
-                onChangeText={setTotpSecret}
-                placeholder="JBSWY3DPEHPK3PXP"
-                placeholderTextColor={colors.textDim}
-                autoCapitalize="characters"
-              />
+              <View style={styles.inputEyeRow}>
+                <TextInput
+                  key={showTotpSecret ? "totp_shown" : "totp_hidden"}
+                  style={[styles.inputInsideRow, { fontFamily: "monospace" }]}
+                  value={totpSecret}
+                  onChangeText={setTotpSecret}
+                  placeholder="JBSWY3DPEHPK3PXP"
+                  placeholderTextColor={colors.textDim}
+                  autoCapitalize="characters"
+                  secureTextEntry={!showTotpSecret}
+                />
+                <TouchableOpacity
+                  style={[styles.eyeToggleBtn, { marginRight: 4 }]}
+                  onPress={() => setShowQrScanner(true)}
+                  activeOpacity={0.7}
+                >
+                  <KeyRound size={18} color={colors.accent} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.eyeToggleBtn}
+                  onPress={() => setShowTotpSecret(!showTotpSecret)}
+                  activeOpacity={0.7}
+                >
+                  {showTotpSecret ? (
+                    <EyeOff size={18} color={colors.textMuted} />
+                  ) : (
+                    <Eye size={18} color={colors.textMuted} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
+
+            <QrScannerModal
+              visible={showQrScanner}
+              onClose={() => setShowQrScanner(false)}
+              onScan={(parsed) => {
+                setTotpSecret(parsed.secret);
+                if (!name.trim() && (parsed.issuer || parsed.label)) {
+                  setName(parsed.issuer || parsed.label || "");
+                }
+              }}
+            />
           </>
         )}
 
@@ -518,17 +743,57 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 />
               </View>
               <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.label}>CVV</Text>
+                <Text style={styles.label}>CVV / Security Code</Text>
+                <View style={styles.inputEyeRow}>
+                  <TextInput
+                    key={showCvv ? "cvv_shown" : "cvv_hidden"}
+                    style={[styles.inputInsideRow, { fontFamily: "monospace" }]}
+                    value={cvv}
+                    onChangeText={setCvv}
+                    placeholder="352"
+                    placeholderTextColor={colors.textDim}
+                    keyboardType="numeric"
+                    secureTextEntry={!showCvv}
+                    maxLength={4}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeToggleBtn}
+                    onPress={() => setShowCvv(!showCvv)}
+                  >
+                    {showCvv ? (
+                      <EyeOff size={16} color={colors.textMuted} />
+                    ) : (
+                      <Eye size={16} color={colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>ATM PIN (Optional)</Text>
+              <View style={styles.inputEyeRow}>
                 <TextInput
-                  style={[styles.input, { fontFamily: "monospace" }]}
-                  value={cvv}
-                  onChangeText={setCvv}
-                  placeholder="•••"
+                  key={showPin ? "pin_shown" : "pin_hidden"}
+                  style={[styles.inputInsideRow, { fontFamily: "monospace" }]}
+                  value={pin}
+                  onChangeText={setPin}
+                  placeholder="e.g. 9842"
                   placeholderTextColor={colors.textDim}
                   keyboardType="numeric"
-                  secureTextEntry
-                  maxLength={4}
+                  secureTextEntry={!showPin}
+                  maxLength={8}
                 />
+                <TouchableOpacity
+                  style={styles.eyeToggleBtn}
+                  onPress={() => setShowPin(!showPin)}
+                >
+                  {showPin ? (
+                    <EyeOff size={18} color={colors.textMuted} />
+                  ) : (
+                    <Eye size={18} color={colors.textMuted} />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
           </>
@@ -665,15 +930,147 @@ export function ItemFormScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* File Attachments */}
+        {/* Custom Fields Section */}
         <View style={styles.formGroup}>
-          <View style={styles.attachHeader}>
-            <Text style={styles.label}>File Attachments ({attachments.length})</Text>
-            <TouchableOpacity style={styles.attachPillBtn} onPress={handlePickDocument} activeOpacity={0.75}>
-              <FileText size={12} color={colors.textMuted} />
-              <Text style={styles.attachPillText}>+ Attach File</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.label}>Custom Fields ({customFields.length})</Text>
+            <TouchableOpacity
+              style={styles.addSmallBtn}
+              onPress={() =>
+                setCustomFields([
+                  ...customFields,
+                  { id: "cf_" + Date.now(), name: "", value: "", type: "text", showValue: false },
+                ])
+              }
+              activeOpacity={0.75}
+            >
+              <Plus size={13} color="#fafafa" style={{ marginRight: 4 }} />
+              <Text style={styles.addSmallBtnText}>Add Field</Text>
             </TouchableOpacity>
           </View>
+
+          {customFields.map((cf, idx) => (
+            <View key={cf.id} style={styles.customFieldCard}>
+              <View style={styles.customFieldInputRow}>
+                <View style={[styles.inputEyeRow, { flex: 1 }]}>
+                  <TextInput
+                    style={styles.inputInsideRow}
+                    value={cf.name}
+                    onChangeText={(text) => {
+                      const next = [...customFields];
+                      next[idx].name = text;
+                      setCustomFields(next);
+                    }}
+                    placeholder="Field Label"
+                    placeholderTextColor={colors.textDim}
+                  />
+                </View>
+                <View style={[styles.inputEyeRow, { flex: 1 }]}>
+                  <TextInput
+                    key={cf.showValue ? `cf_shown_${cf.id}` : `cf_hidden_${cf.id}`}
+                    style={styles.inputInsideRow}
+                    value={cf.value}
+                    onChangeText={(text) => {
+                      const next = [...customFields];
+                      next[idx].value = text;
+                      setCustomFields(next);
+                    }}
+                    placeholder="Value"
+                    placeholderTextColor={colors.textDim}
+                    secureTextEntry={cf.type === "hidden" && !cf.showValue}
+                  />
+                  {cf.type === "hidden" && (
+                    <TouchableOpacity
+                      style={styles.eyeToggleBtn}
+                      onPress={() => {
+                        const next = [...customFields];
+                        next[idx].showValue = !next[idx].showValue;
+                        setCustomFields(next);
+                      }}
+                    >
+                      {cf.showValue ? (
+                        <EyeOff size={16} color={colors.textMuted} />
+                      ) : (
+                        <Eye size={16} color={colors.textMuted} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.removeSmallBtn}
+                  onPress={() => setCustomFields(customFields.filter((f) => f.id !== cf.id))}
+                >
+                  <Trash2 size={16} color="#f87171" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Type Switcher Segmented Control */}
+              <View style={styles.fieldTypeSegmentedRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.fieldTypeSegmentBtn,
+                    cf.type === "text" && styles.fieldTypeSegmentBtnActive,
+                  ]}
+                  onPress={() => {
+                    const next = [...customFields];
+                    next[idx].type = "text";
+                    setCustomFields(next);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <FileText size={12} color={cf.type === "text" ? "#09090b" : "#a1a1aa"} />
+                  <Text
+                    style={[
+                      styles.fieldTypeSegmentText,
+                      cf.type === "text" && styles.fieldTypeSegmentTextActive,
+                    ]}
+                  >
+                    Text Field
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.fieldTypeSegmentBtn,
+                    cf.type === "hidden" && styles.fieldTypeSegmentBtnActive,
+                  ]}
+                  onPress={() => {
+                    const next = [...customFields];
+                    next[idx].type = "hidden";
+                    setCustomFields(next);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Lock size={12} color={cf.type === "hidden" ? "#09090b" : "#a1a1aa"} />
+                  <Text
+                    style={[
+                      styles.fieldTypeSegmentText,
+                      cf.type === "hidden" && styles.fieldTypeSegmentTextActive,
+                    ]}
+                  >
+                    Secret / Hidden
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Big Dashed File Attachments Box */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>File Attachments ({attachments.length})</Text>
+
+          <TouchableOpacity
+            style={styles.bigDashedUploadBtn}
+            onPress={handlePickDocument}
+            activeOpacity={0.8}
+          >
+            <View style={styles.uploadIconCircle}>
+              <Upload size={20} color="#fafafa" />
+            </View>
+            <Text style={styles.bigUploadTitle}>Tap to attach encrypted file</Text>
+            <Text style={styles.bigUploadSub}>Documents, keys, license files up to 10MB</Text>
+          </TouchableOpacity>
 
           {attachments.length > 0 && (
             <View style={styles.attachBox}>
@@ -692,21 +1089,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
             </View>
           )}
         </View>
-
-        {/* Private Notes */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Private Notes</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={entryNotes}
-            onChangeText={setEntryNotes}
-            placeholder="Additional details..."
-            placeholderTextColor={colors.textDim}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -739,6 +1123,170 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     backgroundColor: colors.text,
+  },
+  saveBtnDisabled: {
+    backgroundColor: "#27272a",
+    opacity: 0.4,
+  },
+  inputEyeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  inputInsideRow: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    color: colors.text,
+    fontSize: 14,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+  },
+  eyeToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bigDashedUploadBtn: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "#3f3f46",
+    backgroundColor: "#121215",
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  uploadIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1c1c20",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  bigUploadTitle: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: "#fafafa",
+  },
+  bigUploadSub: {
+    fontSize: 11,
+    color: "#71717a",
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  addSmallBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1c1c20",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  addSmallBtnText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#fafafa",
+  },
+  removeSmallBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  additionalUrlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  customFieldCard: {
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 12,
+    padding: 10,
+    gap: 10,
+    marginBottom: 8,
+  },
+  customFieldInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  fieldTypeSegmentedRow: {
+    flexDirection: "row",
+    backgroundColor: "#121215",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    borderRadius: 8,
+    padding: 3,
+    gap: 4,
+  },
+  fieldTypeSegmentBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: "transparent",
+  },
+  fieldTypeSegmentBtnActive: {
+    backgroundColor: "#fafafa",
+  },
+  fieldTypeSegmentText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#a1a1aa",
+  },
+  fieldTypeSegmentTextActive: {
+    color: "#09090b",
+  },
+  fieldTypeRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  fieldTypePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+  },
+  fieldTypePillActive: {
+    backgroundColor: "#fafafa",
+    borderColor: "#fafafa",
+  },
+  fieldTypePillText: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#a1a1aa",
+  },
+  fieldTypePillTextActive: {
+    color: "#09090b",
   },
   content: {
     padding: 16,
@@ -885,5 +1433,26 @@ const styles = StyleSheet.create({
   },
   templatePillTextActive: {
     color: colors.bg,
+  },
+
+  formFolderPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: "#141416",
+    borderWidth: 1,
+    borderColor: "#27272a",
+  },
+  formFolderPillActive: {
+    backgroundColor: "rgba(250, 250, 250, 0.15)",
+    borderColor: "#fafafa",
+  },
+  formFolderPillText: {
+    fontSize: 11.5,
+    color: "#a1a1aa",
+  },
+  formFolderPillTextActive: {
+    color: "#fafafa",
+    fontWeight: "600",
   },
 });

@@ -19,7 +19,11 @@ export async function GET(req: NextRequest) {
     const token = sessionResult.session.token || sessionResult.session.id;
     const { id, email, name } = sessionResult.user;
 
-    const appUrl = req.nextUrl.searchParams.get("appUrl") || "vaultr://auth-callback";
+    const rawAppUrl = req.nextUrl.searchParams.get("appUrl") || "vaultr://auth-callback";
+    // Strictly validate appUrl against permitted custom schemes to prevent open redirect
+    const isValidAppUrl = /^(vaultr:\/\/[a-zA-Z0-9_\-\.\/]*|exp:\/\/[a-zA-Z0-9_\-\.\:\/]*)$/.test(rawAppUrl);
+    const appUrl = isValidAppUrl ? rawAppUrl : "vaultr://auth-callback";
+
     const deepLink = `${appUrl}?token=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}&email=${encodeURIComponent(email || "")}&name=${encodeURIComponent(name || "")}`;
 
     const html = `<!DOCTYPE html>

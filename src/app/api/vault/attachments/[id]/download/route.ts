@@ -15,7 +15,7 @@ import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { vaultAttachments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getAttachmentContent } from "@/lib/storage";
+import { getAttachmentBytes } from "@/lib/storage";
 
 export async function GET(
   req: NextRequest,
@@ -41,12 +41,13 @@ export async function GET(
       return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
     }
 
-    // Retrieve encrypted file text content from S3 and stream it directly
-    const content = await getAttachmentContent(attachment.s3Key);
+    // Retrieve encrypted binary byte contents from S3 and stream directly as octet-stream
+    const bytes = await getAttachmentBytes(attachment.s3Key);
 
-    return new Response(content, {
+    return new Response(Buffer.from(bytes), {
       headers: {
-        "Content-Type": "text/plain",
+        "Content-Type": "application/octet-stream",
+        "Cache-Control": "private, no-cache, no-store",
       },
     });
   } catch (err) {
