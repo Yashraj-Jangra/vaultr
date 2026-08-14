@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -13,60 +13,103 @@ import { useVaultStore } from "../store/vaultStore";
 import { colors } from "../theme/colors";
 import { Trash2, RotateCcw, ArrowLeft, ShieldAlert } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
+import { PurgeConfirmModal, PurgeTarget } from "../components/PurgeConfirmModal";
 
 export function TrashScreen({ navigation }: any) {
-  const { items, restoreItem, deleteItem } = useVaultStore();
+  const { items, restoreItem, deleteItem, batchAction, isOnline } = useVaultStore();
+  const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
 
   const trashedItems = items.filter((i) => !!i.deletedAt);
 
-  const handleRestore = async (id: string, name: string) => {
-    try {
-      await restoreItem(id);
-      vaultAlert.alert("Restored", `Restored "${name}" to vault.`, undefined, { illustration: "completed-task_c11d" });
-    } catch (e: any) {
-      vaultAlert.alert("Error", e.message || "Failed to restore item.", undefined, { illustration: "cancel_k4w9" });
+  const handleRestore = (id: string, name: string) => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to restore items.", undefined, { illustration: "clouds_bmtk" });
+      return;
     }
+    vaultAlert.alert(
+      `Restore "${name}"?`,
+      `This item will be moved back to your active vault.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restore",
+          style: "default",
+          onPress: async () => {
+            try {
+              await restoreItem(id);
+            } catch (e: any) {
+              vaultAlert.alert("Error", e.message || "Failed to restore item.", undefined, {
+                illustration: "cancel_k4w9",
+                glowColor: "rgba(239, 68, 68, 0.10)",
+              });
+            }
+          },
+        },
+      ],
+      { illustration: "clean-up_af4s", glowColor: "rgba(52, 211, 153, 0.12)" }
+    );
+  };
+
+  const handleRestoreAll = () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to restore items.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
+    if (trashedItems.length === 0) return;
+    vaultAlert.alert(
+      `Restore All (${trashedItems.length}) Items?`,
+      `All ${trashedItems.length} item${trashedItems.length === 1 ? "" : "s"} in Trash will be moved back to your active vault.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restore All",
+          style: "default",
+          onPress: async () => {
+            try {
+              const ids = trashedItems.map((i) => i.id);
+              await batchAction("restore", ids);
+            } catch (e: any) {
+              vaultAlert.alert("Error", e.message || "Failed to restore all items.", undefined, {
+                illustration: "cancel_k4w9",
+                glowColor: "rgba(239, 68, 68, 0.10)",
+              });
+            }
+          },
+        },
+      ],
+      { illustration: "clean-up_af4s", glowColor: "rgba(52, 211, 153, 0.12)" }
+    );
   };
 
   const handlePermanentDelete = (id: string, name: string) => {
-    vaultAlert.alert(
-      "Permanent Delete",
-      `Are you sure you want to permanently delete "${name}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Forever",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteItem(id);
-            } catch (e: any) {
-              vaultAlert.alert("Error", e.message || "Failed to delete item.", undefined, { illustration: "cancel_k4w9" });
-            }
-          },
-        },
-      ]
-    );
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to delete items.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
+    setPurgeTarget({ type: "single", id, name, count: 1 });
   };
 
   const handleEmptyTrash = () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to empty trash.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
     if (trashedItems.length === 0) return;
-    vaultAlert.alert(
-      "Empty Trash",
-      `Permanently delete all ${trashedItems.length} items in Trash?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Empty Trash",
-          style: "destructive",
-          onPress: async () => {
-            for (const item of trashedItems) {
-              await deleteItem(item.id);
-            }
-          },
-        },
-      ]
-    );
+    setPurgeTarget({ type: "all", count: trashedItems.length });
+  };
+
+  const executePurge = async () => {
+    if (!purgeTarget) return;
+    try {
+      if (purgeTarget.type === "single" && purgeTarget.id) {
+        await deleteItem(purgeTarget.id);
+      } else if (purgeTarget.type === "all") {
+        const ids = trashedItems.map((i) => i.id);
+        await batchAction("purge", ids);
+      }
+    } catch (e: any) {
+      vaultAlert.alert("Error", e.message || "Failed to purge item(s).", undefined, { illustration: "cancel_k4w9" });
+    }
   };
 
   return (
@@ -77,12 +120,20 @@ export function TrashScreen({ navigation }: any) {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <ArrowLeft size={20} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Trash ({trashedItems.length})</Text>
+        <Text style={styles.navTitle} numberOfLines={1}>Trash ({trashedItems.length})</Text>
 
         {trashedItems.length > 0 && (
-          <TouchableOpacity style={styles.emptyTrashBtn} onPress={handleEmptyTrash}>
-            <Text style={styles.emptyTrashText}>Empty</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.restoreAllBtn} onPress={handleRestoreAll} activeOpacity={0.8}>
+              <RotateCcw size={13} color="#34d399" style={{ marginRight: 4 }} />
+              <Text style={styles.restoreAllText}>Restore All</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.emptyTrashBtn} onPress={handleEmptyTrash} activeOpacity={0.8}>
+              <Trash2 size={13} color="#f87171" style={{ marginRight: 4 }} />
+              <Text style={styles.emptyTrashText}>Empty</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -122,6 +173,14 @@ export function TrashScreen({ navigation }: any) {
           </View>
         }
       />
+
+      {/* Master Password Reprompt Confirmation Modal for Permanent Deletion */}
+      <PurgeConfirmModal
+        open={!!purgeTarget}
+        target={purgeTarget}
+        onClose={() => setPurgeTarget(null)}
+        onConfirm={executePurge}
+      />
     </SafeAreaView>
   );
 }
@@ -151,11 +210,35 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  restoreAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(52, 211, 153, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(52, 211, 153, 0.25)",
+  },
+  restoreAllText: {
+    color: "#34d399",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   emptyTrashBtn: {
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: colors.dangerBg,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
   },
   emptyTrashText: {
     color: colors.danger,

@@ -18,23 +18,23 @@ export function CustomAlertOverlay() {
   const { isVisible, title, message, buttons, options, hide } = useAlertStore();
 
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.95);
+  const scale = useSharedValue(0.93);
 
   useEffect(() => {
     if (isVisible) {
       opacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
-      scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+      scale.value = withSpring(1, { damping: 22, stiffness: 220 });
     } else {
-      opacity.value = withTiming(0, { duration: 150 });
-      scale.value = withTiming(0.95, { duration: 150 });
+      opacity.value = withTiming(0, { duration: 140 });
+      scale.value = withTiming(0.93, { duration: 140 });
     }
   }, [isVisible]);
 
 
   const handlePress = (btn: AlertButton) => {
     // Start closing animation, then call the button's onPress and hide the store
-    opacity.value = withTiming(0, { duration: 150 });
-    scale.value = withTiming(0.95, { duration: 150 }, (finished) => {
+    opacity.value = withTiming(0, { duration: 140 });
+    scale.value = withTiming(0.93, { duration: 140 }, (finished) => {
       if (finished) {
         runOnJS(hide)();
         if (btn.onPress) {
@@ -46,8 +46,8 @@ export function CustomAlertOverlay() {
 
   const handleClose = () => {
     if (options?.cancelable === false) return;
-    opacity.value = withTiming(0, { duration: 150 });
-    scale.value = withTiming(0.95, { duration: 150 }, (finished) => {
+    opacity.value = withTiming(0, { duration: 140 });
+    scale.value = withTiming(0.93, { duration: 140 }, (finished) => {
       if (finished) {
         runOnJS(hide)();
       }
@@ -67,6 +67,8 @@ export function CustomAlertOverlay() {
   const primaryButtons = buttons.filter((b) => b.style !== "cancel" && b.style !== "destructive");
   const secondaryButtons = buttons.filter((b) => b.style === "cancel" || b.style === "destructive");
 
+  const glowBg = options?.glowColor || "rgba(245, 158, 11, 0.08)";
+
   return (
     <Modal visible={isVisible} transparent animationType="none" onRequestClose={handleClose}>
       <Animated.View style={[styles.backdrop, backdropStyle]}>
@@ -81,7 +83,7 @@ export function CustomAlertOverlay() {
 
           {options?.illustration && (
             <View style={styles.illustrationWrap}>
-              <View style={styles.illustrationGlow} />
+              <View style={[styles.illustrationGlow, { backgroundColor: glowBg }]} />
               <Illustration name={options.illustration} width={180} height={130} />
             </View>
           )}

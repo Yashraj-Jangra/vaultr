@@ -65,9 +65,9 @@ export function EmptyTrashModal({
       setPassword("");
       setError("");
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error("[Empty Trash Error]", err);
-      setError("Incorrect Master Password. Verification failed.");
+      setError(err?.message || "Incorrect Master Password. Verification failed.");
     } finally {
       setBusy(false);
     }
@@ -107,6 +107,7 @@ export function EmptyTrashModal({
             alt="Empty Trash Confirmation"
             width={250}
             height={180}
+            style={{ width: "auto", height: "auto" }}
             className="object-contain relative z-10 drop-shadow-2xl max-h-44 pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
             priority
           />

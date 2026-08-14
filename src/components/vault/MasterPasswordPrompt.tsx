@@ -107,7 +107,7 @@ export function MasterPasswordPrompt() {
                   }`}
               >
                 <Image
-                  src={activeTheme.mode === "dark" ? "/brand/lock-brand-dark.png" : "/brand/lock-brand-light.png"}
+                  src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                   alt="_vaultr"
                   width={48}
                   height={48}
@@ -119,7 +119,7 @@ export function MasterPasswordPrompt() {
             <div className="text-center space-y-1.5 mb-2">
               <div className="flex items-center justify-center mb-1 opacity-60">
                 <Image
-                  src="/brand/logo-dark.png"
+                  src="/brand/vaultr-full-dark-transparent.png"
                   alt="_vaultr"
                   width={100}
                   height={20}

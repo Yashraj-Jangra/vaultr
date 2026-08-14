@@ -8,6 +8,7 @@ export interface AlertButton {
 
 export interface AlertOptions {
   illustration?: string;
+  glowColor?: string;
   cancelable?: boolean;
 }
 
