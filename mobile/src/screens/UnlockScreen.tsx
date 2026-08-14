@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  InteractionManager,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import Animated, {
@@ -20,6 +21,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withSpring,
+  cancelAnimation,
   Easing,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -61,6 +63,7 @@ export function UnlockScreen() {
   const haloAnim = useSharedValue(0);
   const shakeAnim = useSharedValue(0);
   const fadeInAnim = useSharedValue(0);
+  const spinAnim = useSharedValue(0);
 
   const handleBiometricUnlock = async () => {
     if (unlocking) return;
@@ -69,6 +72,7 @@ export function UnlockScreen() {
     try {
       const enabled = await isBiometricEnabled();
       if (!enabled) {
+        setUnlocking(false);
         vaultAlert.alert(
           "Biometrics Not Enrolled",
           "Please unlock your vault with your Master Password first, then enable Biometric Unlock in Security Settings.",
@@ -80,20 +84,55 @@ export function UnlockScreen() {
 
       const res = await unlockWithBiometrics();
       if (res.success && res.password) {
-        setMasterPassword(res.password);
-        await unlock(res.password);
+        const pw = res.password;
+        // Wait for React Native to fully commit the loading state to the UI
+        // before starting the expensive PBKDF2 key derivation.
+        InteractionManager.runAfterInteractions(async () => {
+          try {
+            await unlock(pw);
+          } catch (err: any) {
+            const msg = err?.message || "Incorrect master password.";
+            setUnlockError(msg);
+            vaultAlert.alert("Unlock Error", msg, undefined, { illustration: "cancel_k4w9" });
+          } finally {
+            setUnlocking(false);
+          }
+        });
       } else if (res.error && res.error !== "cancel") {
         setUnlockError(res.error);
-        vaultAlert.alert("Biometric Unlock Error", res.error, undefined, { illustration: "cancel_k4w9" });
+        vaultAlert.alert("Biometric Unlock Error", res.error, undefined, {
+          illustration: "fingerprint_kdwq",
+          glowColor: "rgba(239, 68, 68, 0.12)",
+        });
+        setUnlocking(false);
+      } else {
+        setUnlocking(false);
       }
     } catch (err: any) {
       const msg = err?.message || "Failed to authenticate with biometrics.";
       setUnlockError(msg);
-      vaultAlert.alert("Biometric Error", msg, undefined, { illustration: "cancel_k4w9" });
-    } finally {
+      vaultAlert.alert("Biometric Error", msg, undefined, {
+        illustration: "fingerprint_kdwq",
+        glowColor: "rgba(239, 68, 68, 0.12)",
+      });
       setUnlocking(false);
     }
   };
+
+  // Spin the spinner while unlocking
+  useEffect(() => {
+    if (unlocking) {
+      spinAnim.value = 0;
+      spinAnim.value = withRepeat(
+        withTiming(360, { duration: 700, easing: Easing.linear }),
+        -1,
+        false
+      );
+    } else {
+      cancelAnimation(spinAnim);
+      spinAnim.value = 0;
+    }
+  }, [unlocking]);
 
   useEffect(() => {
     // Fade in on mount
@@ -140,7 +179,9 @@ export function UnlockScreen() {
     setUnlocking(true);
     setUnlockError("");
 
-    setTimeout(async () => {
+    // Wait for React Native to fully commit the loading state to the UI
+    // before starting the expensive PBKDF2 key derivation + network fetch.
+    InteractionManager.runAfterInteractions(async () => {
       try {
         await unlock(masterPassword);
       } catch (err: any) {
@@ -150,7 +191,7 @@ export function UnlockScreen() {
       } finally {
         setUnlocking(false);
       }
-    }, 50);
+    });
   };
 
   const animatedMainStyle = useAnimatedStyle(() => ({
@@ -175,6 +216,10 @@ export function UnlockScreen() {
     opacity: 0.2 + haloAnim.value * 0.4,
   }));
 
+  const animatedSpinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinAnim.value}deg` }],
+  }));
+
   // ── Main unlock view ──────────────────────────────────────────────────────────
   const renderMain = () => (
     <Animated.View style={animatedMainStyle}>
@@ -184,7 +229,7 @@ export function UnlockScreen() {
         <Animated.View style={[styles.haloInner, animatedHaloInnerStyle]} />
         <View style={[styles.lockBox, unlocking && styles.lockBoxUnlocking]}>
           <Image
-            source={require("../../assets/brand/lock-brand-dark.png")}
+            source={require("../../assets/vaultr-lock-dark-transparent.png")}
             style={[styles.lockBrand, { opacity: unlocking ? 1.0 : 0.6 }]}
             resizeMode="contain"
           />
@@ -194,7 +239,7 @@ export function UnlockScreen() {
       {/* Brand + headings */}
       <View style={styles.headingWrap}>
         <Image
-          source={require("../../assets/brand/logo-dark.png")}
+          source={require("../../assets/vaultr-full-dark-transparent.png")}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -218,6 +263,7 @@ export function UnlockScreen() {
         {/* Password input */}
         <View style={styles.inputWrap}>
           <TextInput
+            key={showPassword ? "pw_shown" : "pw_hidden"}
             style={styles.input}
             value={masterPassword}
             onChangeText={setMasterPassword}
@@ -249,7 +295,7 @@ export function UnlockScreen() {
             activeOpacity={0.85}
           >
             {unlocking ? (
-              <View style={styles.spinner} />
+              <Animated.View style={[styles.spinner, animatedSpinStyle]} />
             ) : (
               <>
                 <Lock size={14} color="#09090b" />
@@ -623,13 +669,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  // Spinner
+  // Spinner — animated ring (rotation driven by Reanimated spinAnim)
   spinner: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#525252",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2.5,
+    borderColor: "rgba(9,9,11,0.25)",
     borderTopColor: "#09090b",
   },
 

@@ -113,3 +113,16 @@ export async function clearBiometricPassword(): Promise<void> {
     // ignore
   }
 }
+
+/** Update stored master password when master password is changed in settings. */
+export async function updateBiometricPassword(newPassword: string): Promise<void> {
+  try {
+    const enabled = await isBiometricEnabled();
+    if (enabled && newPassword) {
+      await SecureStore.setItemAsync(SECURE_KEY, newPassword);
+    }
+  } catch (err) {
+    console.warn("[Biometrics] Failed to update stored master password:", err);
+  }
+}
+

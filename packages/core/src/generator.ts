@@ -61,24 +61,19 @@ export interface PatternOptions {
 }
 
 function secureRandInt(max: number): number {
-  if (!max || max <= 0) return 0;
-  try {
-    const cryptoObj =
-      (typeof globalThis !== "undefined" && globalThis.crypto) ||
-      (typeof window !== "undefined" && window.crypto);
-    if (cryptoObj && typeof cryptoObj.getRandomValues === "function") {
-      const arr = new Uint32Array(1);
-      let result: number;
-      do {
-        cryptoObj.getRandomValues(arr);
-        result = arr[0];
-      } while (result >= Math.floor(4294967296 / max) * max);
-      return result % max;
-    }
-  } catch {
-    // fallback if getRandomValues fails
+  const cryptoObj =
+    (typeof globalThis !== "undefined" && globalThis.crypto) ||
+    (typeof window !== "undefined" && window.crypto);
+  if (cryptoObj && typeof cryptoObj.getRandomValues === "function") {
+    const arr = new Uint32Array(1);
+    let result: number;
+    do {
+      cryptoObj.getRandomValues(arr);
+      result = arr[0];
+    } while (result >= Math.floor(4294967296 / max) * max);
+    return result % max;
   }
-  return Math.floor(Math.random() * max);
+  throw new Error("CSPRNG unavailable: crypto.getRandomValues is required");
 }
 
 function secureChoice(str: string): string {
