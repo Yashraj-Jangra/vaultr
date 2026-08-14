@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Lock, Info, ExternalLink, ChevronRight } from "lucide-react";
-import { AccountInfo } from "./App";
+import { AccountInfo, resolveAvatarUrl } from "./App";
 
 interface SettingsScreenProps {
   serverUrl: string;
@@ -93,9 +93,9 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
             cursor: "pointer"
           }}
         >
-          {accountInfo.image ? (
+          {resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl) ? (
             <img
-              src={accountInfo.image}
+              src={resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl)!}
               alt=""
               style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
             />

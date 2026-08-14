@@ -64,7 +64,7 @@ function lockVault() {
   state.isUnlocked = false;
   state.accountInfo = null;
   chrome.storage.session.remove(["vaultr_master_password"]);
-  chrome.storage.local.remove(["vaultr_master_password_persisted", "autolock_expiry"]);
+  chrome.storage.local.remove(["autolock_expiry"]);
   chrome.alarms.clear("vaultr_autolock");
   console.log("[Vaultr SW] Vault locked.");
 }
@@ -74,7 +74,7 @@ async function getApiClient(): Promise<VaultrApiClient> {
   return new VaultrApiClient({ baseUrl: vaultr_server_url || DEFAULT_SERVER_URL });
 }
 
-// Helper to restore session from session storage or local storage if valid
+// Helper to restore session from in-memory session storage if valid
 async function tryRestoreSession(): Promise<boolean> {
   if (state.isUnlocked && state.masterPassword) {
     const local = await chrome.storage.local.get("autolock_minutes");
@@ -87,12 +87,11 @@ async function tryRestoreSession(): Promise<boolean> {
       "vaultr_server_url",
       "autolock_minutes",
       "autolock_expiry",
-      "vaultr_master_password_persisted"
     ]);
     const session = await chrome.storage.session.get("vaultr_master_password");
 
     const lockSetting = String(local.autolock_minutes ?? "15");
-    const storedPw = session.vaultr_master_password || (lockSetting === "0" ? local.vaultr_master_password_persisted : null);
+    const storedPw = session.vaultr_master_password;
 
     if (!storedPw) return false;
 
@@ -185,13 +184,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         case "SET_AUTO_LOCK": {
           const setting = String(message.minutes ?? "15");
           await chrome.storage.local.set({ autolock_minutes: setting });
-
-          if (setting === "0" && state.masterPassword) {
-            await chrome.storage.local.set({ vaultr_master_password_persisted: state.masterPassword });
-          } else {
-            await chrome.storage.local.remove("vaultr_master_password_persisted");
-          }
-
           await touchAutoLock(setting);
           sendResponse({ success: true });
           break;
@@ -267,18 +259,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           state.items = items;
           state.isUnlocked = true;
 
-          // Save password to session storage
+          // Save password strictly to in-memory session storage (destroyed when browser closes)
           await chrome.storage.session.set({ vaultr_master_password: masterPassword });
 
           const lockRes = await chrome.storage.local.get("autolock_minutes");
           const setting = String(lockRes.autolock_minutes ?? "15");
-
-          if (setting === "0") {
-            await chrome.storage.local.set({ vaultr_master_password_persisted: masterPassword });
-          } else {
-            await chrome.storage.local.remove("vaultr_master_password_persisted");
-          }
-
           await touchAutoLock(setting);
 
           sendResponse({ success: true, count: items.length });
@@ -312,17 +297,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             return;
           }
           try {
-            const res = await globalThis.fetch(`${state.serverUrl}/api/me`, {
+            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const res = await globalThis.fetch(`${cleanUrl}/api/auth/me`, {
               credentials: "include",
             });
             if (res.ok) {
               const data = await res.json();
-              state.accountInfo = { email: data.email, name: data.name, image: data.image };
+              const u = data.user || data;
+              state.accountInfo = {
+                email: u.email || "",
+                name: u.displayName || u.name || "",
+                image: u.avatarUrl || u.image || "",
+              };
               sendResponse({ account: state.accountInfo });
             } else {
               sendResponse({ account: {} });
             }
-          } catch {
+          } catch (err) {
+            console.warn("[Vaultr SW] GET_ACCOUNT_INFO error:", err);
             sendResponse({ account: {} });
           }
           break;
@@ -492,7 +484,7 @@ function getBaseRootDomain(hostname: string): string {
               folder: message.folder || null,
               template: message.template || "login",
               tags: message.tags || [],
-              favorite: false,
+              favorite: message.favorite ?? false,
               hasTotp: !!message.payload?.totpSecret,
             });
 
@@ -514,14 +506,14 @@ function getBaseRootDomain(hostname: string): string {
           }
 
           try {
-            const { id, name, folder, tags, template, payload } = message;
+            const { id, name, folder, tags, template, payload, favorite } = message;
             const key = await deriveKey(state.masterPassword, state.userId || "");
             const encryptedBlob = await encrypt(key, JSON.stringify(payload));
             const itemDomain = message.domain || resolveDomain(undefined, name, payload?.url || payload?.urls?.[0]);
 
             const api = await getApiClient();
 
-            const updatedItem = await api.updateItem(id, {
+            const updateFields: any = {
               name,
               encryptedBlob,
               domain: itemDomain || null,
@@ -529,7 +521,10 @@ function getBaseRootDomain(hostname: string): string {
               tags: tags || [],
               template: template || "login",
               hasTotp: !!payload?.totpSecret,
-            });
+            };
+            if (favorite !== undefined) updateFields.favorite = favorite;
+
+            const updatedItem = await api.updateItem(id, updateFields);
 
             const index = state.items.findIndex((i) => i.id === id);
             if (index !== -1) state.items[index] = updatedItem;
@@ -539,6 +534,31 @@ function getBaseRootDomain(hostname: string): string {
           } catch (err: any) {
             console.error("[Vaultr SW] UPDATE_ITEM error:", err);
             sendResponse({ error: err?.message || "Failed to update item" });
+          }
+          break;
+        }
+
+        case "TOGGLE_FAVORITE": {
+          await tryRestoreSession();
+          if (!state.isUnlocked) {
+            sendResponse({ error: "Vault is locked" });
+            return;
+          }
+          try {
+            const { id } = message;
+            const api = await getApiClient();
+            const target = state.items.find((i) => i.id === id);
+            if (target) {
+              const updatedItem = await api.updateItem(id, { favorite: !target.favorite });
+              const index = state.items.findIndex((i) => i.id === id);
+              if (index !== -1) state.items[index] = updatedItem;
+              sendResponse({ success: true, item: updatedItem });
+            } else {
+              sendResponse({ error: "Item not found" });
+            }
+          } catch (err: any) {
+            console.error("[Vaultr SW] TOGGLE_FAVORITE error:", err);
+            sendResponse({ error: err?.message || "Failed to toggle favorite" });
           }
           break;
         }

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch"
+    "dev": "webpack --mode development --watch",
+    "package": "npm run build && powershell -Command \"Compress-Archive -Path dist/* -DestinationPath vaultr-extension.zip -Force\""
   },
   "dependencies": {
     "@vaultr/core": "*",

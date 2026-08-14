@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
   Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User, MapPin,
-  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft
+  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
 } from "lucide-react";
 import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
 
@@ -14,6 +14,7 @@ interface VaultScreenProps {
   onAutofill: (cred: { username?: string; password?: string }) => void;
   onEditItem: (item: VaultItem, decryptedPayload: any) => void;
   onDeleteItem: (id: string) => Promise<void>;
+  onToggleFavorite?: (id: string) => void;
   onAddNew: () => void;
 }
 
@@ -68,15 +69,15 @@ function getItemIcon(item: VaultItem) {
 
     let cardBadge: React.ReactNode;
     if (isVisa) {
-      cardBadge = <img src="/logos/Visa.svg" style={{ height: "16px", width: "auto", objectFit: "contain" }} alt="Visa" />;
+      cardBadge = <img src="logos/Visa.svg" style={{ height: "16px", width: "auto", objectFit: "contain" }} alt="Visa" />;
     } else if (isMastercard) {
-      cardBadge = <img src="/logos/Mastercard.svg" style={{ height: "20px", width: "auto", objectFit: "contain" }} alt="Mastercard" />;
+      cardBadge = <img src="logos/Mastercard.svg" style={{ height: "20px", width: "auto", objectFit: "contain" }} alt="Mastercard" />;
     } else if (isAmex) {
-      cardBadge = <img src="/logos/AMEX.svg" style={{ height: "20px", width: "auto", objectFit: "contain" }} alt="AMEX" />;
+      cardBadge = <img src="logos/AMEX.svg" style={{ height: "20px", width: "auto", objectFit: "contain" }} alt="AMEX" />;
     } else if (isDiscover) {
-      cardBadge = <img src="/logos/Discover.svg" style={{ height: "14px", width: "auto", objectFit: "contain" }} alt="Discover" />;
+      cardBadge = <img src="logos/Discover.svg" style={{ height: "14px", width: "auto", objectFit: "contain" }} alt="Discover" />;
     } else if (isRupay) {
-      cardBadge = <img src="/logos/Rupay.svg" style={{ height: "14px", width: "auto", objectFit: "contain" }} alt="RuPay" />;
+      cardBadge = <img src="logos/Rupay.svg" style={{ height: "14px", width: "auto", objectFit: "contain" }} alt="RuPay" />;
     } else {
       cardBadge = <CreditCard size={20} style={{ color: "#a78bfa" }} />;
     }
@@ -197,6 +198,8 @@ function TotpDisplay({ secret }: { secret: string }) {
     return () => { mounted = false; clearInterval(interval); };
   }, [secret]);
 
+  const isExpiring = percent <= (5 / 30) * 100;
+
   return (
     <div className="detail-row">
       <span className="detail-label">2FA Code</span>
@@ -206,14 +209,14 @@ function TotpDisplay({ secret }: { secret: string }) {
           <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg style={{ width: 14, height: 14, transform: "rotate(-90deg)" }} viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke="var(--neutral-800)" strokeWidth="4" fill="none" />
-              <circle cx="12" cy="12" r="10" stroke="#0ea5e9" strokeWidth="4" fill="none"
+              <circle cx="12" cy="12" r="10" stroke={isExpiring ? "#ef4444" : "#0ea5e9"} strokeWidth="4" fill="none"
                 strokeDasharray="62.8"
                 strokeDashoffset={62.8 * (1 - percent / 100)}
-                style={{ transition: "stroke-dashoffset 1s linear" }}
+                style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s ease" }}
               />
             </svg>
           </div>
-          <span className="detail-value" style={{ color: "#0ea5e9", fontWeight: 700, letterSpacing: "1px" }}>
+          <span className="detail-value" style={{ color: isExpiring ? "#ef4444" : "#0ea5e9", fontWeight: 700, letterSpacing: "1px" }}>
             {code.slice(0, 3)} {code.slice(3, 6)}
           </span>
         </div>
@@ -225,7 +228,52 @@ function TotpDisplay({ secret }: { secret: string }) {
   );
 }
 
+function PasswordHistorySection({ history }: { history: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [revealed, setRevealed] = useState<number | null>(null);
 
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{
+          background: "none",
+          border: "none",
+          color: "#38bdf8",
+          fontSize: 11,
+          fontWeight: 500,
+          cursor: "pointer",
+          padding: 0,
+        }}
+      >
+        Password history: {history.length}
+      </button>
+
+      {open && (
+        <div className="detail-section-box" style={{ marginTop: 4 }}>
+          {history.map((pw, i) => (
+            <div key={i} className="detail-row">
+              <span className="detail-value">
+                {revealed === i ? pw : "••••••••••••"}
+              </span>
+              <div className="detail-actions">
+                <button
+                  type="button"
+                  onClick={() => setRevealed(revealed === i ? null : i)}
+                  className="detail-action-btn"
+                >
+                  {revealed === i ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+                <CopyBtn value={pw} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── ItemRow Component ───────────────────────────────────────────────────────
 
@@ -235,10 +283,11 @@ interface ItemRowProps {
   onAutofill: (cred: { username?: string; password?: string }) => void;
   onEdit: (item: VaultItem, decryptedPayload: any) => void;
   onDelete: (id: string) => Promise<void>;
+  onToggleFavorite?: (id: string) => void;
   isCurrentSiteMatch?: boolean;
 }
 
-function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteMatch }: ItemRowProps) {
+function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavorite, isCurrentSiteMatch }: ItemRowProps) {
   const [decrypted, setDecrypted] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -328,6 +377,25 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
         </div>
 
         <div className="item-actions">
+          {/* Favorite button */}
+          <button
+            type="button"
+            className={`btn-favorite-icon${item.favorite ? " active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite?.(item.id);
+            }}
+            title={item.favorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Star
+              size={14}
+              style={{
+                color: item.favorite ? "#f59e0b" : "var(--neutral-600)",
+                fill: item.favorite ? "#f59e0b" : "none",
+              }}
+            />
+          </button>
+
           {/* Fill indicator badge for active site */}
           {isCurrentSiteMatch && isLogin && (
             <button
@@ -361,99 +429,167 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, isCurrentSiteM
               {/* Login Template */}
               {item.template === "login" && (
                 <>
-                  <DetailRow label="Username" value={decrypted.username} />
-                  <DetailRow label="Password" value={decrypted.password} masked />
-                  {decrypted.totpSecret && <TotpDisplay secret={decrypted.totpSecret} />}
-                  <DetailRow label="URL" value={decrypted.url} />
+                  {(decrypted.username || decrypted.password) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">LOGIN CREDENTIALS</div>
+                      <div className="detail-section-box">
+                        {decrypted.username && <DetailRow label="Username" value={decrypted.username} />}
+                        {decrypted.password && <DetailRow label="Password" value={decrypted.password} masked />}
+                      </div>
+                    </div>
+                  )}
+
+                  {decrypted.totpSecret && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">AUTHENTICATOR</div>
+                      <div className="detail-section-box">
+                        <TotpDisplay secret={decrypted.totpSecret} />
+                      </div>
+                    </div>
+                  )}
+
+                  {(decrypted.url || (decrypted.urls && decrypted.urls.length > 0)) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">WEBSITE URLS</div>
+                      <div className="detail-section-box">
+                        {decrypted.urls && decrypted.urls.length > 0 ? (
+                          decrypted.urls.map((u: string, i: number) => (
+                            <DetailRow key={i} label={i === 0 ? "Website (URI)" : `Website #${i+1}`} value={u} />
+                          ))
+                        ) : (
+                          <DetailRow label="Website (URI)" value={decrypted.url} />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
               {/* Card Template */}
               {item.template === "card" && (
                 <>
-                  <DetailRow label="Cardholder" value={decrypted.cardName} />
-                  <DetailRow label="Number" value={decrypted.cardNumber} masked />
-                  <DetailRow label="Expires" value={decrypted.expiry} />
-                  <DetailRow label="CVV" value={decrypted.cvv} masked dots={3} />
-                  <DetailRow label="PIN" value={decrypted.pin} masked dots={3} />
+                  <div className="detail-section-group">
+                    <div className="detail-section-title">CARD DETAILS</div>
+                    <div className="detail-section-box">
+                      {decrypted.cardName && <DetailRow label="Cardholder" value={decrypted.cardName} />}
+                      {decrypted.cardNumber && <DetailRow label="Number" value={decrypted.cardNumber} masked />}
+                    </div>
+                  </div>
+
+                  {(decrypted.expiry || decrypted.cvv || decrypted.pin) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">SECURITY & VALIDITY</div>
+                      <div className="detail-section-box">
+                        {decrypted.expiry && <DetailRow label="Expires" value={decrypted.expiry} />}
+                        {decrypted.cvv && <DetailRow label="CVV" value={decrypted.cvv} masked dots={3} />}
+                        {decrypted.pin && <DetailRow label="PIN" value={decrypted.pin} masked dots={3} />}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
               {/* Address Template */}
               {item.template === "address" && (
                 <>
-                  <DetailRow label="Line 1" value={decrypted.line1} />
-                  <DetailRow label="Line 2" value={decrypted.line2} />
-                  <DetailRow label="City" value={decrypted.city} />
-                  <DetailRow label="State" value={decrypted.state} />
-                  <DetailRow label="ZIP Code" value={decrypted.zip} />
-                  <DetailRow label="Country" value={decrypted.country} />
+                  {(decrypted.line1 || decrypted.line2) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">STREET ADDRESS</div>
+                      <div className="detail-section-box">
+                        {decrypted.line1 && <DetailRow label="Line 1" value={decrypted.line1} />}
+                        {decrypted.line2 && <DetailRow label="Line 2" value={decrypted.line2} />}
+                      </div>
+                    </div>
+                  )}
+                  {(decrypted.city || decrypted.state || decrypted.zip || decrypted.country) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">LOCATION</div>
+                      <div className="detail-section-box">
+                        {decrypted.city && <DetailRow label="City" value={decrypted.city} />}
+                        {decrypted.state && <DetailRow label="State" value={decrypted.state} />}
+                        {decrypted.zip && <DetailRow label="ZIP Code" value={decrypted.zip} />}
+                        {decrypted.country && <DetailRow label="Country" value={decrypted.country} />}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
               {/* Profile Template */}
               {item.template === "profile" && (
-                <>
-                  <DetailRow label="Full Name" value={decrypted.fullName} />
-                  <DetailRow label="Email" value={decrypted.email} />
-                  <DetailRow label="Phone" value={decrypted.phone} />
-                  <DetailRow label="DOB" value={decrypted.dob} />
-                  <DetailRow label="ID Number" value={decrypted.idNumber} masked />
-                </>
+                <div className="detail-section-group">
+                  <div className="detail-section-title">PERSONAL IDENTITY</div>
+                  <div className="detail-section-box">
+                    {decrypted.fullName && <DetailRow label="Full Name" value={decrypted.fullName} />}
+                    {decrypted.email && <DetailRow label="Email" value={decrypted.email} />}
+                    {decrypted.phone && <DetailRow label="Phone" value={decrypted.phone} />}
+                    {decrypted.dob && <DetailRow label="DOB" value={decrypted.dob} />}
+                    {decrypted.idNumber && <DetailRow label="ID Number" value={decrypted.idNumber} masked />}
+                  </div>
+                </div>
               )}
 
               {/* Note Template */}
               {item.template === "note" && decrypted.note && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 24 }}>
-                    <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTE CONTENT</span>
-                    <div className="detail-actions">
+                <div className="detail-section-group">
+                  <div className="detail-section-title">SECURE NOTE</div>
+                  <div className="detail-section-box" style={{ padding: "8px 10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>CONTENT</span>
                       <CopyBtn value={decrypted.note} />
                     </div>
+                    <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note}</pre>
                   </div>
-                  <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note}</pre>
                 </div>
               )}
 
               {/* Entry Notes (Shared) */}
               {decrypted.entryNotes && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 24 }}>
-                    <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTES</span>
-                    <div className="detail-actions">
+                <div className="detail-section-group">
+                  <div className="detail-section-title">PRIVATE NOTES</div>
+                  <div className="detail-section-box" style={{ padding: "8px 10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTES</span>
                       <CopyBtn value={decrypted.entryNotes} />
                     </div>
+                    <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
                   </div>
-                  <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
                 </div>
+              )}
+
+              {/* Password History */}
+              {decrypted.passwordHistory && Array.isArray(decrypted.passwordHistory) && decrypted.passwordHistory.length > 0 && (
+                <PasswordHistorySection history={decrypted.passwordHistory} />
               )}
 
               {/* Action buttons */}
               <div className="expanded-actions-row">
-                {isLogin && (decrypted.username || decrypted.password) && (
+                {isLogin && (decrypted.username || decrypted.password) ? (
                   <button
                     className="btn-expanded-primary"
                     onClick={handleAutofillClick}
                   >
-                    <CornerDownLeft size={13} />
-                    <span>Autofill Page</span>
+                    <CornerDownLeft size={14} />
+                    <span>Autofill</span>
                   </button>
-                )}
-                <button
-                  className="btn-expanded-secondary"
-                  onClick={handleEditClick}
-                >
-                  <Edit2 size={13} />
-                  <span>Edit</span>
-                </button>
-                <button
-                  className="btn-expanded-danger"
-                  onClick={handleDeleteClick}
-                  title="Move to Trash"
-                >
-                  <Trash2 size={13} />
-                  <span>Delete</span>
-                </button>
+                ) : <div />}
+
+                <div className="expanded-icon-actions">
+                  <button
+                    className="btn-expanded-icon"
+                    onClick={handleEditClick}
+                    title="Edit entry"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    className="btn-expanded-icon-danger"
+                    onClick={handleDeleteClick}
+                    title="Move to Trash"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -471,6 +607,7 @@ export function VaultScreen({
   onAutofill,
   onEditItem,
   onDeleteItem,
+  onToggleFavorite,
   onAddNew
 }: VaultScreenProps) {
   const [query, setQuery] = useState("");
@@ -625,6 +762,7 @@ export function VaultScreen({
                   onAutofill={onAutofill}
                   onEdit={onEditItem}
                   onDelete={onDeleteItem}
+                  onToggleFavorite={onToggleFavorite}
                   isCurrentSiteMatch={true}
                 />
               ))}
@@ -655,6 +793,7 @@ export function VaultScreen({
                   onAutofill={onAutofill}
                   onEdit={onEditItem}
                   onDelete={onDeleteItem}
+                  onToggleFavorite={onToggleFavorite}
                   isCurrentSiteMatch={matchIds.has(item.id) && !query}
                 />
               ))}

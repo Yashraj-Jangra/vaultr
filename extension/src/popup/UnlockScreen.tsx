@@ -58,7 +58,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
         {/* Top Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", zIndex: 10, opacity: 0.7 }}>
           <img
-            src="brand/logo-dark.png"
+            src="brand/vaultr-full-dark-transparent.png"
             alt="Vaultr"
             style={{ height: 20, width: "auto", objectFit: "contain" }}
           />
@@ -116,7 +116,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
         <div className="lock-halo" />
         <div className={`lock-box${loading ? " unlocking" : ""}`}>
           <img
-            src="brand/lock-brand-dark.png"
+            src="brand/vaultr-lock-dark-transparent.svg"
             alt="Vaultr Lock"
             style={{
               width: 48,
@@ -133,7 +133,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8, opacity: 0.6 }}>
           <img
-            src="brand/logo-dark.png"
+            src="brand/vaultr-full-dark-transparent.png"
             alt="Vaultr"
             style={{ height: 20, width: "auto", objectFit: "contain" }}
           />

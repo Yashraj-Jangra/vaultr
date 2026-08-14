@@ -8,6 +8,16 @@ import { NewEntryForm } from "./NewEntryForm";
 import { KeyRound, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
 import "./popup.css";
 
+export function resolveAvatarUrl(url?: string, serverUrl?: string) {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const cleanServer = (serverUrl || "https://vaultr.cvweb.qzz.io").replace(/\/+$/, "");
+  const cleanPath = url.startsWith("/") ? url : `/${url}`;
+  return `${cleanServer}${cleanPath}`;
+}
+
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
@@ -229,15 +239,28 @@ export function App() {
     );
   }
 
+  const handleToggleFavorite = (id: string) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
+    );
+    chrome.runtime.sendMessage({ type: "TOGGLE_FAVORITE", id }, (res) => {
+      if (res?.success) {
+        fetchItems();
+      }
+    });
+  };
+
+  const avatarUri = resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl);
+
   return (
     <div className="screen">
       {/* Header */}
       <div className="header">
         <div className="header-brand">
           <img
-            src="brand/logo-dark.png"
+            src="brand/vaultr-full-dark-transparent.png"
             alt="Vaultr"
-            style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.8 }}
+            style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
           />
         </div>
         <div className="header-actions">
@@ -255,9 +278,9 @@ export function App() {
             onClick={() => setActiveTab("settings")}
             title="Account Settings"
           >
-            {accountInfo.image ? (
+            {avatarUri ? (
               <div className="avatar-circle">
-                <img src={accountInfo.image} alt="" />
+                <img src={avatarUri} alt="" />
               </div>
             ) : (
               <div className="avatar-circle">{initials}</div>
@@ -275,6 +298,7 @@ export function App() {
             onAutofill={handleAutofill}
             onEditItem={handleEditTrigger}
             onDeleteItem={handleDeleteItem}
+            onToggleFavorite={handleToggleFavorite}
             onAddNew={() => setIsNewEntryOpen(true)}
           />
         )}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, KeyRound
+  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, KeyRound, Star
 } from "lucide-react";
 import { VaultItem } from "@vaultr/core";
 
@@ -56,7 +56,8 @@ interface NewEntryFormProps {
     folder: string,
     tags: string[],
     payload: DecryptedPayload,
-    editId?: string
+    editId?: string,
+    favorite?: boolean
   ) => Promise<void>;
   onCancel: () => void;
   initialData?: {
@@ -66,6 +67,7 @@ interface NewEntryFormProps {
     tags?: string[];
     template: Template;
     payload: DecryptedPayload;
+    favorite?: boolean;
   };
 }
 
@@ -100,31 +102,49 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
     [len, upper, lower, nums, syms, seed]
   );
 
-  const regen = () => setSeed(s => s + 1);
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--neutral-950)", border: "1px solid var(--border)", borderRadius: "8px", padding: "6px 10px" }}>
-        <span style={{ flex: 1, fontFamily: "monospace", fontSize: 11, color: "var(--neutral-200)", wordBreak: "break-all" }}>{pw || "—"}</span>
-        <button type="button" onClick={regen} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--neutral-500)", fontSize: 11 }}>Regen</button>
+    <div style={{ padding: 10, background: "var(--neutral-900)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)" }}>Password Generator</span>
+        <button
+          type="button"
+          onClick={() => setSeed(s => s + 1)}
+          className="btn btn-ghost"
+          style={{ padding: "2px 6px", fontSize: 10 }}
+        >
+          Regenerate
+        </button>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 11, color: "var(--neutral-500)", minWidth: 20, textAlign: "right" }}>{len}</span>
+      <div style={{ fontFamily: "monospace", fontSize: 13, background: "#000", padding: "6px 10px", borderRadius: 6, color: "#10b981", wordBreak: "break-all" }}>
+        {pw}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, color: "var(--neutral-400)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          <input type="checkbox" checked={upper} onChange={e => setUpper(e.target.checked)} /> A-Z
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          <input type="checkbox" checked={lower} onChange={e => setLower(e.target.checked)} /> a-z
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          <input type="checkbox" checked={nums} onChange={e => setNums(e.target.checked)} /> 0-9
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          <input type="checkbox" checked={syms} onChange={e => setSyms(e.target.checked)} /> !@#
+        </label>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 10, color: "var(--neutral-500)" }}>Length: {len}</span>
         <input
-          type="range" min={8} max={64} value={len}
+          type="range"
+          min={8}
+          max={64}
+          value={len}
           onChange={e => setLen(Number(e.target.value))}
-          style={{ flex: 1, accentColor: "var(--neutral-400)" }}
+          style={{ flex: 1 }}
         />
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        {([["A–Z", upper, setUpper], ["a–z", lower, setLower], ["0–9", nums, setNums], ["!@#", syms, setSyms]] as [string, boolean, (v: boolean) => void][]).map(([label, val, set]) => (
-          <label key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--neutral-500)", cursor: "pointer" }}>
-            <input type="checkbox" checked={val} onChange={e => set(e.target.checked)} style={{ accentColor: "var(--neutral-400)" }} />
-            {label}
-          </label>
-        ))}
       </div>
 
       <button
@@ -149,6 +169,7 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
   const [tags, setTags] = useState<string>(
     Array.isArray(initialData?.tags) ? initialData.tags.join(", ") : ""
   );
+  const [favorite, setFavorite] = useState<boolean>(initialData?.favorite || false);
   const [saving, setSaving] = useState(false);
   const [showGen, setShowGen] = useState(false);
 
@@ -191,11 +212,16 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
   const [note, setNote] = useState(initialData?.payload?.note || "");
 
   // Custom fields
-  const [customFields, setCustomFields] = useState<CustomField[]>(() =>
-    Array.isArray(initialData?.payload?.customFields)
-      ? initialData.payload.customFields.map(f => ({ id: Math.random().toString(), key: f?.key || "", value: f?.value || "" }))
-      : []
-  );
+  const [customFields, setCustomFields] = useState<CustomField[]>(() => {
+    if (initialData?.payload?.customFields && Array.isArray(initialData.payload.customFields)) {
+      return initialData.payload.customFields.map((f, i) => ({
+        id: `cf_${i}`,
+        key: f.key,
+        value: f.value,
+      }));
+    }
+    return [];
+  });
   const addCustom = () => setCustomFields(p => [...p, { id: Math.random().toString(), key: "", value: "" }]);
 
   // Shared
@@ -230,7 +256,7 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
     const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
 
     try {
-      await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id);
+      await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id, favorite);
     } catch (err) {
       console.error("Save entry failed:", err);
     } finally {
@@ -258,9 +284,20 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
           </div>
           <span>{initialData ? "Edit entry" : "New entry"}</span>
         </div>
-        <button type="button" onClick={onCancel} className="dialog-close">
-          <X size={15} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => setFavorite(!favorite)}
+            className="dialog-close"
+            style={{ color: favorite ? "#f59e0b" : "var(--neutral-500)" }}
+            title={favorite ? "Favorited" : "Add to Favorites"}
+          >
+            <Star size={15} fill={favorite ? "#f59e0b" : "none"} />
+          </button>
+          <button type="button" onClick={onCancel} className="dialog-close">
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Body */}
