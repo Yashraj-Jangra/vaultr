@@ -23,7 +23,10 @@ export function DeleteFolderModal({
 
   useEffect(() => {
     if (open) setLoadingDisp(null);
-  }, [open]);
+    if (open && itemCount === 0) {
+      onConfirm("uncategorize");
+    }
+  }, [open, itemCount, onConfirm]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -42,14 +42,14 @@ export const session = pgTable("session", {
   updatedAt: timestamp("updatedAt").notNull(),
   ipAddress: text("ipAddress"),
   userAgent: text("userAgent"),
-  userId: text("userId").notNull().references(() => user.id)
+  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' })
 });
 
 export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("accountId").notNull(),
   providerId: text("providerId").notNull(),
-  userId: text("userId").notNull().references(() => user.id),
+  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   idToken: text("idToken"),
@@ -74,7 +74,7 @@ export const twoFactor = pgTable("twoFactor", {
   id: text("id").primaryKey(),
   secret: text("secret").notNull(),
   backupCodes: text("backupCodes").notNull(),
-  userId: text("userId").notNull().references(() => user.id)
+  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' })
 });
 
 // ─── Vault Items ──────────────────────────────────────────────────────────────
@@ -145,6 +145,7 @@ export const userProfiles = pgTable("user_profiles", {
   role:                     text("role").default("user"),  // "user" | "admin"
   deletedByAdmin:           timestamp("deleted_by_admin", { withTimezone: true }),
   deletedByAdminId:         text("deleted_by_admin_id"),
+  customFolders:            text("custom_folders").array().default(sql`'{}'::text[]`),
   // ── Storage ──────────────────────────────────────────────────────────────
   storageUsedBytes:         integer("storage_used_bytes").default(0),
   storageQuotaBytes:        integer("storage_quota_bytes").default(104857600), // 100 MB
