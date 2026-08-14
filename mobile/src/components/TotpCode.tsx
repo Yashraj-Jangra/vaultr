@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { generateTOTP, getTotpCountdown } from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
+import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { colors } from "../theme/colors";
 import { Copy, Check, ShieldCheck } from "lucide-react-native";
 import { SiteIcon } from "./SiteIcon";
@@ -43,16 +44,17 @@ export function TotpCode({ secret, name, domain }: Props) {
 
   const handleCopy = async () => {
     if (!code || code === "ERROR" || code === "------") return;
-    await Clipboard.setStringAsync(code);
+    await copyToClipboardWithAutoClear(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / 30) * 100));
-  const radius = 18;
-  const strokeWidth = 2.5;
+  const radius = 22;
+  const strokeWidth = 3;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progressPercent / 100);
+  // Negative offset for COUNTER-CLOCKWISE ring draining
+  const strokeDashoffset = -circumference * (1 - progressPercent / 100);
   const isExpiring = secondsLeft <= 5;
 
   return (
@@ -64,20 +66,20 @@ export function TotpCode({ secret, name, domain }: Props) {
       {/* Header Row: Circular Ring + Identity */}
       <View style={styles.headerRow}>
         <View style={styles.ringWrapper}>
-          <Svg width={44} height={44} style={styles.svgRing}>
+          <Svg width={52} height={52} style={styles.svgRing}>
             {/* Background Track Circle */}
             <Circle
-              cx="22"
-              cy="22"
+              cx="26"
+              cy="26"
               r={radius}
               stroke="#1f1f23"
               strokeWidth={strokeWidth}
               fill="none"
             />
-            {/* Animated Progress Circle */}
+            {/* Animated Progress Circle (Counterclockwise) */}
             <Circle
-              cx="22"
-              cy="22"
+              cx="26"
+              cy="26"
               r={radius}
               stroke={isExpiring ? "#f87171" : "#38bdf8"}
               strokeWidth={strokeWidth}
@@ -85,15 +87,15 @@ export function TotpCode({ secret, name, domain }: Props) {
               strokeDasharray={`${circumference}`}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
-              transform="rotate(-90 22 22)"
+              transform="rotate(-90 26 26)"
             />
           </Svg>
-          {/* Favicon or Fallback Icon centered in ring */}
+          {/* Favicon or Fallback Icon centered in ring with LARGER FILL */}
           <View style={styles.iconInsideRing}>
             {domain ? (
-              <SiteIcon domain={domain} name={name || ""} size={22} />
+              <SiteIcon domain={domain} name={name || ""} size={36} fill={true} resizeMode="cover" />
             ) : (
-              <ShieldCheck size={18} color={isExpiring ? "#f87171" : "#a1a1aa"} />
+              <ShieldCheck size={22} color={isExpiring ? "#f87171" : "#a1a1aa"} />
             )}
           </View>
         </View>
@@ -127,12 +129,12 @@ export function TotpCode({ secret, name, domain }: Props) {
           </View>
         ) : (
           <View style={styles.segmentedRow}>
-            <View style={styles.segmentPill}>
-              <Text style={styles.codeSegment}>{code.slice(0, 3)}</Text>
+            <View style={[styles.segmentPill, isExpiring && { borderColor: "rgba(248, 113, 113, 0.4)", backgroundColor: "rgba(248, 113, 113, 0.08)" }]}>
+              <Text style={[styles.codeSegment, isExpiring && { color: "#f87171" }]}>{code.slice(0, 3)}</Text>
             </View>
-            <Text style={styles.dashDivider}>-</Text>
-            <View style={styles.segmentPill}>
-              <Text style={styles.codeSegment}>{code.slice(3, 6)}</Text>
+            <Text style={[styles.dashDivider, isExpiring && { color: "#f87171" }]}>-</Text>
+            <View style={[styles.segmentPill, isExpiring && { borderColor: "rgba(248, 113, 113, 0.4)", backgroundColor: "rgba(248, 113, 113, 0.08)" }]}>
+              <Text style={[styles.codeSegment, isExpiring && { color: "#f87171" }]}>{code.slice(3, 6)}</Text>
             </View>
           </View>
         )}
@@ -156,8 +158,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   ringWrapper: {
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
