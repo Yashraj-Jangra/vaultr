@@ -69,225 +69,19 @@ function FieldBox({ children, className = "" }: { children: React.ReactNode; cla
   );
 }
 
-// ─── CSV & JSON → DecryptedPayload Mapping Helpers ─────────────────────────────
-
-interface GenericImportRow {
-  name?: string;
-  username?: string;
-  password?: string;
-  url?: string;
-  login_username?: string;
-  login_password?: string;
-  login_uri?: string;
-  login_totp?: string;
-  login_notes?: string;
-  totp?: string;
-  note?: string;
-  notes?: string;
-  folder?: string;
-  group?: string;
-  grouping?: string;
-  card_number?: string;
-  cc_number?: string;
-  expiry?: string;
-  cvv?: string;
-  pin?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  country?: string;
-  passkey_id?: string;
-  credential_id?: string;
-  rp_id?: string;
-  user_handle?: string;
-  [key: string]: string | undefined;
-}
-
-export interface ParsedImportItem {
-  id: string; // temp client ID for preview list manipulation
-  name: string;
-  folder: string;
-  payload: DecryptedPayload;
-}
-
-// Extract and normalize multiple URLs from various CSV columns & comma-separated strings
-function parseUrls(row: GenericImportRow): string[] {
-  const candidates = [
-    row.url,
-    row.login_uri,
-    row["URL 1"],
-    row["URL 2"],
-    row["URL 3"],
-    row.login_uri2,
-    row.login_uri3,
-    row.website,
-  ];
-
-  const parsed: string[] = [];
-  for (const item of candidates) {
-    if (!item) continue;
-    // Handle comma-separated URIs (e.g. Bitwarden / 1Password)
-    const parts = item.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-    for (const p of parts) {
-      if (!parsed.includes(p)) parsed.push(p);
-    }
-  }
-  return parsed;
-}
-
-function mapCsvRow(row: GenericImportRow, index: number): ParsedImportItem {
-  const urls = parseUrls(row);
-  const primaryUrl = urls[0] || "";
-
-  // Template auto-detection
-  let _template: "login" | "card" | "note" | "address" | "profile" = "login";
-  if (row.card_number || row.cc_number) _template = "card";
-  else if (row.address || row.city) _template = "address";
-  else if (!primaryUrl && !row.password && !row.login_password && (row.note || row.notes)) _template = "note";
-
-  const name =
-    row.name ||
-    primaryUrl ||
-    (row.note || row.notes ? "Imported Note" : `Imported Entry #${index + 1}`);
-
-  const folder = row.folder || row.group || row.grouping || "";
-
-  // Passkey detection
-  const isPasskey = !!(row.passkey_id || row.credential_id || row.rp_id);
-
-  const payload: DecryptedPayload = {
-    _template,
-    username: row.username || row.login_username || "",
-    password: row.password || row.login_password || "",
-    url: primaryUrl,
-    urls: urls.length > 0 ? urls : primaryUrl ? [primaryUrl] : [],
-    totpSecret: row.totp || row.login_totp || "",
-    entryNotes: row.note || row.notes || row.login_notes || "",
-    cardNumber: row.card_number || row.cc_number || "",
-    expiry: row.expiry || "",
-    cvv: row.cvv || "",
-    pin: row.pin || "",
-    line1: row.address || "",
-    city: row.city || "",
-    state: row.state || "",
-    zip: row.zip || "",
-    country: row.country || "",
-    isPasskey,
-    passkeyRpId: row.rp_id || "",
-    passkeyCredentialId: row.passkey_id || row.credential_id || "",
-    passkeyUserHandle: row.user_handle || "",
-  };
-
-  return {
-    id: `csv-${index}-${Date.now()}`,
-    name,
-    folder,
-    payload,
-  };
-}
-
-// ─── Bitwarden JSON Importer ──────────────────────────────────────────────────
-
-function parseBitwardenJson(data: any): ParsedImportItem[] {
-  if (!data || !Array.isArray(data.items)) return [];
-
-  const folderMap = new Map<string, string>();
-  if (Array.isArray(data.folders)) {
-    for (const f of data.folders) {
-      if (f.id && f.name) folderMap.set(f.id, f.name);
-    }
-  }
-
-  const result: ParsedImportItem[] = [];
-
-  data.items.forEach((item: any, idx: number) => {
-    if (!item) return;
-
-    let _template: "login" | "card" | "note" | "address" | "profile" = "login";
-    // Bitwarden item types: 1 = Login, 2 = SecureNote, 3 = Card, 4 = Identity
-    if (item.type === 2) _template = "note";
-    else if (item.type === 3) _template = "card";
-    else if (item.type === 4) _template = "profile";
-
-    const name = item.name || `Imported Item #${idx + 1}`;
-    const folder = (item.folderId && folderMap.get(item.folderId)) || "";
-
-    const loginData = item.login || {};
-    const cardData = item.card || {};
-    const identityData = item.identity || {};
-    const secureNoteData = item.secureNote || {};
-
-    // Extract URIs
-    const urls: string[] = [];
-    if (Array.isArray(loginData.uris)) {
-      loginData.uris.forEach((u: any) => {
-        if (u?.uri && typeof u.uri === "string") urls.push(u.uri);
-      });
-    }
-
-    // Custom fields → entryNotes or customFields
-    let extraNotes = item.notes || "";
-    if (Array.isArray(item.fields) && item.fields.length > 0) {
-      const fieldLines = item.fields
-        .map((f: any) => (f.name ? `${f.name}: ${f.value || ""}` : f.value))
-        .filter(Boolean);
-      if (fieldLines.length > 0) {
-        extraNotes += (extraNotes ? "\n\n--- Custom Fields ---\n" : "") + fieldLines.join("\n");
-      }
-    }
-
-    // Passkeys in Bitwarden
-    const fido2 = Array.isArray(loginData.fido2Credentials) ? loginData.fido2Credentials[0] : null;
-
-    const payload: DecryptedPayload = {
-      _template,
-      username: loginData.username || "",
-      password: loginData.password || "",
-      url: urls[0] || "",
-      urls: urls.length > 0 ? urls : [],
-      totpSecret: loginData.totp || "",
-      entryNotes: extraNotes,
-
-      // Card
-      cardNumber: cardData.number || "",
-      cardName: cardData.cardholderName || "",
-      expiry: cardData.expirationMonth && cardData.expirationYear ? `${cardData.expirationMonth}/${cardData.expirationYear}` : "",
-      cvv: cardData.code || "",
-
-      // Profile / Identity
-      fullName: identityData.firstName && identityData.lastName ? `${identityData.firstName} ${identityData.lastName}` : identityData.firstName || "",
-      email: identityData.email || "",
-      phone: identityData.phone || "",
-      line1: identityData.address1 || "",
-      city: identityData.city || "",
-      state: identityData.state || "",
-      zip: identityData.postalCode || "",
-      country: identityData.country || "",
-
-      // Passkey
-      isPasskey: !!fido2,
-      passkeyRpId: fido2?.rpId || "",
-      passkeyCredentialId: fido2?.credentialId || "",
-      passkeyUserHandle: fido2?.userHandle || "",
-    };
-
-    result.push({
-      id: `bw-${idx}-${Date.now()}`,
-      name,
-      folder,
-      payload,
-    });
-  });
-
-  return result;
-}
+import {
+  parseImportFileContent,
+  type ParsedImportItem,
+  type ConflictMode,
+  type DuplicateCheckResult,
+} from "@vaultr/core";
+import { ImportPreviewModal } from "@/components/vault/ImportPreviewModal";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DataSettingsPage() {
   const { user } = useAuth();
-  const { items, encryptData } = useVault();
+  const { items, encryptData, decryptItem, batchAction, fetchItems } = useVault();
 
   // Export state
   const [exporting, setExporting] = useState(false);
@@ -304,13 +98,20 @@ export default function DataSettingsPage() {
 
   // File Import / Preview State
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedExternalFile, setSelectedExternalFile] = useState<File | null>(null);
   const [previewItems, setPreviewItems] = useState<ParsedImportItem[]>([]);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [importSaving, setImportSaving] = useState(false);
-  const [conflictMode, setConflictMode] = useState<"skip" | "overwrite">("skip");
   const [importStatusMsg, setImportStatusMsg] = useState({ text: "", ok: true });
   const [importProgress, setImportProgress] = useState<number | null>(null);
-  const [searchFilter, setSearchFilter] = useState("");
   const [sourceFileName, setSourceFileName] = useState("");
+
+  // Revert / Undo State
+  const [lastImportedBatch, setLastImportedBatch] = useState<{
+    insertedIds: string[];
+    count: number;
+  } | null>(null);
+  const [reverting, setReverting] = useState(false);
 
   // Danger zone state
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -341,7 +142,63 @@ export default function DataSettingsPage() {
     if (user?.id) fetchScheduleStatus();
   }, [user?.id]);
 
-  const liveItems = items.filter((i) => !i.deletedAt);
+  const liveItems = React.useMemo(() => items.filter((i) => !i.deletedAt), [items]);
+
+  // Decrypted index of existing items for multi-factor duplicate matching (logins, notes, cards, etc.)
+  const [decryptedExistingItems, setDecryptedExistingItems] = useState<Array<{
+    id: string;
+    name: string;
+    domain?: string | null;
+    template?: string | null;
+    username?: string | null;
+  }>>([]);
+
+  const itemsSignature = React.useMemo(
+    () => liveItems.map((i) => `${i.id}-${i.updatedAt || ""}`).join("|"),
+    [liveItems]
+  );
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadExistingDecrypted() {
+      if (liveItems.length === 0) {
+        setDecryptedExistingItems([]);
+        return;
+      }
+      try {
+        const list = await Promise.all(
+          liveItems.map(async (item) => {
+            let username: string | null = null;
+            let domain = item.domain || null;
+            try {
+              if (item.encryptedBlob) {
+                const raw = await decryptItem(item.encryptedBlob);
+                const parsed = JSON.parse(raw);
+                username = parsed.username || parsed.email || null;
+                if (!domain && (parsed.url || parsed.urls?.[0])) {
+                  domain = parsed.url || parsed.urls?.[0];
+                }
+              }
+            } catch {}
+            return {
+              id: item.id,
+              name: item.name,
+              domain,
+              template: item.template || "login",
+              username,
+            };
+          })
+        );
+        if (!isCancelled) {
+          setDecryptedExistingItems(list);
+        }
+      } catch {}
+    }
+    loadExistingDecrypted();
+    return () => {
+      isCancelled = true;
+    };
+  }, [itemsSignature]);
 
   // ─── Export ──────────────────────────────────────────────────────────────
 
@@ -469,77 +326,108 @@ export default function DataSettingsPage() {
 
   // ─── External File Selection (CSV or Bitwarden JSON) ──────────────────────────
 
-  const handleExternalFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleExternalFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImportStatusMsg({ text: "", ok: true });
+    setSelectedExternalFile(file);
     setSourceFileName(file.name);
+    setImportStatusMsg({ text: "", ok: true });
 
-    const isJson = file.name.endsWith(".json");
-
-    if (isJson) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const parsed = JSON.parse(event.target?.result as string);
-          if (parsed && Array.isArray(parsed.items)) {
-            const bwItems = parseBitwardenJson(parsed);
-            setPreviewItems(bwItems);
-          } else {
-            setImportStatusMsg({ text: "Unrecognized JSON format. Expected Bitwarden export format.", ok: false });
-          }
-        } catch (err) {
-          setImportStatusMsg({ text: `Failed to parse JSON file: ${(err as Error).message}`, ok: false });
+    // Automatically parse the selected file and open the preview modal popup
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = parseImportFileContent(text, file.name);
+        if (parsed && parsed.length > 0) {
+          setPreviewItems(parsed);
+          setIsPreviewModalOpen(true);
+        } else {
+          setImportStatusMsg({
+            text: "Could not detect valid credentials or supported entries in the selected file.",
+            ok: false,
+          });
         }
-      };
-      reader.readAsText(file);
-    } else {
-      Papa.parse<GenericImportRow>(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (result) => {
-          const items = result.data.map(mapCsvRow);
-          setPreviewItems(items);
-        },
-        error: (err: { message: string }) => setImportStatusMsg({ text: err.message, ok: false }),
-      });
-    }
-
+      } catch (err) {
+        setImportStatusMsg({ text: `Failed to parse file: ${(err as Error).message}`, ok: false });
+      }
+    };
+    reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // ─── Execute Preview Bulk Import (Chunked Engine) ──────────────────────────
+  const handleParseExternalFile = () => {
+    if (previewItems.length > 0) {
+      setIsPreviewModalOpen(true);
+      return;
+    }
+    if (selectedExternalFile) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string;
+          const parsed = parseImportFileContent(text, selectedExternalFile.name);
+          if (parsed && parsed.length > 0) {
+            setPreviewItems(parsed);
+            setIsPreviewModalOpen(true);
+          } else {
+            setImportStatusMsg({
+              text: "Could not detect valid credentials or supported entries in the selected file.",
+              ok: false,
+            });
+          }
+        } catch (err) {
+          setImportStatusMsg({ text: `Failed to parse file: ${(err as Error).message}`, ok: false });
+        }
+      };
+      reader.readAsText(selectedExternalFile);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
 
-  const handleConfirmImport = async () => {
-    if (!user?.uid || previewItems.length === 0) return;
+  // ─── Execute Preview Bulk Import (Chunked Engine from Modal) ───────────────
+
+  const handleConfirmImport = async (
+    itemsToImport: ParsedImportItem[],
+    conflictMode: ConflictMode,
+    duplicateMap: Map<string, DuplicateCheckResult>
+  ) => {
+    if (!user?.uid || itemsToImport.length === 0) return;
     setImportSaving(true);
     setImportStatusMsg({ text: "", ok: true });
     setImportProgress(0);
 
     try {
       // 1. Filter out duplicates if mode is "skip"
-      const itemsToImport = previewItems.filter((item) => {
-        if (conflictMode === "skip" && liveItems.some((live) => live.name.toLowerCase() === item.name.toLowerCase())) {
-          return false;
-        }
-        return true;
-      });
+      let finalItemsToImport = itemsToImport;
+      if (conflictMode === "skip") {
+        finalItemsToImport = itemsToImport.filter((item) => !duplicateMap.get(item.id)?.isDuplicate);
+      }
 
-      if (itemsToImport.length === 0) {
-        setImportStatusMsg({ text: "All selected entries were skipped (duplicates).", ok: true });
+      if (finalItemsToImport.length === 0) {
+        setImportStatusMsg({
+          text: "All selected entries were skipped because matching items already exist in your vault.",
+          ok: true,
+        });
+        setIsPreviewModalOpen(false);
         setImportSaving(false);
         return;
       }
 
       const CHUNK_SIZE = 50;
       let totalInserted = 0;
+      let totalUpdated = 0;
+      const allInsertedIds: string[] = [];
+      const allFailedItems: Array<{ name: string; reason: string }> = [];
 
-      for (let i = 0; i < itemsToImport.length; i += CHUNK_SIZE) {
-        const chunk = itemsToImport.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < finalItemsToImport.length; i += CHUNK_SIZE) {
+        const chunk = finalItemsToImport.slice(i, i + CHUNK_SIZE);
+        const validEncryptedItems: any[] = [];
 
         // Parallel encryption within batch chunk
-        const encryptedChunk = await Promise.all(
-          chunk.map(async (item) => {
+        for (const item of chunk) {
+          try {
             const encryptedBlob = await encryptData(JSON.stringify(item.payload));
             const primaryUrl = item.payload.url || (item.payload.urls && item.payload.urls[0]) || "";
             let domain: string | null = null;
@@ -556,38 +444,92 @@ export default function DataSettingsPage() {
               }
             }
 
-            return {
+            const dup = duplicateMap.get(item.id);
+            const updateId = conflictMode === "overwrite" && dup?.isDuplicate ? dup.matchedItemId : undefined;
+
+            validEncryptedItems.push({
+              id: updateId,
               name: item.name,
               folder: item.folder || null,
               encryptedBlob,
               domain,
-              template: item.payload._template || "login",
+              template: item.payload._template || item.template || "login",
               tags: [],
               favorite: false,
               hasTotp: !!item.payload.totpSecret,
-            };
-          })
-        );
+            });
+          } catch (encErr: any) {
+            allFailedItems.push({
+              name: item.name,
+              reason: encErr?.message || "Encryption error",
+            });
+          }
+        }
 
-        // Single bulk insert API call per 50 items
-        const res = await fetch("/api/vault/items/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: encryptedChunk }),
-        });
+        if (validEncryptedItems.length > 0) {
+          try {
+            const res = await fetch("/api/vault/items/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: validEncryptedItems }),
+            });
 
-        if (!res.ok) throw new Error("Bulk import request failed");
-        const resData = await res.json();
-        totalInserted += resData.inserted || 0;
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || "Bulk import request failed");
+            }
 
-        setImportProgress(Math.round(((i + chunk.length) / itemsToImport.length) * 100));
+            const resData = await res.json();
+            totalInserted += resData.inserted || 0;
+            totalUpdated += resData.updated || 0;
+            if (resData.insertedIds && Array.isArray(resData.insertedIds)) {
+              allInsertedIds.push(...resData.insertedIds);
+            }
+            if (resData.failedItems && Array.isArray(resData.failedItems)) {
+              allFailedItems.push(...resData.failedItems);
+            }
+          } catch (apiErr: any) {
+            validEncryptedItems.forEach((it) => {
+              allFailedItems.push({
+                name: it.name,
+                reason: apiErr?.message || "API request failed",
+              });
+            });
+          }
+        }
+
+        setImportProgress(Math.round(((i + chunk.length) / finalItemsToImport.length) * 100));
         // Small yield point to maintain browser responsiveness
         await new Promise((r) => setTimeout(r, 10));
       }
 
+      if (allInsertedIds.length > 0) {
+        setLastImportedBatch({ insertedIds: allInsertedIds, count: allInsertedIds.length });
+      }
+
+      // Re-fetch items from server
+      try {
+        await fetchItems();
+      } catch {}
+
       setPreviewItems([]);
+      setIsPreviewModalOpen(false);
+      setSelectedExternalFile(null);
       setImportProgress(null);
-      setImportStatusMsg({ text: `Successfully imported ${totalInserted} item(s) to your vault.`, ok: true });
+
+      let summaryMsg =
+        totalUpdated > 0
+          ? `Successfully imported ${totalInserted} new item(s) and updated ${totalUpdated} existing item(s).`
+          : `Successfully imported ${totalInserted} item(s) to your vault.`;
+
+      if (allFailedItems.length > 0) {
+        summaryMsg += ` (${allFailedItems.length} item(s) failed: ${allFailedItems
+          .slice(0, 2)
+          .map((f) => f.name)
+          .join(", ")}${allFailedItems.length > 2 ? "..." : ""})`;
+      }
+
+      setImportStatusMsg({ text: summaryMsg, ok: allFailedItems.length === 0 });
     } catch (err) {
       setImportStatusMsg({ text: (err as Error).message || "Import failed.", ok: false });
     } finally {
@@ -595,57 +537,29 @@ export default function DataSettingsPage() {
     }
   };
 
-  // Preview List Handlers
-  const handleRemovePreviewItem = (id: string) => {
-    setPreviewItems((prev) => prev.filter((item) => item.id !== id));
+  const handleRevertImport = async () => {
+    if (!lastImportedBatch || lastImportedBatch.insertedIds.length === 0) return;
+    if (
+      !confirm(
+        `Are you sure you want to revert this import and permanently delete the ${lastImportedBatch.count} newly added entries?`
+      )
+    ) {
+      return;
+    }
+
+    setReverting(true);
+    try {
+      await batchAction("purge", lastImportedBatch.insertedIds);
+      await fetchItems();
+      const count = lastImportedBatch.count;
+      setLastImportedBatch(null);
+      setImportStatusMsg({ text: `Successfully reverted import and removed ${count} items.`, ok: true });
+    } catch (err: any) {
+      setImportStatusMsg({ text: err.message || "Failed to revert import.", ok: false });
+    } finally {
+      setReverting(false);
+    }
   };
-
-  const handleUpdateItemTemplate = (id: string, newTemplate: "login" | "card" | "note" | "address" | "profile") => {
-    setPreviewItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          return { ...item, payload: { ...item.payload, _template: newTemplate } };
-        }
-        return item;
-      })
-    );
-  };
-
-  // Preview Stats
-  const stats = React.useMemo(() => {
-    let logins = 0, cards = 0, notes = 0, addresses = 0, profiles = 0, passkeys = 0, duplicates = 0;
-    const folderSet = new Set<string>();
-
-    previewItems.forEach((item) => {
-      const t = item.payload._template;
-      if (item.payload.isPasskey) passkeys++;
-      if (t === "login") logins++;
-      else if (t === "card") cards++;
-      else if (t === "note") notes++;
-      else if (t === "address") addresses++;
-      else if (t === "profile") profiles++;
-
-      if (item.folder) folderSet.add(item.folder);
-
-      if (liveItems.some((live) => live.name.toLowerCase() === item.name.toLowerCase())) {
-        duplicates++;
-      }
-    });
-
-    return { logins, cards, notes, addresses, profiles, passkeys, duplicates, folders: folderSet.size };
-  }, [previewItems, liveItems]);
-
-  const filteredPreviewItems = React.useMemo(() => {
-    if (!searchFilter.trim()) return previewItems;
-    const query = searchFilter.toLowerCase();
-    return previewItems.filter(
-      (item) =>
-        item.name.toLowerCase().includes(query) ||
-        (item.payload.username && item.payload.username.toLowerCase().includes(query)) ||
-        (item.payload.url && item.payload.url.toLowerCase().includes(query)) ||
-        (item.folder && item.folder.toLowerCase().includes(query))
-    );
-  }, [previewItems, searchFilter]);
 
   // ─── Deletion ────────────────────────────────────────────────────
 
@@ -782,212 +696,62 @@ export default function DataSettingsPage() {
       {/* ─── External Import (Bitwarden, 1Password, CSV, Passkeys) ─────────────── */}
       <Section title="Import External Data" description="Import entries from Bitwarden, LastPass, 1Password, Chrome, Dashlane, KeePass, etc.">
         <FieldBox>
-          <div className="space-y-5">
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button onClick={() => fileInputRef.current?.click()} variant="default" className="bg-neutral-800 border-neutral-700 hover:bg-neutral-700">
-                  <FileText className="w-4 h-4 mr-2" /> Select File (CSV / Bitwarden JSON)
-                </Button>
-                <input ref={fileInputRef} type="file" accept=".csv,.json" className="hidden" onChange={handleExternalFileSelect} />
+          <div className="space-y-4 max-w-md">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.json"
+              className="hidden"
+              onChange={handleExternalFileChange}
+            />
+
+            {/* File selection box & chosen filename badge */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-neutral-900 border border-neutral-800 text-[13px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800/80 hover:border-neutral-700 transition-all cursor-pointer shrink-0"
+              >
+                <FileText className="w-4 h-4 text-neutral-400" />
+                <span>{selectedExternalFile ? "Change File" : "Select File"}</span>
+              </button>
+
+              <div className="flex-1 min-w-0 px-3.5 py-2 rounded-lg bg-neutral-950 border border-neutral-800/80 text-[13px] truncate">
+                {selectedExternalFile ? (
+                  <span className="text-neutral-200 font-medium">{selectedExternalFile.name}</span>
+                ) : (
+                  <span className="text-neutral-600">CSV or Bitwarden JSON</span>
+                )}
               </div>
-              <p className="text-[12px] text-neutral-500">Supports CSV & Bitwarden JSON (Logins, Cards, Notes, Passkeys)</p>
             </div>
 
-            <StatusMsg {...importStatusMsg} />
+            {/* Action Row matching theme of Export Vault / Restore Backup */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Button
+                onClick={handleParseExternalFile}
+                disabled={!selectedExternalFile && previewItems.length === 0}
+                variant="default"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {previewItems.length > 0 ? `Review & Import (${previewItems.length} items)` : "Import File"}
+              </Button>
+              {lastImportedBatch && (
+                <Button
+                  onClick={handleRevertImport}
+                  disabled={reverting}
+                  variant="danger"
+                  className="text-[12px] h-9 bg-red-950/40 hover:bg-red-900/60 border border-red-800/50 text-red-300"
+                >
+                  {reverting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                  Undo Last Import ({lastImportedBatch.count} items)
+                </Button>
+              )}
+              <StatusMsg {...importStatusMsg} />
+            </div>
 
-            {/* Preview Modal / Table Panel */}
-            {previewItems.length > 0 && (
-              <div className="space-y-5 pt-5 mt-4 border-t border-neutral-800 animate-in fade-in duration-200">
-                
-                {/* Header & Stats Bar */}
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-900/80 p-4 rounded-xl border border-neutral-800">
-                    <div>
-                      <h3 className="text-[14px] font-semibold text-white flex items-center gap-2">
-                        Previewing <span className="text-emerald-400">{previewItems.length}</span> Items
-                        <span className="text-[11px] text-neutral-500 font-normal">from {sourceFileName}</span>
-                      </h3>
-                      <p className="text-[12px] text-neutral-400 mt-0.5">
-                        Review entries, correct templates, or remove unwanted rows before importing.
-                      </p>
-                    </div>
-
-                    {/* Conflict mode selector */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-neutral-400 font-medium">Conflict:</span>
-                      {(["skip", "overwrite"] as const).map((opt) => (
-                        <button
-                          key={opt}
-                          onClick={() => setConflictMode(opt)}
-                          className={`px-3 py-1 rounded-lg text-[11px] font-semibold tracking-wide transition-colors border ${
-                            conflictMode === opt
-                              ? "border-neutral-500 bg-neutral-800 text-neutral-100 shadow-sm"
-                              : "border-transparent text-neutral-500 hover:text-neutral-300"
-                          }`}
-                        >
-                          {opt === "skip" ? "Skip Duplicates" : "Overwrite"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Summary Breakdown Pills */}
-                  <div className="flex flex-wrap gap-2 text-[11px]">
-                    <span className="px-2.5 py-1 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-300 font-medium flex items-center gap-1.5">
-                      <KeyRound className="w-3 h-3 text-emerald-400" /> Logins: {stats.logins}
-                    </span>
-                    {stats.passkeys > 0 && (
-                      <span className="px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 font-medium flex items-center gap-1.5">
-                        <Key className="w-3 h-3 text-emerald-400" /> Passkeys: {stats.passkeys}
-                      </span>
-                    )}
-                    {stats.cards > 0 && (
-                      <span className="px-2.5 py-1 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-300 font-medium flex items-center gap-1.5">
-                        <CreditCard className="w-3 h-3 text-blue-400" /> Cards: {stats.cards}
-                      </span>
-                    )}
-                    {stats.notes > 0 && (
-                      <span className="px-2.5 py-1 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-300 font-medium flex items-center gap-1.5">
-                        <FileText className="w-3 h-3 text-amber-400" /> Notes: {stats.notes}
-                      </span>
-                    )}
-                    {stats.folders > 0 && (
-                      <span className="px-2.5 py-1 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-300 font-medium flex items-center gap-1.5">
-                        <Folder className="w-3 h-3 text-purple-400" /> Folders: {stats.folders}
-                      </span>
-                    )}
-                    {stats.duplicates > 0 && (
-                      <span className="px-2.5 py-1 rounded-md bg-amber-950/30 border border-amber-800/40 text-amber-300 font-medium flex items-center gap-1.5">
-                        <AlertTriangle className="w-3 h-3 text-amber-400" /> Duplicates: {stats.duplicates} {conflictMode === "skip" ? "(will skip)" : ""}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Filter Input */}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-                  <input
-                    type="text"
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Filter preview items by name, username, URL, or folder..."
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-9 pr-4 py-2 text-[12px] text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
-                  />
-                  {searchFilter && (
-                    <button onClick={() => setSearchFilter("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Preview Data Grid */}
-                <div className="border border-neutral-800 rounded-xl overflow-hidden max-h-[380px] overflow-y-auto bg-neutral-950/60 shadow-inner">
-                  <table className="w-full text-left text-[12px]">
-                    <thead className="bg-neutral-900/90 sticky top-0 border-b border-neutral-800 backdrop-blur-md z-10">
-                      <tr>
-                        <th className="px-3.5 py-2.5 font-medium text-neutral-400">Name</th>
-                        <th className="px-3.5 py-2.5 font-medium text-neutral-400">Type</th>
-                        <th className="px-3.5 py-2.5 font-medium text-neutral-400">Username</th>
-                        <th className="px-3.5 py-2.5 font-medium text-neutral-400">URL / Target</th>
-                        <th className="px-3.5 py-2.5 font-medium text-neutral-400">Folder</th>
-                        <th className="px-3.5 py-2.5 font-medium text-neutral-400 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-800/60">
-                      {filteredPreviewItems.map((item) => {
-                        const isDuplicate = liveItems.some((live) => live.name.toLowerCase() === item.name.toLowerCase());
-                        const primaryUrl = item.payload.url || (item.payload.urls && item.payload.urls[0]) || "";
-
-                        return (
-                          <tr key={item.id} className={`hover:bg-neutral-800/40 transition-colors ${isDuplicate ? "bg-amber-950/10" : ""}`}>
-                            <td className="px-3.5 py-2 text-neutral-200 font-medium">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate max-w-[180px]">{item.name}</span>
-                                {item.payload.isPasskey && (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold">Passkey</span>
-                                )}
-                                {isDuplicate && (
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px]" title="Item with this name already exists in vault">Duplicate</span>
-                                )}
-                              </div>
-                            </td>
-
-                            <td className="px-3.5 py-2">
-                              <select
-                                value={item.payload._template || "login"}
-                                onChange={(e) => handleUpdateItemTemplate(item.id, e.target.value as any)}
-                                className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-[11px] rounded px-2 py-1 focus:outline-none focus:border-neutral-600"
-                              >
-                                <option value="login">Login</option>
-                                <option value="card">Card</option>
-                                <option value="note">Note</option>
-                                <option value="address">Address</option>
-                                <option value="profile">Profile</option>
-                              </select>
-                            </td>
-
-                            <td className="px-3.5 py-2 text-neutral-400 truncate max-w-[140px]">
-                              {item.payload.username || "—"}
-                            </td>
-
-                            <td className="px-3.5 py-2 text-neutral-400 truncate max-w-[180px]" title={primaryUrl}>
-                              {primaryUrl || "—"}
-                              {item.payload.urls && item.payload.urls.length > 1 && (
-                                <span className="text-[10px] text-neutral-500 ml-1">({item.payload.urls.length} URLs)</span>
-                              )}
-                            </td>
-
-                            <td className="px-3.5 py-2 text-neutral-400 truncate max-w-[110px]">
-                              {item.folder ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] text-purple-400">
-                                  <Folder className="w-3 h-3" /> {item.folder}
-                                </span>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-
-                            <td className="px-3.5 py-2 text-right">
-                              <button
-                                onClick={() => handleRemovePreviewItem(item.id)}
-                                className="p-1 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                                title="Remove entry from import list"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Import Confirmation Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <Button onClick={handleConfirmImport} variant="primary" disabled={importSaving} className="w-full sm:w-auto">
-                      {importSaving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Importing {importProgress !== null ? `${importProgress}%` : "..."}
-                        </>
-                      ) : (
-                        `Confirm Import (${previewItems.length} items)`
-                      )}
-                    </Button>
-                    <button
-                      onClick={() => setPreviewItems([])}
-                      disabled={importSaving}
-                      className="px-3 py-2 text-[13px] font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <p className="text-[12px] text-neutral-500 pt-1">
+              Supports CSV & Bitwarden JSON (Logins, Cards, Notes, Addresses, Profiles, Passkeys).
+            </p>
           </div>
         </FieldBox>
       </Section>
@@ -1083,6 +847,18 @@ export default function DataSettingsPage() {
           </FieldBox>
         </div>
       </Section>
+
+      {/* ─── Import Preview Popup Modal ────────────────────────────────────── */}
+      <ImportPreviewModal
+        open={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        fileName={sourceFileName}
+        initialItems={previewItems}
+        existingItems={decryptedExistingItems}
+        onConfirmImport={handleConfirmImport}
+        importSaving={importSaving}
+        importProgress={importProgress}
+      />
     </div>
   );
 }

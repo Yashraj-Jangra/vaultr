@@ -4,3 +4,4 @@ export * from "./totp";
 export * from "./generator";
 export * from "./api-client";
 export * from "./domain";
+export * from "./importer";

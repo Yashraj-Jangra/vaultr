@@ -72,6 +72,10 @@ export interface VaultContextValue {
   renameFolder: (from: string, to: string) => Promise<void>;
   /** Delete a folder — move items to uncategorized (default) or trash. */
   deleteFolder: (name: string, disposition?: "uncategorize" | "trash") => Promise<void>;
+  /** Re-fetch items from server */
+  fetchItems: () => Promise<void>;
+  /** Alias for fetchItems */
+  refreshItems: () => Promise<void>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -109,7 +113,14 @@ function rowToItem(row: Record<string, unknown>): VaultItem {
 
 async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(path, { credentials: "include", ...init });
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  if (!res.ok) {
+    let errorMsg = `${path} → ${res.status}`;
+    try {
+      const errData = await res.json();
+      if (errData && errData.error) errorMsg = errData.error;
+    } catch {}
+    throw new Error(errorMsg);
+  }
   return res.json();
 }
 
@@ -168,6 +179,23 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
         );
       setItems(list);
+
+      // Sync server folders (including custom empty folders)
+      try {
+        const folderData = await apiFetch("/api/vault/folders");
+        if (folderData && Array.isArray(folderData.folders)) {
+          const serverFolders = folderData.folders
+            .map((f: any) => (typeof f === "string" ? f : f?.name || f?.path || ""))
+            .filter(Boolean);
+          setCustomFolders((prev) => {
+            const merged = Array.from(new Set([...prev, ...serverFolders])).sort();
+            if (CUSTOM_FOLDERS_KEY) {
+              try { localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(merged)); } catch {}
+            }
+            return merged;
+          });
+        }
+      } catch {}
     } catch (err) {
       console.error("[VaultContext] fetchItems error", err);
     } finally {
@@ -327,39 +355,59 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const deleteItem = useCallback(async (id: string) => {
     if (!user?.id) return;
-    // Soft delete — set deletedAt
-    await apiFetch(`/api/vault/items/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deletedAt: new Date().toISOString() }),
-    });
-    fetchItems();
+    const now = new Date().toISOString();
+    // ⚡ Instant optimistic update
+    setItems(prev => prev.map(i => i.id === id ? { ...i, deletedAt: now } : i));
+    try {
+      await apiFetch(`/api/vault/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deletedAt: now }),
+      });
+    } catch {
+      fetchItems();
+    }
   }, [user, fetchItems]);
 
   const hardDeleteItem = useCallback(async (id: string) => {
     if (!user?.id) return;
-    await apiFetch(`/api/vault/items/${id}`, { method: "DELETE" });
-    fetchItems();
+    // ⚡ Instant optimistic update
+    setItems(prev => prev.filter(i => i.id !== id));
+    try {
+      await apiFetch(`/api/vault/items/${id}`, { method: "DELETE" });
+    } catch {
+      fetchItems();
+    }
   }, [user, fetchItems]);
 
   const restoreItem = useCallback(async (id: string) => {
     if (!user?.id) return;
-    await apiFetch(`/api/vault/items/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deletedAt: null }),
-    });
-    fetchItems();
+    // ⚡ Instant optimistic update
+    setItems(prev => prev.map(i => i.id === id ? { ...i, deletedAt: null } : i));
+    try {
+      await apiFetch(`/api/vault/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deletedAt: null }),
+      });
+    } catch {
+      fetchItems();
+    }
   }, [user, fetchItems]);
 
   const toggleFavorite = useCallback(async (id: string, favorite: boolean) => {
     if (!user?.id) return;
-    await apiFetch(`/api/vault/items/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ favorite }),
-    });
-    fetchItems();
+    // ⚡ Instant optimistic update
+    setItems(prev => prev.map(i => i.id === id ? { ...i, favorite } : i));
+    try {
+      await apiFetch(`/api/vault/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorite }),
+      });
+    } catch {
+      fetchItems();
+    }
   }, [user, fetchItems]);
 
   const batchAction = useCallback(async (
@@ -368,13 +416,21 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     payload?: string
   ): Promise<number> => {
     if (!user?.id || ids.length === 0) return 0;
-    const res = await apiFetch("/api/vault/items/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ids, payload }),
-    });
+    const CHUNK_SIZE = 500;
+    let totalUpdated = 0;
+
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const res = await apiFetch("/api/vault/items/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids: chunk, payload: payload || undefined }),
+      });
+      totalUpdated += res.updated ?? 0;
+    }
+
     fetchItems();
-    return res.updated ?? 0;
+    return totalUpdated;
   }, [user, fetchItems]);
 
   const emptyTrash = useCallback(async (): Promise<number> => {
@@ -409,9 +465,20 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  const addCustomFolder = useCallback((folderPath: string) => {
+  const addCustomFolder = useCallback(async (folderPath: string) => {
     const trimmed = folderPath.trim();
     if (!trimmed) return;
+
+    try {
+      await apiFetch("/api/vault/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+    } catch (err) {
+      console.warn("[VaultContext] addCustomFolder network error:", err);
+    }
+
     setCustomFolders(prev => {
       const set = new Set(prev);
       const segs = trimmed.split("/").filter(Boolean);
@@ -537,6 +604,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       setIsNewEntryOpen,
       folders,
       filteredItems,
+      fetchItems,
+      refreshItems: fetchItems,
     }}>
       {children}
     </VaultContext.Provider>
