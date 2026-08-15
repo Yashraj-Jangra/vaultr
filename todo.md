@@ -21,6 +21,9 @@
 - **`DataScreen.tsx`** — `handleConfirmImport` guarded.
 - **`FolderManagerScreen.tsx`** — `addCustomFolder`, `renameFolder`, `deleteFolder` guarded.
 
+#### Mobile App Icon (complete)
+- **Safe Zone & Adaptive Scaling** — Rebuilt `vaultr-lock-dark-transparent.png`, `vaultr-lock-dark-solid.png`, and all native Android `mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}` launcher WebP assets with safe-zone bounds (0.64 scale) to eliminate squircle/circle mask clipping.
+
 #### Web App Import (complete — prior sessions)
 - `ImportPreviewModal.tsx` — Minimal sleek modal with hero illustration, no nested card divs.
 - `packages/core/src/importer.ts` — `checkDuplicateItemsBatch()` multi-factor duplicate engine (username + domain + template).
