@@ -90,10 +90,10 @@ export function TotpCode({ secret, name, domain }: Props) {
               transform="rotate(-90 26 26)"
             />
           </Svg>
-          {/* Favicon or Fallback Icon centered in ring with LARGER FILL */}
+          {/* Favicon or Fallback Icon centered in ring */}
           <View style={styles.iconInsideRing}>
             {domain ? (
-              <SiteIcon domain={domain} name={name || ""} size={36} fill={true} resizeMode="cover" />
+              <SiteIcon domain={domain} name={name || ""} size={22} />
             ) : (
               <ShieldCheck size={22} color={isExpiring ? "#f87171" : "#a1a1aa"} />
             )}
