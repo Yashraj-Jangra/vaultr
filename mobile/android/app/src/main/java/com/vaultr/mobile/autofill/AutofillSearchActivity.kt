@@ -8,53 +8,44 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.LinearLayout
 import android.widget.ListView
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import com.vaultr.mobile.MainActivity
 import com.vaultr.mobile.R
 
 /**
- * AutofillSearchActivity — Launched from the Quick Settings Pull-Down Shade Tile.
+ * AutofillSearchActivity — Minimal, sleek Quick Settings Autofill Sheet.
  *
- * Features:
- *  1. Automatic page/app detection: Checks foreground domain/app from AccessibilityService
- *     and highlights matching logins at the top under "SUGGESTED FOR THIS PAGE".
- *  2. 1-Tap Fill: Direct text injection into active input fields via ACTION_SET_TEXT.
- *  3. Search & filter: Real-time search across all vault accounts.
- *  4. Copy fallbacks: Quick copy buttons with auto-clearing clipboard.
+ * UX:
+ *  - 1-Tap on any account row: Directly autofills credentials into the active page/app.
+ *  - 3-Dot menu: Copy Username, Copy Password, or Autofill.
+ *  - Tap backdrop: Closes the sheet and returns immediately to the previous app.
  */
 class AutofillSearchActivity : Activity() {
 
+    private lateinit var rootBackdrop: FrameLayout
     private lateinit var searchInput: EditText
     private lateinit var clearBtn: ImageButton
     private lateinit var closeBtn: ImageButton
     private lateinit var resultsList: ListView
     private lateinit var statusText: TextView
-    private lateinit var sectionHeader: TextView
     private lateinit var textDetectedContext: TextView
-    private lateinit var containerSuggestedBadge: LinearLayout
-    private lateinit var textSuggestedTarget: TextView
-    private lateinit var textAccessibilityStatus: TextView
-    private lateinit var btnEnableAccessibility: Button
 
     private var allItems: List<AutofillItem> = emptyList()
     private var suggestedItems: List<AutofillItem> = emptyList()
     private var displayItems: MutableList<AutofillItem> = mutableListOf()
     private lateinit var adapter: SearchAdapter
-
-    private var activeTarget: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,32 +57,23 @@ class AutofillSearchActivity : Activity() {
         initViews()
         detectCurrentContext()
         setupListeners()
-        updateAccessibilityState()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updateAccessibilityState()
     }
 
     private fun initViews() {
+        rootBackdrop = findViewById(R.id.root_backdrop)
         searchInput = findViewById(R.id.search_edit_text)
         clearBtn = findViewById(R.id.btn_clear_search)
         closeBtn = findViewById(R.id.btn_close_search)
         resultsList = findViewById(R.id.search_results_list)
         statusText = findViewById(R.id.search_status_text)
-        sectionHeader = findViewById(R.id.text_section_header)
         textDetectedContext = findViewById(R.id.text_detected_context)
-        containerSuggestedBadge = findViewById(R.id.container_suggested_badge)
-        textSuggestedTarget = findViewById(R.id.text_suggested_target)
-        textAccessibilityStatus = findViewById(R.id.text_accessibility_status)
-        btnEnableAccessibility = findViewById(R.id.btn_enable_accessibility)
 
         adapter = SearchAdapter(
             context = this,
             items = displayItems,
             onFill = { item -> fillIntoActivePage(item) },
-            onCopy = { item -> copyToClipboardSecure("Password", item.password) }
+            onCopyUser = { item -> copyToClipboardSecure("Username", item.username) },
+            onCopyPass = { item -> copyToClipboardSecure("Password", item.password) }
         )
         resultsList.adapter = adapter
     }
@@ -101,31 +83,28 @@ class AutofillSearchActivity : Activity() {
         val target = appContext.webDomain ?: appContext.packageName
 
         if (!target.isNullOrBlank()) {
-            activeTarget = target
             suggestedItems = AutofillCredentialStore.findMatches(target)
-
             val displayLabel = appContext.webDomain ?: getAppLabel(appContext.packageName)
-            containerSuggestedBadge.visibility = View.VISIBLE
-            textSuggestedTarget.text = displayLabel
-            textDetectedContext.text = "Tap to autofill $displayLabel"
 
             if (suggestedItems.isNotEmpty()) {
-                sectionHeader.text = "SUGGESTED FOR THIS PAGE"
+                textDetectedContext.text = "📍 Suggested for $displayLabel"
+                textDetectedContext.setTextColor(0xFFF59E0B.toInt()) // Amber highlight
                 displayItems.clear()
                 displayItems.addAll(suggestedItems)
-                // Add remaining non-matching items below
                 val remaining = allItems.filter { !suggestedItems.contains(it) }
                 displayItems.addAll(remaining)
                 adapter.notifyDataSetChanged()
                 updateEmptyState()
                 return
+            } else {
+                textDetectedContext.text = "On screen: $displayLabel"
+                textDetectedContext.setTextColor(0xFF71717A.toInt())
             }
         } else {
-            containerSuggestedBadge.visibility = View.GONE
-            textDetectedContext.text = "Tap any account to fill"
+            textDetectedContext.text = "Tap any account to autofill"
+            textDetectedContext.setTextColor(0xFF71717A.toInt())
         }
 
-        sectionHeader.text = "ALL ACCOUNTS"
         displayItems.clear()
         displayItems.addAll(allItems)
         adapter.notifyDataSetChanged()
@@ -133,18 +112,10 @@ class AutofillSearchActivity : Activity() {
     }
 
     private fun setupListeners() {
-        closeBtn.setOnClickListener { finish() }
+        // Tapping backdrop dismisses the dialog
+        rootBackdrop.setOnClickListener { dismissSheet() }
+        closeBtn.setOnClickListener { dismissSheet() }
         clearBtn.setOnClickListener { searchInput.setText("") }
-
-        btnEnableAccessibility.setOnClickListener {
-            try {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                })
-            } catch (e: Exception) {
-                Toast.makeText(this, "Open Settings → Accessibility → Enable Vaultr", Toast.LENGTH_LONG).show()
-            }
-        }
 
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -161,16 +132,13 @@ class AutofillSearchActivity : Activity() {
         displayItems.clear()
         if (query.isEmpty()) {
             if (suggestedItems.isNotEmpty()) {
-                sectionHeader.text = "SUGGESTED FOR THIS PAGE"
                 displayItems.addAll(suggestedItems)
                 val remaining = allItems.filter { !suggestedItems.contains(it) }
                 displayItems.addAll(remaining)
             } else {
-                sectionHeader.text = "ALL ACCOUNTS"
                 displayItems.addAll(allItems)
             }
         } else {
-            sectionHeader.text = "SEARCH RESULTS"
             val q = query.lowercase()
             displayItems.addAll(allItems.filter { item ->
                 item.name.lowercase().contains(q) ||
@@ -192,12 +160,12 @@ class AutofillSearchActivity : Activity() {
                     startActivity(Intent(this, MainActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     })
-                    finish()
+                    dismissSheet()
                 }
             }
             displayItems.isEmpty() -> {
                 statusText.visibility = View.VISIBLE
-                statusText.text = "No matching accounts found."
+                statusText.text = "No matching credentials found."
                 statusText.setOnClickListener(null)
             }
             else -> {
@@ -207,38 +175,32 @@ class AutofillSearchActivity : Activity() {
         }
     }
 
-    private fun updateAccessibilityState() {
-        val isServiceActive = VaultrAccessibilityService.isRunning()
-        if (isServiceActive) {
-            textAccessibilityStatus.text = "⚡ 1-Tap direct autofill ready"
-            textAccessibilityStatus.setTextColor(0xFF10B981.toInt())
-            btnEnableAccessibility.visibility = View.GONE
-        } else {
-            textAccessibilityStatus.text = "⚠️ Enable direct autofill in Settings"
-            textAccessibilityStatus.setTextColor(0xFFF59E0B.toInt())
-            btnEnableAccessibility.visibility = View.VISIBLE
-        }
-    }
-
     private fun fillIntoActivePage(item: AutofillItem) {
         if (VaultrAccessibilityService.isRunning()) {
             VaultrAccessibilityService.queuePendingFill(applicationContext, item.username, item.password, item.name)
             copyToClipboardSecure("Password", item.password)
-            finish()
-            overridePendingTransition(0, 0)
+            dismissSheet()
         } else {
             copyToClipboardSecure("Password", item.password)
             Toast.makeText(
                 this,
-                "Password copied! Enable Accessibility in Settings for 1-tap direct fill.",
+                "Password copied! Enable Accessibility in Settings for direct fill.",
                 Toast.LENGTH_LONG
             ).show()
-            finish()
-            overridePendingTransition(0, 0)
+            dismissSheet()
         }
     }
 
+    private fun dismissSheet() {
+        finish()
+        overridePendingTransition(0, 0)
+    }
+
     private fun copyToClipboardSecure(label: String, value: String) {
+        if (value.isBlank()) {
+            Toast.makeText(this, "No $label saved", Toast.LENGTH_SHORT).show()
+            return
+        }
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText(label, value))
         Toast.makeText(this, "$label copied", Toast.LENGTH_SHORT).show()
@@ -266,7 +228,8 @@ class AutofillSearchActivity : Activity() {
         private val context: Context,
         private val items: List<AutofillItem>,
         private val onFill: (AutofillItem) -> Unit,
-        private val onCopy: (AutofillItem) -> Unit
+        private val onCopyUser: (AutofillItem) -> Unit,
+        private val onCopyPass: (AutofillItem) -> Unit
     ) : BaseAdapter() {
 
         override fun getCount() = items.size
@@ -281,19 +244,45 @@ class AutofillSearchActivity : Activity() {
             val avatarText = view.findViewById<TextView>(R.id.search_item_avatar)
             val title = view.findViewById<TextView>(R.id.search_item_title)
             val subtitle = view.findViewById<TextView>(R.id.search_item_subtitle)
-            val btnFill = view.findViewById<Button>(R.id.btn_action_fill)
-            val btnCopy = view.findViewById<ImageButton>(R.id.btn_action_copy)
+            val btnOverflow = view.findViewById<ImageButton>(R.id.btn_item_overflow)
 
             val initial = item.name.firstOrNull()?.uppercaseChar()?.toString() ?: "V"
             avatarText.text = initial
             title.text = item.name
-            subtitle.text = item.username.ifBlank { item.domain ?: "No username" }
+            subtitle.text = item.username.ifBlank { item.domain ?: "Password only" }
 
+            // 1-Tap on row: autofills
             view.setOnClickListener { onFill(item) }
-            btnFill.setOnClickListener { onFill(item) }
-            btnCopy.setOnClickListener { onCopy(item) }
+
+            // 3-Dot menu: Copy options
+            btnOverflow.setOnClickListener { v ->
+                showPopupMenu(v, item)
+            }
 
             return view
+        }
+
+        private fun showPopupMenu(anchor: View, item: AutofillItem) {
+            val popup = PopupMenu(context, anchor)
+            popup.menuInflater.inflate(R.menu.menu_autofill_item, popup.menu)
+            popup.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.action_autofill -> {
+                        onFill(item)
+                        true
+                    }
+                    R.id.action_copy_user -> {
+                        onCopyUser(item)
+                        true
+                    }
+                    R.id.action_copy_pass -> {
+                        onCopyPass(item)
+                        true
+                    }
+                    else -> false
+                }
+            }
+            popup.show()
         }
     }
 }
