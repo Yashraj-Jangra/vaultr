@@ -1,7 +1,6 @@
 package com.vaultr.mobile.autofill
 
 import android.app.PendingIntent
-import android.app.slice.Slice
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -20,6 +19,9 @@ import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
 import android.widget.inline.InlinePresentationSpec
+import androidx.annotation.RequiresApi
+import androidx.autofill.inline.UiVersions
+import androidx.autofill.inline.v1.InlineSuggestionUi
 import com.vaultr.mobile.MainActivity
 import com.vaultr.mobile.R
 
@@ -35,7 +37,11 @@ class VaultrAutofillService : AutofillService() {
         AutofillCredentialStore.initialize(applicationContext)
     }
 
-    override fun onFillRequest(request: FillRequest, cancellationSignal: CancellationSignal, callback: FillCallback) {
+    override fun onFillRequest(
+        request: FillRequest,
+        cancellationSignal: CancellationSignal,
+        callback: FillCallback
+    ) {
         AutofillCredentialStore.initialize(applicationContext)
 
         val contexts = request.fillContexts
@@ -47,26 +53,24 @@ class VaultrAutofillService : AutofillService() {
         val structure = contexts.last().structure
         val parsed = StructureParser.parse(structure)
 
-        Log.d(TAG, "onFillRequest: domain=${parsed.webDomain}, pkg=${parsed.packageName}, hasCredentialsForm=${parsed.hasCredentialsForm}, userField=${parsed.usernameId}, passField=${parsed.passwordId}")
+        Log.d(TAG, "onFillRequest: domain=${parsed.webDomain}, pkg=${parsed.packageName}, hasCredentialsForm=${parsed.hasCredentialsForm}, user=${parsed.usernameId}, pass=${parsed.passwordId}")
 
-        // If not an authentic credential input or form, skip immediately to prevent false-positive popups
+        // Skip if no genuine credential form detected
         if (!parsed.hasCredentialsForm || (parsed.usernameId == null && parsed.passwordId == null)) {
             callback.onSuccess(null)
             return
         }
 
-        // Target matching priority: Web Domain > Package Name
         val targetQuery = parsed.webDomain ?: parsed.packageName
         val matchingLogins = AutofillCredentialStore.findMatches(targetQuery)
-        val allStoredCount = AutofillCredentialStore.getCount()
-
-        val responseBuilder = FillResponse.Builder()
+        val vaultCount = AutofillCredentialStore.getCount()
         val targetIds = listOfNotNull(parsed.usernameId, parsed.passwordId).toTypedArray()
 
-        // ── Case 1: Vault is Locked or Empty -> Offer "🔒 Unlock Vaultr" Chip ──
-        if (matchingLogins.isEmpty()) {
-            if (allStoredCount == 0) {
-                // Show "Unlock Vaultr to Autofill" authentication dataset
+        val responseBuilder = FillResponse.Builder()
+
+        // ── Vault Locked / Empty → Show "Unlock Vaultr" chip ──
+        if (vaultCount == 0 || matchingLogins.isEmpty() && vaultCount > 0) {
+            if (vaultCount == 0) {
                 val unlockDataset = buildUnlockDataset(targetIds, request)
                 if (unlockDataset != null) {
                     responseBuilder.addDataset(unlockDataset)
@@ -74,56 +78,51 @@ class VaultrAutofillService : AutofillService() {
                     return
                 }
             }
-            // No matching credentials and vault unlocked -> don't show popup on random pages
+            // Vault unlocked but no matching creds for this domain → no popup
             callback.onSuccess(null)
             return
         }
 
-        // ── Case 2: Matching Credentials Found -> Build Suggestion Chips & Dropdowns ──
+        // ── Matching Credentials Found ──
         for (item in matchingLogins) {
             val datasetBuilder = Dataset.Builder()
+            val presentation = buildDropdownView(item)
 
-            // 1. Dropdown Presentation (RemoteViews)
-            val presentation = buildDropdownRemoteViews(item)
-
-            // 2. Inline Keyboard Presentation (Android 11+ / API 30+)
-            var inlinePresentation: InlinePresentation? = null
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && request.inlineSuggestionsRequest != null) {
-                val inlineSpec = request.inlineSuggestionsRequest?.inlinePresentationSpecs?.firstOrNull()
-                if (inlineSpec != null) {
-                    inlinePresentation = buildInlinePresentation(item, inlineSpec)
-                }
-            }
-
-            // Assign values to username and password fields
-            if (parsed.usernameId != null) {
-                if (inlinePresentation != null) {
-                    datasetBuilder.setValue(parsed.usernameId, AutofillValue.forText(item.username), presentation, inlinePresentation)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                request.inlineSuggestionsRequest != null
+            ) {
+                val specs = request.inlineSuggestionsRequest?.inlinePresentationSpecs
+                val spec = specs?.firstOrNull()
+                if (spec != null) {
+                    val inlinePresentation = buildInlineSuggestion(item, spec)
+                    if (inlinePresentation != null) {
+                        parsed.usernameId?.let {
+                            datasetBuilder.setValue(it, AutofillValue.forText(item.username), presentation, inlinePresentation)
+                        }
+                        parsed.passwordId?.let {
+                            datasetBuilder.setValue(it, AutofillValue.forText(item.password), presentation, inlinePresentation)
+                        }
+                    } else {
+                        fillWithDropdown(datasetBuilder, parsed.usernameId, parsed.passwordId, item, presentation)
+                    }
                 } else {
-                    datasetBuilder.setValue(parsed.usernameId, AutofillValue.forText(item.username), presentation)
+                    fillWithDropdown(datasetBuilder, parsed.usernameId, parsed.passwordId, item, presentation)
                 }
-            }
-
-            if (parsed.passwordId != null) {
-                if (inlinePresentation != null) {
-                    datasetBuilder.setValue(parsed.passwordId, AutofillValue.forText(item.password), presentation, inlinePresentation)
-                } else {
-                    datasetBuilder.setValue(parsed.passwordId, AutofillValue.forText(item.password), presentation)
-                }
+            } else {
+                fillWithDropdown(datasetBuilder, parsed.usernameId, parsed.passwordId, item, presentation)
             }
 
             try {
                 responseBuilder.addDataset(datasetBuilder.build())
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to build dataset for item ${item.name}", e)
+                Log.w(TAG, "Failed to build dataset for '${item.name}'", e)
             }
         }
 
-        // Setup SaveInfo so user can save or update credentials on submit
-        val saveType = SaveInfo.SAVE_DATA_TYPE_PASSWORD or SaveInfo.SAVE_DATA_TYPE_USERNAME
+        // SaveInfo — allow saving new credentials from login forms
         if (targetIds.isNotEmpty()) {
-            val saveInfo = SaveInfo.Builder(saveType, targetIds).build()
-            responseBuilder.setSaveInfo(saveInfo)
+            val saveType = SaveInfo.SAVE_DATA_TYPE_PASSWORD or SaveInfo.SAVE_DATA_TYPE_USERNAME
+            responseBuilder.setSaveInfo(SaveInfo.Builder(saveType, targetIds).build())
         }
 
         callback.onSuccess(responseBuilder.build())
@@ -134,129 +133,146 @@ class VaultrAutofillService : AutofillService() {
         callback.onSuccess()
     }
 
-    private fun buildDropdownRemoteViews(item: AutofillItem): RemoteViews {
+    // ──────────────────────────────────────────
+    // Views
+    // ──────────────────────────────────────────
+
+    private fun buildDropdownView(item: AutofillItem): RemoteViews {
         val views = RemoteViews(packageName, R.layout.autofill_dataset_item)
         views.setTextViewText(R.id.autofill_item_title, item.name)
-        views.setTextViewText(R.id.autofill_item_subtitle, item.username.ifBlank { "Password Only" })
+        views.setTextViewText(R.id.autofill_item_subtitle, item.username.ifBlank { "Password only" })
         return views
     }
 
-    private fun buildUnlockRemoteViews(): RemoteViews {
+    private fun buildUnlockDropdownView(): RemoteViews {
         val views = RemoteViews(packageName, R.layout.autofill_dataset_item)
-        views.setTextViewText(R.id.autofill_item_title, "Unlock Vaultr")
-        views.setTextViewText(R.id.autofill_item_subtitle, "Tap to unlock and autofill")
+        views.setTextViewText(R.id.autofill_item_title, "🔒 Unlock Vaultr")
+        views.setTextViewText(R.id.autofill_item_subtitle, "Tap to authenticate and autofill")
         return views
     }
 
-    private fun buildInlinePresentation(item: AutofillItem, spec: InlinePresentationSpec): InlinePresentation? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
-        return try {
-            val slice = createInlineSlice(item)
-            InlinePresentation(slice, spec, false)
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not create inline presentation", e)
-            null
-        }
+    private fun fillWithDropdown(
+        builder: Dataset.Builder,
+        usernameId: AutofillId?,
+        passwordId: AutofillId?,
+        item: AutofillItem,
+        presentation: RemoteViews
+    ) {
+        usernameId?.let { builder.setValue(it, AutofillValue.forText(item.username), presentation) }
+        passwordId?.let { builder.setValue(it, AutofillValue.forText(item.password), presentation) }
     }
 
-    private fun buildUnlockInlinePresentation(spec: InlinePresentationSpec): InlinePresentation? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+    // ──────────────────────────────────────────
+    // Inline Keyboard Suggestion using androidx.autofill.inline.v1.InlineSuggestionUi
+    // ──────────────────────────────────────────
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun buildInlineSuggestion(
+        item: AutofillItem,
+        spec: InlinePresentationSpec
+    ): InlinePresentation? {
         return try {
-            val sliceUri = android.net.Uri.parse("content://com.vaultr.mobile.autofill/unlock")
-            val builder = Slice.Builder(sliceUri, android.app.slice.SliceSpec("androidx.autofill.inline.ui.version:1", 1))
-
-            builder.addText("Unlock Vaultr", null, listOf(Slice.HINT_TITLE))
-            builder.addText("Tap to authenticate", null, listOf(Slice.HINT_SUMMARY))
-
-            val icon = Icon.createWithResource(this, R.drawable.ic_vaultr_lock_small)
-            builder.addIcon(icon, null, listOf(Slice.HINT_TITLE))
-
-            val intent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            // Check IME supports inline suggestion version 1
+            val supportedVersions = UiVersions.getVersions(spec.style)
+            if (!supportedVersions.contains(UiVersions.INLINE_UI_VERSION_1)) {
+                Log.d(TAG, "IME doesn't support InlineSuggestionUi v1, skipping")
+                return null
             }
+
+            val label = item.username.ifBlank { item.name }
+            val subtitle = "Vaultr • ${item.name}"
+            val icon = Icon.createWithResource(this, R.drawable.ic_vaultr_lock_small)
+
             val pendingIntent = PendingIntent.getActivity(
                 this,
-                9999,
-                intent,
+                item.id.hashCode(),
+                Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-            val actionSlice = Slice.Builder(builder).addHints(listOf(Slice.HINT_SHORTCUT)).build()
-            builder.addAction(pendingIntent, actionSlice, null)
 
-            InlinePresentation(builder.build(), spec, false)
+            val contentBuilder = InlineSuggestionUi.newContentBuilder(pendingIntent).apply {
+                setTitle(label)
+                setSubtitle(subtitle)
+                setStartIcon(icon)
+            }
+
+            InlinePresentation(contentBuilder.build().slice, spec, false)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to build InlineSuggestionUi: ${e.message}")
+            null
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // Unlock Auth Dataset
+    // ──────────────────────────────────────────
+
+    private fun buildUnlockDataset(
+        targetIds: Array<AutofillId>,
+        request: FillRequest
+    ): Dataset? {
+        if (targetIds.isEmpty()) return null
+        return try {
+            val datasetBuilder = Dataset.Builder()
+            val presentation = buildUnlockDropdownView()
+
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                8888,
+                Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            // Inline unlock chip (Gboard)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                request.inlineSuggestionsRequest != null
+            ) {
+                val spec = request.inlineSuggestionsRequest?.inlinePresentationSpecs?.firstOrNull()
+                if (spec != null) {
+                    val unlockInline = buildUnlockInlineSuggestion(spec, pendingIntent)
+                    if (unlockInline != null) {
+                        for (id in targetIds) {
+                            datasetBuilder.setValue(id, null, presentation, unlockInline)
+                        }
+                        datasetBuilder.setAuthentication(pendingIntent.intentSender)
+                        return datasetBuilder.build()
+                    }
+                }
+            }
+
+            for (id in targetIds) {
+                datasetBuilder.setValue(id, null, presentation)
+            }
+            datasetBuilder.setAuthentication(pendingIntent.intentSender)
+            datasetBuilder.build()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to build unlock dataset: ${e.message}")
+            null
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun buildUnlockInlineSuggestion(
+        spec: InlinePresentationSpec,
+        pendingIntent: PendingIntent
+    ): InlinePresentation? {
+        return try {
+            val supportedVersions = UiVersions.getVersions(spec.style)
+            if (!supportedVersions.contains(UiVersions.INLINE_UI_VERSION_1)) return null
+
+            val icon = Icon.createWithResource(this, R.drawable.ic_vaultr_lock_small)
+            val contentBuilder = InlineSuggestionUi.newContentBuilder(pendingIntent).apply {
+                setTitle("🔒 Unlock Vaultr")
+                setSubtitle("Tap to authenticate")
+                setStartIcon(icon)
+            }
+            InlinePresentation(contentBuilder.build().slice, spec, false)
         } catch (e: Exception) {
             null
         }
-    }
-
-    private fun buildUnlockDataset(targetIds: Array<AutofillId>, request: FillRequest): Dataset? {
-        if (targetIds.isEmpty()) return null
-
-        val datasetBuilder = Dataset.Builder()
-        val presentation = buildUnlockRemoteViews()
-
-        var inlinePresentation: InlinePresentation? = null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && request.inlineSuggestionsRequest != null) {
-            val inlineSpec = request.inlineSuggestionsRequest?.inlinePresentationSpecs?.firstOrNull()
-            if (inlineSpec != null) {
-                inlinePresentation = buildUnlockInlinePresentation(inlineSpec)
-            }
-        }
-
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            8888,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        for (id in targetIds) {
-            if (inlinePresentation != null) {
-                datasetBuilder.setValue(id, null, presentation, inlinePresentation)
-            } else {
-                datasetBuilder.setValue(id, null, presentation)
-            }
-        }
-
-        datasetBuilder.setAuthentication(pendingIntent.intentSender)
-        return try {
-            datasetBuilder.build()
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun createInlineSlice(item: AutofillItem): Slice {
-        val sliceUri = android.net.Uri.parse("content://com.vaultr.mobile.autofill/inline/${item.id}")
-        val builder = Slice.Builder(sliceUri, android.app.slice.SliceSpec("androidx.autofill.inline.ui.version:1", 1))
-
-        // Title: username or item name
-        val label = if (item.username.isNotBlank()) item.username else item.name
-        builder.addText(label, null, listOf(Slice.HINT_TITLE))
-
-        // Subtitle / Brand
-        builder.addText("Vaultr • ${item.name}", null, listOf(Slice.HINT_SUMMARY))
-
-        // Icon
-        val icon = Icon.createWithResource(this, R.drawable.ic_vaultr_lock_small)
-        builder.addIcon(icon, null, listOf(Slice.HINT_TITLE))
-
-        // Action
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            item.id.hashCode(),
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        val actionSlice = Slice.Builder(builder).addHints(listOf(Slice.HINT_SHORTCUT)).build()
-        builder.addAction(pendingIntent, actionSlice, null)
-
-        return builder.build()
     }
 }
