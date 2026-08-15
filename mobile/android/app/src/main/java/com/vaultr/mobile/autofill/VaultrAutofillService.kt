@@ -153,13 +153,22 @@ class VaultrAutofillService : AutofillService() {
     ): Dataset {
         val presBuilder = Presentations.Builder().setMenuPresentation(menuView)
         if (inlinePresentation != null) presBuilder.setInlinePresentation(inlinePresentation)
+        val presentations = presBuilder.build()
 
-        val datasetBuilder = Dataset.Builder(presBuilder.build())
+        val datasetBuilder = Dataset.Builder(presentations)
         usernameId?.let {
-            datasetBuilder.setField(it, Field.Builder().setValue(AutofillValue.forText(item.username)).build())
+            val field = Field.Builder()
+                .setValue(AutofillValue.forText(item.username))
+                .setPresentations(presentations)
+                .build()
+            datasetBuilder.setField(it, field)
         }
         passwordId?.let {
-            datasetBuilder.setField(it, Field.Builder().setValue(AutofillValue.forText(item.password)).build())
+            val field = Field.Builder()
+                .setValue(AutofillValue.forText(item.password))
+                .setPresentations(presentations)
+                .build()
+            datasetBuilder.setField(it, field)
         }
         return datasetBuilder.build()
     }
@@ -213,10 +222,11 @@ class VaultrAutofillService : AutofillService() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val presBuilder = Presentations.Builder().setMenuPresentation(menuView)
                 if (inlinePresentation != null) presBuilder.setInlinePresentation(inlinePresentation)
-                val datasetBuilder = Dataset.Builder(presBuilder.build())
+                val presentations = presBuilder.build()
+                val datasetBuilder = Dataset.Builder(presentations)
                     .setAuthentication(unlockIntent.intentSender)
                 for (id in targetIds) {
-                    datasetBuilder.setField(id, Field.Builder().build())
+                    datasetBuilder.setField(id, Field.Builder().setPresentations(presentations).build())
                 }
                 datasetBuilder.build()
             } else {
