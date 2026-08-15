@@ -1,8 +1,14 @@
 # Vaultr — Project Tracker
 
-## Last Session: Android Autofill & Quick Settings Overhaul (2026-08-15)
+## Last Session: Android Autofill & Master Password Verification Fix (2026-08-15)
 
 ### ✅ What Was Done
+
+#### Web Master Password Verification & Shake Animation
+- **`src/context/VaultContext.tsx`** — Fixed `unlock()`:
+  - Previously returned a string message (`return msg;`) instead of throwing, which prevented `MasterPasswordPrompt.tsx`'s `try/catch` block from catching incorrect passwords.
+  - Now checks available items (or fetches from `/api/vault/items` if not yet loaded) and throws `new Error("Incorrect master password.")` on decryption failure.
+- **`src/components/vault/MasterPasswordPrompt.tsx`** — Attached `passwordInputRef` to auto-select input text and properly increments `setShakeKey(k => k + 1)` on error, triggering the CSS `.animate-shake` animation.
 
 #### Android Autofill Framework & Keyboard Integration
 - **`autofill_service_config.xml`** — Added `android:supportsInlineSuggestions="true"`, enabling OS-level handshake with Samsung Keyboard & Gboard.
@@ -19,23 +25,7 @@
 - **`activity_autofill_search.xml` & `item_autofill_search_row.xml`** — Minimalist surface layout, dark theme (`#0c0d12`), rounded pill search box, clean letter avatars, and zero container clutter.
 - **`AndroidManifest.xml`** — Isolated task affinity (`android:taskAffinity=""`, `noHistory="true"`) to prevent launching `MainActivity`.
 
-#### Mobile Sync System (complete)
-- **`mobile/src/services/sync.ts`** — Stripped offline queue logic. User-scoped encrypted cache only.
-- **`mobile/src/services/connectivity.ts`** — Zero-dependency connectivity probe service.
-- **`mobile/src/store/vaultStore.ts`** — Added `isOnline` state, graceful offline read-only fallback, and strict write guards.
-
 #### Builds & Verification
+- Web App TypeScript: `npx tsc --noEmit` → **0 errors**
 - Mobile Kotlin / Gradle: `gradlew.bat :app:compileDebugKotlin` → **BUILD SUCCESSFUL (0 errors)**
 - Mobile TypeScript: `npx tsc --noEmit` → **0 errors**
-- Web App TypeScript: `npx tsc --noEmit` → **0 errors**
-
----
-
-## 🔜 Next Steps
-
-1. **Verify Quick Settings Tile on device**:
-   - Open a login page in Samsung Internet / Chrome / App → swipe down shade → tap "Vaultr Autofill" → tap row to 1-tap fill or tap `⋮` for copy actions.
-2. **E2E testing of offline flow on physical Android device**:
-   - Lock device network → unlock vault → verify read-only mode + amber banner.
-   - Restore network → tap Retry → verify auto-refresh and write re-enable.
-3. **Import edge cases** on mobile (large CSV files with 1000+ entries).
