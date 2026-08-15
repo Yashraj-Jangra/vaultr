@@ -147,7 +147,7 @@ const LEFT = {
     headline: "Zero-knowledge\nsecurity, day one.",
     sub: "Your vault is encrypted before it leaves your browser. Not even we can see inside.",
     illustration: "/illustrations/security_0ubl.svg",
-    formIcon: "/illustrations/vault_tyfh.svg",
+    formIcon: "/illustrations/secure-login_m11a.svg",
     bullets: [
       { icon: <UserPlus className="w-3.5 h-3.5" />, title: "30-second setup", desc: "No credit card required" },
       { icon: <Lock className="w-3.5 h-3.5" />, title: "Master password", desc: "Only you know it — ever" },

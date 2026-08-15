@@ -11,6 +11,9 @@ import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
+import * as FileSystem from 'expo-file-system/legacy';
+import { uint8ArrayToBase64, base64ToUint8Array } from "../utils/base64";
+
 interface VaultState {
   // Auth state
   accountUser: AccountUser | null;
@@ -199,7 +202,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       const cleanUrl = serverUrl.replace(/\/+$/, "");
       const res = await fetch(`${cleanUrl}/api/me`, {
         headers: {
-          Authorization: `Bearer ${accountToken}`,
+          "Authorization": `Bearer ${accountToken}`,
+          "Cookie": `better-auth.session_token=${accountToken}`,
         },
       });
       
@@ -233,7 +237,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ isLoading: true });
     try {
       const cleanUrl = url.replace(/\/+$/, "");
-      const res = await fetch(`${cleanUrl}/api/auth/sign-in/email`, {
+      const res = await fetch(`${cleanUrl}/api/auth/mobile-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -282,7 +286,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ isLoading: true });
     try {
       const cleanUrl = url.replace(/\/+$/, "");
-      const res = await fetch(`${cleanUrl}/api/auth/sign-up/email`, {
+      const res = await fetch(`${cleanUrl}/api/auth/mobile-register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -869,46 +873,138 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   uploadAttachment: async (vaultItemId: string, doc: { uri: string; name: string; mimeType: string; size?: number }) => {
-    const { cryptoKey, isOnline } = get();
+    const { cryptoKey, isOnline, serverUrl, accountToken } = get();
     if (!cryptoKey) throw new Error("Vault is locked");
     if (!isOnline) {
       throw new Error("Internet connection is required to upload attachments.");
     }
 
-    // Read file bytes from local device URI
-    const res = await fetch(doc.uri);
-    const arrayBuffer = await res.arrayBuffer();
-    const rawBytes = new Uint8Array(arrayBuffer);
+    // Android content:// URIs (from media picker) cannot be read directly by FileSystem or fetch.
+    // The ONLY reliable approach is to copy via the native ContentResolver into our private cache.
+    let readableUri = doc.uri;
+    let didCopy = false;
+    if (doc.uri.startsWith("content://")) {
+      const destUri = FileSystem.cacheDirectory + "pick_" + Date.now() + ".tmp";
+      await FileSystem.copyAsync({ from: doc.uri, to: destUri });
+      readableUri = destUri;
+      didCopy = true;
+    }
+
+    let base64Content: string;
+    try {
+      base64Content = await FileSystem.readAsStringAsync(readableUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } finally {
+      if (didCopy) {
+        FileSystem.deleteAsync(readableUri, { idempotent: true }).catch(() => {});
+      }
+    }
+
+    const rawBytes = base64ToUint8Array(base64Content);
 
     // Encrypt file contents and filename with AES-256-GCM
     const encryptedBytes = await encryptBinary(cryptoKey, rawBytes);
     const encryptedName = await encrypt(cryptoKey, doc.name);
 
-    const formData = new FormData();
-    formData.append("vaultItemId", vaultItemId);
-    formData.append("encryptedName", encryptedName);
-    formData.append("mimeType", doc.mimeType || "application/octet-stream");
+    // Write encrypted bytes to a temp file to upload
+    const tempUri = FileSystem.cacheDirectory + 'enc_' + Date.now() + '.bin';
+    const encryptedBase64 = uint8ArrayToBase64(encryptedBytes);
+    await FileSystem.writeAsStringAsync(tempUri, encryptedBase64, { encoding: FileSystem.EncodingType.Base64 });
 
-    // Pass encrypted file as binary blob to standard multipart form
-    formData.append("encryptedFile", new Blob([encryptedBytes as any], { type: "application/octet-stream" }) as any);
+    const cleanBaseUrl = serverUrl.replace(/\/+$/, "");
 
-    const api = getApiClient();
-    return await api.uploadAttachment(formData);
+    // Build auth headers — Better Auth needs both the Bearer token AND the session cookie
+    const authHeaders: Record<string, string> = {
+      "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "ios" : "android"})`,
+      "Origin": cleanBaseUrl,
+      "Referer": `${cleanBaseUrl}/`,
+    };
+    if (accountToken) {
+      authHeaders["Authorization"] = `Bearer ${accountToken}`;
+      authHeaders["Cookie"] = `better-auth.session_token=${accountToken}`;
+    }
+
+    const uploadUrl = `${cleanBaseUrl}/api/vault/attachments`;
+
+    try {
+      // Use FileSystem.uploadAsync — the ONLY reliable multipart upload path on Hermes/Android.
+      // Standard fetch + FormData + file URI is broken in React Native's JS engine for binary data.
+      const uploadResult = await FileSystem.uploadAsync(uploadUrl, tempUri, {
+        httpMethod: "POST",
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: "encryptedFile",
+        mimeType: "application/octet-stream",
+        parameters: {
+          vaultItemId,
+          encryptedName,
+          mimeType: doc.mimeType || "application/octet-stream",
+        },
+        headers: authHeaders,
+      });
+
+      await FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        let errMsg = `Upload failed with status ${uploadResult.status}`;
+        try {
+          const parsed = JSON.parse(uploadResult.body);
+          if (parsed.error) errMsg = parsed.error;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
+      return JSON.parse(uploadResult.body);
+    } catch (err) {
+      await FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+      throw err;
+    }
   },
 
   downloadAndDecryptAttachment: async (attachmentId: string, encryptedName: string) => {
-    const { cryptoKey } = get();
+    const { cryptoKey, serverUrl, accountToken } = get();
     if (!cryptoKey) throw new Error("Vault is locked");
 
-    const api = getApiClient();
-    const encryptedArrayBuffer = await api.downloadAttachment(attachmentId);
-    const encryptedBytes = new Uint8Array(encryptedArrayBuffer);
+    const cleanBaseUrl = serverUrl.replace(/\/+$/, "");
+
+    // Download using expo-file-system to avoid RN fetch() binary ArrayBuffer corruption.
+    // IMPORTANT: Better Auth validates sessions via the `better-auth.session_token` cookie.
+    // The Authorization header alone is not sufficient — we must send both.
+    const downloadUri = FileSystem.cacheDirectory + 'download_' + Date.now() + '.bin';
+    const headers: Record<string, string> = {
+      "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
+      "Origin": cleanBaseUrl,
+      "Referer": `${cleanBaseUrl}/`,
+    };
+    if (accountToken) {
+      headers["Authorization"] = `Bearer ${accountToken}`;
+      headers["Cookie"] = `better-auth.session_token=${accountToken}`;
+    }
+
+    const downloadUrl = `${cleanBaseUrl}/api/vault/attachments/${encodeURIComponent(attachmentId)}/download`;
+    const { status } = await FileSystem.downloadAsync(downloadUrl, downloadUri, { headers });
+
+    if (status !== 200) {
+      await FileSystem.deleteAsync(downloadUri, { idempotent: true }).catch(() => {});
+      throw new Error(`Download failed with status ${status}`);
+    }
+
+    const encryptedBase64 = await FileSystem.readAsStringAsync(downloadUri, { encoding: FileSystem.EncodingType.Base64 });
+    const encryptedBytes = base64ToUint8Array(encryptedBase64);
+    await FileSystem.deleteAsync(downloadUri, { idempotent: true }).catch(() => {});
 
     const decryptedBytes = await decryptBinary(cryptoKey, encryptedBytes);
+
+    // encryptedName may already be decrypted (when called from fetchAttachments path),
+    // or may be the raw encrypted blob (when called directly with the DB value).
+    // Try to decrypt; if that fails (not a valid ciphertext), use as-is.
     let name = "attachment.bin";
     try {
       name = await decrypt(cryptoKey, encryptedName);
-    } catch {}
+    } catch {
+      // encryptedName was already plaintext (pre-decrypted by fetchAttachments)
+      if (encryptedName && encryptedName.trim().length > 0) name = encryptedName;
+    }
 
     return { name, bytes: decryptedBytes };
   },

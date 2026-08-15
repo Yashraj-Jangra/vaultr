@@ -150,14 +150,16 @@ function getFileIcon(mimeType: string) {
   return <FileText className="w-4 h-4 text-neutral-400 shrink-0" />;
 }
 
-function AttachmentRow({
+export function AttachmentRow({
   attachment,
   decryptItem,
+  cryptoKey,
   onDelete,
 }: {
   attachment: any;
   decryptItem: (blob: string) => Promise<string>;
-  onDelete: (id: string) => Promise<void>;
+  cryptoKey: CryptoKey | null;
+  onDelete?: (id: string) => Promise<void>;
 }) {
   const [name, setName] = useState<string>("Decrypting...");
   const [downloading, setDownloading] = useState(false);
@@ -171,16 +173,22 @@ function AttachmentRow({
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      // Download the encrypted content directly from our Next.js API (bypasses all S3 CORS blocks)
       const res = await fetch(`/api/vault/attachments/${attachment.id}/download`);
-      if (!res.ok) throw new Error("Download failed");
-      const encryptedContent = await res.text();
+      if (!res.ok) throw new Error(`Download failed with status ${res.status}`);
 
-      // Decrypt it
-      const base64 = await decryptItem(encryptedContent);
-      const blob = base64ToBlob(base64, attachment.mimeType);
+      // Read raw encrypted bytes — MUST be ArrayBuffer, never text() (text() corrupts binary)
+      const encryptedBuffer = await res.arrayBuffer();
+      const encryptedBytes = new Uint8Array(encryptedBuffer);
 
-      // Trigger download
+      // Decrypt using the binary path (AES-GCM on raw Uint8Array)
+      if (!cryptoKey) throw new Error("Vault is locked");
+
+      // Extract IV (first 12 bytes) and ciphertext
+      const { decryptBinary } = await import("@vaultr/core");
+      const decryptedBytes = await decryptBinary(cryptoKey, encryptedBytes);
+
+      // Trigger browser download
+      const blob = new Blob([decryptedBytes as unknown as BlobPart], { type: attachment.mimeType || "application/octet-stream" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = name;
@@ -212,14 +220,16 @@ function AttachmentRow({
         >
           {downloading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
         </button>
-        <button
-          type="button"
-          onClick={() => onDelete(attachment.id)}
-          className="p-1 hover:text-red-400 text-[var(--fg-muted)] transition-colors cursor-pointer"
-          title="Delete file"
-        >
-          <Trash className="w-3.5 h-3.5" />
-        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(attachment.id)}
+            className="p-1 hover:text-red-400 text-[var(--fg-muted)] transition-colors cursor-pointer"
+            title="Delete file"
+          >
+            <Trash className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -282,11 +292,16 @@ function AttachmentsPanel({
     setUploading(true);
     for (const file of files) {
       try {
-        const base64 = await fileToBase64(file);
-        const encBytes = await encryptData(base64);
+        if (!cryptoKey) throw new Error("Vault is locked");
+
+        // Read raw bytes and encrypt with binary path — same format as mobile
+        const { encryptBinary } = await import("@vaultr/core");
+        const rawBuffer = await file.arrayBuffer();
+        const rawBytes = new Uint8Array(rawBuffer);
+        const encryptedBytes = await encryptBinary(cryptoKey, rawBytes);
         const encName = await encryptData(file.name);
 
-        const encBlob = new Blob([encBytes], { type: "application/octet-stream" });
+        const encBlob = new Blob([encryptedBytes as unknown as BlobPart], { type: "application/octet-stream" });
         const fd = new FormData();
         fd.append("vaultItemId", itemId);
         fd.append("encryptedFile", encBlob, "file.enc");
@@ -395,6 +410,7 @@ function AttachmentsPanel({
               key={att.id}
               attachment={att}
               decryptItem={decryptItem}
+              cryptoKey={cryptoKey}
               onDelete={handleDeleteAttachment}
             />
           ))}
@@ -767,11 +783,16 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     if (targetItemId && pendingFiles.length > 0) {
       for (const file of pendingFiles) {
         try {
-          const base64 = await fileToBase64(file);
-          const encBytes = await encryptData(base64);
+          if (!cryptoKey) throw new Error("Vault is locked");
+
+          // Read raw bytes and encrypt with binary path — same format as mobile
+          const { encryptBinary } = await import("@vaultr/core");
+          const rawBuffer = await file.arrayBuffer();
+          const rawBytes = new Uint8Array(rawBuffer);
+          const encryptedBytes = await encryptBinary(cryptoKey, rawBytes);
           const encName = await encryptData(file.name);
 
-          const encBlob = new Blob([encBytes], { type: "application/octet-stream" });
+          const encBlob = new Blob([encryptedBytes as unknown as BlobPart], { type: "application/octet-stream" });
           const fd = new FormData();
           fd.append("vaultItemId", targetItemId);
           fd.append("encryptedFile", encBlob, "file.enc");

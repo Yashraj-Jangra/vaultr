@@ -196,15 +196,24 @@ export const encryptBinary = async (
   bytes: Uint8Array
 ): Promise<Uint8Array> => {
   const iv = getRandomValues(12);
-  let rawKey: Uint8Array;
-  if (key instanceof Uint8Array) {
-    rawKey = key;
-  } else {
-    const subtle = getNativeSubtle();
-    const rawBuffer = await subtle!.exportKey("raw", key as CryptoKey);
-    rawKey = new Uint8Array(rawBuffer);
+  const subtle = getNativeSubtle();
+
+  if (subtle && !(key instanceof Uint8Array)) {
+    // Use native SubtleCrypto — key may be non-extractable, so never call exportKey
+    const ciphertextBuffer = await subtle.encrypt(
+      { name: "AES-GCM", iv: iv as any },
+      key as CryptoKey,
+      bytes as any
+    );
+    const ciphertext = new Uint8Array(ciphertextBuffer);
+    const payload = new Uint8Array(iv.length + ciphertext.length);
+    payload.set(iv, 0);
+    payload.set(ciphertext, iv.length);
+    return payload;
   }
 
+  // Pure JS fallback for Uint8Array keys (React Native / Hermes)
+  const rawKey = key instanceof Uint8Array ? key : new Uint8Array(await subtle!.exportKey("raw", key as CryptoKey));
   const aesGcm = gcm(rawKey, iv);
   const ciphertext = aesGcm.encrypt(bytes);
   const payload = new Uint8Array(iv.length + ciphertext.length);
@@ -222,15 +231,20 @@ export const decryptBinary = async (
 ): Promise<Uint8Array> => {
   const iv = payload.slice(0, 12);
   const ciphertext = payload.slice(12);
-  let rawKey: Uint8Array;
-  if (key instanceof Uint8Array) {
-    rawKey = key;
-  } else {
-    const subtle = getNativeSubtle();
-    const rawBuffer = await subtle!.exportKey("raw", key as CryptoKey);
-    rawKey = new Uint8Array(rawBuffer);
+  const subtle = getNativeSubtle();
+
+  if (subtle && !(key instanceof Uint8Array)) {
+    // Use native SubtleCrypto — key may be non-extractable, so never call exportKey
+    const decryptedBuffer = await subtle.decrypt(
+      { name: "AES-GCM", iv: iv as any },
+      key as CryptoKey,
+      ciphertext as any
+    );
+    return new Uint8Array(decryptedBuffer);
   }
 
+  // Pure JS fallback for Uint8Array keys (React Native / Hermes)
+  const rawKey = key instanceof Uint8Array ? key : new Uint8Array(await subtle!.exportKey("raw", key as CryptoKey));
   const aesGcm = gcm(rawKey, iv);
   return aesGcm.decrypt(ciphertext);
 };

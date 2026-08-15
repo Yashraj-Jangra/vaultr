@@ -317,7 +317,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Illustration name="vault_tyfh" width={250} height={200} style={{ marginBottom: 18 }} />
+            <Illustration name="the-search_cjxa" width={250} height={200} style={{ marginBottom: 18 }} />
             <Text style={styles.emptyTitle}>
               {searchQuery ? "No results found" : "Nothing here yet"}
             </Text>

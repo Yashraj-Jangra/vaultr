@@ -16,6 +16,8 @@ import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { SiteIcon } from "../components/SiteIcon";
 import { TotpCode } from "../components/TotpCode";
@@ -596,12 +598,28 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                             } else if (att.id) {
                               try {
                                 const decrypted = await downloadAndDecryptAttachment(att.id, att.encryptedName || att.name);
-                                vaultAlert.alert(
-                                  "Attachment Decrypted",
-                                  `Successfully decrypted "${decrypted.name}" (${(decrypted.bytes.length / 1024).toFixed(1)} KB). File is ready on device.`,
-                                  undefined,
-                                  { illustration: "completed-task_c11d" }
-                                );
+
+                                // Save decrypted bytes to a temp file then open system share sheet
+                                const safeFilename = decrypted.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
+                                const outUri = FileSystem.cacheDirectory + safeFilename;
+
+                                // Write raw bytes via base64
+                                const { uint8ArrayToBase64 } = require('../utils/base64');
+                                const b64 = uint8ArrayToBase64(new Uint8Array(decrypted.bytes.buffer ?? decrypted.bytes));
+                                await FileSystem.writeAsStringAsync(outUri, b64, { encoding: FileSystem.EncodingType.Base64 });
+
+                                const canShare = await Sharing.isAvailableAsync();
+                                if (canShare) {
+                                  await Sharing.shareAsync(outUri, {
+                                    mimeType: att.mimeType || 'application/octet-stream',
+                                    dialogTitle: `Save ${decrypted.name}`,
+                                  });
+                                } else {
+                                  vaultAlert.alert("Saved", `"${decrypted.name}" has been saved to cache. Sharing not available on this device.`, undefined, { illustration: "completed-task_c11d" });
+                                }
+
+                                // Clean up temp file after share
+                                FileSystem.deleteAsync(outUri, { idempotent: true }).catch(() => {});
                               } catch (err: any) {
                                 vaultAlert.alert("Download Error", err?.message || "Failed to download attachment.", undefined, { illustration: "cancel_k4w9" });
                               }

@@ -22,7 +22,7 @@ import {
 import { buildFolderTree, FolderNode } from "@/components/layout/Sidebar";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 import { PasswordHealth } from "@/components/vault/PasswordHealth";
-import { NewEntryDialog } from "@/components/vault/NewEntryDialog";
+import { NewEntryDialog, AttachmentRow } from "@/components/vault/NewEntryDialog";
 import { FolderSelect } from "@/components/vault/FolderSelect";
 import { DetailedCardVisual } from "@/components/vault/DialogPreviews";
 import { ConfirmDeleteModal } from "@/components/vault/ConfirmDeleteModal";
@@ -779,8 +779,20 @@ function PasswordHistoryButton({ history }: { history: string[] }) {
   );
 }
 
-function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean }) {
+function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decryptItem, cryptoKey }: { itemId?: string; data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean, decryptItem: (blob: string) => Promise<string>, cryptoKey: CryptoKey | null }) {
   const [showCard, setShowCard] = useState(false);
+  const [attachments, setAttachments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!itemId) return;
+    fetch(`/api/vault/attachments?vaultItemId=${itemId}`)
+      .then(res => res.json())
+      .then(d => {
+        if (d.attachments) setAttachments(d.attachments);
+      })
+      .catch(console.error);
+  }, [itemId]);
+
   const t = data._template ?? "login";
   return (
     <div className={inGrid 
@@ -905,6 +917,22 @@ function ExpandedDetails({ data, readOnly, onEdit, inGrid = false }: { data: Dec
       {/* Legacy blobs */}
       {data.payload && (
         <p className="text-[13px] text-amber-400 font-mono break-all">{data.payload}</p>
+      )}
+
+      {/* Attachments */}
+      {attachments.length > 0 && (
+        <SectionGroup title="ATTACHMENTS">
+          <div className="space-y-2 pt-1 pb-1">
+            {attachments.map(att => (
+              <AttachmentRow
+                key={att.id}
+                attachment={att}
+                decryptItem={decryptItem}
+                cryptoKey={cryptoKey}
+              />
+            ))}
+          </div>
+        </SectionGroup>
       )}
 
       {/* Password History */}
@@ -1502,6 +1530,9 @@ export default function VaultPage() {
           {isRevealed && revealedData && (
             <div className="border-t border-neutral-800/60 bg-neutral-950/50">
               <ExpandedDetails
+                itemId={item.id}
+                decryptItem={decryptItem}
+                cryptoKey={cryptoKey}
                 data={revealedData}
                 readOnly={activeFilter === "trash"}
                 inGrid
@@ -1584,6 +1615,9 @@ export default function VaultPage() {
         {isRevealed && revealedData && (
           <div className="mx-4 mb-3 rounded-xl border border-neutral-800/60 bg-neutral-950/60 overflow-hidden">
             <ExpandedDetails
+              itemId={item.id}
+              decryptItem={decryptItem}
+              cryptoKey={cryptoKey}
               data={revealedData}
               readOnly={activeFilter === "trash"}
               onEdit={() => setEditDialogItem({ id: item.id, name: item.name, folder: item.folder, tags: item.tags, template, payload: revealedData })}

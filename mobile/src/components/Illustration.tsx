@@ -4,7 +4,7 @@ import { SvgXml } from "react-native-svg";
 import { ILLUSTRATION_DATA } from "./illustrationData";
 
 interface IllustrationProps {
-  name: string; // e.g. "secure-login_m11a", "forgot-password_nttj", "vault_tyfh", "empty_4zx0", or short names "secure-login", "forgot-password", "vault", "empty", "throw-away"
+  name: string; // e.g. "secure-login_m11a", "forgot-password_nttj", "safe_0mei", "empty_4zx0", or short names "secure-login", "forgot-password", "vault", "empty", "throw-away"
   width?: number;
   height?: number;
   style?: any;
@@ -23,8 +23,8 @@ function getSvgXml(name: string): string {
   if (key && ILLUSTRATION_DATA[key]) {
     return ILLUSTRATION_DATA[key];
   }
-  // Fallback to vault_tyfh
-  return ILLUSTRATION_DATA["vault_tyfh"] || "";
+  // Fallback to notify_drs8
+  return ILLUSTRATION_DATA["notify_drs8"] || "";
 }
 
 export function Illustration({ name, width = 160, height = 120, style }: IllustrationProps) {

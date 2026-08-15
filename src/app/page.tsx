@@ -47,7 +47,7 @@ const STEPS = [
     n: "03",
     title: "Store & sync everywhere",
     desc: "Logins, TOTP tokens, credit cards, and notes — client-encrypted and synced in real time across all devices.",
-    illustration: "/illustrations/vault_tyfh.svg",
+    illustration: "/illustrations/cloud-sync_h1ig.svg",
     tag: "Encrypted sync",
   },
 ];

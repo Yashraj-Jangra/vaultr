@@ -21,6 +21,7 @@ import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   X,
   Save,
@@ -55,7 +56,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const { item, initialFolder, initialTemplate, initialTotpSecret, initialName } = route.params || {};
   const isEdit = !!item;
 
-  const { isOnline, createItem, updateItem, uploadAttachment, cryptoKey, decryptItemBlob, items, customFolders } = useVaultStore();
+  const { isOnline, createItem, updateItem, uploadAttachment, fetchAttachments, cryptoKey, decryptItemBlob, items, customFolders } = useVaultStore();
 
   const [template, setTemplate] = useState<Template>(item?.template || initialTemplate || "login");
   const [name, setName] = useState(item?.name || initialName || "");
@@ -201,28 +202,43 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
           if (p.note) setNote(p.note);
           if (p.entryNotes) setEntryNotes(p.entryNotes);
-          if (p.attachments && Array.isArray(p.attachments)) setAttachments(p.attachments);
         } catch {}
+
+        // Fetch attachments from server
+        // Note: fetchAttachments already decrypts the names before returning.
+        try {
+          const serverAttachments = await fetchAttachments(item.id);
+          setAttachments(serverAttachments.map(att => ({
+            id: att.id,
+            name: att.name, // already decrypted by the store
+            size: att.sizeBytes,
+            mimeType: att.mimeType,
+            uri: "", // existing server attachments have no local URI
+          })));
+        } catch (e) {
+          console.warn("[ItemForm] Failed to fetch attachments for edit", e);
+        }
       })();
     }
-  }, [isEdit, item]);
+  }, [isEdit, item, fetchAttachments]);
 
   const handlePickDocument = async () => {
     try {
-      const res = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: false,
         multiple: false,
       });
-      if (!res.canceled && res.assets[0]) {
-        const doc = res.assets[0];
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        // expo-file-system can read content:// URIs directly
         setAttachments((prev) => [
           ...prev,
           {
             id: "att_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
-            name: doc.name,
-            uri: doc.uri,
-            size: doc.size || 0,
-            mimeType: doc.mimeType || "application/octet-stream",
+            uri: file.uri,
+            name: file.name,
+            size: file.size || 0,
+            mimeType: file.mimeType || "application/octet-stream",
           },
         ]);
       }
@@ -355,8 +371,11 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 mimeType: att.mimeType || "application/octet-stream",
                 size: att.size,
               });
-            } catch (attErr) {
+              FileSystem.deleteAsync(att.uri, { idempotent: true }).catch(() => {});
+            } catch (attErr: any) {
               console.warn("[ItemForm] Attachment upload warning:", attErr);
+              vaultAlert.alert("Attachment Upload Failed", attErr?.message || "Could not upload one or more attachments.", undefined, { illustration: "cancel_k4w9" });
+              return; // Stop saving process if attachment fails
             }
           }
         }

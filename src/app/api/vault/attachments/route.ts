@@ -24,14 +24,34 @@ export async function POST(req: NextRequest) {
   try {
     const user = await verifyUserToken(req);
 
-    const formData       = await req.formData();
-    const vaultItemId    = formData.get("vaultItemId") as string | null;
-    const encryptedFile  = formData.get("encryptedFile") as File | null;
-    const encryptedName  = formData.get("encryptedName") as string | null;
-    const mimeType       = (formData.get("mimeType") as string | null) ?? "application/octet-stream";
+    let vaultItemId: string | null = null;
+    let encryptedName: string | null = null;
+    let mimeType: string = "application/octet-stream";
+    let bytes: ArrayBuffer | null = null;
+    let size: number = 0;
+
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("multipart/form-data")) {
+      const formData       = await req.formData();
+      vaultItemId    = formData.get("vaultItemId") as string | null;
+      const encryptedFile  = formData.get("encryptedFile") as File | null;
+      encryptedName  = formData.get("encryptedName") as string | null;
+      mimeType       = (formData.get("mimeType") as string | null) ?? "application/octet-stream";
+      if (encryptedFile) {
+        bytes = await encryptedFile.arrayBuffer();
+        size = encryptedFile.size;
+      }
+    } else {
+      vaultItemId = req.headers.get("x-vault-item-id");
+      const rawName = req.headers.get("x-encrypted-name");
+      if (rawName) encryptedName = decodeURIComponent(rawName);
+      mimeType = req.headers.get("x-mime-type") ?? "application/octet-stream";
+      bytes = await req.arrayBuffer();
+      size = bytes.byteLength;
+    }
 
     // ── Field validation ─────────────────────────────────────────────────────
-    if (!vaultItemId || !encryptedFile || !encryptedName) {
+    if (!vaultItemId || !bytes || size === 0 || !encryptedName) {
       return NextResponse.json(
         { error: "Missing required fields: vaultItemId, encryptedFile, encryptedName" },
         { status: 400 }
@@ -50,9 +70,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── File size check ───────────────────────────────────────────────────────
-    if (encryptedFile.size > MAX_FILE_BYTES) {
+    if (size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { error: `File exceeds the 25 MB limit (got ${(encryptedFile.size / 1024 / 1024).toFixed(1)} MB)` },
+        { error: `File exceeds the 25 MB limit (got ${(size / 1024 / 1024).toFixed(1)} MB)` },
         { status: 400 }
       );
     }
@@ -88,7 +108,7 @@ export async function POST(req: NextRequest) {
     const usedBytes  = profile?.usedBytes  ?? 0;
     const quotaBytes = profile?.quotaBytes ?? 104_857_600;
 
-    if (usedBytes + encryptedFile.size > quotaBytes) {
+    if (usedBytes + size > quotaBytes) {
       const remainingMB = ((quotaBytes - usedBytes) / 1024 / 1024).toFixed(1);
       return NextResponse.json(
         { error: `Storage quota exceeded. You have ${remainingMB} MB remaining.` },
@@ -98,7 +118,6 @@ export async function POST(req: NextRequest) {
 
     // ── Upload to MinIO ───────────────────────────────────────────────────────
     const attachmentId   = randomUUID();
-    const bytes          = await encryptedFile.arrayBuffer();
     const buffer         = Buffer.from(bytes);
 
     const s3Key = await uploadAttachment(
@@ -118,7 +137,7 @@ export async function POST(req: NextRequest) {
         userId:        user.id,
         encryptedName,
         mimeType,
-        sizeBytes:     encryptedFile.size,
+        sizeBytes:     size,
         s3Key,
       })
       .returning();
@@ -126,11 +145,11 @@ export async function POST(req: NextRequest) {
     // ── Increment storageUsedBytes ────────────────────────────────────────────
     await db
       .insert(userProfiles)
-      .values({ userId: user.id, storageUsedBytes: encryptedFile.size })
+      .values({ userId: user.id, storageUsedBytes: size })
       .onConflictDoUpdate({
         target: userProfiles.userId,
         set: {
-          storageUsedBytes: sql`${userProfiles.storageUsedBytes} + ${encryptedFile.size}`,
+          storageUsedBytes: sql`${userProfiles.storageUsedBytes} + ${size}`,
         },
       });
 

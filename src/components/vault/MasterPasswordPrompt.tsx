@@ -24,7 +24,7 @@ export function MasterPasswordPrompt() {
   // Random SVG pair — picked once on mount using lazy initializer (avoids setState-in-effect)
   const [randomSvgs] = useState<[string, string]>(() => {
     const svgs = [
-      "/illustrations/vault_tyfh.svg",
+      "/illustrations/unlock_m0yr.svg",
       "/illustrations/safe_0mei.svg",
       "/illustrations/security_0ubl.svg",
       "/illustrations/firewall_cfej.svg",
