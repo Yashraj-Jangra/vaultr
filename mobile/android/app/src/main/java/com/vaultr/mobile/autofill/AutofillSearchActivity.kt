@@ -222,14 +222,10 @@ class AutofillSearchActivity : Activity() {
 
     private fun fillIntoActivePage(item: AutofillItem) {
         if (VaultrAccessibilityService.isRunning()) {
-            val success = VaultrAccessibilityService.triggerFill(item.username, item.password)
-            if (success) {
-                Toast.makeText(this, "✨ Autofilled ${item.name}", Toast.LENGTH_SHORT).show()
-            } else {
-                // Background fields were filled or queued
-                Toast.makeText(this, "Filled ${item.name} into fields", Toast.LENGTH_SHORT).show()
-            }
+            VaultrAccessibilityService.queuePendingFill(applicationContext, item.username, item.password, item.name)
+            copyToClipboardSecure("Password", item.password)
             finish()
+            overridePendingTransition(0, 0)
         } else {
             copyToClipboardSecure("Password", item.password)
             Toast.makeText(
@@ -238,6 +234,7 @@ class AutofillSearchActivity : Activity() {
                 Toast.LENGTH_LONG
             ).show()
             finish()
+            overridePendingTransition(0, 0)
         }
     }
 

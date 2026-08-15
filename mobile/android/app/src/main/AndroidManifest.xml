@@ -68,6 +68,9 @@
     <activity
         android:name=".autofill.AutofillSearchActivity"
         android:theme="@style/Theme.Vaultr.Dialog"
+        android:taskAffinity=""
+        android:launchMode="singleTask"
+        android:noHistory="true"
         android:excludeFromRecents="true"
         android:windowSoftInputMode="stateVisible|adjustResize"
         android:exported="true" />

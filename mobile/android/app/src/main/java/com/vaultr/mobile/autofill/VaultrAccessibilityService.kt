@@ -1,20 +1,22 @@
 package com.vaultr.mobile.autofill
 
 import android.accessibilityservice.AccessibilityService
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
 import java.net.URI
 
 /**
  * VaultrAccessibilityService
  *
- * Provides deep autofill integration for the Quick Settings pull-down shade:
- *  1. CONTEXT AWARE: Automatically tracks foreground app package name and
- *     extracts current website domain from Chrome, Brave, Samsung Internet, Firefox, Edge, etc.
- *  2. LIVE FILL: When user taps "Autofill" in Quick Settings search sheet,
- *     directly injects credentials into the active app's input fields via ACTION_SET_TEXT.
+ * Provides background tracking and delayed live field injection for Quick Settings autofill.
  */
 class VaultrAccessibilityService : AccessibilityService() {
 
@@ -22,6 +24,13 @@ class VaultrAccessibilityService : AccessibilityService() {
         val packageName: String?,
         val webDomain: String?,
         val isBrowser: Boolean
+    )
+
+    data class PendingFill(
+        val username: String,
+        val password: String,
+        val name: String,
+        val timestamp: Long = System.currentTimeMillis()
     )
 
     companion object {
@@ -35,25 +44,33 @@ class VaultrAccessibilityService : AccessibilityService() {
             private set
 
         @Volatile
-        private var pendingUsername: String? = null
-        @Volatile
-        private var pendingPassword: String? = null
+        private var pendingFill: PendingFill? = null
 
         fun isRunning(): Boolean = instance != null
 
-        fun triggerFill(username: String, password: String): Boolean {
-            val service = instance ?: return false
-            pendingUsername = username
-            pendingPassword = password
-            return service.performPendingFill()
+        fun queuePendingFill(context: Context, username: String, password: String, name: String) {
+            val service = instance
+            if (service == null) {
+                // Fallback: copy password to clipboard if service not running
+                copyToClipboard(context, "Password", password)
+                Toast.makeText(context, "Password copied to clipboard", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            pendingFill = PendingFill(username, password, name)
+            // Schedule delayed fill attempts as the Quick Settings sheet collapses
+            service.scheduleDelayedFills()
+        }
+
+        private fun copyToClipboard(context: Context, label: String, value: String) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+            clipboard.setPrimaryClip(ClipData.newPlainText(label, value))
         }
     }
 
-    private var trackedUsernameNode: AccessibilityNodeInfo? = null
-    private var trackedPasswordNode: AccessibilityNodeInfo? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var lastPackage: String? = null
 
-    // Known browser packages
     private val BROWSER_PACKAGES = setOf(
         "com.android.chrome",
         "com.brave.browser",
@@ -69,13 +86,14 @@ class VaultrAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        Log.d(TAG, "Vaultr Accessibility Autofill Service connected")
+        Log.d(TAG, "Vaultr Accessibility Service connected")
         AutofillCredentialStore.initialize(applicationContext)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         if (instance === this) instance = null
+        mainHandler.removeCallbacksAndMessages(null)
     }
 
     override fun onInterrupt() {
@@ -86,44 +104,153 @@ class VaultrAccessibilityService : AccessibilityService() {
         if (event == null) return
 
         val pkg = event.packageName?.toString() ?: return
-        if (pkg == this.packageName) return // Ignore events from Vaultr itself
+        if (pkg == this.packageName) return // Ignore Vaultr's own UI events
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                try {
-                    val root = rootInActiveWindow ?: return
-                    val isBrowser = BROWSER_PACKAGES.contains(pkg)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_VIEW_FOCUSED -> {
+                lastPackage = pkg
+                val isBrowser = BROWSER_PACKAGES.contains(pkg)
 
-                    if (lastPackage != pkg) {
-                        trackedUsernameNode = null
-                        trackedPasswordNode = null
-                        lastPackage = pkg
-                    }
+                val root = rootInActiveWindow
+                var domain: String? = null
+                if (isBrowser && root != null) {
+                    domain = extractBrowserDomain(root)
+                }
 
-                    var domain: String? = null
-                    if (isBrowser) {
-                        domain = extractBrowserDomain(root)
-                    }
+                currentContext = AppContext(
+                    packageName = pkg,
+                    webDomain = domain,
+                    isBrowser = isBrowser
+                )
 
-                    currentContext = AppContext(
-                        packageName = pkg,
-                        webDomain = domain,
-                        isBrowser = isBrowser
-                    )
-
-                    scanAndTrackNodes(root)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error scanning accessibility nodes", e)
+                // If a fill is pending and we are back in the target app, execute it immediately
+                if (pendingFill != null) {
+                    executeFillSequence()
                 }
             }
         }
     }
 
-    /**
-     * Extracts active website domain from browser URL bars.
-     */
+    fun scheduleDelayedFills() {
+        // Run retry passes at 100ms, 250ms, 450ms, 700ms to catch window transition
+        val delays = listOf(100L, 250L, 450L, 700L)
+        for (d in delays) {
+            mainHandler.postDelayed({
+                if (pendingFill != null) {
+                    executeFillSequence()
+                }
+            }, d)
+        }
+    }
+
+    private fun executeFillSequence(): Boolean {
+        val fill = pendingFill ?: return false
+
+        // Discard expired pending fill (>5 seconds old)
+        if (System.currentTimeMillis() - fill.timestamp > 5000) {
+            pendingFill = null
+            return false
+        }
+
+        val root = rootInActiveWindow ?: return false
+        val userNodes = mutableListOf<AccessibilityNodeInfo>()
+        val passNodes = mutableListOf<AccessibilityNodeInfo>()
+
+        collectInputNodes(root, userNodes, passNodes)
+
+        if (userNodes.isEmpty() && passNodes.isEmpty()) {
+            return false
+        }
+
+        var filledAny = false
+
+        // 1. Fill Password Node
+        if (passNodes.isNotEmpty() && fill.password.isNotEmpty()) {
+            val pNode = passNodes.first()
+            if (injectText(pNode, fill.password)) {
+                filledAny = true
+            }
+        }
+
+        // 2. Fill Username Node
+        if (userNodes.isNotEmpty() && fill.username.isNotEmpty()) {
+            val uNode = userNodes.first()
+            if (injectText(uNode, fill.username)) {
+                filledAny = true
+            }
+        }
+
+        if (filledAny) {
+            pendingFill = null
+            mainHandler.post {
+                Toast.makeText(applicationContext, "✨ Autofilled ${fill.name}", Toast.LENGTH_SHORT).show()
+            }
+            return true
+        }
+
+        return false
+    }
+
+    private fun injectText(node: AccessibilityNodeInfo, text: String): Boolean {
+        return try {
+            // Focus the node first
+            node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+
+            // Primary method: ACTION_SET_TEXT
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            }
+            val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            if (success) return true
+
+            // Fallback method: ACTION_PASTE via clipboard
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(ClipData.newPlainText("fill", text))
+                node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error injecting text into node", e)
+            false
+        }
+    }
+
+    private fun collectInputNodes(
+        node: AccessibilityNodeInfo?,
+        userNodes: MutableList<AccessibilityNodeInfo>,
+        passNodes: MutableList<AccessibilityNodeInfo>
+    ) {
+        if (node == null) return
+
+        if (node.isEditable) {
+            val hint = (node.hintText?.toString() ?: "").lowercase()
+            val resId = (node.viewIdResourceName ?: "").lowercase()
+            val text = (node.text?.toString() ?: "").lowercase()
+            val combined = "$hint $resId $text"
+
+            val isExcluded = combined.containsAny(
+                "search", "query", "find", "url", "address", "omnibox",
+                "message", "comment", "composer", "chat", "terminal"
+            )
+
+            if (!isExcluded) {
+                if (node.isPassword || combined.containsAny("password", "passcode", "pin", "pass", "secret")) {
+                    passNodes.add(node)
+                } else if (combined.containsAny("user", "email", "login", "phone", "account", "id", "uname") || userNodes.isEmpty()) {
+                    userNodes.add(node)
+                }
+            }
+        }
+
+        for (i in 0 until node.childCount) {
+            collectInputNodes(node.getChild(i), userNodes, passNodes)
+        }
+    }
+
     private fun extractBrowserDomain(root: AccessibilityNodeInfo): String? {
         val urlNodes = mutableListOf<AccessibilityNodeInfo>()
         findBrowserUrlNodes(root, urlNodes)
@@ -164,111 +291,6 @@ class VaultrAccessibilityService : AccessibilityService() {
             host.removePrefix("www.")
         } catch (_: Exception) {
             null
-        }
-    }
-
-    /**
-     * Walk the node tree to identify username and password fields.
-     */
-    private fun scanAndTrackNodes(root: AccessibilityNodeInfo) {
-        val userNodes = mutableListOf<AccessibilityNodeInfo>()
-        val passNodes = mutableListOf<AccessibilityNodeInfo>()
-        collectInputNodes(root, userNodes, passNodes)
-
-        if (passNodes.isNotEmpty()) trackedPasswordNode = passNodes.first()
-        if (userNodes.isNotEmpty()) trackedUsernameNode = userNodes.first()
-    }
-
-    private fun collectInputNodes(
-        node: AccessibilityNodeInfo?,
-        userNodes: MutableList<AccessibilityNodeInfo>,
-        passNodes: MutableList<AccessibilityNodeInfo>
-    ) {
-        if (node == null) return
-
-        if (node.isEditable) {
-            if (node.isPassword) {
-                passNodes.add(node)
-            } else {
-                val hint = (node.hintText?.toString() ?: "").lowercase()
-                val resId = (node.viewIdResourceName ?: "").lowercase()
-                val text = (node.text?.toString() ?: "").lowercase()
-                val combined = "$hint $resId $text"
-
-                val isExcluded = combined.containsAny(
-                    "search", "query", "find", "url", "address", "omnibox",
-                    "message", "comment", "composer", "chat", "terminal"
-                )
-
-                if (!isExcluded && (combined.containsAny("user", "email", "login", "phone", "account", "id") || userNodes.isEmpty())) {
-                    userNodes.add(node)
-                }
-            }
-        }
-
-        for (i in 0 until node.childCount) {
-            collectInputNodes(node.getChild(i), userNodes, passNodes)
-        }
-    }
-
-    /**
-     * Injects the credentials directly into the fields of the active app.
-     */
-    fun performPendingFill(): Boolean {
-        val username = pendingUsername ?: return false
-        val password = pendingPassword ?: return false
-
-        var filled = false
-
-        // 1. Try currently tracked nodes
-        trackedUsernameNode?.let { node ->
-            if (setTextOnNode(node, username)) {
-                Log.d(TAG, "Filled username into tracked node")
-                filled = true
-            }
-        }
-
-        trackedPasswordNode?.let { node ->
-            if (setTextOnNode(node, password)) {
-                Log.d(TAG, "Filled password into tracked node")
-                filled = true
-            }
-        }
-
-        // 2. If tracked nodes were stale / detached, rescan rootInActiveWindow
-        if (!filled) {
-            val root = rootInActiveWindow
-            if (root != null) {
-                val userNodes = mutableListOf<AccessibilityNodeInfo>()
-                val passNodes = mutableListOf<AccessibilityNodeInfo>()
-                collectInputNodes(root, userNodes, passNodes)
-
-                userNodes.firstOrNull()?.let {
-                    if (setTextOnNode(it, username)) filled = true
-                }
-                passNodes.firstOrNull()?.let {
-                    if (setTextOnNode(it, password)) filled = true
-                }
-            }
-        }
-
-        if (filled) {
-            pendingUsername = null
-            pendingPassword = null
-        }
-
-        return filled
-    }
-
-    private fun setTextOnNode(node: AccessibilityNodeInfo, text: String): Boolean {
-        return try {
-            val args = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-            }
-            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to perform ACTION_SET_TEXT on node", e)
-            false
         }
     }
 
