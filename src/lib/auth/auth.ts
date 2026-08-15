@@ -12,12 +12,13 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
-import { admin, twoFactor } from "better-auth/plugins";
+import { admin, twoFactor, bearer } from "better-auth/plugins";
 import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import * as os from "os";
 
 // ── Trusted Origins ──────────────────────────────────────────────────────────
-async function getTrustedOrigins(): Promise<string[]> {
+const getTrustedOrigins = (): string[] => {
   const origins: string[] = [
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
     "http://localhost:3000",
@@ -28,8 +29,24 @@ async function getTrustedOrigins(): Promise<string[]> {
       : []),
   ];
 
+  // Auto-inject LAN IPs for local development (mobile app connections)
+  if (process.env.NODE_ENV !== "production") {
+    origins.push("http://localhost:3000");
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] || []) {
+        if (net.family === "IPv4" && !net.internal) {
+          origins.push(`http://${net.address}:3000`);
+          origins.push(`http://${net.address}:8081`);
+        }
+      }
+    }
+  }
+
   return Array.from(new Set(origins));
-}
+};
+
+const trustedOriginsArray = getTrustedOrigins();
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -38,6 +55,7 @@ export const auth = betterAuth({
 
   plugins: [
     admin(),
+    bearer(),
     twoFactor({
       otpOptions: {
         async sendOTP({ user, otp }) {
@@ -154,7 +172,7 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
 
   // ── Trusted origins (CORS) ────────────────────────────────────────────────
-  trustedOrigins: getTrustedOrigins,
+  trustedOrigins: trustedOriginsArray,
 });
 
 export type Session = typeof auth.$Infer.Session;

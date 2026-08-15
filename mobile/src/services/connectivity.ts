@@ -13,7 +13,7 @@ export async function probeServerConnection(serverUrl: string): Promise<boolean>
     const timer = setTimeout(() => controller.abort(), 4000);
 
     // Try pinging the server health endpoint or base URL
-    const response = await fetch(`${cleanUrl}/api/auth/session`, {
+    const response = await fetch(`${cleanUrl}/api/auth/get-session`, {
       method: "GET",
       headers: { "Cache-Control": "no-cache" },
       signal: controller.signal,

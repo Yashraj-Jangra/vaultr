@@ -39,6 +39,9 @@ export interface UserPayload {
  * Throws a Response (401 / 403) if the check fails.
  */
 export async function verifyUserToken(req: NextRequest): Promise<UserPayload> {
+  console.log("[verifyUserToken] Headers Authorization:", req.headers.get("authorization"));
+  console.log("[verifyUserToken] Headers Cookie:", req.headers.get("cookie"));
+
   const sessionResult = await auth.api.getSession({
     headers: req.headers,
   });

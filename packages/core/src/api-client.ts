@@ -13,9 +13,9 @@ export interface ApiClientOptions {
 }
 
 export class VaultrApiClient {
-  private baseUrl: string;
-  private getToken?: () => string | Promise<string>;
-  private getCookies?: () => string | Promise<string>;
+  public baseUrl: string;
+  public getToken?: () => string | Promise<string>;
+  public getCookies?: () => string | Promise<string>;
   private fetchImpl: typeof fetch;
 
   constructor(options: ApiClientOptions) {
