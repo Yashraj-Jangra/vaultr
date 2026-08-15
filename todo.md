@@ -9,20 +9,19 @@
 - **`VaultrAutofillService.kt`** — Implemented Android 13+ (API 33+) `Dataset.Builder(Presentations)` and bound `setPresentations(presentations)` directly to individual `Field.Builder` instances for rock-solid inline chips.
 - **`build.gradle`** — Integrated `androidx.autofill:autofill:1.1.0` and `InlineSuggestionUi` for modern keyboard strip rendering.
 
-#### Quick Settings Pull-Down Shade Autofill Upgrade
-- **`AutofillSearchActivity.kt`** — Complete revamp:
-  - **Auto-detects active foreground app and website domain** (Chrome, Brave, Samsung Internet, Firefox, Edge, etc.) from `VaultrAccessibilityService.currentContext`.
-  - Highlights matching credentials at the top under `📍 ON SCREEN: domain.com` with a `SUGGESTED FOR THIS PAGE` section.
-  - **1-Tap Direct Autofill**: Tapping an item or "Fill" button immediately injects credentials into the active app's input fields via `ACTION_SET_TEXT` and dismisses the sheet.
-  - Interactive search filtering across vault accounts with auto-clearing clipboard fallbacks.
-  - Quick Accessibility Service enable prompt if direct injection is not yet enabled.
-- **`VaultrAccessibilityService.kt`** — Added real-time browser URL extraction from address bars, live focus tracking, and direct field text injection.
-- **`activity_autofill_search.xml` & `item_autofill_search_row.xml`** — Premium dark theme bottom-sheet UI conforming to AGENTS.md guidelines (rounded pill inputs, letter avatars, amber badges, responsive action buttons).
-- **`styles.xml`** — Translucent modal dialog styling with smooth entrance animations.
+#### Minimal & Sleek Quick Settings Autofill Sheet
+- **`AutofillSearchActivity.kt`** — Clean, card-free, unboxed design:
+  - **1-Tap Direct Fill**: Tapping anywhere on an account row immediately injects credentials into the active page/app and dismisses the sheet.
+  - **3-Dot Overflow Menu (`⋮`)**: Opens a native dark popup menu with **Copy Username**, **Copy Password**, and **Autofill Now**.
+  - **Context-Aware Header**: Shows subtle amber label (`📍 Suggested for google.com`) when on an active webpage or app.
+  - **Backdrop Dismissal**: Tapping outside the sheet immediately dismisses and returns focus to the underlying app without touching Vaultr's main stack.
+- **`VaultrAccessibilityService.kt`** — Live browser domain extraction, reliable delayed window fill sequencing, and robust input node detection.
+- **`activity_autofill_search.xml` & `item_autofill_search_row.xml`** — Minimalist surface layout, dark theme (`#0c0d12`), rounded pill search box, clean letter avatars, and zero container clutter.
+- **`AndroidManifest.xml`** — Isolated task affinity (`android:taskAffinity=""`, `noHistory="true"`) to prevent launching `MainActivity`.
 
 #### Mobile Sync System (complete)
-- **`mobile/src/services/sync.ts`** — Stripped all offline queue logic (`queueOfflineAction`, `flushOfflineQueue`, `PendingAction`). Now only provides user-scoped encrypted cache: `cacheVaultItems(items, userId)`, `getCachedVaultItems(userId)`, `clearCachedVaultItems(userId)`.
-- **`mobile/src/services/connectivity.ts`** — Zero-dependency connectivity probe service with foreground event listeners + 15s polling.
+- **`mobile/src/services/sync.ts`** — Stripped offline queue logic. User-scoped encrypted cache only.
+- **`mobile/src/services/connectivity.ts`** — Zero-dependency connectivity probe service.
 - **`mobile/src/store/vaultStore.ts`** — Added `isOnline` state, graceful offline read-only fallback, and strict write guards.
 
 #### Builds & Verification
@@ -35,7 +34,7 @@
 ## 🔜 Next Steps
 
 1. **Verify Quick Settings Tile on device**:
-   - Open a login page in Samsung Internet / Chrome / App → swipe down shade → tap "Vaultr Autofill" → verify suggested login appears at the top → tap "Fill" → verify fields auto-populate.
+   - Open a login page in Samsung Internet / Chrome / App → swipe down shade → tap "Vaultr Autofill" → tap row to 1-tap fill or tap `⋮` for copy actions.
 2. **E2E testing of offline flow on physical Android device**:
    - Lock device network → unlock vault → verify read-only mode + amber banner.
    - Restore network → tap Retry → verify auto-refresh and write re-enable.
