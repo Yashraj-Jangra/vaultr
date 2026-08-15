@@ -5,47 +5,71 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import java.net.URI
 
 /**
  * VaultrAccessibilityService
  *
- * Two roles:
- *  1. TRACK: Continuously track the last focused username + password node info
- *     so that the Quick Settings tile can fill credentials into the correct fields.
- *  2. FILL: When PendingFill is set (by AutofillSearchActivity after user selects credentials),
- *     actually inject the username/password text into the tracked nodes.
+ * Provides deep autofill integration for the Quick Settings pull-down shade:
+ *  1. CONTEXT AWARE: Automatically tracks foreground app package name and
+ *     extracts current website domain from Chrome, Brave, Samsung Internet, Firefox, Edge, etc.
+ *  2. LIVE FILL: When user taps "Autofill" in Quick Settings search sheet,
+ *     directly injects credentials into the active app's input fields via ACTION_SET_TEXT.
  */
 class VaultrAccessibilityService : AccessibilityService() {
+
+    data class AppContext(
+        val packageName: String?,
+        val webDomain: String?,
+        val isBrowser: Boolean
+    )
 
     companion object {
         private const val TAG = "VaultrAccessibility"
 
-        // Singleton reference to the live service for QS tile to call
         var instance: VaultrAccessibilityService? = null
             private set
 
-        // Pending credentials to fill into the tracked fields
         @Volatile
-        var pendingUsername: String? = null
-        @Volatile
-        var pendingPassword: String? = null
+        var currentContext: AppContext = AppContext(null, null, false)
+            private set
 
-        fun triggerFill(username: String, password: String) {
+        @Volatile
+        private var pendingUsername: String? = null
+        @Volatile
+        private var pendingPassword: String? = null
+
+        fun isRunning(): Boolean = instance != null
+
+        fun triggerFill(username: String, password: String): Boolean {
+            val service = instance ?: return false
             pendingUsername = username
             pendingPassword = password
-            instance?.performPendingFill()
+            return service.performPendingFill()
         }
     }
 
-    // Tracked nodes from the last focused app
     private var trackedUsernameNode: AccessibilityNodeInfo? = null
     private var trackedPasswordNode: AccessibilityNodeInfo? = null
     private var lastPackage: String? = null
 
+    // Known browser packages
+    private val BROWSER_PACKAGES = setOf(
+        "com.android.chrome",
+        "com.brave.browser",
+        "com.sec.android.app.sbrowser",
+        "org.mozilla.firefox",
+        "com.microsoft.emmx",
+        "com.opera.browser",
+        "com.opera.mini.native",
+        "com.vivaldi.browser",
+        "com.duckduckgo.mobile.android"
+    )
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        Log.d(TAG, "Vaultr Accessibility Service connected")
+        Log.d(TAG, "Vaultr Accessibility Autofill Service connected")
         AutofillCredentialStore.initialize(applicationContext)
     }
 
@@ -62,8 +86,7 @@ class VaultrAccessibilityService : AccessibilityService() {
         if (event == null) return
 
         val pkg = event.packageName?.toString() ?: return
-        // Ignore events from ourselves
-        if (pkg == this.packageName) return
+        if (pkg == this.packageName) return // Ignore events from Vaultr itself
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
@@ -71,22 +94,81 @@ class VaultrAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 try {
                     val root = rootInActiveWindow ?: return
+                    val isBrowser = BROWSER_PACKAGES.contains(pkg)
+
                     if (lastPackage != pkg) {
-                        // App switched — reset tracked nodes
                         trackedUsernameNode = null
                         trackedPasswordNode = null
                         lastPackage = pkg
                     }
+
+                    var domain: String? = null
+                    if (isBrowser) {
+                        domain = extractBrowserDomain(root)
+                    }
+
+                    currentContext = AppContext(
+                        packageName = pkg,
+                        webDomain = domain,
+                        isBrowser = isBrowser
+                    )
+
                     scanAndTrackNodes(root)
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error scanning nodes", e)
+                    Log.w(TAG, "Error scanning accessibility nodes", e)
                 }
             }
         }
     }
 
     /**
-     * Walk the node tree to find and remember the username + password fields.
+     * Extracts active website domain from browser URL bars.
+     */
+    private fun extractBrowserDomain(root: AccessibilityNodeInfo): String? {
+        val urlNodes = mutableListOf<AccessibilityNodeInfo>()
+        findBrowserUrlNodes(root, urlNodes)
+
+        for (node in urlNodes) {
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+            if (text.isNotEmpty()) {
+                val clean = cleanDomain(text)
+                if (clean != null && clean.contains(".")) {
+                    return clean
+                }
+            }
+        }
+        return null
+    }
+
+    private fun findBrowserUrlNodes(node: AccessibilityNodeInfo?, outList: MutableList<AccessibilityNodeInfo>) {
+        if (node == null) return
+
+        val resId = (node.viewIdResourceName ?: "").lowercase()
+        if (resId.contains("url_bar") || resId.contains("location_bar") || resId.contains("search_box_text") || resId.contains("mozac_browser_toolbar")) {
+            outList.add(node)
+        }
+
+        for (i in 0 until node.childCount) {
+            findBrowserUrlNodes(node.getChild(i), outList)
+        }
+    }
+
+    private fun cleanDomain(raw: String): String? {
+        var str = raw.trim()
+        if (!str.startsWith("http://") && !str.startsWith("https://")) {
+            str = "https://$str"
+        }
+        return try {
+            val uri = URI(str)
+            val host = uri.host ?: return null
+            host.removePrefix("www.")
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Walk the node tree to identify username and password fields.
      */
     private fun scanAndTrackNodes(root: AccessibilityNodeInfo) {
         val userNodes = mutableListOf<AccessibilityNodeInfo>()
@@ -113,13 +195,12 @@ class VaultrAccessibilityService : AccessibilityService() {
                 val text = (node.text?.toString() ?: "").lowercase()
                 val combined = "$hint $resId $text"
 
-                // Exclude search/url/chat fields
                 val isExcluded = combined.containsAny(
                     "search", "query", "find", "url", "address", "omnibox",
-                    "message", "comment", "composer", "chat"
+                    "message", "comment", "composer", "chat", "terminal"
                 )
 
-                if (!isExcluded && combined.containsAny("user", "email", "login", "phone", "account")) {
+                if (!isExcluded && (combined.containsAny("user", "email", "login", "phone", "account", "id") || userNodes.isEmpty())) {
                     userNodes.add(node)
                 }
             }
@@ -131,51 +212,63 @@ class VaultrAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Called by AutofillSearchActivity or triggerFill() to fill the tracked fields.
+     * Injects the credentials directly into the fields of the active app.
      */
-    fun performPendingFill() {
-        val username = pendingUsername ?: return
-        val password = pendingPassword ?: return
+    fun performPendingFill(): Boolean {
+        val username = pendingUsername ?: return false
+        val password = pendingPassword ?: return false
 
         var filled = false
 
+        // 1. Try currently tracked nodes
         trackedUsernameNode?.let { node ->
-            try {
-                val args = Bundle()
-                args.putCharSequence(
-                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                    username
-                )
-                if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
-                    Log.d(TAG, "Filled username into $lastPackage")
-                    filled = true
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to fill username", e)
+            if (setTextOnNode(node, username)) {
+                Log.d(TAG, "Filled username into tracked node")
+                filled = true
             }
         }
 
         trackedPasswordNode?.let { node ->
-            try {
-                val args = Bundle()
-                args.putCharSequence(
-                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                    password
-                )
-                if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
-                    Log.d(TAG, "Filled password into $lastPackage")
-                    filled = true
+            if (setTextOnNode(node, password)) {
+                Log.d(TAG, "Filled password into tracked node")
+                filled = true
+            }
+        }
+
+        // 2. If tracked nodes were stale / detached, rescan rootInActiveWindow
+        if (!filled) {
+            val root = rootInActiveWindow
+            if (root != null) {
+                val userNodes = mutableListOf<AccessibilityNodeInfo>()
+                val passNodes = mutableListOf<AccessibilityNodeInfo>()
+                collectInputNodes(root, userNodes, passNodes)
+
+                userNodes.firstOrNull()?.let {
+                    if (setTextOnNode(it, username)) filled = true
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to fill password", e)
+                passNodes.firstOrNull()?.let {
+                    if (setTextOnNode(it, password)) filled = true
+                }
             }
         }
 
         if (filled) {
             pendingUsername = null
             pendingPassword = null
-        } else {
-            Log.w(TAG, "Could not fill — no tracked fields in $lastPackage")
+        }
+
+        return filled
+    }
+
+    private fun setTextOnNode(node: AccessibilityNodeInfo, text: String): Boolean {
+        return try {
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to perform ACTION_SET_TEXT on node", e)
+            false
         }
     }
 

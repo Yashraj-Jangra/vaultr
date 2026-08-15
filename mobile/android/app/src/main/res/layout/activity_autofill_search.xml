@@ -1,104 +1,232 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#09090b"
-    android:paddingTop="16dp">
+    android:background="#B3000000"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="32dp"
+    android:paddingBottom="24dp">
 
-    <!-- Header Drag Bar / Title -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/bg_quick_autofill_sheet"
+        android:paddingTop="12dp">
 
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_vaultr_lock_small"
-            android:contentDescription="Vaultr"
-            android:layout_marginEnd="10dp" />
+        <!-- Top Drag Pill -->
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:background="#3f3f46"
+            android:layout_marginBottom="12dp" />
 
-        <TextView
-            android:layout_width="0dp"
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Vaultr Quick Autofill"
-            android:textColor="#F4F4F5"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="10dp">
 
-        <Button
-            android:id="@+id/btn_close_search"
-            android:layout_width="wrap_content"
-            android:layout_height="32dp"
-            android:text="Close"
-            android:textSize="12sp"
-            android:textColor="#A1A1AA"
-            android:background="?android:attr/selectableItemBackground"
-            android:minHeight="0dp"
-            android:minWidth="0dp" />
-    </LinearLayout>
+            <ImageView
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:src="@drawable/ic_vaultr_lock_small"
+                android:contentDescription="Vaultr"
+                android:layout_marginEnd="10dp" />
 
-    <!-- Search Input Box -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="#18181b"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="12dp"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/search_edit_text"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:hint="Search accounts, usernames, domains..."
-            android:textColorHint="#71717A"
-            android:textColor="#F4F4F5"
-            android:textSize="14sp"
-            android:background="@null"
-            android:singleLine="true"
-            android:imeOptions="actionSearch" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vaultr Autofill"
+                    android:textColor="#F4F4F5"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
 
-        <ImageButton
-            android:id="@+id/btn_clear_search"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:background="@null"
-            android:contentDescription="Clear"
+                <TextView
+                    android:id="@+id/text_detected_context"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tap any account to fill"
+                    android:textColor="#A1A1AA"
+                    android:textSize="12sp"
+                    android:layout_marginTop="1dp" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btn_close_search"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_close_clean"
+                android:background="@drawable/bg_btn_secondary"
+                android:contentDescription="Close" />
+        </LinearLayout>
+
+        <!-- Current Page / App Context Badge (visible when domain or app is detected) -->
+        <LinearLayout
+            android:id="@+id/container_suggested_badge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_pill_accent"
+            android:layout_marginStart="18dp"
+            android:layout_marginEnd="18dp"
+            android:layout_marginBottom="10dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍 ON SCREEN:"
+                android:textColor="#F59E0B"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/text_suggested_target"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="google.com"
+                android:textColor="#FDE68A"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <!-- Search Input -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_search_input"
+            android:layout_marginStart="18dp"
+            android:layout_marginEnd="18dp"
+            android:layout_marginBottom="8dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_search_clean"
+                android:contentDescription="Search"
+                android:layout_marginEnd="10dp" />
+
+            <EditText
+                android:id="@+id/search_edit_text"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:hint="Search accounts or passwords..."
+                android:textColorHint="#71717A"
+                android:textColor="#F4F4F5"
+                android:textSize="14sp"
+                android:background="@null"
+                android:singleLine="true"
+                android:imeOptions="actionSearch" />
+
+            <ImageButton
+                android:id="@+id/btn_clear_search"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_close_clean"
+                android:background="@null"
+                android:contentDescription="Clear"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Section Label -->
+        <TextView
+            android:id="@+id/text_section_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ALL ACCOUNTS"
+            android:textColor="#71717A"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="4dp" />
+
+        <!-- Empty State -->
+        <TextView
+            android:id="@+id/search_status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No matching credentials found."
+            android:textColor="#71717A"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:padding="32dp"
             android:visibility="gone" />
+
+        <!-- Results List -->
+        <ListView
+            android:id="@+id/search_results_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:divider="#1c1d24"
+            android:dividerHeight="1dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <!-- Bottom Accessibility Notice / Status Bar -->
+        <LinearLayout
+            android:id="@+id/banner_accessibility_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#14151b"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
+
+            <TextView
+                android:id="@+id/text_accessibility_status"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⚡ 1-Tap direct autofill active"
+                android:textColor="#10B981"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_enable_accessibility"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="Enable"
+                android:textSize="11sp"
+                android:textColor="#09090b"
+                android:background="@drawable/bg_btn_fill"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
-
-    <!-- Empty / Status State -->
-    <TextView
-        android:id="@+id/search_status_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Type to search your vault..."
-        android:textColor="#71717A"
-        android:textSize="13sp"
-        android:gravity="center"
-        android:padding="20dp"
-        android:visibility="gone" />
-
-    <!-- Results List -->
-    <ListView
-        android:id="@+id/search_results_list"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:divider="#18181b"
-        android:dividerHeight="1dp" />
-
-</LinearLayout>
+</FrameLayout>

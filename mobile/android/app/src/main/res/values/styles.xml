@@ -15,8 +15,10 @@
   <style name="Theme.Vaultr.Dialog" parent="Theme.AppCompat.Dialog">
     <item name="android:windowNoTitle">true</item>
     <item name="android:windowIsFloating">false</item>
+    <item name="android:windowIsTranslucent">true</item>
     <item name="android:windowBackground">@android:color/transparent</item>
     <item name="android:statusBarColor">#09090b</item>
     <item name="android:navigationBarColor">#09090b</item>
+    <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
   </style>
 </resources>
