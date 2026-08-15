@@ -52,24 +52,21 @@ class VaultrAutofillModule(private val reactContext: ReactApplicationContext) :
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 // Request Vaultr specifically as the autofill provider
-                val intent = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
-                    data = Uri.parse("package:${reactContext.packageName}")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
+                val intent = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE)
+                intent.data = Uri.parse("package:${reactContext.packageName}")
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 reactContext.startActivity(intent)
             } catch (_: Exception) {
                 // Fallback to general autofill settings
                 try {
-                    val fallbackIntent = Intent(Settings.ACTION_AUTOFILL_SETTINGS).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
+                    val fallbackIntent = Intent("android.settings.AUTOFILL_SETTINGS")
+                    fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     reactContext.startActivity(fallbackIntent)
                 } catch (_: Exception) {
                     // Fallback to application settings
-                    val appIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:${reactContext.packageName}")
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
+                    val appIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    appIntent.data = Uri.parse("package:${reactContext.packageName}")
+                    appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     reactContext.startActivity(appIntent)
                 }
             }
@@ -79,14 +76,12 @@ class VaultrAutofillModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun openAccessibilitySettings() {
         try {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             reactContext.startActivity(intent)
         } catch (_: Exception) {
-            val appIntent = Intent(Settings.ACTION_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
+            val appIntent = Intent(Settings.ACTION_SETTINGS)
+            appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             reactContext.startActivity(appIntent)
         }
     }

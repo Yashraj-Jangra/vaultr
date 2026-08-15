@@ -5,7 +5,6 @@ import android.text.InputType
 import android.util.Log
 import android.view.View
 import android.view.autofill.AutofillId
-import android.view.autofill.AutofillValue
 
 data class ParsedStructure(
     val webDomain: String?,
@@ -13,7 +12,8 @@ data class ParsedStructure(
     val usernameId: AutofillId?,
     val passwordId: AutofillId?,
     val currentFocusedId: AutofillId?,
-    val fields: List<AutofillFieldInfo>
+    val fields: List<AutofillFieldInfo>,
+    val hasCredentialsForm: Boolean
 )
 
 data class AutofillFieldInfo(
@@ -73,40 +73,43 @@ object StructureParser {
 
                 // 2. Classify Input Fields
                 val autofillId = node.autofillId ?: return@traverseNode
+
+                // Explicitly skip search inputs, message composers, URL bars
+                if (isExcludedField(node)) {
+                    return@traverseNode
+                }
+
                 val isEditable = (node.className?.contains("EditText", ignoreCase = true) == true) ||
                         (node.autofillType == View.AUTOFILL_TYPE_TEXT) ||
                         (node.htmlInfo?.tag.equals("input", ignoreCase = true))
 
                 if (isEditable) {
-                    val isUser = isUsernameField(node)
                     val isPass = isPasswordField(node)
+                    val isUser = if (isPass) false else isUsernameField(node)
 
-                    val fieldInfo = AutofillFieldInfo(
-                        id = autofillId,
-                        isUsername = isUser,
-                        isPassword = isPass,
-                        hint = node.hint,
-                        resourceId = node.idEntry
-                    )
-                    fields.add(fieldInfo)
+                    if (isUser || isPass) {
+                        val fieldInfo = AutofillFieldInfo(
+                            id = autofillId,
+                            isUsername = isUser,
+                            isPassword = isPass,
+                            hint = node.hint,
+                            resourceId = node.idEntry
+                        )
+                        fields.add(fieldInfo)
 
-                    if (isUser && usernameId == null) {
-                        usernameId = autofillId
-                    }
-                    if (isPass && passwordId == null) {
-                        passwordId = autofillId
+                        if (isUser && usernameId == null) {
+                            usernameId = autofillId
+                        }
+                        if (isPass && passwordId == null) {
+                            passwordId = autofillId
+                        }
                     }
                 }
             }
         }
 
-        // Fallback: If only password found or only username found, associate focused field
-        if (usernameId == null && fields.isNotEmpty() && currentFocusedId != null) {
-            val focusedField = fields.find { it.id == currentFocusedId }
-            if (focusedField != null && !focusedField.isPassword) {
-                usernameId = focusedField.id
-            }
-        }
+        // A genuine credential form MUST have at least a password field OR an explicit username field in context
+        val hasCredentialsForm = passwordId != null || (usernameId != null && fields.size >= 1)
 
         return ParsedStructure(
             webDomain = detectedDomain,
@@ -114,7 +117,8 @@ object StructureParser {
             usernameId = usernameId,
             passwordId = passwordId,
             currentFocusedId = currentFocusedId,
-            fields = fields
+            fields = fields,
+            hasCredentialsForm = hasCredentialsForm
         )
     }
 
@@ -127,6 +131,48 @@ object StructureParser {
         }
     }
 
+    /**
+     * Filters out non-credential inputs like search bars, URL address bars, chat composers, and comments.
+     */
+    private fun isExcludedField(node: AssistStructure.ViewNode): Boolean {
+        val className = node.className?.lowercase() ?: ""
+        if (className.contains("searchview") || className.contains("searchedittext")) {
+            return true
+        }
+
+        val idEntry = node.idEntry?.lowercase() ?: ""
+        if (idEntry.contains("search") || idEntry.contains("query") || idEntry.contains("filter") ||
+            idEntry.contains("find") || idEntry.contains("url_bar") || idEntry.contains("location_bar") ||
+            idEntry.contains("omnibox") || idEntry.contains("address_bar") || idEntry.contains("composer") ||
+            idEntry.contains("chat_message") || idEntry.contains("comment") || idEntry.contains("status_text")
+        ) {
+            return true
+        }
+
+        val hint = node.hint?.lowercase() ?: ""
+        if (hint.contains("search") || hint.contains("find in") || hint.contains("ask anything") ||
+            hint.contains("type a message") || hint.contains("write a comment")
+        ) {
+            return true
+        }
+
+        // Check HTML input type
+        if (node.htmlInfo?.tag.equals("input", ignoreCase = true)) {
+            val htmlType = node.htmlInfo?.attributes?.find { it.first.equals("type", ignoreCase = true) }?.second?.lowercase() ?: ""
+            if (htmlType == "search" || htmlType == "hidden" || htmlType == "checkbox" || htmlType == "radio" || htmlType == "submit" || htmlType == "button") {
+                return true
+            }
+        }
+
+        // Check filter input type
+        val inputType = node.inputType
+        if ((inputType and InputType.TYPE_TEXT_VARIATION_FILTER) != 0) {
+            return true
+        }
+
+        return false
+    }
+
     private fun isPasswordField(node: AssistStructure.ViewNode): Boolean {
         // Check autofill hints
         val hints = node.autofillHints
@@ -134,7 +180,8 @@ object StructureParser {
             for (h in hints) {
                 if (h.equals(View.AUTOFILL_HINT_PASSWORD, ignoreCase = true) ||
                     h.equals("newPassword", ignoreCase = true) ||
-                    h.equals("currentPassword", ignoreCase = true)
+                    h.equals("currentPassword", ignoreCase = true) ||
+                    h.equals("password", ignoreCase = true)
                 ) {
                     return true
                 }
@@ -151,8 +198,7 @@ object StructureParser {
         if (isPassType) return true
 
         // Check HTML input type
-        val htmlTag = node.htmlInfo?.tag
-        if (htmlTag.equals("input", ignoreCase = true)) {
+        if (node.htmlInfo?.tag.equals("input", ignoreCase = true)) {
             val htmlType = node.htmlInfo?.attributes?.find { it.first.equals("type", ignoreCase = true) }?.second
             if (htmlType.equals("password", ignoreCase = true)) return true
         }
@@ -161,12 +207,11 @@ object StructureParser {
         val idEntry = node.idEntry?.lowercase() ?: ""
         val hint = node.hint?.lowercase() ?: ""
         return idEntry.contains("password") || idEntry.contains("pass") || idEntry.contains("pwd") ||
-                hint.contains("password") || hint.contains("pass")
+                hint.contains("password") || hint.contains("pass") || hint.contains("pin")
     }
 
     private fun isUsernameField(node: AssistStructure.ViewNode): Boolean {
-        // If it's a password, it's not a username
-        if (isPasswordField(node)) return false
+        if (isPasswordField(node) || isExcludedField(node)) return false
 
         // Check autofill hints
         val hints = node.autofillHints
@@ -174,7 +219,9 @@ object StructureParser {
             for (h in hints) {
                 if (h.equals(View.AUTOFILL_HINT_USERNAME, ignoreCase = true) ||
                     h.equals(View.AUTOFILL_HINT_EMAIL_ADDRESS, ignoreCase = true) ||
-                    h.equals(View.AUTOFILL_HINT_PHONE, ignoreCase = true)
+                    h.equals(View.AUTOFILL_HINT_PHONE, ignoreCase = true) ||
+                    h.equals("username", ignoreCase = true) ||
+                    h.equals("email", ignoreCase = true)
                 ) {
                     return true
                 }
@@ -189,19 +236,24 @@ object StructureParser {
         if (isEmailType) return true
 
         // Check HTML input type
-        val htmlTag = node.htmlInfo?.tag
-        if (htmlTag.equals("input", ignoreCase = true)) {
-            val htmlType = node.htmlInfo?.attributes?.find { it.first.equals("type", ignoreCase = true) }?.second
-            if (htmlType.equals("email", ignoreCase = true) || htmlType.equals("text", ignoreCase = true)) {
-                val htmlName = node.htmlInfo?.attributes?.find { it.first.equals("name", ignoreCase = true) }?.second?.lowercase() ?: ""
-                if (htmlName.contains("user") || htmlName.contains("email") || htmlName.contains("login")) return true
+        if (node.htmlInfo?.tag.equals("input", ignoreCase = true)) {
+            val htmlType = node.htmlInfo?.attributes?.find { it.first.equals("type", ignoreCase = true) }?.second?.lowercase() ?: ""
+            val htmlName = node.htmlInfo?.attributes?.find { it.first.equals("name", ignoreCase = true) }?.second?.lowercase() ?: ""
+            val htmlId = node.htmlInfo?.attributes?.find { it.first.equals("id", ignoreCase = true) }?.second?.lowercase() ?: ""
+
+            if (htmlType == "email" || htmlName.contains("user") || htmlName.contains("email") ||
+                htmlName.contains("login") || htmlId.contains("user") || htmlId.contains("email")
+            ) {
+                return true
             }
         }
 
         // Check idEntry or hint text
         val idEntry = node.idEntry?.lowercase() ?: ""
         val hint = node.hint?.lowercase() ?: ""
-        return idEntry.contains("username") || idEntry.contains("user") || idEntry.contains("email") || idEntry.contains("login") ||
-                hint.contains("username") || hint.contains("email") || hint.contains("user")
+        return (idEntry.contains("username") || idEntry.contains("email") || idEntry.contains("login_id") ||
+                idEntry.contains("user_name") || idEntry.contains("account_name")) ||
+                (hint.contains("username") || hint.contains("email or phone") || hint.contains("user name") ||
+                        hint.contains("email address") || hint.contains("sign in with"))
     }
 }

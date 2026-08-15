@@ -21,25 +21,19 @@
 - **`DataScreen.tsx`** — `handleConfirmImport` guarded.
 - **`FolderManagerScreen.tsx`** — `addCustomFolder`, `renameFolder`, `deleteFolder` guarded.
 
-#### Android Autofill Service & Password Manager (complete)
-- **`VaultrAutofillService.kt`** — Native Android `AutofillService` implementation with inline keyboard presentation (Android 11+ Gboard/SwiftKey) and custom dark RemoteViews dropdown popups.
-- **`StructureParser.kt`** — Recursive `AssistStructure` AST parser with browser domain extraction (Chrome, Brave, Samsung Internet, Edge, Firefox, WebViews) and username/password field classification.
-- **`AutofillCredentialStore.kt`** — Fast in-memory & SharedPreferences indexed credential store with subdomain normalization and package-to-domain mapping.
-- **`VaultrAccessibilityService.kt`** — Accessibility service fallback for web views and apps that do not support the standard Android Autofill framework.
-- **`VaultrAutofillModule.kt` & `VaultrAutofillPackage.kt`** — React Native bridge exposing system provider status, settings launcher, accessibility toggle, and hardware-encrypted credential syncing.
-- **`AutofillSettingsScreen.tsx`** — Dedicated Autofill Management screen with live status card, capability badges, accessibility toggle, live indexed accounts counter, and interactive autofill test simulator.
+#### Android Autofill Service, Inline Keyboard & Quick Panel (complete)
+- **`StructureParser.kt`** — Strict classification eliminating false-positive popups on non-login fields (search bars, URL address bars, message composers, and chat inputs).
+- **`VaultrAutofillService.kt`** — Implemented Android 11+ Gboard inline suggestion slices with full metadata (title, summary, icon) and a "🔒 Unlock Vaultr" authentication dataset flow when the vault is locked.
+- **`VaultrTileService.kt`** — Native Android Quick Settings Tile (`android.service.quicksettings.TileService`) allowing 1-tap quick autofill from the top pull-down shade.
+- **`AutofillSearchActivity.kt`** — Native translucent dark search overlay with live filter, 1-tap copy username/password, and 45-second secure clipboard auto-clear.
+- **`AutofillCredentialStore.kt`** — Hardware-encrypted in-memory & SharedPreferences cache with subdomain normalization and package-to-domain mapping.
+- **`VaultrAccessibilityService.kt`** — Accessibility fallback for stubborn apps and hybrid WebViews.
+- **`AutofillSettingsScreen.tsx`** — Dashboard with active provider status, capability badges, and interactive matcher test tool.
 
-#### Mobile App Icon (complete)
-- **Safe Zone & Adaptive Scaling** — Rebuilt `vaultr-lock-dark-transparent.png`, `vaultr-lock-dark-solid.png`, and all native Android `mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}` launcher WebP assets with safe-zone bounds (0.64 scale) to eliminate squircle/circle mask clipping.
-
-#### Web App Import (complete — prior sessions)
-- `ImportPreviewModal.tsx` — Minimal sleek modal with hero illustration, no nested card divs.
-- `packages/core/src/importer.ts` — `checkDuplicateItemsBatch()` multi-factor duplicate engine (username + domain + template).
-- All item types (logins, cards, notes, addresses, profiles) checked for duplicates, not just logins.
-
-#### TypeScript Build
-- Mobile: `npx tsc --noEmit` → **0 errors**
-- Web: `npx tsc --noEmit` → **0 errors**
+#### TypeScript & Gradle Build
+- Mobile Kotlin / Gradle: `gradlew.bat :app:compileDebugKotlin` → **BUILD SUCCESSFUL**
+- Mobile TypeScript: `npx tsc --noEmit` → **0 errors**
+- Web App TypeScript: `npx tsc --noEmit` → **0 errors**
 
 ---
 

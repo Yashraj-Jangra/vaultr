@@ -11,4 +11,12 @@
     <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/splashscreen_background</item>
     <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@drawable/splashscreen_logo</item>
   </style>
+
+  <style name="Theme.Vaultr.Dialog" parent="Theme.AppCompat.Dialog">
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:windowIsFloating">false</item>
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:statusBarColor">#09090b</item>
+    <item name="android:navigationBarColor">#09090b</item>
+  </style>
 </resources>

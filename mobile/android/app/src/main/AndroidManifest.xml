@@ -52,5 +52,24 @@
           android:name="android.accessibilityservice"
           android:resource="@xml/accessibility_service_config" />
     </service>
+    <!-- Vaultr Quick Settings Pull-Down Shade Tile -->
+    <service
+        android:name=".autofill.VaultrTileService"
+        android:icon="@drawable/ic_vaultr_lock_small"
+        android:label="Vaultr Autofill"
+        android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+    </service>
+
+    <!-- Vaultr Quick Autofill Search Activity -->
+    <activity
+        android:name=".autofill.AutofillSearchActivity"
+        android:theme="@style/Theme.Vaultr.Dialog"
+        android:excludeFromRecents="true"
+        android:windowSoftInputMode="stateVisible|adjustResize"
+        android:exported="true" />
   </application>
 </manifest>
