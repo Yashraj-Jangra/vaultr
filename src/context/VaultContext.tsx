@@ -46,7 +46,7 @@ export interface VaultContextValue {
   searchQuery: string;
   /** Auto-lock timeout in minutes. 0 = disabled. Default: 15. */
   autoLockMinutes: number;
-  unlock: (masterPassword: string) => Promise<string | void>;
+  unlock: (masterPassword: string) => Promise<void>;
   lock: () => void;
   setAutoLockMinutes: (minutes: number) => void;
   saveItem: (item: Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt"> & { encryptedBlob: string }) => Promise<any>;
@@ -305,20 +305,34 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
-  // ── Vault actions
-
-  const unlock = useCallback(async (masterPassword: string): Promise<string | void> => {
+  const unlock = useCallback(async (masterPassword: string): Promise<void> => {
     if (!user?.id) return;
     setUnlockError("");
     const key = await deriveKey(masterPassword, user.id);
-    if (items.length > 0) {
-      try { await decrypt(key, items[0].encryptedBlob); }
-      catch {
-        const msg = "Wrong master password.";
+
+    // Test key validity against available vault items
+    let testItems = items;
+    if (testItems.length === 0) {
+      try {
+        const data = await apiFetch("/api/vault/items");
+        if (data?.items && Array.isArray(data.items)) {
+          testItems = data.items.map(rowToItem);
+          setItems(testItems);
+        }
+      } catch { /* ignore fetch failure */ }
+    }
+
+    const testItem = testItems.find((i) => !!i.encryptedBlob);
+    if (testItem) {
+      try {
+        await decrypt(key, testItem.encryptedBlob);
+      } catch (err) {
+        const msg = "Incorrect master password.";
         setUnlockError(msg);
-        return msg;
+        throw new Error(msg);
       }
     }
+
     setCryptoKey(key);
     saveVaultSession(user.id, masterPassword);
   }, [user, items, decrypt]);

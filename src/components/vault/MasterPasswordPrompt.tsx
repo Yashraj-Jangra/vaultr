@@ -19,6 +19,7 @@ export function MasterPasswordPrompt() {
   const [unlocking, setUnlocking] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
   const [unlockOverlay, setUnlockOverlay] = useState<"main" | "forgot" | "why">("main");
+  const passwordInputRef = React.useRef<HTMLInputElement>(null);
 
   // Random SVG pair — picked once on mount using lazy initializer (avoids setState-in-effect)
   const [randomSvgs] = useState<[string, string]>(() => {
@@ -42,9 +43,12 @@ export function MasterPasswordPrompt() {
     try {
       await unlock(masterPassword);
     } catch (err: any) {
-      const msg = err?.message || "Incorrect password";
+      const msg = err?.message || "Incorrect master password.";
       setUnlockError(msg.includes("decrypt") ? "Incorrect master password." : msg);
       setShakeKey(k => k + 1);
+      setTimeout(() => {
+        passwordInputRef.current?.select();
+      }, 50);
     } finally {
       setUnlocking(false);
     }
@@ -145,6 +149,7 @@ export function MasterPasswordPrompt() {
 
             <div className="relative">
               <input
+                ref={passwordInputRef}
                 type="password"
                 value={masterPassword}
                 onChange={e => setMasterPassword(e.target.value)}
