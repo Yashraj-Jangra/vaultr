@@ -16,6 +16,7 @@ import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
 import { reEncryptBlobs } from "@vaultr/core";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { getAvatarUri } from "../../utils/avatar";
 import {
   User,
@@ -96,22 +97,26 @@ export function AccountSettingsScreen({ navigation }: any) {
         // Server upload if session token available
         if (accountToken && serverUrl) {
           try {
-            const formData = new FormData();
+            const cleanServer = serverUrl.replace(/\/+$/, "");
             const filename = localUri.split("/").pop() || "avatar.jpg";
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : `image/jpeg`;
-            formData.append("file", { uri: localUri, name: filename, type } as any);
 
-            const res = await fetch(`${serverUrl}/api/settings/avatar`, {
-              method: "POST",
+            const res = await FileSystem.uploadAsync(`${cleanServer}/api/settings/avatar`, localUri, {
+              httpMethod: "POST",
+              uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+              fieldName: "file",
+              mimeType: type,
               headers: {
                 Authorization: `Bearer ${accountToken}`,
+                Cookie: `better-auth.session_token=${accountToken}`,
+                Origin: cleanServer,
+                Referer: `${cleanServer}/`,
               },
-              body: formData,
             });
 
-            if (res.ok) {
-              const data = await res.json();
+            if (res.status >= 200 && res.status < 300) {
+              const data = JSON.parse(res.body);
               if (data.avatarUrl) {
                 setPhotoURL(data.avatarUrl);
                 await updateAccountUser({ image: data.avatarUrl, avatarUrl: data.avatarUrl });
@@ -133,10 +138,16 @@ export function AccountSettingsScreen({ navigation }: any) {
     setPhotoURL("");
     await updateAccountUser({ image: undefined, avatarUrl: undefined });
     if (accountToken && serverUrl) {
+      const cleanServer = serverUrl.replace(/\/+$/, "");
       try {
-        await fetch(`${serverUrl}/api/settings/avatar`, {
+        await fetch(`${cleanServer}/api/settings/avatar`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${accountToken}` },
+          headers: {
+            Authorization: `Bearer ${accountToken}`,
+            Cookie: `better-auth.session_token=${accountToken}`,
+            Origin: cleanServer,
+            Referer: `${cleanServer}/`,
+          },
         });
         await syncUserProfile();
       } catch { }
@@ -154,12 +165,16 @@ export function AccountSettingsScreen({ navigation }: any) {
 
       // Optionally attempt server update if endpoint is available
       if (accountToken && serverUrl) {
+        const cleanServer = serverUrl.replace(/\/+$/, "");
         try {
-          await fetch(`${serverUrl}/api/auth/update-user`, {
+          await fetch(`${cleanServer}/api/auth/update-user`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${accountToken}`,
+              Cookie: `better-auth.session_token=${accountToken}`,
+              Origin: cleanServer,
+              Referer: `${cleanServer}/`,
             },
             body: JSON.stringify({
               name: displayName.trim(),
