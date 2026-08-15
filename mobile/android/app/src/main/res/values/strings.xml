@@ -1,3 +1,4 @@
 <resources>
   <string name="app_name">Vaultr</string>
+  <string name="accessibility_service_description">Vaultr Autofill Accessibility Service allows automatic filling of login credentials in web browsers and apps that do not support the standard Android Autofill framework.</string>
 </resources>

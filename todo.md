@@ -21,6 +21,14 @@
 - **`DataScreen.tsx`** — `handleConfirmImport` guarded.
 - **`FolderManagerScreen.tsx`** — `addCustomFolder`, `renameFolder`, `deleteFolder` guarded.
 
+#### Android Autofill Service & Password Manager (complete)
+- **`VaultrAutofillService.kt`** — Native Android `AutofillService` implementation with inline keyboard presentation (Android 11+ Gboard/SwiftKey) and custom dark RemoteViews dropdown popups.
+- **`StructureParser.kt`** — Recursive `AssistStructure` AST parser with browser domain extraction (Chrome, Brave, Samsung Internet, Edge, Firefox, WebViews) and username/password field classification.
+- **`AutofillCredentialStore.kt`** — Fast in-memory & SharedPreferences indexed credential store with subdomain normalization and package-to-domain mapping.
+- **`VaultrAccessibilityService.kt`** — Accessibility service fallback for web views and apps that do not support the standard Android Autofill framework.
+- **`VaultrAutofillModule.kt` & `VaultrAutofillPackage.kt`** — React Native bridge exposing system provider status, settings launcher, accessibility toggle, and hardware-encrypted credential syncing.
+- **`AutofillSettingsScreen.tsx`** — Dedicated Autofill Management screen with live status card, capability badges, accessibility toggle, live indexed accounts counter, and interactive autofill test simulator.
+
 #### Mobile App Icon (complete)
 - **Safe Zone & Adaptive Scaling** — Rebuilt `vaultr-lock-dark-transparent.png`, `vaultr-lock-dark-solid.png`, and all native Android `mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}` launcher WebP assets with safe-zone bounds (0.64 scale) to eliminate squircle/circle mask clipping.
 

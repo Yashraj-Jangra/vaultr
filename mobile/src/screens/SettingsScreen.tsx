@@ -166,9 +166,9 @@ export function SettingsScreen({ navigation }: any) {
             <View style={styles.groupDivider} />
             <SettingsRow
               icon={<Smartphone size={15} color="#38bdf8" />}
-              title="Autofill Credentials"
-              subtitle="Auto-fill logins in browser & apps"
-              onPress={handleOpenAutofill}
+              title="Autofill Service"
+              subtitle="System autofill, keyboard & browsers"
+              onPress={() => navigation.navigate("AutofillSettings")}
               last
             />
           </View>

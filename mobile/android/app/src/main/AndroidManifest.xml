@@ -26,5 +26,31 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+
+    <!-- Vaultr Android Autofill Service -->
+    <service
+        android:name=".autofill.VaultrAutofillService"
+        android:permission="android.permission.BIND_AUTOFILL_SERVICE"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.service.autofill.AutofillService" />
+      </intent-filter>
+      <meta-data
+          android:name="android.autofill"
+          android:resource="@xml/autofill_service_config" />
+    </service>
+
+    <!-- Vaultr Accessibility Fallback Service -->
+    <service
+        android:name=".autofill.VaultrAccessibilityService"
+        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+          android:name="android.accessibilityservice"
+          android:resource="@xml/accessibility_service_config" />
+    </service>
   </application>
 </manifest>

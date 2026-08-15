@@ -14,6 +14,7 @@ import { SecuritySettingsScreen } from "../screens/settings/SecuritySettingsScre
 import { SessionsScreen } from "../screens/settings/SessionsScreen";
 import { DataScreen } from "../screens/settings/DataScreen";
 import { FolderManagerScreen } from "../screens/settings/FolderManagerScreen";
+import { AutofillSettingsScreen } from "../screens/settings/AutofillSettingsScreen";
 import { TrashScreen } from "../screens/TrashScreen";
 import { VaultFilteredScreen } from "../screens/VaultFilteredScreen";
 import { colors } from "../theme/colors";
@@ -60,6 +61,7 @@ export function RootNavigator() {
             <Stack.Screen name="Sessions" component={SessionsScreen} />
             <Stack.Screen name="DataSettings" component={DataScreen} />
             <Stack.Screen name="FolderManager" component={FolderManagerScreen} />
+            <Stack.Screen name="AutofillSettings" component={AutofillSettingsScreen} />
             <Stack.Screen name="Trash" component={TrashScreen} />
             <Stack.Screen name="VaultFiltered" component={VaultFilteredScreen} />
           </>

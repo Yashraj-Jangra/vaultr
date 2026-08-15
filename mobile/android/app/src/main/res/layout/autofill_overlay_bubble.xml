@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/autofill_overlay_root"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/ic_launcher_round"
+    android:padding="8dp"
+    android:elevation="8dp">
+
+    <ImageView
+        android:id="@+id/autofill_overlay_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_vaultr_lock_small"
+        android:contentDescription="Vaultr Autofill" />
+
+</LinearLayout>

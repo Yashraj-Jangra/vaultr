@@ -3,7 +3,7 @@ import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, encryptBinary,
 import { cacheVaultItems, getCachedVaultItems, clearCachedVaultItems } from "../services/sync";
 import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
-import { syncAutofillCredentials } from "../services/autofill";
+import { syncAutofillCredentials, clearAutofillCredentials } from "../services/autofill";
 import { probeServerConnection, startConnectivityMonitor } from "../services/connectivity";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -434,6 +434,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (accountUser?.id) {
       await clearCachedVaultItems(accountUser.id);
     }
+    await clearAutofillCredentials();
     await clearBiometricPassword();
     await clearAccountSession();
     get().lock();
@@ -528,6 +529,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   lock: () => {
+    clearAutofillCredentials();
     set({
       items: [],
       cryptoKey: null,
@@ -1026,12 +1028,22 @@ async function syncAutofillStore() {
       const raw = await decrypt(cryptoKey, item.encryptedBlob);
       const p = JSON.parse(raw);
       if (p.username || p.password) {
+        const rawUrls: string[] = [];
+        if (p.url && typeof p.url === "string") rawUrls.push(p.url);
+        if (item.domain && typeof item.domain === "string") rawUrls.push(item.domain);
+        if (p.urls && Array.isArray(p.urls)) {
+          p.urls.forEach((u: any) => {
+            if (u && typeof u === "string") rawUrls.push(u);
+          });
+        }
+
         datasets.push({
           id: item.id,
           name: item.name,
-          domain: item.domain || p.url,
+          domain: item.domain || p.url || "",
           username: p.username || "",
           password: p.password || "",
+          urls: Array.from(new Set(rawUrls)).filter(Boolean),
         });
       }
     } catch {}

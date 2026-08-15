@@ -17,6 +17,7 @@ export type RootStackParamList = {
   DataSettings: undefined;
   Sessions: undefined;
   FolderManager: undefined;
+  AutofillSettings: undefined;
   Trash: undefined;
   VaultFiltered: {
     title: string;

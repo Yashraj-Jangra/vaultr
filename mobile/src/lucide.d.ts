@@ -59,4 +59,6 @@ declare module "lucide-react-native" {
   export const History: ComponentType<IconProps>;
   export const ChevronDown: ComponentType<IconProps>;
   export const Inbox: ComponentType<IconProps>;
+  export const Keyboard: ComponentType<IconProps>;
+  export const Sparkles: ComponentType<IconProps>;
 }
