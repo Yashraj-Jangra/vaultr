@@ -84,26 +84,26 @@ class VaultrAutofillService : AutofillService() {
         }
 
         // ── Matching Credentials Found ──
-        for (item in matchingLogins) {
+        val inlineReq = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) request.inlineSuggestionsRequest else null
+        val inlineSpecs = inlineReq?.inlinePresentationSpecs ?: emptyList()
+        val maxInline = inlineReq?.maxSuggestionCount?.takeIf { it > 0 } ?: inlineSpecs.size
+
+        Log.d(TAG, "Inline specs=${inlineSpecs.size} maxCount=$maxInline IME=${inlineReq?.hostPackageName}")
+
+        for ((index, item) in matchingLogins.withIndex()) {
             val datasetBuilder = Dataset.Builder()
             val presentation = buildDropdownView(item)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-                request.inlineSuggestionsRequest != null
-            ) {
-                val specs = request.inlineSuggestionsRequest?.inlinePresentationSpecs
-                val spec = specs?.firstOrNull()
-                if (spec != null) {
-                    val inlinePresentation = buildInlineSuggestion(item, spec)
-                    if (inlinePresentation != null) {
-                        parsed.usernameId?.let {
-                            datasetBuilder.setValue(it, AutofillValue.forText(item.username), presentation, inlinePresentation)
-                        }
-                        parsed.passwordId?.let {
-                            datasetBuilder.setValue(it, AutofillValue.forText(item.password), presentation, inlinePresentation)
-                        }
-                    } else {
-                        fillWithDropdown(datasetBuilder, parsed.usernameId, parsed.passwordId, item, presentation)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlineSpecs.isNotEmpty() && index < maxInline) {
+                // Use spec for this index, or the last one if we've run out of specs
+                val spec = inlineSpecs.getOrElse(index) { inlineSpecs.last() }
+                val inlinePresentation = buildInlineSuggestion(item, spec)
+                if (inlinePresentation != null) {
+                    parsed.usernameId?.let {
+                        datasetBuilder.setValue(it, AutofillValue.forText(item.username), presentation, inlinePresentation)
+                    }
+                    parsed.passwordId?.let {
+                        datasetBuilder.setValue(it, AutofillValue.forText(item.password), presentation, inlinePresentation)
                     }
                 } else {
                     fillWithDropdown(datasetBuilder, parsed.usernameId, parsed.passwordId, item, presentation)
@@ -172,10 +172,12 @@ class VaultrAutofillService : AutofillService() {
         spec: InlinePresentationSpec
     ): InlinePresentation? {
         return try {
-            // Check IME supports inline suggestion version 1
-            val supportedVersions = UiVersions.getVersions(spec.style)
-            if (!supportedVersions.contains(UiVersions.INLINE_UI_VERSION_1)) {
-                Log.d(TAG, "IME doesn't support InlineSuggestionUi v1, skipping")
+            // Samsung Keyboard and some IMEs don't report versions correctly via UiVersions.
+            // If inlineSuggestionsRequest is present, the IME already claims support.
+            // Only skip if versions are explicitly declared and don't include v1.
+            val supportedVersions = runCatching { UiVersions.getVersions(spec.style) }.getOrDefault(emptyList())
+            if (supportedVersions.isNotEmpty() && !supportedVersions.contains(UiVersions.INLINE_UI_VERSION_1)) {
+                Log.d(TAG, "IME explicitly doesn't support InlineSuggestionUi v1, skipping")
                 return null
             }
 
@@ -198,6 +200,7 @@ class VaultrAutofillService : AutofillService() {
                 setStartIcon(icon)
             }
 
+            Log.d(TAG, "Built inline suggestion for '${item.name}' (versions=$supportedVersions)")
             InlinePresentation(contentBuilder.build().slice, spec, false)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to build InlineSuggestionUi: ${e.message}")
@@ -261,17 +264,18 @@ class VaultrAutofillService : AutofillService() {
         pendingIntent: PendingIntent
     ): InlinePresentation? {
         return try {
-            val supportedVersions = UiVersions.getVersions(spec.style)
-            if (!supportedVersions.contains(UiVersions.INLINE_UI_VERSION_1)) return null
+            val supportedVersions = runCatching { UiVersions.getVersions(spec.style) }.getOrDefault(emptyList())
+            if (supportedVersions.isNotEmpty() && !supportedVersions.contains(UiVersions.INLINE_UI_VERSION_1)) return null
 
             val icon = Icon.createWithResource(this, R.drawable.ic_vaultr_lock_small)
             val contentBuilder = InlineSuggestionUi.newContentBuilder(pendingIntent).apply {
-                setTitle("🔒 Unlock Vaultr")
+                setTitle("Unlock Vaultr")
                 setSubtitle("Tap to authenticate")
                 setStartIcon(icon)
             }
             InlinePresentation(contentBuilder.build().slice, spec, false)
         } catch (e: Exception) {
+            Log.w(TAG, "buildUnlockInlineSuggestion failed: ${e.message}")
             null
         }
     }
