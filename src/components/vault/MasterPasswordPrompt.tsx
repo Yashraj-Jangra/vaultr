@@ -105,17 +105,14 @@ export function MasterPasswordPrompt() {
                 style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)" }}
               />
               <div
-                className={`w-20 h-20 rounded-2xl border flex items-center justify-center transition-all duration-300 relative z-10 ${unlocking
-                  ? "bg-neutral-800 border-neutral-600 scale-105"
-                  : "bg-[#0d0d0d] border-[var(--border)]"
-                  }`}
+                className="w-24 h-24 rounded-2xl border border-[var(--border)] bg-[#0d0d0d] flex items-center justify-center transition-all duration-300 relative z-10"
               >
                 <Image
                   src={activeTheme.mode === "dark" ? "/brand/vaultr-lock-dark-transparent.svg" : "/brand/vaultr-lock-light-transparent.svg"}
                   alt="_vaultr"
-                  width={48}
-                  height={48}
-                  className={`w-12 h-12 object-contain transition-all duration-300 ${unlocking ? "opacity-100" : "opacity-60"}`}
+                  width={78}
+                  height={78}
+                  className="w-20 h-20 object-contain transition-opacity duration-300 opacity-90"
                 />
               </div>
             </div>

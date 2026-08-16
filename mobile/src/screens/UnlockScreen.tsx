@@ -12,6 +12,7 @@ import {
   Platform,
   Dimensions,
   InteractionManager,
+  Keyboard,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import Animated, {
@@ -57,7 +58,23 @@ export function UnlockScreen() {
   const [unlockError, setUnlockError] = useState("");
   const [currentView, setCurrentView] = useState<UnlockView>("main");
 
-  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricEnrolled, setBiometricEnrolled] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Reanimated Shared Values for 60fps/120fps UI Thread Performance
   const haloAnim = useSharedValue(0);
@@ -73,6 +90,7 @@ export function UnlockScreen() {
       const enabled = await isBiometricEnabled();
       if (!enabled) {
         setUnlocking(false);
+        setBiometricEnrolled(false);
         vaultAlert.alert(
           "Biometrics Not Enrolled",
           "Please unlock your vault with your Master Password first, then enable Biometric Unlock in Security Settings.",
@@ -138,17 +156,21 @@ export function UnlockScreen() {
     // Fade in on mount
     fadeInAnim.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
 
-    // Check if biometric hardware is supported and if enabled
+    // Check if biometric hardware is supported AND actively enrolled
     (async () => {
       const supported = await isBiometricAvailable();
       if (supported) {
-        setBiometricsAvailable(true);
         const enabled = await isBiometricEnabled();
         if (enabled) {
+          setBiometricEnrolled(true);
           setTimeout(() => {
             handleBiometricUnlock();
           }, 400);
+        } else {
+          setBiometricEnrolled(false);
         }
+      } else {
+        setBiometricEnrolled(false);
       }
     })();
 
@@ -224,26 +246,26 @@ export function UnlockScreen() {
   const renderMain = () => (
     <Animated.View style={animatedMainStyle}>
       {/* Halo + lock icon */}
-      <View style={styles.iconWrap}>
+      <View style={[styles.iconWrap, isKeyboardVisible && styles.iconWrapKeyboard]}>
         <Animated.View style={[styles.halo, animatedHaloStyle]} />
         <Animated.View style={[styles.haloInner, animatedHaloInnerStyle]} />
-        <View style={[styles.lockBox, unlocking && styles.lockBoxUnlocking]}>
+        <View style={[styles.lockBox, isKeyboardVisible && styles.lockBoxKeyboard]}>
           <Image
             source={require("../../assets/vaultr-lock-dark-transparent.png")}
-            style={[styles.lockBrand, { opacity: unlocking ? 1.0 : 0.6 }]}
+            style={[styles.lockBrand, isKeyboardVisible && styles.lockBrandKeyboard]}
             resizeMode="contain"
           />
         </View>
       </View>
 
       {/* Brand + headings */}
-      <View style={styles.headingWrap}>
+      <View style={[styles.headingWrap, isKeyboardVisible && styles.headingWrapKeyboard]}>
         <Image
           source={require("../../assets/vaultr-full-dark-transparent.png")}
-          style={styles.logoImage}
+          style={[styles.logoImage, isKeyboardVisible && { height: 15, width: 75, marginBottom: 2 }]}
           resizeMode="contain"
         />
-        <Text style={styles.title}>
+        <Text style={[styles.title, isKeyboardVisible && { fontSize: 16 }]}>
           {unlocking ? "Decrypting vault…" : "Unlock your vault"}
         </Text>
         <Text style={styles.emailHint} numberOfLines={1}>
@@ -305,8 +327,8 @@ export function UnlockScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Footer links: Below unlock button, above fingerprint */}
-        <View style={styles.footerRow}>
+        {/* Footer links: Below action row */}
+        <View style={[styles.footerRow, isKeyboardVisible && { marginTop: 12 }]}>
           <TouchableOpacity onPress={() => setCurrentView("forgot")}>
             <Text style={styles.footerLink}>Forgot password?</Text>
           </TouchableOpacity>
@@ -319,8 +341,8 @@ export function UnlockScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Flagship In-Display Fingerprint Sensor — Middle Centered with Breathing Animation */}
-        {biometricsAvailable ? (
+        {/* Flagship In-Display Fingerprint Sensor — Middle Centered with Breathing Animation (Only when enrolled & keyboard closed) */}
+        {biometricEnrolled && !isKeyboardVisible ? (
           <View style={styles.biometricContainer}>
             <TouchableOpacity
               onPress={handleBiometricUnlock}
@@ -342,11 +364,13 @@ export function UnlockScreen() {
           </View>
         ) : null}
 
-        <View style={styles.signOutWrap}>
-          <TouchableOpacity onPress={signOutAccount}>
-            <Text style={styles.signOutText}>Sign out instead</Text>
-          </TouchableOpacity>
-        </View>
+        {!isKeyboardVisible ? (
+          <View style={styles.signOutWrap}>
+            <TouchableOpacity onPress={signOutAccount}>
+              <Text style={styles.signOutText}>Sign out instead</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
     </Animated.View>
   );
@@ -446,17 +470,20 @@ export function UnlockScreen() {
       <GridBackground />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isKeyboardVisible && styles.scrollContentKeyboard,
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          automaticallyAdjustKeyboardInsets={true}
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
         >
-          <View style={styles.card}>
+          <View style={[styles.card, isKeyboardVisible && styles.cardKeyboard]}>
             {currentView === "main" && renderMain()}
             {currentView === "forgot" && renderForgot()}
             {currentView === "why" && renderWhy()}
@@ -475,65 +502,90 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingTop: 34,
+    paddingBottom: 20,
+  },
+  scrollContentKeyboard: {
+    justifyContent: "flex-start",
+    paddingTop: Platform.OS === "android" ? 10 : 16,
+    paddingBottom: 10,
   },
 
   // Minimal, card-free container (completely invisible wrapper)
   card: {
     width: "100%",
     maxWidth: 340,
+    marginTop: 8,
+  },
+  cardKeyboard: {
+    marginTop: 0,
   },
 
-  // Lock icon halo — larger hero visual matching website/extension
+  // Lock icon halo — matches site's rounded-2xl #0d0d0d surface exactly
   iconWrap: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 28,
+    marginBottom: 12,
     position: "relative",
-    height: 140,
+    height: 128,
+  },
+  iconWrapKeyboard: {
+    height: 88,
+    marginBottom: 4,
   },
   halo: {
     position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   haloInner: {
     position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   lockBox: {
-    width: 96,
-    height: 96,
-    borderRadius: 26,
+    width: 94,
+    height: 94,
+    borderRadius: 20,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
-    borderColor: "#1f1f1f",
+    borderColor: "#27272a",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+    zIndex: 10,
   },
-  lockBoxUnlocking: {
-    backgroundColor: "#1f1f1f",
-    borderColor: "#333",
+  lockBoxKeyboard: {
+    width: 66,
+    height: 66,
+    borderRadius: 14,
   },
   lockBrand: {
-    width: 78,
-    height: 78,
+    width: 80,
+    height: 80,
+  },
+  lockBrandKeyboard: {
+    width: 54,
+    height: 54,
   },
 
   // Heading block
   headingWrap: {
     alignItems: "center",
     gap: 6,
-    marginBottom: 28,
+    marginBottom: 24,
+  },
+  headingWrapKeyboard: {
+    gap: 2,
+    marginBottom: 12,
   },
   logoImage: {
     height: 18,
@@ -630,8 +682,8 @@ const styles = StyleSheet.create({
   biometricContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
-    marginBottom: 4,
+    marginTop: 30,
+    marginBottom: 8,
   },
   biometricTouch: {
     alignItems: "center",
@@ -689,7 +741,7 @@ const styles = StyleSheet.create({
   footerWhyBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
   footerLink: { fontSize: 12, color: "#525252" },
 
-  signOutWrap: { alignItems: "center", marginTop: 24 },
+  signOutWrap: { alignItems: "center", marginTop: 18 },
   signOutText: { fontSize: 11, color: "#404040" },
 
   // Sub-views (forgot / why) — centred icon
