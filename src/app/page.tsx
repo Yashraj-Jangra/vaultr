@@ -160,10 +160,11 @@ export default function LandingPage() {
           </Link>
 
           <div className="hidden md:flex items-center gap-8 text-[13px] font-medium text-[var(--fg-muted)]">
+            <Link href="/about" className="hover:text-[var(--fg)] transition-colors">About</Link>
+            <Link href="/docs" className="hover:text-[var(--fg)] transition-colors">Docs</Link>
             <a href="#features" className="hover:text-[var(--fg)] transition-colors">Features</a>
             <a href="#security" className="hover:text-[var(--fg)] transition-colors">Security</a>
-            <a href="#howitworks" className="hover:text-[var(--fg)] transition-colors">How It Works</a>
-            <a href="#opensource" className="hover:text-[var(--fg)] transition-colors">Open Source</a>
+            <Link href="/changelog" className="hover:text-[var(--fg)] transition-colors">Changelog</Link>
             <a href="#faq" className="hover:text-[var(--fg)] transition-colors">FAQ</a>
           </div>
 
@@ -187,10 +188,11 @@ export default function LandingPage() {
 
         {mobileNavOpen && (
           <div className="sm:hidden bg-[var(--surface)] border-b border-[var(--border)] px-6 py-5 space-y-3">
+            <Link href="/about" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">About Vaultr</Link>
+            <Link href="/docs" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">Documentation</Link>
             <a href="#features" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">Features</a>
             <a href="#security" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">Security Architecture</a>
-            <a href="#howitworks" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">How It Works</a>
-            <a href="#opensource" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">Open Source</a>
+            <Link href="/changelog" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">Changelog</Link>
             <a href="#faq" onClick={() => setMobileNavOpen(false)} className="block text-sm text-[var(--fg-muted)] py-1">FAQ</a>
             <div className="pt-2 flex flex-col gap-2">
               <Link href="/auth" className="w-full text-center py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--fg)]">
@@ -216,7 +218,7 @@ export default function LandingPage() {
             <div className="space-y-7 pt-4 pb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[11px] font-medium text-[var(--fg-muted)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Zero-Knowledge · AES-256-GCM · Open Architecture
+                VaultR 2026 Edition · Zero-Knowledge · AES-256-GCM
               </div>
 
               <h1 className="text-[44px] sm:text-[56px] font-bold text-[var(--fg)] leading-[1.08] tracking-tight">
@@ -845,20 +847,24 @@ export default function LandingPage() {
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
             <Image
               src="/brand/vaultr-full-dark-transparent.png"
-              alt={config.name}
+              alt="Vaultr"
               width={100}
               height={20}
-              className="h-5 w-auto object-contain opacity-40"
+              className="h-5 w-auto object-contain opacity-50"
             />
+            <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider px-2 py-0.5 rounded border border-neutral-800 bg-neutral-900/60 hidden sm:inline-block">
+              VaultR 2026
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-5 text-[12px] text-[var(--fg-muted)]">
-            <a href="#features" className="hover:text-[var(--fg)] transition-colors">Features</a>
-            <a href="#security" className="hover:text-[var(--fg)] transition-colors">Security</a>
-            <a href="#opensource" className="hover:text-[var(--fg)] transition-colors">Open Source</a>
+            <Link href="/about" className="hover:text-[var(--fg)] transition-colors">About</Link>
+            <Link href="/docs" className="hover:text-[var(--fg)] transition-colors">Docs</Link>
+            <Link href="/changelog" className="hover:text-[var(--fg)] transition-colors">Changelog</Link>
+            <Link href="/security" className="hover:text-[var(--fg)] transition-colors">Security</Link>
             <Link href="/privacy" className="hover:text-[var(--fg)] transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-[var(--fg)] transition-colors">Terms</Link>
             <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--fg)] flex items-center gap-1.5 transition-colors">
@@ -866,10 +872,11 @@ export default function LandingPage() {
             </a>
           </div>
 
-          <p className="text-[11px] text-[var(--fg-muted)]">© {new Date().getFullYear()} {config.name}</p>
+          <p className="text-[11px] text-[var(--fg-muted)] font-mono">© 2026 Vaultr · All Rights Reserved</p>
         </div>
       </footer>
 
     </div>
   );
 }
+

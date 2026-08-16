@@ -7,13 +7,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { VaultProvider } from "@/context/VaultContext";
-import { User, Shield, Database, LifeBuoy } from "lucide-react";
+import { User, Shield, Database, LifeBuoy, Info } from "lucide-react";
 
 const SETTINGS_NAV = [
   { href: "/settings/account",  label: "Account",  icon: User },
   { href: "/settings/security", label: "Security", icon: Shield },
   { href: "/settings/data",     label: "Data",     icon: Database },
   { href: "/settings/support",  label: "Support",  icon: LifeBuoy },
+  { href: "/settings/about",    label: "About & System", icon: Info },
 ] as const;
 
 function SettingsShell({ children }: { children: React.ReactNode }) {

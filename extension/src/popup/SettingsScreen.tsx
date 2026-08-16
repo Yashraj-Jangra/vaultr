@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { Lock, Info, ExternalLink, ChevronRight } from "lucide-react";
+import {
+  Lock,
+  Info,
+  ExternalLink,
+  ChevronRight,
+  BookOpen,
+  History,
+  Shield,
+  ShieldCheck,
+  LifeBuoy,
+  FileText,
+  Globe,
+} from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
+import {
+  VAULTR_EDITION,
+  VAULTR_VERSION,
+  VAULTR_BUILD_NUMBER,
+  VAULTR_CRYPTO_SPEC,
+} from "@vaultr/core";
 
 interface SettingsScreenProps {
   serverUrl: string;
@@ -224,7 +242,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
                 className="form-input"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://vaultr.cvweb.qzz.io"
+                placeholder="https://vaultr.yourdomain.com"
                 style={{ flex: 1, height: 38, fontSize: 12, background: "#0d0d0d", borderRadius: 10 }}
               />
               <button
@@ -243,20 +261,90 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           style={{ width: "100%", height: 36, justifyContent: "center", fontSize: 12, borderRadius: 10, marginTop: 4 }}
           onClick={() => openSite()}
         >
-          <ExternalLink size={12} style={{ marginRight: 4 }} />
+          <Globe size={12} style={{ marginRight: 4 }} />
           Open Vaultr Web App
         </button>
       </div>
 
-      {/* About Section */}
-      <div className="settings-section" style={{ borderBottom: "none", paddingTop: 14 }}>
+      {/* Resources & Information Deep Links */}
+      <div className="settings-section">
+        <div className="settings-section-title">VAULTR 2026 RESOURCES</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <button
+            className="btn btn-ghost"
+            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
+            onClick={() => openSite("/docs")}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <BookOpen size={13} style={{ color: "#38bdf8" }} />
+              Documentation & Guides
+            </span>
+            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
+          </button>
+
+          <button
+            className="btn btn-ghost"
+            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
+            onClick={() => openSite("/changelog")}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <History size={13} style={{ color: "#fbbf24" }} />
+              Release Notes & Changelog
+            </span>
+            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
+          </button>
+
+          <button
+            className="btn btn-ghost"
+            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
+            onClick={() => openSite("/security")}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Shield size={13} style={{ color: "#34d399" }} />
+              Security Architecture
+            </span>
+            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
+          </button>
+
+          <button
+            className="btn btn-ghost"
+            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
+            onClick={() => openSite("/privacy")}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <FileText size={13} style={{ color: "#a78bfa" }} />
+              Privacy Policy & Terms
+            </span>
+            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
+          </button>
+
+          <button
+            className="btn btn-ghost"
+            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
+            onClick={() => openSite("/settings/support")}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <LifeBuoy size={13} style={{ color: "#f43f5e" }} />
+              Help Desk & Support
+            </span>
+            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
+          </button>
+        </div>
+      </div>
+
+      {/* About Badge Card */}
+      <div className="settings-section" style={{ borderBottom: "none", paddingTop: 10, paddingBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
-          <Info size={14} style={{ color: "var(--neutral-500)", marginTop: 2, flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-            <strong style={{ color: "var(--neutral-200)" }}>Vaultr Extension v1.0.0</strong>
-            <br />
-            Zero-knowledge AES-256-GCM client-side encryption. Your master password never leaves your device.
-          </span>
+          <ShieldCheck size={16} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} />
+          <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4, flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <strong style={{ color: "var(--neutral-200)" }}>{VAULTR_EDITION} Extension</strong>
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--neutral-500)" }}>v{VAULTR_VERSION}</span>
+            </div>
+            <span style={{ fontSize: 10, color: "var(--neutral-500)", display: "block", marginTop: 2 }}>
+              Build {VAULTR_BUILD_NUMBER} · AES-256-GCM Zero-Knowledge
+            </span>
+          </div>
         </div>
       </div>
 

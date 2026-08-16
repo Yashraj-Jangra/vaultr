@@ -841,6 +841,16 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                   Collapse
                 </span>
               </button>
+
+              {!collapsed && (
+                <Link
+                  href="/settings/about"
+                  className="flex items-center justify-between px-3 py-1.5 pt-2 border-t border-neutral-900/60 text-[10px] font-mono text-neutral-600 hover:text-neutral-400 transition-colors"
+                >
+                  <span>VaultR 2026</span>
+                  <span className="text-neutral-700 hover:text-neutral-500">v0.2.4</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>

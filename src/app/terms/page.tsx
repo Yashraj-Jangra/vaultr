@@ -31,13 +31,17 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <nav className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-5 h-13 flex items-center justify-between py-3">
-          <Link href="/" className="flex items-center gap-2 text-neutral-500 hover:text-neutral-200 transition-colors text-[13px]">
-            <ChevronLeft className="w-3.5 h-3.5" /> Back
+        <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-neutral-500 hover:text-neutral-200 transition-colors text-[13px] font-medium">
+            <ChevronLeft className="w-4 h-4" /> Home
           </Link>
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-neutral-600" />
-            <span className="text-[13px] text-neutral-600">_vaultr</span>
+          <div className="flex items-center gap-3">
+            <Link href="/about" className="text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors">About</Link>
+            <Link href="/docs" className="text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors">Docs</Link>
+            <Link href="/security" className="text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors">Security</Link>
+            <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider px-2 py-0.5 rounded border border-neutral-800 bg-neutral-900/60">
+              VaultR 2026
+            </span>
           </div>
         </div>
       </nav>
@@ -46,10 +50,10 @@ export default function TermsPage() {
       <div className="border-b border-[var(--border)] bg-neutral-950">
         <div className="max-w-6xl mx-auto px-6 py-12 flex items-center justify-between gap-8">
           <div>
-            <p className="text-[11px] text-neutral-600 uppercase tracking-widest mb-3">Legal</p>
-            <h1 className="text-[32px] font-semibold text-neutral-100 tracking-tight mb-2">Terms of Service</h1>
+            <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-widest mb-3">Legal Agreement</p>
+            <h1 className="text-[32px] font-bold text-neutral-100 tracking-tight mb-2">Terms of Service</h1>
             <p className="text-[13px] text-neutral-500">
-              Last updated: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+              VaultR 2026 Edition · Last updated: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
             </p>
           </div>
           <div className="hidden md:block w-44 h-44 shrink-0">
@@ -76,8 +80,10 @@ export default function TermsPage() {
                 </a>
               ))}
               <div className="pt-4 mt-4 border-t border-[var(--border)] space-y-0.5">
-                <Link href="/privacy" className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors">Privacy Policy</Link>
-                <Link href="/security" className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors">Security</Link>
+                <Link href="/privacy" className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">Privacy Policy</Link>
+                <Link href="/security" className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">Security Spec</Link>
+                <Link href="/docs" className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">Documentation</Link>
+                <Link href="/changelog" className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">Changelog</Link>
               </div>
             </div>
           </aside>
