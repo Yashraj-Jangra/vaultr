@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Vaultr — Secure Password Manager",
   "short_name": "Vaultr",
-  "version": "0.2.0",
-  "description": "Self-hosted, end-to-end encrypted password manager browser extension.",
+  "version": "0.2.5",
+  "description": "VaultR 2026 — Zero-knowledge, client-side encrypted password manager.",
   "icons": {
     "16": "icons/vaultr-lock-dark-transparent-16.png",
     "32": "icons/vaultr-lock-dark-transparent-32.png",
