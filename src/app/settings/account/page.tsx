@@ -441,11 +441,11 @@ export default function AccountSettingsPage() {
                     className={`h-full rounded-full transition-all duration-300 ${
                       (storageUsed / storageQuota) >= 0.9 ? "bg-red-500" : (storageUsed / storageQuota) >= 0.7 ? "bg-amber-500" : "bg-[var(--accent)]"
                     }`}
-                    style={{ width: `${Math.min(100, Math.round((storageUsed / storageQuota) * 100))}%` }}
+                    style={{ width: `${Math.min(100, Math.max(storageUsed > 0 ? 2 : 0, Math.round((storageUsed / storageQuota) * 100)))}%` }}
                   />
                 </div>
                 <p className="text-[10px] text-neutral-500">
-                  Includes encrypted vault file attachments and custom avatars.
+                  Includes encrypted items, files, and credentials synced to vault.
                 </p>
               </div>
             </div>
