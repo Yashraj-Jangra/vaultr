@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,8 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import * as Clipboard from "expo-clipboard";
 import { useVaultStore } from "../store/vaultStore";
 import { vaultAlert } from "../store/alertStore";
 import { colors } from "../theme/colors";
@@ -28,6 +30,13 @@ import {
   Lock,
   ShieldCheck,
   Smartphone,
+  BookOpen,
+  History,
+  FileText,
+  LifeBuoy,
+  Info,
+  ExternalLink,
+  Copy,
 } from "lucide-react-native";
 
 interface SettingsRowProps {
@@ -35,11 +44,12 @@ interface SettingsRowProps {
   title: string;
   subtitle: string;
   badgeText?: string;
+  isExternal?: boolean;
   onPress?: () => void;
   last?: boolean;
 }
 
-function SettingsRow({ icon, title, subtitle, badgeText, onPress, last }: SettingsRowProps) {
+function SettingsRow({ icon, title, subtitle, badgeText, isExternal, onPress, last }: SettingsRowProps) {
   const Inner = (
     <View style={[styles.row, last && styles.rowLast]}>
       <View style={styles.rowIconWrap}>{icon}</View>
@@ -54,7 +64,9 @@ function SettingsRow({ icon, title, subtitle, badgeText, onPress, last }: Settin
         </View>
         <Text style={styles.rowSubtitle}>{subtitle}</Text>
       </View>
-      {onPress && <ChevronRight size={15} color="#404040" />}
+      {onPress && (
+        isExternal ? <ExternalLink size={14} color="#525252" /> : <ChevronRight size={15} color="#404040" />
+      )}
     </View>
   );
 
@@ -71,6 +83,12 @@ function SettingsRow({ icon, title, subtitle, badgeText, onPress, last }: Settin
 export function SettingsScreen({ navigation }: any) {
   const { serverUrl, lock, signOutAccount, accountUser } = useVaultStore();
   const avatarLetter = (accountUser?.name || accountUser?.email || "V")[0].toUpperCase();
+  const [imageError, setImageError] = useState(false);
+  const avatarUri = getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [accountUser?.image, accountUser?.avatarUrl]);
 
   const handleOpenAutofill = () => {
     if (Platform.OS === "android") {
@@ -85,12 +103,24 @@ export function SettingsScreen({ navigation }: any) {
     }
   };
 
-  const handleComingSoon = (feature: string) => {
+  const handleOpenWebPage = async (path: string) => {
+    const base = (serverUrl || "https://vaultr.cvweb.qzz.io").replace(/\/+$/, "");
+    const target = `${base}${path}`;
+    try {
+      await WebBrowser.openBrowserAsync(target);
+    } catch (err) {
+      console.error("Failed to open browser:", err);
+    }
+  };
+
+  const handleCopyDiagnostics = async () => {
+    const text = `VaultR 2026 Mobile v0.2.4 (Build 2026.08.16) • AES-256-GCM Zero-Knowledge • Server: ${serverUrl || "Not configured"}`;
+    await Clipboard.setStringAsync(text);
     vaultAlert.alert(
-      "Coming Soon",
-      `${feature} is currently under active development and will be available in the next release!`,
+      "Diagnostics Copied",
+      "System diagnostic signature has been copied to your clipboard.",
       undefined,
-      { illustration: "completed-task_c11d" }
+      { illustration: "completed_vjc6" }
     );
   };
 
@@ -122,15 +152,16 @@ export function SettingsScreen({ navigation }: any) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile card — matches site's user dropdown layout */}
-        <TouchableOpacity
-          style={styles.profileCard}
-          onPress={() => navigation.navigate("AccountSettings")}
-          activeOpacity={0.75}
-        >
+        {/* ── User Profile Header (Unboxed, Direct, Non-clickable) ── */}
+        <View style={styles.profileHeader}>
           <View style={styles.avatar}>
-            {getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl) ? (
-              <Image source={{ uri: getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl)! }} style={styles.avatarImg} />
+            {avatarUri && !imageError ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.avatarImg}
+                onError={() => setImageError(true)}
+                onLoad={() => setImageError(false)}
+              />
             ) : (
               <Text style={styles.avatarLetter}>{avatarLetter}</Text>
             )}
@@ -143,8 +174,7 @@ export function SettingsScreen({ navigation }: any) {
               {accountUser?.email || ""}
             </Text>
           </View>
-          <ChevronRight size={16} color="#525252" />
-        </TouchableOpacity>
+        </View>
 
         {/* ── Security & Access ────────────────── */}
         <View style={styles.section}>
@@ -216,14 +246,68 @@ export function SettingsScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* ── Server info ──────────────────────── */}
+        {/* ── VaultR 2026 Resources ───────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>SERVER</Text>
+          <Text style={styles.sectionLabel}>VAULTR 2026 RESOURCES</Text>
+          <View style={styles.sectionGroup}>
+            <SettingsRow
+              icon={<BookOpen size={15} color="#38bdf8" />}
+              title="Documentation & Guides"
+              subtitle="Self-hosting, architecture, setup"
+              isExternal
+              onPress={() => handleOpenWebPage("/docs")}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<History size={15} color="#fbbf24" />}
+              title="Release Notes & Changelog"
+              subtitle="What's new in VaultR 2026"
+              isExternal
+              onPress={() => handleOpenWebPage("/changelog")}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<Shield size={15} color="#34d399" />}
+              title="Security Architecture"
+              subtitle="Cryptographic audit whitepaper"
+              isExternal
+              onPress={() => handleOpenWebPage("/security")}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<FileText size={15} color="#a78bfa" />}
+              title="Privacy Policy & Terms"
+              subtitle="Zero-knowledge privacy commitments"
+              isExternal
+              onPress={() => handleOpenWebPage("/privacy")}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<LifeBuoy size={15} color="#f43f5e" />}
+              title="Help Desk & Support"
+              subtitle="Open and track support tickets"
+              isExternal
+              onPress={() => handleOpenWebPage("/settings/support")}
+              last
+            />
+          </View>
+        </View>
+
+        {/* ── System & About ──────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>SYSTEM & ABOUT</Text>
           <View style={styles.sectionGroup}>
             <SettingsRow
               icon={<Shield size={15} color={colors.success} />}
               title="Vaultr Server"
               subtitle={serverUrl || "Not configured"}
+            />
+            <View style={styles.groupDivider} />
+            <SettingsRow
+              icon={<Info size={15} color="#a1a1aa" />}
+              title="VaultR 2026 Mobile"
+              subtitle="v0.2.4 (Build 2026.08.16 · Stable)"
+              onPress={handleCopyDiagnostics}
               last
             />
           </View>
@@ -247,7 +331,7 @@ export function SettingsScreen({ navigation }: any) {
             style={styles.versionLogo}
             resizeMode="contain"
           />
-          <Text style={styles.versionText}>Vaultr Mobile</Text>
+          <Text style={styles.versionText}>VaultR 2026 Mobile · Zero-Knowledge Encryption</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -317,37 +401,45 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // Profile card
-  profileCard: {
+  // Profile header (unboxed, bold, prominent)
+  profileHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: "#111",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
-    borderRadius: 14,
-    padding: 14,
+    gap: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 2,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#27272a",
-    borderWidth: 1,
-    borderColor: "#3f3f46",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#18181b",
+    borderWidth: 1.5,
+    borderColor: "#27272a",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  avatarImg: { width: 44, height: 44, borderRadius: 22 },
+  avatarImg: { width: 64, height: 64, borderRadius: 32 },
   avatarLetter: {
-    fontSize: 18,
+    fontSize: 26,
     fontWeight: "700",
     color: "#ffffff",
   },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 14, fontWeight: "600", color: "#f4f4f5" },
-  profileEmail: { fontSize: 12, color: "#737373", marginTop: 2 },
+  profileInfo: { flex: 1, minWidth: 0 },
+  profileName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: -0.4,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: "#a1a1aa",
+    marginTop: 3,
+    fontWeight: "400",
+  },
 
   // Section
   section: { gap: 6 },

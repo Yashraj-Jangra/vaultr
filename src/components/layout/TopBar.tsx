@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon, Shield } from "lucide-react";
+import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon, Shield, Info, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -140,7 +140,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
                 onClick={() => { router.push("/settings/account"); setMenuOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
               >
-                <User className="w-3.5 h-3.5" /> Profile
+                <Settings className="w-3.5 h-3.5" /> Settings
               </button>
               
               <button
@@ -151,6 +151,16 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
               >
                 {activeTheme.mode === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
                 {activeTheme.mode === "dark" ? "Light Mode" : "Dark Mode"}
+              </button>
+
+              <button
+                onClick={() => { router.push("/settings/about"); setMenuOpen(false); }}
+                className="w-full flex items-center justify-between px-3 py-2 text-[13px] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--border)] rounded-md transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5" /> About Vaultr
+                </div>
+                <span className="text-[10px] font-mono text-neutral-500">v0.2.4</span>
               </button>
 
               <button

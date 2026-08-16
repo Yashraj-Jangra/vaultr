@@ -14,7 +14,7 @@ import { vaultAlert } from "../../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
-import { reEncryptBlobs } from "@vaultr/core";
+import { reEncryptBlobs, deriveKey } from "@vaultr/core";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { getAvatarUri } from "../../utils/avatar";
@@ -29,6 +29,7 @@ import {
   Mail,
   Trash2,
   Edit2,
+  FileText,
 } from "lucide-react-native";
 
 export function AccountSettingsScreen({ navigation }: any) {
@@ -44,16 +45,22 @@ export function AccountSettingsScreen({ navigation }: any) {
   } = useVaultStore();
 
   // Primary Profile state
-  const [displayName, setDisplayName] = useState(accountUser?.name || "");
-  const [photoURL, setPhotoURL] = useState(accountUser?.image || "");
+  const [displayName, setDisplayName] = useState(
+    accountUser?.name || ""
+  );
+  const [photoURL, setPhotoURL] = useState(
+    accountUser?.image || accountUser?.avatarUrl || ""
+  );
+  const [imageError, setImageError] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Personal Details & Storage state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [storageUsedBytes, setStorageUsedBytes] = useState(14500); // default ~14 KB
-  const [storageQuotaBytes] = useState(104857600); // 100 MB
+  const [storageUsedBytes, setStorageUsedBytes] = useState(0);
+  const [storageQuotaBytes, setStorageQuotaBytes] = useState(104857600); // 100 MB default
+  const [detailsLoaded, setDetailsLoaded] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
 
   // Change account password state
@@ -69,9 +76,68 @@ export function AccountSettingsScreen({ navigation }: any) {
   useEffect(() => {
     if (accountUser) {
       setDisplayName(accountUser.name || "");
-      setPhotoURL(accountUser.image || accountUser.avatarUrl || "");
+      const userImg = accountUser.image || accountUser.avatarUrl || "";
+      if (userImg) {
+        setPhotoURL(userImg);
+        setImageError(false);
+      }
     }
   }, [accountUser]);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [photoURL]);
+
+  // Fetch live storage and personal profile from server with local item fallback
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProfile() {
+      if (serverUrl && accountToken) {
+        try {
+          const cleanServer = serverUrl.replace(/\/+$/, "");
+          const res = await fetch(`${cleanServer}/api/vault/profile`, {
+            headers: {
+              Authorization: `Bearer ${accountToken}`,
+              Cookie: `better-auth.session_token=${accountToken}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted) {
+              if (data.firstName) setFirstName(data.firstName);
+              if (data.lastName) setLastName(data.lastName);
+              if (data.phone) setPhone(data.phone);
+              if (data.displayName && !displayName) setDisplayName(data.displayName);
+              if (data.avatarUrl) {
+                setPhotoURL(data.avatarUrl);
+                setImageError(false);
+                updateAccountUser({ avatarUrl: data.avatarUrl, image: data.avatarUrl });
+              }
+              setStorageUsedBytes(Number(data.storageUsedBytes || 0));
+              if (data.storageQuotaBytes) setStorageQuotaBytes(Number(data.storageQuotaBytes));
+              setDetailsLoaded(true);
+              return;
+            }
+          }
+        } catch {
+          // Fallback to local calculation
+        }
+      }
+      if (isMounted) {
+        // Fallback: accurately compute encrypted blobs storage from loaded vault items
+        const localBytes = items.reduce(
+          (acc, i) => acc + (i.encryptedBlob ? i.encryptedBlob.length : 0),
+          0
+        );
+        setStorageUsedBytes(localBytes);
+        setDetailsLoaded(true);
+      }
+    }
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [serverUrl, accountToken, items]);
 
   // Handle Photo Picker
   const handlePickAvatar = async () => {
@@ -92,7 +158,8 @@ export function AccountSettingsScreen({ navigation }: any) {
       if (!result.canceled && result.assets[0]?.uri) {
         const localUri = result.assets[0].uri;
         setPhotoURL(localUri);
-        await updateAccountUser({ image: localUri });
+        setImageError(false);
+        await updateAccountUser({ image: localUri, avatarUrl: localUri });
 
         // Server upload if session token available
         if (accountToken && serverUrl) {
@@ -119,6 +186,7 @@ export function AccountSettingsScreen({ navigation }: any) {
               const data = JSON.parse(res.body);
               if (data.avatarUrl) {
                 setPhotoURL(data.avatarUrl);
+                setImageError(false);
                 await updateAccountUser({ image: data.avatarUrl, avatarUrl: data.avatarUrl });
                 await syncUserProfile();
               }
@@ -136,6 +204,7 @@ export function AccountSettingsScreen({ navigation }: any) {
   // Handle Remove Photo
   const handleRemoveAvatar = async () => {
     setPhotoURL("");
+    setImageError(false);
     await updateAccountUser({ image: undefined, avatarUrl: undefined });
     if (accountToken && serverUrl) {
       const cleanServer = serverUrl.replace(/\/+$/, "");
@@ -161,9 +230,10 @@ export function AccountSettingsScreen({ navigation }: any) {
       await updateAccountUser({
         name: displayName.trim(),
         image: photoURL.trim() || undefined,
+        avatarUrl: photoURL.trim() || undefined,
       });
 
-      // Optionally attempt server update if endpoint is available
+      // Server update if session available
       if (accountToken && serverUrl) {
         const cleanServer = serverUrl.replace(/\/+$/, "");
         try {
@@ -202,6 +272,7 @@ export function AccountSettingsScreen({ navigation }: any) {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accountToken}`,
+            Cookie: `better-auth.session_token=${accountToken}`,
           },
           body: JSON.stringify({
             firstName: firstName.trim(),
@@ -235,6 +306,7 @@ export function AccountSettingsScreen({ navigation }: any) {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accountToken}`,
+          Cookie: `better-auth.session_token=${accountToken}`,
         },
         body: JSON.stringify({ currentPassword: currentAccPw, newPassword: newAccPw }),
       });
@@ -259,27 +331,45 @@ export function AccountSettingsScreen({ navigation }: any) {
       vaultAlert.alert("Error", "Please fill in all master password fields.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
-    if (currentMasterPw !== masterPassword) {
-      vaultAlert.alert("Validation Error", "Current master password does not match.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
+    if (newMasterPw.length < 8) {
+      vaultAlert.alert("Weak Password", "Master password must be at least 8 characters long.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
-    if (!cryptoKey || !accountUser?.id) {
-      vaultAlert.alert("Error", "Vault must be unlocked to re-encrypt items.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
+    if (currentMasterPw !== masterPassword) {
+      vaultAlert.alert("Invalid Password", "Current master password does not match.", undefined, { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.10)" });
       return;
     }
 
     setMasterPwLoading(true);
     try {
-      const { deriveKey } = await import("@vaultr/core");
-      const newKey = await deriveKey(newMasterPw, accountUser.id);
-      const itemsToReEncrypt = items.map((i) => ({ id: i.id, encryptedBlob: i.encryptedBlob }));
+      const salt = accountUser?.id || "vaultr_default_salt";
+      const newDerivedKey = await deriveKey(newMasterPw, salt);
 
-      if (itemsToReEncrypt.length > 0) {
-        const reEncrypted = await reEncryptBlobs(itemsToReEncrypt, cryptoKey, newKey);
-        await useVaultStore.getState().reencryptAllItems(reEncrypted);
+      // Re-encrypt all items locally (F-13)
+      if (items.length > 0 && cryptoKey) {
+        const reEncrypted = await reEncryptBlobs(
+          items,
+          cryptoKey,
+          newDerivedKey
+        );
+
+        const updated = items.map((item) => {
+          const matched = reEncrypted.find((r) => r.id === item.id);
+          return matched ? { ...item, encryptedBlob: matched.encryptedBlob } : item;
+        });
+
+        useVaultStore.setState({
+          items: updated,
+          masterPassword: newMasterPw,
+          cryptoKey: newDerivedKey,
+        });
+
+        // Persist offline cache
+        const { cacheVaultItems } = await import("../../services/sync");
+        await cacheVaultItems(updated, accountUser?.id);
+      } else {
+        useVaultStore.setState({ masterPassword: newMasterPw, cryptoKey: newDerivedKey });
       }
-
-      useVaultStore.setState({ masterPassword: newMasterPw, cryptoKey: newKey });
 
       // Update biometrics storage if enabled (F-14)
       const { updateBiometricPassword } = await import("../../services/biometrics");
@@ -310,12 +400,14 @@ export function AccountSettingsScreen({ navigation }: any) {
 
   const initialLetter = (accountUser?.name || accountUser?.email || "V")[0].toUpperCase();
   const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return bytes + " Bytes";
+    if (bytes === 0) return "0 Bytes";
+    if (bytes < 1024) return bytes + " B";
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / 1048576).toFixed(1) + " MB";
+    return (bytes / 1048576).toFixed(2) + " MB";
   };
 
   const usagePercent = Math.min(100, Math.round((storageUsedBytes / storageQuotaBytes) * 100));
+  const avatarUri = getAvatarUri(photoURL, serverUrl);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -339,8 +431,13 @@ export function AccountSettingsScreen({ navigation }: any) {
 
           <View style={styles.avatarRow}>
             <TouchableOpacity style={styles.avatarWrap} onPress={handlePickAvatar} activeOpacity={0.8}>
-              {getAvatarUri(photoURL, serverUrl) ? (
-                <Image source={{ uri: getAvatarUri(photoURL, serverUrl)! }} style={styles.avatarImage} />
+              {avatarUri && !imageError ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={styles.avatarImage}
+                  onError={() => setImageError(true)}
+                  onLoad={() => setImageError(false)}
+                />
               ) : (
                 <View style={styles.avatarFallback}>
                   <Text style={styles.avatarInitial}>{initialLetter}</Text>
@@ -352,7 +449,7 @@ export function AccountSettingsScreen({ navigation }: any) {
             </TouchableOpacity>
 
             <View style={styles.avatarInfo}>
-              <Text style={styles.userNameText}>{accountUser?.name || "Vaultr User"}</Text>
+              <Text style={styles.userNameText}>{displayName || accountUser?.name || "Vaultr User"}</Text>
               <Text style={styles.userEmailText}>{accountUser?.email || "user@vaultr.local"}</Text>
               <Text style={styles.userIdTag}>ID: {accountUser?.id || "N/A"}</Text>
 
@@ -406,25 +503,64 @@ export function AccountSettingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Section 2: Personal Details & Storage ── */}
+        {/* ── Section 2: Vault Storage & Quota (Segregated Standalone) ── */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Database size={18} color="#60a5fa" />
-            <Text style={styles.cardTitle}>Personal Details & Storage</Text>
+          <View style={styles.cardHeaderBetween}>
+            <View style={styles.cardHeaderLeft}>
+              <Database size={18} color="#38bdf8" />
+              <Text style={styles.cardTitle}>Vault Storage & Quota</Text>
+            </View>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgePillText}>{usagePercent}% Used</Text>
+            </View>
           </View>
+
+          <Text style={styles.cardDesc}>
+            Storage allocated for encrypted vault items, attachments, passkeys, and credentials.
+          </Text>
 
           {/* Storage Meter */}
           <View style={styles.storageBox}>
             <View style={styles.storageHeader}>
-              <Text style={styles.storageLabel}>Vault Storage</Text>
+              <Text style={styles.storageLabel}>Encrypted Storage</Text>
               <Text style={styles.storageValue}>
-                {formatBytes(storageUsedBytes)} / 100 MB
+                {formatBytes(storageUsedBytes)} <Text style={styles.storageTotal}>/ {formatBytes(storageQuotaBytes)}</Text>
               </Text>
             </View>
             <View style={styles.storageTrack}>
-              <View style={[styles.storageBar, { width: `${Math.max(5, usagePercent)}%` }]} />
+              <View
+                style={[
+                  styles.storageBar,
+                  {
+                    width: `${Math.min(100, Math.max(storageUsedBytes > 0 ? 2 : 0, usagePercent))}%`,
+                    backgroundColor:
+                      usagePercent >= 90 ? "#ef4444" : usagePercent >= 70 ? "#f59e0b" : "#38bdf8",
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.storageMetaRow}>
+              <Text style={styles.storageMetaText}>🔒 Zero-Knowledge Encrypted</Text>
+              <Text style={styles.storageMetaText}>☁️ Cloud Synced</Text>
             </View>
           </View>
+        </View>
+
+        {/* ── Section 3: Personal Details (Segregated Standalone with Optional Badge) ── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderBetween}>
+            <View style={styles.cardHeaderLeft}>
+              <FileText size={18} color="#34d399" />
+              <Text style={styles.cardTitle}>Personal Details</Text>
+            </View>
+            <View style={styles.optionalBadge}>
+              <Text style={styles.optionalBadgeText}>Optional</Text>
+            </View>
+          </View>
+
+          <Text style={styles.cardDesc}>
+            Optional personal identity information stored securely with your vault profile.
+          </Text>
 
           <View style={styles.rowTwoCol}>
             <View style={[styles.formGroup, { flex: 1 }]}>
@@ -485,7 +621,7 @@ export function AccountSettingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Section 3: Sign-In Providers ── */}
+        {/* ── Section 4: Sign-In Providers ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <ShieldCheck size={18} color="#34d399" />
@@ -515,7 +651,7 @@ export function AccountSettingsScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* ── Section 4: Vault Master Password ── */}
+        {/* ── Section 5: Vault Master Password ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <KeyRound size={18} color="#fbbf24" />
@@ -573,14 +709,14 @@ export function AccountSettingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Section 5: Account Sign-In Password ── */}
+        {/* ── Section 6: Account Password ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Lock size={18} color="#f87171" />
-            <Text style={styles.cardTitle}>Account Sign-In Password</Text>
+            <Lock size={18} color="#f43f5e" />
+            <Text style={styles.cardTitle}>Account Password</Text>
           </View>
           <Text style={styles.cardDesc}>
-            Update the password used to authenticate your session with the Vaultr server.
+            Update the credentials used to authenticate your Vaultr server profile session.
           </Text>
 
           <View style={styles.formGroup}>
@@ -670,8 +806,30 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cardHeaderBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  cardHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   cardTitle: { fontSize: 15, fontWeight: "600", color: "#f4f4f5" },
   cardDesc: { fontSize: 12, color: "#71717a", lineHeight: 18 },
+
+  // Badges & Pills
+  badgePill: {
+    backgroundColor: "rgba(56, 189, 248, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.25)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgePillText: { fontSize: 10.5, fontWeight: "700", color: "#38bdf8", fontFamily: "monospace" },
+  optionalBadge: {
+    backgroundColor: "rgba(113, 113, 122, 0.15)",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  optionalBadgeText: { fontSize: 10.5, fontWeight: "600", color: "#a1a1aa" },
 
   // Avatar Row
   avatarRow: { flexDirection: "row", alignItems: "center", gap: 14 },
@@ -713,14 +871,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1f1f1f",
     borderRadius: 12,
-    padding: 12,
-    gap: 8,
+    padding: 14,
+    gap: 10,
   },
   storageHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   storageLabel: { fontSize: 12, fontWeight: "600", color: "#d4d4d8" },
-  storageValue: { fontSize: 11, color: "#71717a", fontFamily: "monospace" },
-  storageTrack: { height: 6, borderRadius: 3, backgroundColor: "#18181b", overflow: "hidden" },
-  storageBar: { height: 6, borderRadius: 3, backgroundColor: "#60a5fa" },
+  storageValue: { fontSize: 13, fontWeight: "700", color: "#f4f4f5", fontFamily: "monospace" },
+  storageTotal: { fontSize: 11, fontWeight: "500", color: "#71717a" },
+  storageTrack: { height: 7, borderRadius: 4, backgroundColor: "#18181b", overflow: "hidden" },
+  storageBar: { height: 7, borderRadius: 4, backgroundColor: "#38bdf8" },
+  storageMetaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 2 },
+  storageMetaText: { fontSize: 10.5, color: "#71717a", fontWeight: "500" },
 
   // Forms
   formGroup: { gap: 6 },

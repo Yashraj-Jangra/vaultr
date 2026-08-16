@@ -26,14 +26,16 @@ import {
   KeyRound,
   ExternalLink,
   Shield,
+  ShieldAlert,
   Smartphone,
   Keyboard,
   Globe,
   Sparkles,
   Search,
   Lock,
+  Layers,
+  Info,
 } from "lucide-react-native";
-import { Illustration } from "../../components/Illustration";
 
 export function AutofillSettingsScreen({ navigation }: any) {
   const [status, setStatus] = useState<AutofillStatus>({
@@ -71,40 +73,55 @@ export function AutofillSettingsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       {/* Navigation Header */}
       <View style={styles.navBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <ArrowLeft size={20} color={colors.text} />
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <ArrowLeft size={18} color="#f4f4f5" />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Autofill & System Service</Text>
+        <Text style={styles.navTitle}>Autofill & System Integration</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Main Status Hero Card */}
-        <View style={styles.heroCard}>
+        <View style={[styles.heroCard, status.isAutofillEnabled ? styles.heroCardActive : styles.heroCardInactive]}>
           <View style={styles.heroHeader}>
             <View
               style={[
                 styles.statusBadgeIcon,
-                { backgroundColor: status.isAutofillEnabled ? "rgba(52, 211, 153, 0.12)" : "rgba(245, 158, 11, 0.12)" },
+                {
+                  backgroundColor: status.isAutofillEnabled ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                  borderColor: status.isAutofillEnabled ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.25)",
+                },
               ]}
             >
               {status.isAutofillEnabled ? (
-                <CheckCircle2 size={24} color="#34d399" />
+                <CheckCircle2 size={22} color="#10b981" />
               ) : (
-                <AlertCircle size={24} color="#fbbf24" />
+                <AlertCircle size={22} color="#fbbf24" />
               )}
             </View>
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.heroTitle}>
-                {status.isAutofillEnabled ? "Autofill Service Active" : "Autofill Not Enabled"}
-              </Text>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.heroTitle}>
+                  {status.isAutofillEnabled ? "Autofill Framework Active" : "Autofill Not Enabled"}
+                </Text>
+                <View style={[styles.statusPill, status.isAutofillEnabled ? styles.statusPillActive : styles.statusPillInactive]}>
+                  <Text style={[styles.statusPillText, status.isAutofillEnabled ? styles.statusPillTextActive : styles.statusPillTextInactive]}>
+                    {status.isAutofillEnabled ? "RECOMMENDED" : "REQUIRED"}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.heroSubtitle}>
                 {status.isAutofillEnabled
-                  ? "Vaultr is set as your default Android autofill provider."
-                  : "Enable Vaultr in Android Settings to autofill passwords in apps & browsers."}
+                  ? "Vaultr is configured as your native Android system autofill provider. Passwords, TOTP codes, and logins fill securely across all apps."
+                  : "Set Vaultr as your default autofill service in Android Settings to enable keyboard suggestion chips and 1-tap form filling."}
               </Text>
             </View>
           </View>
@@ -115,9 +132,9 @@ export function AutofillSettingsScreen({ navigation }: any) {
             activeOpacity={0.85}
           >
             <Text style={[styles.primaryActionText, status.isAutofillEnabled && styles.secondaryActionText]}>
-              {status.isAutofillEnabled ? "Change System Provider" : "Enable Vaultr Autofill"}
+              {status.isAutofillEnabled ? "Change System Provider" : "Enable Native Autofill"}
             </Text>
-            <ExternalLink size={16} color={status.isAutofillEnabled ? colors.text : "#09090b"} />
+            <ExternalLink size={14} color={status.isAutofillEnabled ? "#a1a1aa" : "#09090b"} />
           </TouchableOpacity>
         </View>
 
@@ -137,7 +154,7 @@ export function AutofillSettingsScreen({ navigation }: any) {
                 </View>
               </View>
               <Text style={styles.featureDesc}>
-                Credentials appear directly in Gboard, SwiftKey & Samsung Keyboard suggestion strips.
+                Interactive suggestion chips appear directly above your keys in Samsung Keyboard, Gboard & SwiftKey.
               </Text>
             </View>
           </View>
@@ -150,53 +167,72 @@ export function AutofillSettingsScreen({ navigation }: any) {
               <Globe size={18} color="#38bdf8" />
             </View>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Chrome, Brave & Web Browsers</Text>
+              <Text style={styles.featureTitle}>Web Browsers & WebViews</Text>
               <Text style={styles.featureDesc}>
-                Extracts web domains from Chrome, Brave, Firefox, Edge, and Android WebViews.
+                Extracts domain contexts from Chrome, Brave, Edge, Firefox, and in-app WebViews for instant matching.
               </Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Dropdown Popups */}
+          {/* Quick Settings Tile */}
           <View style={styles.featureRow}>
             <View style={[styles.iconBox, { backgroundColor: "rgba(52, 211, 153, 0.12)" }]}>
-              <Smartphone size={18} color="#34d399" />
+              <Layers size={18} color="#34d399" />
             </View>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Popup Dropdown Overlays</Text>
+              <View style={styles.featureTitleRow}>
+                <Text style={styles.featureTitle}>Quick Settings Shade Tile</Text>
+                <View style={styles.miniPill}>
+                  <Text style={styles.miniPillText}>Notification Bar</Text>
+                </View>
+              </View>
               <Text style={styles.featureDesc}>
-                Dark-themed Vaultr dropdowns anchored directly below active password inputs.
+                Pull down notification shade and tap the "Vaultr" tile to autofill or copy 2FA codes on any active app.
               </Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Passkeys */}
+          {/* Passkeys & Biometrics */}
           <View style={styles.featureRow}>
             <View style={[styles.iconBox, { backgroundColor: "rgba(251, 191, 36, 0.12)" }]}>
               <Sparkles size={18} color="#fbbf24" />
             </View>
             <View style={styles.featureContent}>
               <View style={styles.featureTitleRow}>
-                <Text style={styles.featureTitle}>Passkey Manager Integration</Text>
+                <Text style={styles.featureTitle}>Passkeys & Credential Manager</Text>
                 <View style={styles.miniPill}>
                   <Text style={styles.miniPillText}>Android 14+</Text>
                 </View>
               </View>
               <Text style={styles.featureDesc}>
-                Hardware-backed Credential Manager support for FIDO2 WebAuthn passkeys.
+                Hardware-backed Credential Manager support for passwordless FIDO2 WebAuthn passkeys.
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Accessibility Fallback Section */}
-        <Text style={styles.sectionHeader}>ACCESSIBILITY FALLBACK</Text>
+        {/* ── Legacy Accessibility Fallback Section (With Clear Warning) ── */}
+        <Text style={styles.sectionHeader}>LEGACY ACCESSIBILITY FALLBACK</Text>
         <View style={styles.card}>
-          <View style={styles.featureRow}>
+          {/* Warning Banner */}
+          <View style={styles.warningBanner}>
+            <ShieldAlert size={16} color="#fbbf24" style={{ marginTop: 2 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.warningBannerTitle}>Keep Turned OFF on Modern Devices</Text>
+              <Text style={styles.warningBannerText}>
+                Accessibility services have broad screen-reading permissions that trigger security and anti-fraud alerts in banking apps (BHIM, YONO SBI, PhonePe, Google Pay).
+              </Text>
+              <Text style={[styles.warningBannerText, { marginTop: 6, color: "#d4d4d8" }]}>
+                This service was built exclusively as a fallback for obsolete browsers (5+ years old). Modern Android devices only require <Text style={{ fontWeight: "700", color: "#34d399" }}>Native Autofill</Text> above.
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.featureRow, { marginTop: 14 }]}>
             <View style={[styles.iconBox, { backgroundColor: "rgba(244, 114, 182, 0.12)" }]}>
               <Shield size={18} color="#f472b6" />
             </View>
@@ -206,66 +242,76 @@ export function AutofillSettingsScreen({ navigation }: any) {
                 <View
                   style={[
                     styles.miniPill,
-                    { backgroundColor: status.isAccessibilityEnabled ? "rgba(52, 211, 153, 0.15)" : "rgba(113, 113, 122, 0.15)" },
+                    {
+                      backgroundColor: status.isAccessibilityEnabled
+                        ? "rgba(239, 68, 68, 0.15)"
+                        : "rgba(16, 185, 129, 0.12)",
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.miniPillText,
-                      { color: status.isAccessibilityEnabled ? "#34d399" : colors.textMuted },
+                      {
+                        color: status.isAccessibilityEnabled ? "#f87171" : "#10b981",
+                      },
                     ]}
                   >
-                    {status.isAccessibilityEnabled ? "Active" : "Optional"}
+                    {status.isAccessibilityEnabled ? "Active (May alert banking apps)" : "Off (Recommended)"}
                   </Text>
                 </View>
               </View>
               <Text style={styles.featureDesc}>
-                Fills login fields in apps and hybrid WebViews that block standard Android autofill.
+                {status.isAccessibilityEnabled
+                  ? "Accessibility is currently ON. If your banking apps report security alerts, turn this service OFF."
+                  : "Currently OFF. Your banking apps will run with zero security or overlay warnings."}
               </Text>
             </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.secondaryActionBtn, { marginTop: 12 }]}
+            style={[styles.secondaryActionBtn, { marginTop: 14 }]}
             onPress={openAccessibilitySettings}
             activeOpacity={0.8}
           >
             <Text style={styles.secondaryActionText}>
-              {status.isAccessibilityEnabled ? "Manage Accessibility Service" : "Enable Accessibility Fallback"}
+              {status.isAccessibilityEnabled ? "Turn OFF Accessibility Service" : "Open Accessibility Settings"}
             </Text>
-            <ExternalLink size={15} color={colors.text} />
+            <ExternalLink size={14} color="#a1a1aa" />
           </TouchableOpacity>
         </View>
 
         {/* Security & Index Counter */}
-        <Text style={styles.sectionHeader}>HARDWARE ENCRYPTION & STATUS</Text>
+        <Text style={styles.sectionHeader}>HARDWARE ENCRYPTION & CACHE</Text>
         <View style={styles.card}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <KeyRound size={18} color={colors.accent} style={{ marginRight: 10 }} />
-              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>Indexed Credentials</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <KeyRound size={16} color="#38bdf8" />
+              <Text style={{ color: "#f4f4f5", fontSize: 13.5, fontWeight: "600" }}>Indexed Vault Items</Text>
             </View>
-            <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "bold" }}>
-              {status.credentialCount} accounts
-            </Text>
+            <View style={styles.accountCountBadge}>
+              <Text style={styles.accountCountText}>
+                {status.credentialCount} items
+              </Text>
+            </View>
           </View>
-          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, lineHeight: 17 }}>
-            Credentials are encrypted with hardware AES-256-GCM keys on your device. When you lock your vault or sign out, this cache is wiped immediately.
+          <Text style={{ color: "#71717a", fontSize: 12, marginTop: 10, lineHeight: 17 }}>
+            Credentials are encrypted with hardware-backed AES-256-GCM keys on your device. When you lock your vault session or sign out, this cache is purged immediately.
           </Text>
         </View>
 
         {/* Live Autofill Test Simulator */}
         <Text style={styles.sectionHeader}>TEST AUTOFILL MATCHER</Text>
         <View style={styles.card}>
-          <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 10 }}>
-            Type a domain or package name to test what Vaultr Autofill will offer:
+          <Text style={{ color: "#71717a", fontSize: 12, marginBottom: 10 }}>
+            Type a domain or package name to simulate what Vaultr Autofill will offer:
           </Text>
           <View style={styles.searchBox}>
-            <Search size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+            <Search size={15} color="#71717a" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
-              placeholder="e.g. google.com, twitter.com, com.spotify.music"
-              placeholderTextColor={colors.textMuted}
+              placeholder="e.g. google.com, netflix.com, com.spotify.music"
+              placeholderTextColor="#525252"
               value={testQuery}
               onChangeText={handleTestSearch}
               autoCapitalize="none"
@@ -276,21 +322,21 @@ export function AutofillSettingsScreen({ navigation }: any) {
           {testQuery.trim().length > 0 && (
             <View style={{ marginTop: 12 }}>
               {testResults.length === 0 ? (
-                <Text style={{ color: colors.textMuted, fontSize: 13, fontStyle: "italic" }}>
+                <Text style={{ color: "#71717a", fontSize: 12.5, fontStyle: "italic", paddingVertical: 4 }}>
                   No credentials matched for "{testQuery}".
                 </Text>
               ) : (
                 testResults.map((item, idx) => (
                   <View key={item.id || idx} style={styles.testResultRow}>
                     <View style={styles.testResultIcon}>
-                      <Lock size={14} color="#34d399" />
+                      <Lock size={13} color="#34d399" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600" }}>{item.name}</Text>
-                      <Text style={{ color: colors.textMuted, fontSize: 11 }}>{item.username}</Text>
+                      <Text style={{ color: "#f4f4f5", fontSize: 13, fontWeight: "600" }}>{item.name}</Text>
+                      <Text style={{ color: "#71717a", fontSize: 11, marginTop: 1 }}>{item.username}</Text>
                     </View>
                     <View style={styles.matchBadge}>
-                      <Text style={styles.matchBadgeText}>Match</Text>
+                      <Text style={styles.matchBadgeText}>Live Match</Text>
                     </View>
                   </View>
                 ))
@@ -308,35 +354,49 @@ export function AutofillSettingsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: "#09090b",
   },
   navBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 56,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: "#18181b",
+    backgroundColor: "#09090b",
   },
   backBtn: {
-    padding: 8,
+    padding: 6,
     marginRight: 8,
   },
   navTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.text,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#f4f4f5",
+    letterSpacing: -0.2,
   },
   content: {
     padding: 16,
+    gap: 8,
+    paddingBottom: 40,
   },
+
+  // Hero Card
   heroCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    backgroundColor: "#0d0d0d",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    marginBottom: 20,
+    borderColor: "#1f1f1f",
+    padding: 16,
+    marginBottom: 16,
+  },
+  heroCardActive: {
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    backgroundColor: "#0d1410",
+  },
+  heroCardInactive: {
+    borderColor: "rgba(245, 158, 11, 0.3)",
+    backgroundColor: "#14120a",
   },
   heroHeader: {
     flexDirection: "row",
@@ -344,22 +404,45 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadgeIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   heroTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: colors.text,
+    color: "#f4f4f5",
+  },
+  statusPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  statusPillActive: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+  },
+  statusPillInactive: {
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+  },
+  statusPillText: {
+    fontSize: 8.5,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  statusPillTextActive: {
+    color: "#10b981",
+  },
+  statusPillTextInactive: {
+    color: "#fbbf24",
   },
   heroSubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontSize: 12,
+    color: "#a1a1aa",
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 17,
   },
   primaryActionBtn: {
     flexDirection: "row",
@@ -367,54 +450,84 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#f4f4f5",
     borderRadius: 10,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 11,
+    gap: 6,
   },
   primaryActionText: {
     color: "#09090b",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
   secondaryActionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "#18181b",
     borderRadius: 10,
     paddingVertical: 11,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 8,
+    borderColor: "#27272a",
+    gap: 6,
   },
   secondaryActionText: {
-    color: colors.text,
-    fontSize: 14,
+    color: "#e4e4e7",
+    fontSize: 13,
     fontWeight: "600",
   },
+
+  // Section Header
   sectionHeader: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
-    color: colors.textMuted,
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginLeft: 4,
+    color: "#525252",
+    letterSpacing: 1.1,
+    marginBottom: 6,
+    marginLeft: 2,
+    marginTop: 8,
   },
+
+  // Card
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
+    backgroundColor: "#0d0d0d",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    marginBottom: 20,
+    borderColor: "#1f1f1f",
+    padding: 14,
+    marginBottom: 12,
   },
+
+  // Warning banner
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "rgba(245, 158, 11, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.25)",
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
+  warningBannerTitle: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: "#fbbf24",
+  },
+  warningBannerText: {
+    fontSize: 11.5,
+    color: "#a1a1aa",
+    marginTop: 2,
+    lineHeight: 16,
+  },
+
+  // Features
   featureRow: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
   iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -428,57 +541,74 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   featureTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "600",
-    color: colors.text,
+    color: "#f4f4f5",
   },
   miniPill: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "#1c1c1e",
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
   },
   miniPillText: {
-    color: colors.textMuted,
-    fontSize: 10,
+    color: "#71717a",
+    fontSize: 9.5,
     fontWeight: "700",
   },
   featureDesc: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 3,
+    fontSize: 11.5,
+    color: "#71717a",
+    marginTop: 2,
     lineHeight: 16,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 14,
+    backgroundColor: "#18181b",
+    marginVertical: 12,
   },
+
+  // Account count badge
+  accountCountBadge: {
+    backgroundColor: "rgba(56, 189, 248, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.25)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  accountCountText: {
+    color: "#38bdf8",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  // Search box
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    backgroundColor: "#000000",
     borderRadius: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    height: 42,
+    borderColor: "#27272a",
+    height: 40,
   },
   searchInput: {
     flex: 1,
-    color: colors.text,
-    fontSize: 13,
+    color: "#f4f4f5",
+    fontSize: 12.5,
   },
   testResultRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomColor: "#18181b",
   },
   testResultIcon: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     backgroundColor: "rgba(52, 211, 153, 0.1)",
     alignItems: "center",
@@ -487,13 +617,15 @@ const styles = StyleSheet.create({
   },
   matchBadge: {
     backgroundColor: "rgba(52, 211, 153, 0.15)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(52, 211, 153, 0.25)",
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
   },
   matchBadgeText: {
     color: "#34d399",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
   },
 });

@@ -305,9 +305,7 @@ export function FolderManagerScreen({ navigation }: any) {
         }}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <View style={styles.emptyIconCircle}>
-              <FolderOpen size={32} color="#71717a" />
-            </View>
+            <Illustration name="empty_4zx0" width={220} height={160} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyTitle}>No Folders Created</Text>
             <Text style={styles.emptyDesc}>
               Organize your passwords, credit cards, and secure notes into custom folders and subfolders.
