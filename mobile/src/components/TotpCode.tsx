@@ -90,13 +90,9 @@ export function TotpCode({ secret, name, domain }: Props) {
               transform="rotate(-90 26 26)"
             />
           </Svg>
-          {/* Favicon or Fallback Icon centered in ring */}
+          {/* Favicon or Fallback Icon centered in ring — scaled to fit inside countdown ring */}
           <View style={styles.iconInsideRing}>
-            {domain ? (
-              <SiteIcon domain={domain} name={name || ""} size={22} />
-            ) : (
-              <ShieldCheck size={22} color={isExpiring ? "#f87171" : "#a1a1aa"} />
-            )}
+            <SiteIcon domain={domain} name={name || ""} size={34} fill={true} borderless={true} />
           </View>
         </View>
 
@@ -168,8 +164,12 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   iconInsideRing: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   infoCol: {
     flex: 1,

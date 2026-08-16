@@ -5,16 +5,17 @@ import {
   View,
   Modal,
   TouchableOpacity,
-  Pressable,
   Dimensions,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { X, KeyRound, ShieldAlert } from "lucide-react-native";
+import { X, Scan, ShieldAlert } from "lucide-react-native";
+import Svg, { Defs, Mask, Rect } from "react-native-svg";
 import { colors } from "../theme/colors";
 import { parseOtpAuthUri, ParsedOtpAuth } from "../utils/otpauth";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SCANNER_SIZE = SCREEN_WIDTH * 0.72;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const SCANNER_SIZE = Math.round(SCREEN_WIDTH * 0.72);
+const CORNER_RADIUS = 16;
 
 interface Props {
   visible: boolean;
@@ -26,6 +27,7 @@ export function QrScannerModal({ visible, onClose, onScan }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [layoutHeight, setLayoutHeight] = useState(SCREEN_HEIGHT - 60);
 
   // Reset scanned state when modal opens
   React.useEffect(() => {
@@ -52,6 +54,9 @@ export function QrScannerModal({ visible, onClose, onScan }: Props) {
     }
   };
 
+  const targetX = Math.round((SCREEN_WIDTH - SCANNER_SIZE) / 2);
+  const targetY = Math.round(layoutHeight > 0 ? (layoutHeight - SCANNER_SIZE) / 2.3 : 130);
+
   return (
     <Modal
       visible={visible}
@@ -66,7 +71,7 @@ export function QrScannerModal({ visible, onClose, onScan }: Props) {
             <X size={20} color="#fafafa" />
           </TouchableOpacity>
           <View style={styles.headerTitleBox}>
-            <KeyRound size={18} color={colors.accent} />
+            <Scan size={18} color={colors.accent} />
             <Text style={styles.headerTitle}>Scan 2FA QR Code</Text>
           </View>
         </View>
@@ -92,7 +97,10 @@ export function QrScannerModal({ visible, onClose, onScan }: Props) {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.cameraWrapper}>
+          <View
+            style={styles.cameraWrapper}
+            onLayout={(e) => setLayoutHeight(e.nativeEvent.layout.height)}
+          >
             <CameraView
               style={StyleSheet.absoluteFill}
               enableTorch={torch}
@@ -101,25 +109,65 @@ export function QrScannerModal({ visible, onClose, onScan }: Props) {
                 barcodeTypes: ["qr"],
               }}
             >
-              {/* Overlay with cutout target */}
-              <View style={styles.overlay}>
-                <View style={styles.overlayTop} />
-                <View style={styles.overlayMiddleRow}>
-                  <View style={styles.overlaySide} />
-                  <View style={styles.scannerTargetBox}>
-                    {/* Corner Guides */}
-                    <View style={[styles.corner, styles.cornerTL]} />
-                    <View style={[styles.corner, styles.cornerTR]} />
-                    <View style={[styles.corner, styles.cornerBL]} />
-                    <View style={[styles.corner, styles.cornerBR]} />
-                  </View>
-                  <View style={styles.overlaySide} />
-                </View>
-                <View style={styles.overlayBottom}>
-                  <Text style={styles.instructionText}>
-                    Align the 2FA QR code inside the frame
-                  </Text>
-                </View>
+              {/* Seamless SVG Overlay with Smooth Rounded Cutout (No gaps or unshaded corner pixels) */}
+              <Svg
+                width="100%"
+                height="100%"
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              >
+                <Defs>
+                  <Mask id="scanner-mask" x="0" y="0" width="100%" height="100%">
+                    <Rect width="100%" height="100%" fill="#ffffff" />
+                    <Rect
+                      x={targetX}
+                      y={targetY}
+                      width={SCANNER_SIZE}
+                      height={SCANNER_SIZE}
+                      rx={CORNER_RADIUS}
+                      ry={CORNER_RADIUS}
+                      fill="#000000"
+                    />
+                  </Mask>
+                </Defs>
+                <Rect
+                  width="100%"
+                  height="100%"
+                  fill="rgba(0, 0, 0, 0.65)"
+                  mask="url(#scanner-mask)"
+                />
+              </Svg>
+
+              {/* Corner Guides matching the exact rounded cutout */}
+              <View
+                style={[
+                  styles.scannerTargetBox,
+                  {
+                    top: targetY,
+                    left: targetX,
+                  },
+                ]}
+                pointerEvents="none"
+              >
+                <View style={[styles.corner, styles.cornerTL]} />
+                <View style={[styles.corner, styles.cornerTR]} />
+                <View style={[styles.corner, styles.cornerBL]} />
+                <View style={[styles.corner, styles.cornerBR]} />
+              </View>
+
+              {/* Instruction subtitle positioned below the target frame */}
+              <View
+                style={[
+                  styles.instructionWrap,
+                  {
+                    top: targetY + SCANNER_SIZE + 24,
+                  },
+                ]}
+                pointerEvents="none"
+              >
+                <Text style={styles.instructionText}>
+                  Align the 2FA QR code inside the frame
+                </Text>
               </View>
             </CameraView>
           </View>
@@ -163,11 +211,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconBtnActive: {
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.3)",
-  },
   cameraWrapper: {
     flex: 1,
     position: "relative",
@@ -208,31 +251,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  overlay: {
-    flex: 1,
-  },
-  overlayTop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-  },
-  overlayMiddleRow: {
-    height: SCANNER_SIZE,
-    flexDirection: "row",
-  },
-  overlaySide: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-  },
+
+  // Corner Guides
   scannerTargetBox: {
     width: SCANNER_SIZE,
     height: SCANNER_SIZE,
-    position: "relative",
+    position: "absolute",
   },
-  overlayBottom: {
-    flex: 1.2,
-    backgroundColor: "rgba(0,0,0,0.65)",
+  corner: {
+    position: "absolute",
+    width: 28,
+    height: 28,
+    borderColor: "#38bdf8",
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderTopLeftRadius: CORNER_RADIUS,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderTopRightRadius: CORNER_RADIUS,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderBottomLeftRadius: CORNER_RADIUS,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderBottomRightRadius: CORNER_RADIUS,
+  },
+
+  // Instructions
+  instructionWrap: {
+    position: "absolute",
+    left: 20,
+    right: 20,
     alignItems: "center",
-    paddingTop: 32,
   },
   instructionText: {
     color: "#e4e4e7",
@@ -240,40 +306,5 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     letterSpacing: 0.2,
     textAlign: "center",
-  },
-  // Corner accents
-  corner: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    borderColor: "#38bdf8",
-  },
-  cornerTL: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 8,
-  },
-  cornerTR: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 8,
-  },
-  cornerBL: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 8,
-  },
-  cornerBR: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 8,
   },
 });

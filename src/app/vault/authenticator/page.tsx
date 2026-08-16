@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { generateTOTP, getTotpPercentage } from "@/lib/totp";
 import { DecryptedPayload, VaultItem } from "../page";
 import { useAuth } from "@/hooks/useAuth";
+import { SiteIcon } from "@/components/vault/SiteIcon";
 
 // ─── Minimal Live TOTP Row ──────────────────────────────────────────────────────
 
@@ -46,9 +47,9 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
     <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-[var(--border)] bg-neutral-900/40 rounded-xl hover:border-neutral-700 hover:bg-neutral-800/40 transition-all group">
 
       <div className="flex items-center gap-4 mb-4 sm:mb-0">
-        {/* Minimal Sync Ring */}
-        <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
-          <svg className="absolute inset-0 w-10 h-10 -rotate-90 transform" viewBox="0 0 24 24">
+        {/* Minimal Sync Ring with Favicon */}
+        <div className="relative w-11 h-11 flex items-center justify-center shrink-0">
+          <svg className="absolute inset-0 w-11 h-11 -rotate-90 transform" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" fill="none" className="text-neutral-800" />
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" fill="none"
               className={`${percent > 20 ? "text-sky-400" : "text-red-500"} transition-all duration-1000 ease-linear`}
@@ -56,7 +57,9 @@ function TotpAuthRow({ item, secret }: { item: VaultItem; secret: string }) {
               strokeDashoffset={62.8 * (1 - Math.max(0, percent) / 100)}
             />
           </svg>
-          <Fingerprint className={`w-4 h-4 transition-colors duration-500 ${percent > 20 ? "text-neutral-500" : "text-red-500 animate-pulse"}`} />
+          <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center">
+            <SiteIcon domain={item.domain} name={item.name} size={28} />
+          </div>
         </div>
 
         {/* Info */}

@@ -12,6 +12,7 @@ export function SiteIcon({
   size = 32,
   resizeMode = "contain",
   fill = false,
+  borderless = false,
 }: {
   domain?: string;
   name: string;
@@ -20,19 +21,26 @@ export function SiteIcon({
   size?: number;
   resizeMode?: "contain" | "cover";
   fill?: boolean;
+  borderless?: boolean;
 }) {
   const [hasError, setHasError] = useState(false);
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
 
   if (template !== "login" || !effectiveDomain || hasError) {
-    let icon = <Globe size={size * 0.7} color={colors.textMuted} />;
-    if (template === "card") icon = <CreditCard size={size * 0.7} color={colors.accent} />;
-    if (template === "note") icon = <FileText size={size * 0.7} color={colors.warning} />;
-    if (template === "address") icon = <MapPin size={size * 0.7} color={colors.success} />;
-    if (template === "profile") icon = <User size={size * 0.7} color={colors.cardBlue} />;
+    let icon = <Globe size={size * 0.75} color={colors.textMuted} />;
+    if (template === "card") icon = <CreditCard size={size * 0.75} color={colors.accent} />;
+    if (template === "note") icon = <FileText size={size * 0.75} color={colors.warning} />;
+    if (template === "address") icon = <MapPin size={size * 0.75} color={colors.success} />;
+    if (template === "profile") icon = <User size={size * 0.75} color={colors.cardBlue} />;
 
     return (
-      <View style={[styles.fallbackContainer, { width: size, height: size, borderRadius: size * 0.3 }]}>
+      <View
+        style={[
+          styles.fallbackContainer,
+          borderless && styles.borderless,
+          { width: size, height: size, borderRadius: size * 0.28 },
+        ]}
+      >
         {icon}
       </View>
     );
@@ -47,13 +55,14 @@ export function SiteIcon({
     ? "https://developer.android.com/static/images/brand/android-head_flat.png"
     : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=128`;
 
-  const imgSize = fill ? size : size * 0.7;
+  const imgSize = fill ? size : size * 0.85;
 
   return (
     <View
       style={[
         styles.iconWrapper,
-        { width: size, height: size, borderRadius: size * 0.3, overflow: "hidden" },
+        borderless && styles.borderless,
+        { width: size, height: size, borderRadius: size * 0.28, overflow: "hidden" },
       ]}
     >
       <Image
@@ -61,7 +70,7 @@ export function SiteIcon({
         style={{
           width: imgSize,
           height: imgSize,
-          borderRadius: fill ? size * 0.3 : 0,
+          borderRadius: fill ? size * 0.28 : size * 0.15,
           resizeMode: resizeMode,
         }}
         onError={() => setHasError(true)}
@@ -84,5 +93,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
+  },
+  borderless: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    borderColor: "transparent",
   },
 });

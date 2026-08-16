@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -17,6 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useVaultStore } from "../store/vaultStore";
 import { vaultAlert } from "../store/alertStore";
 import { TotpCode } from "../components/TotpCode";
+import { SiteIcon } from "../components/SiteIcon";
 import { colors } from "../theme/colors";
 import {
   KeyRound,
@@ -27,6 +28,7 @@ import {
   Lock,
   ChevronRight,
   ShieldCheck,
+  Scan,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 import { QrScannerModal } from "../components/QrScannerModal";
@@ -78,12 +80,86 @@ function AuthenticatorItemRow({ item }: { item: any }) {
   return <TotpCode secret={totpSecret} name={item.name} domain={item.domain} />;
 }
 
+// Global cache for decrypted usernames in assign modal to avoid repeated decrypts
+const usernameCache = new Map<string, string>();
+
+const AssignLoginRow = React.memo(function AssignLoginRow({
+  item,
+  onPress,
+  disabled,
+}: {
+  item: any;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  const { decryptItemBlob } = useVaultStore();
+  const [username, setUsername] = useState<string>(usernameCache.get(item.id) || "");
+
+  useEffect(() => {
+    if (usernameCache.has(item.id)) {
+      setUsername(usernameCache.get(item.id)!);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await decryptItemBlob(item.encryptedBlob);
+        const p = JSON.parse(raw);
+        const user = p.username || p.email || p.user || "";
+        if (user) {
+          usernameCache.set(item.id, user);
+          if (mounted) setUsername(user);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [item.id, item.encryptedBlob]);
+
+  return (
+    <TouchableOpacity
+      style={styles.loginTargetRow}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+    >
+      <View style={styles.loginRowIcon}>
+        <SiteIcon domain={item.domain} name={item.name} size={32} />
+      </View>
+      <View style={styles.loginRowMeta}>
+        <Text style={styles.loginRowTitle} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {username ? (
+          <Text style={styles.loginRowUsername} numberOfLines={1}>
+            {username}
+          </Text>
+        ) : item.domain ? (
+          <Text style={styles.loginRowUsername} numberOfLines={1}>
+            {item.domain}
+          </Text>
+        ) : null}
+        {item.hasTotp && (
+          <Text style={styles.loginRowSubWarning}>Will overwrite existing 2FA key</Text>
+        )}
+      </View>
+      <ChevronRight size={16} color="#52525b" />
+    </TouchableOpacity>
+  );
+});
+
 export function AuthenticatorScreen() {
   const navigation = useNavigation<any>();
   const { items, decryptItemBlob, updateItem } = useVaultStore();
 
   const totpItems = items.filter((i) => i.hasTotp && !i.deletedAt);
-  const availableLoginItems = items.filter((i) => (!i.template || i.template === "login") && !i.deletedAt);
+  const availableLoginItems = useMemo(
+    () => items.filter((i) => (!i.template || i.template === "login") && !i.deletedAt),
+    [items]
+  );
 
   // Modals state
   const [showOptionsModal, setShowOptionsModal] = useState(false);
@@ -182,12 +258,18 @@ export function AuthenticatorScreen() {
     }
   };
 
-  // Filter existing logins by search query
-  const filteredLogins = availableLoginItems.filter((i) => {
-    if (!assignSearchQuery.trim()) return true;
+  // Filter existing logins by search query (memoized to eliminate typing lag)
+  const filteredLogins = useMemo(() => {
+    if (!assignSearchQuery.trim()) return availableLoginItems;
     const q = assignSearchQuery.toLowerCase();
-    return i.name.toLowerCase().includes(q) || (i.domain && i.domain.toLowerCase().includes(q));
-  });
+    return availableLoginItems.filter((i) => {
+      const matchName = i.name.toLowerCase().includes(q);
+      const matchDomain = i.domain && i.domain.toLowerCase().includes(q);
+      const cachedUser = usernameCache.get(i.id);
+      const matchUser = cachedUser && cachedUser.toLowerCase().includes(q);
+      return matchName || matchDomain || matchUser;
+    });
+  }, [availableLoginItems, assignSearchQuery]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -243,6 +325,15 @@ export function AuthenticatorScreen() {
         }
       />
 
+      {/* ── Floating Scan QR Button (Circular) ── */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setShowCameraScanner(true)}
+        activeOpacity={0.85}
+      >
+        <Scan size={24} color="#09090b" strokeWidth={2.4} />
+      </TouchableOpacity>
+
       {/* ─── Modal 1: Choose Add Method (Camera QR or Manual) ───────────────── */}
       <Modal
         visible={showOptionsModal}
@@ -268,7 +359,7 @@ export function AuthenticatorScreen() {
               activeOpacity={0.75}
             >
               <View style={[styles.optionIconBox, { backgroundColor: "rgba(56, 189, 248, 0.12)" }]}>
-                <KeyRound size={20} color="#38bdf8" />
+                <Scan size={20} color="#38bdf8" />
               </View>
               <View style={styles.optionTextMeta}>
                 <Text style={styles.optionTitle}>Scan QR Code (Camera)</Text>
@@ -327,10 +418,9 @@ export function AuthenticatorScreen() {
                 style={[styles.inputBox, { fontFamily: "monospace" }]}
                 placeholder="e.g. JBSWY3DPEHPK3PXP"
                 placeholderTextColor="#52525b"
+                autoCapitalize="characters"
                 value={manualSecretInput}
                 onChangeText={setManualSecretInput}
-                autoCapitalize="characters"
-                autoCorrect={false}
               />
             </View>
 
@@ -379,14 +469,14 @@ export function AuthenticatorScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Create New Item Option */}
+            {/* Create New Item Option with + icon */}
             <TouchableOpacity
               style={styles.createNewBtnCard}
               onPress={handleCreateNewItem}
               activeOpacity={0.8}
             >
               <View style={styles.createBtnLeft}>
-                <ShieldCheck size={18} color="#09090b" />
+                <Plus size={18} color="#09090b" strokeWidth={2.6} />
                 <Text style={styles.createNewBtnText}>Create New Login Item</Text>
               </View>
               <ChevronRight size={18} color="#09090b" />
@@ -410,39 +500,29 @@ export function AuthenticatorScreen() {
               />
             </View>
 
-            {/* List of Existing Logins */}
-            <ScrollView style={styles.loginsScrollView} keyboardShouldPersistTaps="handled">
-              {filteredLogins.length === 0 ? (
+            {/* List of Existing Logins (Optimized FlatList with Favicons and Usernames) */}
+            <FlatList
+              data={filteredLogins}
+              keyExtractor={(item) => item.id}
+              style={styles.loginsList}
+              initialNumToRender={8}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={true}
+              renderItem={({ item }) => (
+                <AssignLoginRow
+                  item={item}
+                  onPress={() => handleAttachToExistingItem(item)}
+                  disabled={assigning}
+                />
+              )}
+              ListEmptyComponent={
                 <View style={styles.emptyLoginsBox}>
                   <Text style={styles.emptyLoginsText}>No matching logins found</Text>
                 </View>
-              ) : (
-                filteredLogins.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.loginTargetRow}
-                    onPress={() => handleAttachToExistingItem(item)}
-                    disabled={assigning}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.loginRowIcon}>
-                      <Lock size={16} color="#fafafa" />
-                    </View>
-                    <View style={styles.loginRowMeta}>
-                      <Text style={styles.loginRowTitle} numberOfLines={1}>{item.name}</Text>
-                      {item.hasTotp && (
-                        <Text style={styles.loginRowSubWarning}>Will overwrite existing 2FA key</Text>
-                      )}
-                    </View>
-                    {assigning ? (
-                      <ActivityIndicator size="small" color={colors.accent} />
-                    ) : (
-                      <ChevronRight size={16} color="#52525b" />
-                    )}
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
+              }
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -468,12 +548,12 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   headerTitle: {
+    color: "#fafafa",
     fontSize: 17,
     fontWeight: "700",
-    color: "#fafafa",
     letterSpacing: -0.3,
   },
   countBadge: {
@@ -483,78 +563,79 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   countBadgeText: {
+    color: "#a1a1aa",
     fontSize: 11,
     fontWeight: "700",
-    color: "#a1a1aa",
   },
   addBtnHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
     backgroundColor: "#27272a",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#3f3f46",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   addBtnHeaderText: {
-    fontSize: 12.5,
-    fontWeight: "600",
     color: "#fafafa",
+    fontSize: 12,
+    fontWeight: "600",
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 40,
     gap: 12,
   },
   cardLoading: {
-    backgroundColor: colors.surface,
+    backgroundColor: "#111111",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#1f1f1f",
     borderRadius: 16,
-    padding: 16,
-    flexDirection: "row",
+    padding: 24,
     alignItems: "center",
-    gap: 10,
-  },
-  cardFallback: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
+    justifyContent: "center",
+    gap: 8,
   },
   loadingText: {
-    color: colors.textMuted,
-    fontSize: 13,
+    color: "#71717a",
+    fontSize: 12,
+  },
+  cardFallback: {
+    backgroundColor: "#111111",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 16,
+    padding: 16,
   },
   itemName: {
+    color: "#fafafa",
     fontSize: 15,
     fontWeight: "600",
-    color: colors.text,
   },
   subtext: {
+    color: "#71717a",
     fontSize: 12,
-    color: colors.textDim,
     marginTop: 4,
   },
   emptyBox: {
+    paddingTop: 60,
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 100,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
   },
   emptyTitle: {
-    color: colors.text,
-    fontSize: 16,
+    color: "#fafafa",
+    fontSize: 17,
     fontWeight: "700",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   emptyDesc: {
-    color: colors.textDim,
+    color: "#71717a",
     fontSize: 13,
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 20,
     marginBottom: 20,
   },
   emptyCtaBtn: {
@@ -563,7 +644,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#fafafa",
     paddingHorizontal: 18,
-    paddingVertical: 11,
+    paddingVertical: 12,
     borderRadius: 12,
   },
   emptyCtaBtnText: {
@@ -571,68 +652,77 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: "700",
   },
-  // Modal Backdrops & Cards
+
+  // Modal Sheet common
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: "rgba(0,0,0,0.75)",
     justifyContent: "flex-end",
   },
   optionsModalCard: {
-    backgroundColor: "#09090b",
+    backgroundColor: "#111111",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "#27272a",
     padding: 20,
-    gap: 12,
-  },
-  manualModalCard: {
-    backgroundColor: "#09090b",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    padding: 20,
-    gap: 16,
+    paddingBottom: 36,
+    gap: 14,
   },
   assignModalCard: {
-    backgroundColor: "#09090b",
+    backgroundColor: "#111111",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "#27272a",
     padding: 20,
-    maxHeight: "82%",
+    paddingBottom: 36,
+    maxHeight: "85%",
+  },
+  manualModalCard: {
+    backgroundColor: "#111111",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: "#27272a",
+    padding: 20,
+    paddingBottom: 36,
+    gap: 16,
   },
   modalHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
     color: "#fafafa",
+    fontSize: 16,
+    fontWeight: "700",
   },
   secretBadgeText: {
-    fontSize: 11.5,
-    color: colors.accent,
-    marginTop: 2,
+    color: "#38bdf8",
+    fontSize: 11,
     fontFamily: "monospace",
+    marginTop: 2,
   },
   closeBtn: {
-    padding: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#1c1c1e",
+    alignItems: "center",
+    justifyContent: "center",
   },
   optionRowBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
     backgroundColor: "#18181b",
-    borderRadius: 16,
-    padding: 14,
     borderWidth: 1,
     borderColor: "#27272a",
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
   },
   optionIconBox: {
     width: 42,
@@ -643,6 +733,7 @@ const styles = StyleSheet.create({
   },
   optionTextMeta: {
     flex: 1,
+    gap: 2,
   },
   optionTitle: {
     color: "#fafafa",
@@ -650,17 +741,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   optionSub: {
-    color: "#a1a1aa",
-    fontSize: 12,
-    marginTop: 2,
+    color: "#71717a",
+    fontSize: 11.5,
   },
   formGroup: {
     gap: 6,
   },
   formLabel: {
-    fontSize: 12.5,
-    fontWeight: "600",
     color: "#a1a1aa",
+    fontSize: 12,
+    fontWeight: "600",
   },
   inputBox: {
     backgroundColor: "#18181b",
@@ -737,8 +827,8 @@ const styles = StyleSheet.create({
     color: "#fafafa",
     fontSize: 13,
   },
-  loginsScrollView: {
-    maxHeight: 240,
+  loginsList: {
+    maxHeight: 250,
   },
   emptyLoginsBox: {
     paddingVertical: 24,
@@ -756,28 +846,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#27272a",
     borderRadius: 14,
-    padding: 12,
+    padding: 10,
     marginBottom: 8,
   },
   loginRowIcon: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: "#27272a",
     alignItems: "center",
     justifyContent: "center",
   },
   loginRowMeta: {
     flex: 1,
+    minWidth: 0,
   },
   loginRowTitle: {
     color: "#fafafa",
     fontSize: 13.5,
     fontWeight: "600",
   },
+  loginRowUsername: {
+    color: "#a1a1aa",
+    fontSize: 11.5,
+    marginTop: 1.5,
+    fontFamily: "monospace",
+  },
   loginRowSubWarning: {
     color: "#f59e0b",
-    fontSize: 11,
+    fontSize: 10.5,
     marginTop: 1.5,
+  },
+  // ── FAB (Circular) ──
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#fafafa",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
