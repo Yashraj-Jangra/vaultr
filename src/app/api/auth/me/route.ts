@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
       avatarUrl:   toPublicUrl(profile.avatarUrl),
       role:        profile.role,
       disabled:    profile.disabled,
+      storageUsedBytes: profile.storageUsedBytes ?? 0,
+      storageQuotaBytes: profile.storageQuotaBytes ?? 104_857_600,
     });
   } catch (err) {
     if (err instanceof Response) return err;

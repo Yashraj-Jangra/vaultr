@@ -159,17 +159,20 @@ export const auth = betterAuth({
 
   // ── Session ─────────────────────────────────────────────────────────────────
   session: {
-    expiresIn:  60 * 60 * 24 * 7,    // 7 days (was 30 — reduced for security)
-    updateAge:  60 * 60 * 24,         // refresh token if older than 1 day
+    expiresIn: 60 * 60 * 24 * 7,    // 7 days (was 30 — reduced for security)
+    updateAge: 60 * 60 * 24,         // refresh token if older than 1 day
     // cookieCache disabled to ensure instant cross-device session revocation
     cookieCache: {
       enabled: false,
     },
   },
 
-  // ── Security ─────────────────────────────────────────────────────────────────
-  secret: process.env.BETTER_AUTH_SECRET!,
-  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+  // ── Advanced Proxy & Host Configuration ─────────────────────────────────────
+  advanced: {
+    // Allows Better Auth to trust proxy headers (X-Forwarded-Host, X-Forwarded-Proto)
+    // enabling seamless OAuth across localhost, LAN IPs, reverse proxies, and production domains.
+    trustedProxyHeaders: true,
+  },
 
   // ── Trusted origins (CORS) ────────────────────────────────────────────────
   trustedOrigins: trustedOriginsArray,

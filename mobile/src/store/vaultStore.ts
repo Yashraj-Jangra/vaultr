@@ -60,6 +60,7 @@ interface VaultState {
   signInAccount: (email: string, password: string, url: string) => Promise<void>;
   registerAccount: (name: string, username: string, email: string, password: string, url: string) => Promise<void>;
   signInWithGoogle: (serverUrl?: string) => Promise<void>;
+  handleAuthRedirectUrl: (url: string) => Promise<boolean>;
   updateAccountUser: (updates: Partial<AccountUser>) => Promise<void>;
   signOutAccount: () => Promise<void>;
   syncUserProfile: () => Promise<void>;
@@ -331,66 +332,65 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
   },
 
+  handleAuthRedirectUrl: async (incomingUrl: string) => {
+    try {
+      if (!incomingUrl) return false;
+      const queryStr = incomingUrl.includes("?") ? incomingUrl.split("?")[1] : "";
+      const params = new URLSearchParams(queryStr);
+      const token = params.get("token");
+      const id = params.get("id");
+      const email = params.get("email");
+      const name = params.get("name");
+      const rawImage = params.get("image") || params.get("avatarUrl") || undefined;
+      const image = rawImage ? decodeURIComponent(rawImage) : undefined;
+
+      if (token && id) {
+        const { serverUrl } = get();
+        const user: AccountUser = {
+          id,
+          email: email || "google-user@vaultr.local",
+          name: name || "Google User",
+          image: image,
+          avatarUrl: image,
+        };
+        await saveAccountSession(token, user, serverUrl);
+        set({
+          accountToken: token,
+          accountUser: user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        get().syncUserProfile().catch(() => {});
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn("[VaultStore] Error processing auth redirect URL:", e);
+      return false;
+    }
+  },
+
   signInWithGoogle: async (url) => {
     set({ isLoading: true });
     try {
       const cleanUrl = (url || get().serverUrl).replace(/\/+$/, "");
       const redirectUri = Linking.createURL("auth-callback");
-      const callbackURL = `${cleanUrl}/api/auth/mobile-callback?appUrl=${encodeURIComponent(redirectUri)}`;
+      const authStartUrl = `${cleanUrl}/api/auth/mobile-start?provider=google&appUrl=${encodeURIComponent(redirectUri)}`;
 
-      const res = await fetch(`${cleanUrl}/api/auth/sign-in/social`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
-          "Origin": cleanUrl,
-          "Referer": `${cleanUrl}/`,
-        },
-        body: JSON.stringify({
-          provider: "google",
-          callbackURL,
-        }),
-      });
+      // Open auth session in Custom Tabs directly starting from the server endpoint
+      // This guarantees state cookies are set directly inside the browser context, eliminating state_mismatch.
+      const authResult = await WebBrowser.openAuthSessionAsync(authStartUrl, redirectUri);
 
-      if (!res.ok) {
-        let errMsg = "Google OAuth is not configured or failed on this server.";
-        try {
-          const errData = await res.json();
-          if (errData.message || errData.error) errMsg = errData.message || errData.error;
-        } catch {}
-        throw new Error(errMsg);
+      // Handle direct return from openAuthSessionAsync
+      if (authResult.type === "success" && authResult.url) {
+        const handled = await get().handleAuthRedirectUrl(authResult.url);
+        if (handled) return;
       }
 
-      const data = await res.json();
-      if (!data.url) throw new Error("Server did not return a valid Google auth URL.");
-
-      const authResult = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-
-      if (authResult.type === "success" && authResult.url) {
-        const redirectUri = authResult.url;
-        const queryStr = redirectUri.includes("?") ? redirectUri.split("?")[1] : "";
-        const params = new URLSearchParams(queryStr);
-        const token = params.get("token");
-        const id = params.get("id");
-        const email = params.get("email");
-        const name = params.get("name");
-
-        if (token && id) {
-          const user: AccountUser = {
-            id,
-            email: email || "google-user@vaultr.local",
-            name: name || "Google User",
-          };
-          await saveAccountSession(token, user, cleanUrl);
-          set({
-            accountToken: token,
-            accountUser: user,
-            isAuthenticated: true,
-            serverUrl: cleanUrl,
-            isLoading: false,
-          });
-          return;
-        }
+      // If deep link listener already authenticated user during browser dismissal
+      if (get().isAuthenticated) {
+        set({ isLoading: false });
+        return;
       }
 
       set({ isLoading: false });
