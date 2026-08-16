@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -163,6 +163,13 @@ export function VaultListScreen({ navigation }: Props) {
 
   const isEmpty = activeItems.length === 0;
 
+  const avatarUri = getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [accountUser?.image, accountUser?.avatarUrl]);
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
@@ -190,12 +197,26 @@ export function VaultListScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.headerIconOnlyBtn}
+            onPress={lock}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
+          >
+            <Lock size={20} color="#e4e4e7" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.accountAvatarBtn}
             onPress={() => navigation.navigate("AccountSettings")}
             activeOpacity={0.85}
           >
-            {getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl) ? (
-              <Image source={{ uri: getAvatarUri(accountUser?.image || accountUser?.avatarUrl, serverUrl)! }} style={styles.avatarImg} />
+            {avatarUri && !imageError ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.avatarImg}
+                onError={() => setImageError(true)}
+                onLoad={() => setImageError(false)}
+              />
             ) : (
               <View style={styles.avatarFallback}>
                 <Text style={styles.avatarInitial}>{avatarInitial}</Text>
@@ -476,7 +497,7 @@ export function VaultListScreen({ navigation }: Props) {
         }}
         activeOpacity={0.85}
       >
-        <Plus size={22} color={isOnline ? "#09090b" : "#71717a"} />
+        <Plus size={24} color={isOnline ? "#09090b" : "#71717a"} strokeWidth={2.4} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -675,21 +696,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // ── FAB ──
+  // ── FAB (Circular) ──
   fab: {
     position: "absolute",
     right: 20,
-    bottom: 16,
+    bottom: 20,
     width: 54,
     height: 54,
-    borderRadius: 18,
-    backgroundColor: "#f4f4f5",
+    borderRadius: 27,
+    backgroundColor: "#fafafa",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
     elevation: 8,
   },
   fabDisabled: {

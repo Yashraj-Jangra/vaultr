@@ -37,7 +37,7 @@ import {
   Globe,
   Upload,
   Star,
-  KeyRound,
+  Scan,
 } from "lucide-react-native";
 import { Modal, Pressable } from "react-native";
 import { QrScannerModal } from "../components/QrScannerModal";
@@ -633,7 +633,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
                   onPress={() => setShowQrScanner(true)}
                   activeOpacity={0.7}
                 >
-                  <KeyRound size={18} color={colors.accent} />
+                  <Scan size={18} color={colors.accent} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.eyeToggleBtn}

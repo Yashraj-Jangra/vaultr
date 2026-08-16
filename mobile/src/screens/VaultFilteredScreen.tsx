@@ -317,13 +317,39 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Illustration name="the-search_cjxa" width={250} height={200} style={{ marginBottom: 18 }} />
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? "No results found" : "Nothing here yet"}
-            </Text>
-            <Text style={styles.emptyDesc}>
-              {searchQuery ? "Try a different search" : "Items in this category will appear here"}
-            </Text>
+            {searchQuery ? (
+              <>
+                <Illustration name="the-search_cjxa" width={250} height={200} style={{ marginBottom: 18 }} />
+                <Text style={styles.emptyTitle}>No results found</Text>
+                <Text style={styles.emptyDesc}>Try a different search term or clear the search</Text>
+              </>
+            ) : filterFolder ? (
+              <>
+                <Illustration name="empty_4zx0" width={250} height={200} style={{ marginBottom: 18 }} />
+                <Text style={styles.emptyTitle}>
+                  {filterFolder === "UNCATEGORIZED" ? "No uncategorized items" : "Folder is empty"}
+                </Text>
+                <Text style={styles.emptyDesc}>
+                  Tap the + button below to add your first item to this folder
+                </Text>
+              </>
+            ) : filterFavorite ? (
+              <>
+                <Illustration name="empty_4zx0" width={250} height={200} style={{ marginBottom: 18 }} />
+                <Text style={styles.emptyTitle}>No favorites yet</Text>
+                <Text style={styles.emptyDesc}>
+                  Star important items to access them quickly here
+                </Text>
+              </>
+            ) : (
+              <>
+                <Illustration name="empty_4zx0" width={250} height={200} style={{ marginBottom: 18 }} />
+                <Text style={styles.emptyTitle}>No {title.toLowerCase()} yet</Text>
+                <Text style={styles.emptyDesc}>
+                  Tap the + button below to save your first {title.toLowerCase().replace(/s$/, "")}
+                </Text>
+              </>
+            )}
           </View>
         }
       />
@@ -334,7 +360,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
         onPress={handleAddItem}
         activeOpacity={0.85}
       >
-        <Plus size={22} color="#09090b" />
+        <Plus size={24} color="#09090b" strokeWidth={2.4} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -427,18 +453,18 @@ const styles = StyleSheet.create({
   itemTopRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
   fab: {
     position: "absolute",
-    bottom: 24,
+    bottom: 20,
     right: 20,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: "#fafafa",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 8,
   },
   itemName: { fontSize: 14.5, fontWeight: "600", color: "#ffffff", flexShrink: 1, minWidth: 0 },

@@ -61,4 +61,12 @@ declare module "lucide-react-native" {
   export const Inbox: ComponentType<IconProps>;
   export const Keyboard: ComponentType<IconProps>;
   export const Sparkles: ComponentType<IconProps>;
+  export const BookOpen: ComponentType<IconProps>;
+  export const Info: ComponentType<IconProps>;
+  export const LifeBuoy: ComponentType<IconProps>;
+  export const Layers: ComponentType<IconProps>;
+  export const Scan: ComponentType<IconProps>;
+  export const QrCode: ComponentType<IconProps>;
+  export const ScanQrCode: ComponentType<IconProps>;
+  export const ScanLine: ComponentType<IconProps>;
 }
