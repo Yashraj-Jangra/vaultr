@@ -3,7 +3,7 @@
     "name": "Vaultr",
     "slug": "vaultr-mobile",
     "scheme": "vaultr",
-    "version": "0.2.0",
+    "version": "0.2.5",
     "orientation": "portrait",
     "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/vaultr-lock-dark-transparent.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#09090b"
       },
       "package": "com.vaultr.mobile",
@@ -24,7 +24,7 @@
         "BIND_AUTOFILL_SERVICE",
         "CAMERA"
       ],
-      "versionCode": 2
+      "versionCode": 5
     },
     "plugins": [
       [
