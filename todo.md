@@ -2,6 +2,15 @@
 
 ### ✅ What Was Done
 
+#### Mobile Launcher Icon & Splash Screen Standardization
+- **Android Adaptive Icon Centering & Safe-Zone**:
+  - Recalibrated exact mathematical visual center matrix (`translate(500, 500) scale(S) translate(-420.4, -498.8)`) on SVG source coordinates, eliminating horizontal offset.
+  - Set standard 66dp safe-zone scaling ($S=0.42$) on transparent 108dp canvas for `adaptive-icon.png` and `ic_launcher_foreground.webp`, guaranteeing zero clipping on circular, squircle, and rounded-square launchers.
+  - Set solid icon scaling ($S=0.48$) and round icon scaling ($S=0.46$) on `#09090b` dark background.
+- **1:1 Lock Shield Splash Screen**:
+  - Replaced the wide 3.3:1 horizontal text logo with the standardized 1:1 centered **VaultR Lock Shield** brand mark across all Android density buckets (`drawable-mdpi` to `drawable-xxxhdpi` at 128px to 512px) and Expo splash configuration (`mobile/assets/splash.png`), eliminating splash screen stretching.
+  - Updated `mobile/app.json` to point `splash.image` directly to `./assets/splash.png`.
+
 #### Public Repository Documentation & README Overhaul
 - **`README.md`**:
   - Rebuilt complete `README.md` to official open-source standards with GitHub theme-adaptive VaultR brand assets (`<picture>` dark/light logo switcher), curated amber/emerald/obsidian badges, visual feature showcase cards with SVG illustrations (`security_0ubl.svg`, `mobile-encryption_flk2.svg`, `cloud-sync_h1ig.svg`), zero-knowledge architectural diagrams, platform capabilities matrix, Docker Compose quickstart, and monorepo structural guides.

@@ -8,7 +8,7 @@
     "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/vaultr-full-dark-transparent.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#09090b"
     },
