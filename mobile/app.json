@@ -3,7 +3,7 @@
     "name": "Vaultr",
     "slug": "vaultr-mobile",
     "scheme": "vaultr",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "orientation": "portrait",
     "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
@@ -23,7 +23,7 @@
         "USE_FINGERPRINT",
         "CAMERA"
       ],
-      "versionCode": 6
+      "versionCode": 7
     },
     "plugins": [
       [

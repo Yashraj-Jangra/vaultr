@@ -3,10 +3,10 @@
  * Synchronized across Web App, Browser Extension, Mobile App, and Core Libraries.
  */
 
-export const VAULTR_VERSION = "0.2.6";
+export const VAULTR_VERSION = "0.2.7";
 export const VAULTR_RELEASE_YEAR = "2026";
 export const VAULTR_EDITION = "VaultR 2026";
-export const VAULTR_BUILD_NUMBER = "2026.08.17";
+export const VAULTR_BUILD_NUMBER = "2026.08.18";
 export const VAULTR_BUILD_CHANNEL: "stable" | "preview" | "nightly" = "stable";
 
 export const VAULTR_CRYPTO_SPEC = {

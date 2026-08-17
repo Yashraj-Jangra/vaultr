@@ -1,17 +1,24 @@
 # Vaultr — Project Tracker
 
-## Current Session: VaultR 2026 Mobile Refinement, Live Storage Engine & UI Parity (2026-08-16)
+## Current Session: VaultR 2026 Tablet Command Canvas, Responsive Dock & Folder Parity (2026-08-18)
 
 ### ✅ What Was Done
 
 #### Universal Versioning & Build Metadata Architecture
 - **`packages/core/src/version.ts` & `packages/core/src/index.ts`**:
-  - Created universal single source of truth for versioning (`v0.2.5`), edition (`VaultR 2026`), build number (`2026.08.16`), build channel (`stable`), and cryptographic specification metadata.
+  - Created universal single source of truth for versioning (`v0.2.7`), edition (`VaultR 2026`), build number (`2026.08.18`), build channel (`stable`), and cryptographic specification metadata.
   - Added build signature formatting helpers (`getAppVersionString`, `getBuildSignature`) and diagnostic payload types.
 - **Synchronized Version Numbers across Manifests**:
-  - Synchronously bumped root `package.json` (`0.2.5`), `mobile/package.json` (`0.2.5`), `mobile/app.json` (version `0.2.5`, `versionCode: 5`), `extension/package.json` (`0.2.5`), and `extension/manifest.json` (`0.2.5`).
+  - Synchronously bumped root `package.json` (`0.2.7`), `packages/core/package.json` (`0.2.7`), `mobile/package.json` (`0.2.7`), `mobile/app.json` (version `0.2.7`, `versionCode: 7`), `extension/package.json` (`0.2.7`), and `extension/manifest.json` (`0.2.7`).
 - **Interactive Release Notes & Changelog**:
-  - Added `v0.2.5` release entry to `src/app/changelog/page.tsx` capturing Google OAuth proxy resilience, DB storage aggregation, 2FA camera SVG mask cutout, and UI polish.
+  - Added `v0.2.7` release entry to `src/app/changelog/page.tsx` capturing tablet dock navigation, landscape dual-pane command dashboard, empty folder sync, and folder modification bug fix.
+
+#### Mobile UI & Folder Navigation Refinements
+- **`mobile/src/screens/VaultListScreen.tsx`, `mobile/src/screens/ItemFormScreen.tsx` & `mobile/src/store/vaultStore.ts`**:
+  - Fixed bug where items could not be moved out of folders or changed to "No folder" (empty string evaluated to `undefined`, omitting the `folder` patch). Now sends `folder: null` to accurately clear or change folder association in both local cache and Postgres DB.
+  - Enabled empty custom folder fetching and synchronization from `/api/vault/folders` upon vault unlocking (`unlock`), initial session restore (`initSession`), and background refresh (`fetchItems`).
+  - Restored `"No folder"` (uncategorized entries) in the FOLDERS list with accurate live item counts and dedicated navigation filter.
+  - Synchronized folder counter metrics (`FOLDERS (X)`) across both phone and tablet portrait/landscape dashboard stats cards.
 
 #### Android Native Autofill Bottom Sheet & Suggestion Engine Overhaul
 - **`AutofillSearchActivity.kt` & `activity_autofill_search.xml`**:
@@ -98,9 +105,62 @@
   - Standardized card persistence on both web and mobile to save both combined `expiry` ("MM / YYYY") and normalized individual `expMonth` ("MM") and `expYear` ("YYYY") fields.
   - Implemented `detectCardBrand` utility and dynamic network resolution across web card visual previews and details view to eliminate "Auto-detect" reset bugs.
 
-- **Android Native Module Fix & Build Verification**:
-  - Fixed `currentActivity` scope reference in `VaultrAutofillModule.kt`.
-  - Successfully compiled debug APK via `./gradlew assembleDebug` (592 actionable tasks, build successful).
+## Current Session: VaultR 2026 Dashboard Generator Integration, Mobile UI/Icon Scaling & UI Parity (2026-08-17)
+
+### ✅ What Was Done
+
+#### Web Vault Generator Dashboard Integration & Color Highlighting
+- **Integrated `/vault/generator` Route**:
+  - Replaced isolated standalone generator page with an in-dashboard experience preserving active sidebar, top bar, cryptographic master session, and search command palette.
+  - Linked Wand icons in `TopBar.tsx`, `Sidebar.tsx`, `BottomNav.tsx`, and `CommandPalette.tsx` directly to `/vault/generator`.
+  - Added 1-click **"Save to Vault as New Item"** action that pre-fills `NewEntryDialog` and persists encrypted entries in zero-knowledge.
+  - Updated session history items with a 1-click **"Use in Vault"** action.
+- **Continuous Syntax-Highlighted Character Output**:
+  - Refactored character color-coding from isolated boxed divs to a continuous, sleek monospace string with differentiated syntax colors (lowercase: light neutral, uppercase: cyan blue, digits: amber gold, symbols: rose coral).
+
+#### Universal Versioning & Landing Page Polish
+- **Dynamic Version Binding**: Bound all `/about`, `/docs`, `/changelog`, TopBar, and Sidebar version tags to `VAULTR_VERSION` (`0.2.6`).
+- **Landing Page Polish**: Updated step connector line to a sleek continuous 1px rule, smoothed FAQ accordion transitions, and updated illustration to `question-answered_ezyn.svg`.
+
+#### Mobile Icon & Logo Scaling Parity
+- **In-App Logos & Header Branding**:
+  - Scaled header brand logos across `VaultListScreen` (`138×32px`), `SettingsScreen` (`98×26px`), `AuthScreen` (`115×24px`), and `UnlockScreen` (`105×22px`).
+- **Item Icons & Favicons**:
+  - Scaled baseline `SiteIcon` and list item badge boxes to `38×38px` with `22px` iconography and `90%` image fill.
+- **Android Adaptive Launcher Assets**:
+  - Scaled adaptive icon foreground glyph in `adaptive-icon.png` and `ic_launcher_foreground.webp` (from 31.6% to 48.7% canvas fill) to match official Android circular/squircle mask proportions.
+
+#### Web Vault UI Polish & Default Folders State
+- **Minimal Credential Fields**: Restructured `NewEntryDialog.tsx` login fields to be clean and minimal directly on the modal surface, eliminating nested container boxes and aligning the `Generate ⌘G` trigger.
+- **Default Closed Folders in All Items View**: Configured `/vault` (All Items view) to keep all custom folders (including nested folders) closed/collapsed by default, while keeping the **Uncategorized** group open and visible by default.
+- **Compact & Colorized Inline Password Generator**: Redesigned dialog inline password generator widget to be slim, sleek, and compact (removed Passphrase tabs, added character syntax coloring, streamlined inline copy/regen/use actions, and added compact length slider with character set toggles).
+- **High-Contrast Slider Track & Label Styling**: Upgraded length slider with a crisp white progressive fill track, white handle thumb, and bright `text-neutral-100` label for clear visibility against dark backgrounds.
+- **Spotlight Search Live Preview & Edit Integration**: Fixed card visual preview in `CommandPalette.tsx` by passing raw decrypted numbers to prevent premature digit masking from breaking brand auto-detection (Visa, Mastercard, AMEX, RuPay, Discover), added 1-click **Edit** (`<Edit2 />`) and **Open** actions to the live preview header and hover search rows, supported `/vault?edit=ID` param to open the edit dialog directly, and added quick copy pills (Username, Password, Card Number, CVV, Note).
+- **Synchronized Search Result Indexing**: Fixed index-ordering desync in `CommandPalette.tsx` by structuring `allResults` to match the exact template group sequence (`Logins -> Cards -> Notes -> Addresses -> Profiles -> Quick Actions`), eliminating selection and live preview inversion between different item types.
+- **Smooth Scroll & Auto-Expansion on Search Open**: Enhanced `/vault` router handler to automatically expand any collapsed parent/ancestor folders when opening an item from search, smoothly scroll the viewport to center the target element, and apply a subtle focus ring highlight.
+
+#### Tablet & Landscape Adaptive Layout for Mobile Client
+- **Universal Responsive Hook (`mobile/src/utils/responsive.ts`)**:
+  - Implemented `useResponsive()` with breakpoint thresholds (`BREAKPOINTS`), real-time orientation detection (`isLandscape`), tablet detection (`isTablet`), and 2-column split layout activation (`isSplitView`).
+- **Standardized Card Preview Aspect Ratio (`mobile/src/components/ItemPreviewCard.tsx`)**:
+  - Wrapped visual preview in a container with `maxWidth: 380, width: "100%", alignSelf: "center"`, preserving the standardized `1.586` card aspect ratio across all screen sizes and preventing distortion on tablets.
+- **2-Column Split View in Item Detail (`mobile/src/screens/ItemDetailScreen.tsx`)**:
+  - In landscape/tablet mode, displays a balanced 2-column view: Left column houses the fixed `ItemPreviewCard`, template badge card, and website launch action; Right column houses scrollable credentials, 2FA TOTP code, custom fields, and security audit metadata.
+- **2-Column Split View in Item Form (`mobile/src/screens/ItemFormScreen.tsx`)**:
+  - In landscape/tablet mode, displays the live preview canvas and entry type pills in the left column, with form input fields and attachment dropzone in the scrollable right column.
+- **2-Column Split View in Password Generator (`mobile/src/screens/GeneratorScreen.tsx`)**:
+  - In landscape/tablet mode, displays mode tabs, colorized output card, strength meter, and copy/regenerate actions on the left, with length slider, character toggles, presets, and generation history on the right.
+- **Adaptive Multi-Column TOTP Grid (`mobile/src/screens/AuthenticatorScreen.tsx`)**:
+  - Automatically arranges 2FA verification code cards into a clean 2-column grid on tablets and landscape orientations.
+- **Adaptive Vault Dashboard Layouts for Tablets & Phones (`mobile/src/screens/VaultListScreen.tsx`)**:
+  - **Portrait Mode (Phone & Tablet)**: Formatted into a clean, centered single-column layout (max-width 580px on tablets) with natural mobile hierarchy: Favourites, Category Types, Collapsible Folder Tree, and Trash.
+  - **Landscape Mode (Tablets & Wide Screens)**: Redesigned into a purpose-built dual-pane Command Dashboard with Category Types, Folder Tree, and Trash on the left, and a Vault Status/Quick Action Hub, 2-column Favourites Card Grid, and Recent Activity list on the right.
+- **Minimal Compact Tablet Left Navigation Rail (`mobile/src/navigation/MainTabs.tsx`)**:
+  - Refined tablet rail into a sleek, 72px compact dock: vertically centered navigation tab stack, removed top brand clutter, polished active dark card indicators with subtle elevation, muted inactive items, and integrated a dedicated bottom red-tinted lock button (`#f87171` / `rgba(239, 68, 68, 0.08)`).
+- **Tablet Master Password Screen Keyboard Stability (`mobile/src/screens/UnlockScreen.tsx`)**:
+  - Prevented the Master Password unlock card, lock logo, and typography from abruptly jumping up or shrinking when opening floating/split keyboards on tablets (`isTablet`), keeping the unlock card smoothly centered and fixed in place.
+- **Resolved TSX Syntax & Component Returns Across Mobile Screens (`ItemDetailScreen.tsx`, `GeneratorScreen.tsx`, `VaultListScreen.tsx`)**:
+  - Cleaned up duplicated return hierarchies and store handler references, achieving clean compilation with 0 errors across all mobile packages.
 
 ---
 
@@ -108,3 +168,7 @@
 - Re-verify cross-platform file attachment roundtrips (upload on Mobile -> download on Web, upload on Web -> download on Mobile).
 - Test native autofill behavior across different browser apps (Chrome, Firefox, Brave) and native login screens.
 - Polish mobile autofill sheet UI and empty state illustrations.
+
+
+
+

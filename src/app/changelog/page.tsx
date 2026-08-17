@@ -33,11 +33,25 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.7",
+    codename: "Tablet Command Canvas & Responsive Polish",
+    date: "August 18, 2026",
+    tagline: "Tablet Rail Navigation, Landscape Command Dashboard, Empty Folder Sync & Folder Edit Fixes",
+    isLatest: true,
+    changes: [
+      { type: "mobile", text: "Compact tablet navigation rail: Redesigned left sidebar into a sleek 72px vertically centered navigation dock with dedicated quick-lock action." },
+      { type: "mobile", text: "Adaptive tablet vault layouts: Phone-like centered single column in portrait mode, and dual-pane Command Dashboard in landscape mode." },
+      { type: "feature", text: "Tablet landscape dashboard: Top Vault Hub security stats banner, 2-column visual Favourites grid, and recent activity feed." },
+      { type: "mobile", text: "Tablet unlock stability: Master Password card stays centered without jumping up when floating/split software keyboards open." },
+      { type: "feature", text: "Empty folder synchronization: Automatically fetches and synchronizes empty user custom folders across web and mobile clients." },
+      { type: "fix", text: "Fixed folder reassignment: Properly sets null when clearing folder association, enabling items to move out of folders seamlessly." },
+    ],
+  },
+  {
     version: "v0.2.6",
     codename: "Better Autofill & Experience Polish",
     date: "August 17, 2026",
     tagline: "Better Autofill, Bottom Sheet Animations, Website Favicons & Card Pre-fill Fixes",
-    isLatest: true,
     changes: [
       { type: "mobile", text: "Better autofill: Redesigned quick search into a smooth native bottom sheet with slide animations and backdrop dismissal." },
       { type: "mobile", text: "Context-aware suggestions: Displays matching credentials for the active site/app with full vault search on query." },
@@ -295,16 +309,18 @@ export default function ChangelogPage() {
 
       {/* Release Timeline */}
       <div className="max-w-5xl mx-auto px-6 py-12">
-        <div className="space-y-12 relative before:absolute before:inset-0 before:left-3.5 before:w-px before:bg-neutral-900">
+        <div className="space-y-12 relative before:absolute before:top-7 before:bottom-7 before:left-3.5 before:w-px before:bg-neutral-800">
           {filteredReleases.map((release) => (
             <div key={release.version} className="relative pl-10 space-y-4">
               {/* Timeline Dot */}
               <div
-                className={`absolute left-1.5 top-1.5 w-4 h-4 rounded-full border-2 border-neutral-950 -translate-x-1/2 flex items-center justify-center ${
-                  release.isLatest ? "bg-emerald-400" : "bg-neutral-700"
+                className={`absolute left-3.5 top-7 w-3.5 h-3.5 rounded-full border-2 border-neutral-950 -translate-x-1/2 flex items-center justify-center ${
+                  release.isLatest
+                    ? "bg-emerald-400 ring-4 ring-emerald-500/20 shadow-[0_0_12px_rgba(52,211,153,0.4)]"
+                    : "bg-neutral-700"
                 }`}
               >
-                {release.isLatest && <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />}
+                {release.isLatest && <span className="w-1 h-1 rounded-full bg-neutral-950" />}
               </div>
 
               {/* Release Header Card */}
