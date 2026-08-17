@@ -32,6 +32,7 @@ import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
 import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
 import { isAutofillUnlockPending, finishAutofillUnlock } from "../services/autofill";
+import { useResponsive } from "../utils/responsive";
 
 function GridBackground() {
   return (
@@ -53,6 +54,7 @@ type UnlockView = "main" | "forgot" | "why";
 
 export function UnlockScreen() {
   const { accountUser, unlock, lock, signOutAccount } = useVaultStore();
+  const { isTablet } = useResponsive();
   const [masterPassword, setMasterPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
@@ -61,6 +63,8 @@ export function UnlockScreen() {
 
   const [biometricEnrolled, setBiometricEnrolled] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  const shouldCompactForKeyboard = isKeyboardVisible && !isTablet;
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -255,26 +259,26 @@ export function UnlockScreen() {
   const renderMain = () => (
     <Animated.View style={animatedMainStyle}>
       {/* Halo + lock icon */}
-      <View style={[styles.iconWrap, isKeyboardVisible && styles.iconWrapKeyboard]}>
+      <View style={[styles.iconWrap, shouldCompactForKeyboard && styles.iconWrapKeyboard]}>
         <Animated.View style={[styles.halo, animatedHaloStyle]} />
         <Animated.View style={[styles.haloInner, animatedHaloInnerStyle]} />
-        <View style={[styles.lockBox, isKeyboardVisible && styles.lockBoxKeyboard]}>
+        <View style={[styles.lockBox, shouldCompactForKeyboard && styles.lockBoxKeyboard]}>
           <Image
             source={require("../../assets/vaultr-lock-dark-transparent.png")}
-            style={[styles.lockBrand, isKeyboardVisible && styles.lockBrandKeyboard]}
+            style={[styles.lockBrand, shouldCompactForKeyboard && styles.lockBrandKeyboard]}
             resizeMode="contain"
           />
         </View>
       </View>
 
       {/* Brand + headings */}
-      <View style={[styles.headingWrap, isKeyboardVisible && styles.headingWrapKeyboard]}>
+      <View style={[styles.headingWrap, shouldCompactForKeyboard && styles.headingWrapKeyboard]}>
         <Image
           source={require("../../assets/vaultr-full-dark-transparent.png")}
-          style={[styles.logoImage, isKeyboardVisible && { height: 15, width: 75, marginBottom: 2 }]}
+          style={[styles.logoImage, shouldCompactForKeyboard && { height: 15, width: 75, marginBottom: 2 }]}
           resizeMode="contain"
         />
-        <Text style={[styles.title, isKeyboardVisible && { fontSize: 16 }]}>
+        <Text style={[styles.title, shouldCompactForKeyboard && { fontSize: 16 }]}>
           {unlocking ? "Decrypting vault…" : "Unlock your vault"}
         </Text>
         <Text style={styles.emailHint} numberOfLines={1}>
@@ -337,7 +341,7 @@ export function UnlockScreen() {
         </View>
 
         {/* Footer links: Below action row */}
-        <View style={[styles.footerRow, isKeyboardVisible && { marginTop: 12 }]}>
+        <View style={[styles.footerRow, shouldCompactForKeyboard && { marginTop: 12 }]}>
           <TouchableOpacity onPress={() => setCurrentView("forgot")}>
             <Text style={styles.footerLink}>Forgot password?</Text>
           </TouchableOpacity>
@@ -351,7 +355,7 @@ export function UnlockScreen() {
         </View>
 
         {/* Flagship In-Display Fingerprint Sensor — Middle Centered with Breathing Animation (Only when enrolled & keyboard closed) */}
-        {biometricEnrolled && !isKeyboardVisible ? (
+        {biometricEnrolled && !shouldCompactForKeyboard ? (
           <View style={styles.biometricContainer}>
             <TouchableOpacity
               onPress={handleBiometricUnlock}
@@ -479,20 +483,20 @@ export function UnlockScreen() {
       <GridBackground />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={isTablet ? undefined : (Platform.OS === "ios" ? "padding" : undefined)}
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            isKeyboardVisible && styles.scrollContentKeyboard,
+            shouldCompactForKeyboard && styles.scrollContentKeyboard,
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          automaticallyAdjustKeyboardInsets={!isTablet && Platform.OS === "ios"}
         >
-          <View style={[styles.card, isKeyboardVisible && styles.cardKeyboard]}>
+          <View style={[styles.card, shouldCompactForKeyboard && styles.cardKeyboard]}>
             {currentView === "main" && renderMain()}
             {currentView === "forgot" && renderForgot()}
             {currentView === "why" && renderWhy()}
@@ -597,9 +601,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   logoImage: {
-    height: 18,
-    width: 90,
-    opacity: 0.6,
+    height: 22,
+    width: 105,
+    opacity: 0.8,
     marginBottom: 4,
   },
   title: {

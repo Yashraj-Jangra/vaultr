@@ -58,14 +58,29 @@ interface ItemPreviewCardProps {
 export function ItemPreviewCard(props: ItemPreviewCardProps) {
   const { template } = props;
 
-  if (template === "card") return <CreditCardVisual {...props} />;
-  if (template === "login") return <LoginKeycardVisual {...props} />;
-  if (template === "note") return <NotePaperVisual {...props} />;
-  if (template === "address") return <AddressLabelVisual {...props} />;
-  if (template === "profile") return <ProfileBadgeVisual {...props} />;
+  let content: React.ReactNode = null;
+  if (template === "card") content = <CreditCardVisual {...props} />;
+  else if (template === "login") content = <LoginKeycardVisual {...props} />;
+  else if (template === "note") content = <NotePaperVisual {...props} />;
+  else if (template === "address") content = <AddressLabelVisual {...props} />;
+  else if (template === "profile") content = <ProfileBadgeVisual {...props} />;
 
-  return null;
+  if (!content) return null;
+
+  return (
+    <View style={previewStyles.wrapper}>
+      {content}
+    </View>
+  );
 }
+
+const previewStyles = StyleSheet.create({
+  wrapper: {
+    width: "100%",
+    maxWidth: 380,
+    alignSelf: "center",
+  },
+});
 
 // ── 1. EMV Chip (Exact Match) ────────────────────────────────────────────────
 function EmvChip() {

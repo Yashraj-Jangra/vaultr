@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useSiteConfig } from "@/context/SiteConfigContext";
+import { VAULTR_EDITION, VAULTR_VERSION } from "@vaultr/core";
 import {
   Shield, Lock, Globe, Key, RefreshCw, Fingerprint,
   ChevronRight, ArrowRight, Check, Copy, Terminal,
@@ -79,30 +80,6 @@ const FAQS = [
   }
 ];
 
-// Animated timeline connector
-function AnimatedLine({ active }: { active: boolean }) {
-  return (
-    <div className="hidden md:flex flex-1 items-center justify-center px-4 relative">
-      <div className="w-full h-[1px] bg-[var(--border)] relative overflow-hidden">
-        <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-neutral-500 to-neutral-700 transition-all duration-[1400ms] ease-out"
-          style={{ width: active ? "100%" : "0%" }}
-        />
-        {/* Moving dot */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white transition-all duration-[1400ms] ease-out"
-          style={{ left: active ? "calc(100% - 6px)" : "0%" }}
-        />
-      </div>
-      {/* Arrow tip */}
-      <div
-        className="absolute right-4 w-1.5 h-1.5 border-r border-t border-[var(--fg-muted)] rotate-45 transition-opacity duration-300"
-        style={{ opacity: active ? 1 : 0 }}
-      />
-    </div>
-  );
-}
-
 export default function LandingPage() {
   const { user, isAuthLoading } = useAuth();
   const { config } = useSiteConfig();
@@ -110,8 +87,6 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [stepsVisible, setStepsVisible] = useState(false);
-  const stepsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAuthLoading && user) router.replace("/vault");
@@ -121,17 +96,6 @@ export default function LandingPage() {
     const h = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", h, { passive: true });
     return () => window.removeEventListener("scroll", h);
-  }, []);
-
-  // IntersectionObserver for animated steps line
-  useEffect(() => {
-    if (!stepsRef.current) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setStepsVisible(true); },
-      { threshold: 0.3 }
-    );
-    obs.observe(stepsRef.current);
-    return () => obs.disconnect();
   }, []);
 
   if (isAuthLoading) {
@@ -218,7 +182,7 @@ export default function LandingPage() {
             <div className="space-y-7 pt-4 pb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[11px] font-medium text-[var(--fg-muted)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                VaultR 2026 Edition · Zero-Knowledge · AES-256-GCM
+                {VAULTR_EDITION} v{VAULTR_VERSION} · Zero-Knowledge · AES-256-GCM
               </div>
 
               <h1 className="text-[44px] sm:text-[56px] font-bold text-[var(--fg)] leading-[1.08] tracking-tight">
@@ -533,7 +497,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── How It Works — Animated Node Timeline ─────────────────────────── */}
+      {/* ── How It Works — Sleek Step Timeline ─────────────────────────── */}
       <section id="howitworks" className="py-24 bg-[var(--bg)]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto space-y-3 mb-16">
@@ -542,25 +506,20 @@ export default function LandingPage() {
             <p className="text-[14px] text-[var(--fg-muted)]">Three steps to complete cryptographic privacy — no configuration required.</p>
           </div>
 
-          {/* Timeline row */}
-          <div ref={stepsRef} className="flex flex-col md:flex-row items-start md:items-stretch gap-0">
-            {STEPS.map((step, i) => (
-              <React.Fragment key={step.n}>
-                {/* Step Node + Content */}
-                <div className="flex flex-col items-center flex-1 min-w-0 group">
+          {/* Timeline container */}
+          <div className="relative">
+            {/* Sleek continuous horizontal connecting line passing through center of all nodes */}
+            <div
+              className="hidden md:block absolute top-7 left-[16.666%] right-[16.666%] h-px bg-neutral-800 -translate-y-1/2 z-0"
+              aria-hidden="true"
+            />
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8 relative z-10">
+              {STEPS.map((step) => (
+                <div key={step.n} className="flex flex-col items-center group relative">
                   {/* Circle node */}
-                  <div className="relative flex items-center justify-center w-14 h-14 rounded-full border-2 border-[var(--border)] bg-[var(--surface)] z-10 transition-all duration-300 group-hover:border-neutral-500">
+                  <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-neutral-800 bg-neutral-950 z-10 transition-colors duration-200 group-hover:border-neutral-600 shadow-sm">
                     <span className="font-mono text-[13px] font-semibold text-[var(--fg)]">{step.n}</span>
-                    {/* Pulse ring */}
-                    <div
-                      className="absolute inset-0 rounded-full border border-neutral-600 transition-all duration-700"
-                      style={{
-                        transform: stepsVisible ? "scale(1.5)" : "scale(1)",
-                        opacity: stepsVisible ? 0 : 0.6,
-                        transitionDelay: `${i * 500}ms`,
-                      }}
-                    />
                   </div>
 
                   {/* Tag chip */}
@@ -575,52 +534,18 @@ export default function LandingPage() {
                       alt={step.title}
                       width={200}
                       height={192}
-                      className="w-full h-full object-contain opacity-90"
+                      className="w-full h-full object-contain opacity-90 transition-opacity duration-300 group-hover:opacity-100"
                     />
                   </div>
 
                   {/* Text */}
-                  <div className="mt-5 text-center px-4 space-y-2 max-w-[240px]">
+                  <div className="mt-5 text-center px-4 space-y-2 max-w-[260px]">
                     <h3 className="text-[14px] font-semibold text-[var(--fg)]">{step.title}</h3>
                     <p className="text-[12px] text-[var(--fg-muted)] leading-relaxed">{step.desc}</p>
                   </div>
                 </div>
-
-                {/* Animated connector line between nodes */}
-                {i < STEPS.length - 1 && (
-                  <div className="hidden md:flex flex-col items-center justify-start pt-7 px-0" style={{ width: "80px", flexShrink: 0 }}>
-                    <div className="relative w-full h-[2px] bg-[var(--border)] mt-0 overflow-visible">
-                      {/* Animated fill */}
-                      <div
-                        className="absolute inset-y-0 left-0 bg-neutral-600 transition-all duration-[900ms] ease-out"
-                        style={{
-                          width: stepsVisible ? "100%" : "0%",
-                          transitionDelay: `${i * 300 + 200}ms`,
-                        }}
-                      />
-                      {/* Traveling dot */}
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-neutral-700 transition-all duration-[900ms] ease-out shadow-[0_0_6px_rgba(255,255,255,0.3)]"
-                        style={{
-                          left: stepsVisible ? "calc(100% - 8px)" : "0px",
-                          transitionDelay: `${i * 300 + 200}ms`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile vertical connector */}
-                {i < STEPS.length - 1 && (
-                  <div className="md:hidden w-[2px] h-12 bg-[var(--border)] mx-auto my-2 relative overflow-hidden">
-                    <div
-                      className="absolute inset-x-0 top-0 bg-neutral-600 transition-all duration-700"
-                      style={{ height: stepsVisible ? "100%" : "0%", transitionDelay: `${i * 300}ms` }}
-                    />
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -735,37 +660,51 @@ export default function LandingPage() {
                 Learn more about our zero-knowledge model, security protocols, and self-hosting options.
               </p>
 
-              <div className="w-full h-60 relative hidden lg:block select-none">
+              <div className="w-full h-64 relative hidden lg:block select-none mt-6">
                 <Image
-                  src="/illustrations/faq_pgxi.svg"
-                  alt="FAQ"
-                  width={260}
-                  height={220}
-                  className="w-full h-full object-contain opacity-80"
+                  src="/illustrations/question-answered_ezyn.svg"
+                  alt="Frequently Asked Questions"
+                  width={300}
+                  height={240}
+                  className="w-full h-full object-contain opacity-85 transition-opacity duration-300 hover:opacity-100"
                 />
               </div>
             </div>
 
             <div className="lg:col-span-7 space-y-3">
-              {FAQS.map((faq, i) => (
-                <div
-                  key={faq.q}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden"
-                >
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full p-4 text-left flex items-center justify-between gap-4 font-medium text-[var(--fg)] text-[14px]"
+              {FAQS.map((faq, i) => {
+                const isOpen = openFaq === i;
+                return (
+                  <div
+                    key={faq.q}
+                    className="rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden transition-colors duration-200 hover:border-neutral-700"
                   >
-                    <span>{faq.q}</span>
-                    <ChevronDown className={`w-4 h-4 text-[var(--fg-muted)] transition-transform duration-200 shrink-0 ${openFaq === i ? "rotate-180" : ""}`} />
-                  </button>
-                  {openFaq === i && (
-                    <div className="px-4 pb-4 text-[13px] text-[var(--fg-muted)] leading-relaxed border-t border-[var(--border)] pt-3">
-                      {faq.a}
+                    <button
+                      onClick={() => setOpenFaq(isOpen ? null : i)}
+                      className="w-full p-4 text-left flex items-center justify-between gap-4 font-medium text-[var(--fg)] text-[14px] cursor-pointer select-none"
+                      aria-expanded={isOpen}
+                    >
+                      <span className="leading-snug">{faq.q}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-[var(--fg-muted)] transition-transform duration-300 ease-in-out shrink-0 ${
+                          isOpen ? "rotate-180 text-white" : ""
+                        }`}
+                      />
+                    </button>
+                    <div
+                      className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                        isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="px-4 pb-4 text-[13px] text-[var(--fg-muted)] leading-relaxed border-t border-[var(--border)]/60 pt-3">
+                          {faq.a}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
 
           </div>
@@ -856,7 +795,7 @@ export default function LandingPage() {
               className="h-5 w-auto object-contain opacity-50"
             />
             <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider px-2 py-0.5 rounded border border-neutral-800 bg-neutral-900/60 hidden sm:inline-block">
-              VaultR 2026
+              {VAULTR_EDITION} v{VAULTR_VERSION}
             </span>
           </div>
 

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search, Lock, LogOut, User, ChevronDown, Wand2, Sun, Moon, Shield, Info, Settings } from "lucide-react";
+import { VAULTR_VERSION } from "@vaultr/core";
 import { useAuth } from "@/hooks/useAuth";
 import { useVault } from "@/context/VaultContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -160,7 +161,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
                 <div className="flex items-center gap-2">
                   <Info className="w-3.5 h-3.5" /> About Vaultr
                 </div>
-                <span className="text-[10px] font-mono text-neutral-500">v0.2.5</span>
+                <span className="text-[10px] font-mono text-neutral-500">v{VAULTR_VERSION}</span>
               </button>
 
               <button

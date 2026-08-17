@@ -21,6 +21,7 @@ import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { colors } from "../theme/colors";
 import { CustomSwitch } from "../components/CustomSwitch";
 import { Wand2, Copy, Check, RefreshCw, History } from "lucide-react-native";
+import { useResponsive } from "../utils/responsive";
 
 type Mode = "random" | "passphrase" | "pin";
 
@@ -169,10 +170,304 @@ export function GeneratorScreen() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const { isSplitView } = useResponsive();
+
+  const renderOutputPane = () => (
+    <View style={{ gap: 16 }}>
+      {/* Mode Selector Tabs */}
+      <View style={styles.modeTabs}>
+        {(["random", "passphrase", "pin"] as Mode[]).map((m) => (
+          <TouchableOpacity
+            key={m}
+            style={[styles.modeTab, mode === m && styles.modeTabActive]}
+            onPress={() => setMode(m)}
+          >
+            <Text style={[styles.modeTabText, mode === m && styles.modeTabTextActive]}>
+              {m === "random" ? "Password" : m === "passphrase" ? "Passphrase" : "PIN"}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── Generated Password Output Display Card ── */}
+      <View style={styles.outputCard}>
+        <View style={styles.outputBox}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ColorizedOutput value={currentPassword} mode={mode} />
+          </ScrollView>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.iconBtn} onPress={handleRegenerate}>
+              <RefreshCw size={18} color="#a1a1aa" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.copyMainBtn} onPress={() => handleCopy()}>
+              {copied ? (
+                <>
+                  <Check size={16} color="#34d399" />
+                  <Text style={styles.copiedText}>Copied!</Text>
+                </>
+              ) : (
+                <>
+                  <Copy size={16} color="#09090b" />
+                  <Text style={styles.copyBtnText}>Copy Password</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Color Legend (for Random mode) */}
+        {mode === "random" && (
+          <View style={styles.colorLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: "#e4e4e7" }]} />
+              <Text style={styles.legendText}>a-z</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: "#38bdf8" }]} />
+              <Text style={[styles.legendText, { color: "#38bdf8" }]}>A-Z</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: "#fbbf24" }]} />
+              <Text style={[styles.legendText, { color: "#fbbf24" }]}>0-9</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: "#fb7185" }]} />
+              <Text style={[styles.legendText, { color: "#fb7185" }]}>!@#</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Strength Bar + Stats */}
+        {strength.label ? (
+          <View style={styles.strengthSection}>
+            <View style={styles.strengthTrack}>
+              {[1, 2, 3, 4].map((i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.strengthSegment,
+                    {
+                      backgroundColor: i <= strength.score ? strength.color : "#1f1f23",
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
+            <View style={styles.statsRow}>
+              <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                {strength.label}
+              </Text>
+              <Text style={styles.statDot}>•</Text>
+              <Text style={styles.statText}>{strength.entropy} bits</Text>
+              <Text style={styles.statDot}>•</Text>
+              <Text style={styles.statText}>
+                Crack: <Text style={{ color: "#f4f4f5" }}>{strength.crackTime}</Text>
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Character Breakdown Counts */}
+        {mode === "random" && (
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownText}>
+              {charCounts.lower} lower  •  {charCounts.upper} upper  •  {charCounts.digit} digits  •  {charCounts.symbol} symbols
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderControlsPane = () => (
+    <View style={{ gap: 16 }}>
+      {/* ── Mode Specific Controls ── */}
+
+      {/* 1. RANDOM PASSWORD CONTROLS */}
+      {mode === "random" && (
+        <View style={styles.controlsCard}>
+          <View style={styles.controlHeader}>
+            <Text style={styles.controlTitle}>Length: {length}</Text>
+            <View style={styles.counterGroup}>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setLength((l) => Math.max(8, l - 1))}
+              >
+                <Text style={styles.counterBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.counterValue}>{length}</Text>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setLength((l) => Math.min(64, l + 1))}
+              >
+                <Text style={styles.counterBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Quick length presets */}
+          <View style={styles.presetRow}>
+            {[12, 16, 24, 32, 64].map((l) => (
+              <TouchableOpacity
+                key={l}
+                style={[styles.presetPill, length === l && styles.presetPillActive]}
+                onPress={() => setLength(l)}
+              >
+                <Text style={[styles.presetText, length === l && styles.presetTextActive]}>
+                  {l}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>Uppercase Characters (A-Z)</Text>
+            <CustomSwitch value={useUpper} onValueChange={setUseUpper} />
+          </View>
+
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>Lowercase Characters (a-z)</Text>
+            <CustomSwitch value={useLower} onValueChange={setUseLower} />
+          </View>
+
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>Numbers (0-9)</Text>
+            <CustomSwitch value={useDigits} onValueChange={setUseDigits} />
+          </View>
+
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>Symbols (!@#$%^&*)</Text>
+            <CustomSwitch value={useSymbols} onValueChange={setUseSymbols} />
+          </View>
+        </View>
+      )}
+
+      {/* 2. PASSPHRASE CONTROLS */}
+      {mode === "passphrase" && (
+        <View style={styles.controlsCard}>
+          <View style={styles.controlHeader}>
+            <Text style={styles.controlTitle}>Words: {wordCount}</Text>
+            <View style={styles.counterGroup}>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setWordCount((w) => Math.max(3, w - 1))}
+              >
+                <Text style={styles.counterBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.counterValue}>{wordCount}</Text>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setWordCount((w) => Math.min(10, w + 1))}
+              >
+                <Text style={styles.counterBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubLabel}>Word Separator</Text>
+          <View style={styles.presetRow}>
+            {[
+              { label: "Hyphen (-)", val: "-" },
+              { label: "Period (.)", val: "." },
+              { label: "Underscore (_)", val: "_" },
+              { label: "Space", val: " " },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.val}
+                style={[styles.presetPill, separator === item.val && styles.presetPillActive]}
+                onPress={() => setSeparator(item.val)}
+              >
+                <Text style={[styles.presetText, separator === item.val && styles.presetTextActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>Capitalize Words</Text>
+            <CustomSwitch value={capitalize} onValueChange={setCapitalize} />
+          </View>
+        </View>
+      )}
+
+      {/* 3. PIN CONTROLS */}
+      {mode === "pin" && (
+        <View style={styles.controlsCard}>
+          <View style={styles.controlHeader}>
+            <Text style={styles.controlTitle}>PIN Length: {pinLength}</Text>
+            <View style={styles.counterGroup}>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setPinLength((l) => Math.max(4, l - 1))}
+              >
+                <Text style={styles.counterBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.counterValue}>{pinLength}</Text>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setPinLength((l) => Math.min(12, l + 1))}
+              >
+                <Text style={styles.counterBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.presetRow}>
+            {[4, 6, 8, 10, 12].map((l) => (
+              <TouchableOpacity
+                key={l}
+                style={[styles.presetPill, pinLength === l && styles.presetPillActive]}
+                onPress={() => setPinLength(l)}
+              >
+                <Text style={[styles.presetText, pinLength === l && styles.presetTextActive]}>
+                  {l} Digits
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* ── Recent History Panel ── */}
+      {(showHistory || isSplitView) && history.length > 0 && (
+        <View style={styles.historyCard}>
+          <Text style={styles.historyTitle}>Recent Passwords ({history.length})</Text>
+          {history.map((h) => (
+            <TouchableOpacity
+              key={h.id}
+              style={styles.historyRow}
+              onPress={() => handleCopy(h.value)}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyValue} numberOfLines={1}>
+                  {h.value}
+                </Text>
+                <Text style={styles.historyMeta}>
+                  {h.mode.toUpperCase()} • {h.strength.entropy} bits
+                </Text>
+              </View>
+              <Copy size={16} color="#71717a" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-      
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -187,291 +482,21 @@ export function GeneratorScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Mode Selector Tabs */}
-        <View style={styles.modeTabs}>
-          {(["random", "passphrase", "pin"] as Mode[]).map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.modeTab, mode === m && styles.modeTabActive]}
-              onPress={() => setMode(m)}
-            >
-              <Text style={[styles.modeTabText, mode === m && styles.modeTabTextActive]}>
-                {m === "random" ? "Password" : m === "passphrase" ? "Passphrase" : "PIN"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Generated Password Output Display Card ── */}
-        <View style={styles.outputCard}>
-          <View style={styles.outputBox}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <ColorizedOutput value={currentPassword} mode={mode} />
-            </ScrollView>
-
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.iconBtn} onPress={handleRegenerate}>
-                <RefreshCw size={18} color="#a1a1aa" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.copyMainBtn} onPress={() => handleCopy()}>
-                {copied ? (
-                  <>
-                    <Check size={16} color="#34d399" />
-                    <Text style={styles.copiedText}>Copied!</Text>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} color="#09090b" />
-                    <Text style={styles.copyBtnText}>Copy Password</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+      {isSplitView ? (
+        <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.splitLeftCol}>
+            {renderOutputPane()}
           </View>
-
-          {/* Color Legend (for Random mode) */}
-          {mode === "random" && (
-            <View style={styles.colorLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#e4e4e7" }]} />
-                <Text style={styles.legendText}>a-z</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#38bdf8" }]} />
-                <Text style={[styles.legendText, { color: "#38bdf8" }]}>A-Z</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#fbbf24" }]} />
-                <Text style={[styles.legendText, { color: "#fbbf24" }]}>0-9</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#fb7185" }]} />
-                <Text style={[styles.legendText, { color: "#fb7185" }]}>!@#</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Strength Bar + Stats */}
-          {strength.label ? (
-            <View style={styles.strengthSection}>
-              <View style={styles.strengthTrack}>
-                {[1, 2, 3, 4].map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.strengthSegment,
-                      {
-                        backgroundColor: i <= strength.score ? strength.color : "#1f1f23",
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-
-              <View style={styles.statsRow}>
-                <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                  {strength.label}
-                </Text>
-                <Text style={styles.statDot}>•</Text>
-                <Text style={styles.statText}>{strength.entropy} bits</Text>
-                <Text style={styles.statDot}>•</Text>
-                <Text style={styles.statText}>
-                  Crack: <Text style={{ color: "#f4f4f5" }}>{strength.crackTime}</Text>
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Character Breakdown Counts */}
-          {mode === "random" && (
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownText}>
-                {charCounts.lower} lower  •  {charCounts.upper} upper  •  {charCounts.digit} digits  •  {charCounts.symbol} symbols
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── Mode Specific Controls ── */}
-
-        {/* 1. RANDOM PASSWORD CONTROLS */}
-        {mode === "random" && (
-          <View style={styles.controlsCard}>
-            <View style={styles.controlHeader}>
-              <Text style={styles.controlTitle}>Length: {length}</Text>
-              <View style={styles.counterGroup}>
-                <TouchableOpacity
-                  style={styles.counterBtn}
-                  onPress={() => setLength((l) => Math.max(8, l - 1))}
-                >
-                  <Text style={styles.counterBtnText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{length}</Text>
-                <TouchableOpacity
-                  style={styles.counterBtn}
-                  onPress={() => setLength((l) => Math.min(64, l + 1))}
-                >
-                  <Text style={styles.counterBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Quick length presets */}
-            <View style={styles.presetRow}>
-              {[12, 16, 24, 32, 64].map((l) => (
-                <TouchableOpacity
-                  key={l}
-                  style={[styles.presetPill, length === l && styles.presetPillActive]}
-                  onPress={() => setLength(l)}
-                >
-                  <Text style={[styles.presetText, length === l && styles.presetTextActive]}>
-                    {l}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Uppercase Characters (A-Z)</Text>
-              <CustomSwitch value={useUpper} onValueChange={setUseUpper} />
-            </View>
-
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Lowercase Characters (a-z)</Text>
-              <CustomSwitch value={useLower} onValueChange={setUseLower} />
-            </View>
-
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Numbers (0-9)</Text>
-              <CustomSwitch value={useDigits} onValueChange={setUseDigits} />
-            </View>
-
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Symbols (!@#$%^&*)</Text>
-              <CustomSwitch value={useSymbols} onValueChange={setUseSymbols} />
-            </View>
+          <View style={styles.splitRightCol}>
+            {renderControlsPane()}
           </View>
-        )}
-
-        {/* 2. PASSPHRASE CONTROLS */}
-        {mode === "passphrase" && (
-          <View style={styles.controlsCard}>
-            <View style={styles.controlHeader}>
-              <Text style={styles.controlTitle}>Words: {wordCount}</Text>
-              <View style={styles.counterGroup}>
-                <TouchableOpacity
-                  style={styles.counterBtn}
-                  onPress={() => setWordCount((w) => Math.max(3, w - 1))}
-                >
-                  <Text style={styles.counterBtnText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{wordCount}</Text>
-                <TouchableOpacity
-                  style={styles.counterBtn}
-                  onPress={() => setWordCount((w) => Math.min(10, w + 1))}
-                >
-                  <Text style={styles.counterBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <Text style={styles.sectionSubLabel}>Word Separator</Text>
-            <View style={styles.presetRow}>
-              {[
-                { label: "Hyphen (-)", val: "-" },
-                { label: "Period (.)", val: "." },
-                { label: "Underscore (_)", val: "_" },
-                { label: "Space", val: " " },
-              ].map((item) => (
-                <TouchableOpacity
-                  key={item.val}
-                  style={[styles.presetPill, separator === item.val && styles.presetPillActive]}
-                  onPress={() => setSeparator(item.val)}
-                >
-                  <Text style={[styles.presetText, separator === item.val && styles.presetTextActive]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Capitalize Words</Text>
-              <CustomSwitch value={capitalize} onValueChange={setCapitalize} />
-            </View>
-          </View>
-        )}
-
-        {/* 3. PIN CONTROLS */}
-        {mode === "pin" && (
-          <View style={styles.controlsCard}>
-            <View style={styles.controlHeader}>
-              <Text style={styles.controlTitle}>PIN Length: {pinLength}</Text>
-              <View style={styles.counterGroup}>
-                <TouchableOpacity
-                  style={styles.counterBtn}
-                  onPress={() => setPinLength((l) => Math.max(4, l - 1))}
-                >
-                  <Text style={styles.counterBtnText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{pinLength}</Text>
-                <TouchableOpacity
-                  style={styles.counterBtn}
-                  onPress={() => setPinLength((l) => Math.min(12, l + 1))}
-                >
-                  <Text style={styles.counterBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.presetRow}>
-              {[4, 6, 8, 10, 12].map((l) => (
-                <TouchableOpacity
-                  key={l}
-                  style={[styles.presetPill, pinLength === l && styles.presetPillActive]}
-                  onPress={() => setPinLength(l)}
-                >
-                  <Text style={[styles.presetText, pinLength === l && styles.presetTextActive]}>
-                    {l} Digits
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ── Recent History Panel ── */}
-        {showHistory && history.length > 0 && (
-          <View style={styles.historyCard}>
-            <Text style={styles.historyTitle}>Recent Passwords ({history.length})</Text>
-            {history.map((h) => (
-              <TouchableOpacity
-                key={h.id}
-                style={styles.historyRow}
-                onPress={() => handleCopy(h.value)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historyValue} numberOfLines={1}>
-                    {h.value}
-                  </Text>
-                  <Text style={styles.historyMeta}>
-                    {h.mode.toUpperCase()} • {h.strength.entropy} bits
-                  </Text>
-                </View>
-                <Copy size={16} color="#71717a" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {renderOutputPane()}
+          {renderControlsPane()}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -480,6 +505,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  splitContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 24,
+    gap: 24,
+  },
+  splitLeftCol: {
+    width: 380,
+    maxWidth: "45%",
+    gap: 16,
+  },
+  splitRightCol: {
+    flex: 1,
+    gap: 16,
   },
   header: {
     flexDirection: "row",

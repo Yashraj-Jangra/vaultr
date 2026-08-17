@@ -44,7 +44,7 @@ export interface NewEntryDialogProps {
   folders: string[];
   onSave: (name: string, template: Template, folder: string, tags: string[], payload: DecryptedPayload, editId?: string) => Promise<string | void>;
   onClose: () => void;
-  initialData?: { id: string; name: string; folder?: string; tags?: string[]; template: Template; payload: DecryptedPayload; };
+  initialData?: { id?: string; name?: string; folder?: string; tags?: string[]; template?: Template; payload?: DecryptedPayload; } | null;
   defaultTemplate?: Template;
   defaultFolder?: string;
 }
@@ -505,70 +505,136 @@ function LiveTotpPreview({ secret }: { secret: string }) {
   );
 }
 
+type CharClass = "lower" | "upper" | "digit" | "symbol";
+
+function classifyChar(c: string): CharClass {
+  if (/[a-z]/.test(c)) return "lower";
+  if (/[A-Z]/.test(c)) return "upper";
+  if (/[0-9]/.test(c)) return "digit";
+  return "symbol";
+}
+
+const CHAR_STYLE: Record<CharClass, string> = {
+  lower:  "text-neutral-300",
+  upper:  "text-sky-400 font-semibold",
+  digit:  "text-amber-400 font-bold",
+  symbol: "text-rose-400 font-bold",
+};
+
 function PasswordGenerator({ onUse }: { onUse: (pw: string) => void }) {
-  const [mode, setMode] = useState<"random" | "passphrase">("random");
   const [len, setLen] = useState(16);
   const [upper, setUpper] = useState(true);
   const [lower, setLower] = useState(true);
   const [nums,  setNums]  = useState(true);
-  const [syms,  setSyms]  = useState(false);
+  const [syms,  setSyms]  = useState(true);
   const [seed,  setSeed]  = useState(0);
+  const [copied, setCopied] = useState(false);
 
-  const pw = useMemo(() => mode === "random" ? generatePassword(len, upper, lower, nums, syms) : generatePassphrase(),
+  const pw = useMemo(() => generatePassword(len, upper, lower, nums, syms),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode, len, upper, lower, nums, syms, seed]);
+    [len, upper, lower, nums, syms, seed]);
 
   const strength = getPasswordStrength(pw);
 
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!pw) return;
+    navigator.clipboard.writeText(pw).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4 space-y-4 text-left">
-      {/* Mode toggle */}
-      <div className="flex items-center gap-1 bg-[var(--surface)] p-1 rounded-lg w-fit border border-[var(--border)]">
-        <button type="button" onClick={() => setMode("random")} className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${mode === "random" ? "bg-[var(--surface-hover)] text-[var(--fg)] shadow-sm" : "text-[var(--fg-muted)] hover:text-[var(--fg)]"}`}>Random</button>
-        <button type="button" onClick={() => setMode("passphrase")} className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${mode === "passphrase" ? "bg-[var(--surface-hover)] text-[var(--fg)] shadow-sm" : "text-[var(--fg-muted)] hover:text-[var(--fg)]"}`}>Passphrase</button>
+    <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/80 p-3 space-y-2.5 shadow-lg text-left backdrop-blur-sm">
+      {/* Output Row with Inline Actions */}
+      <div className="flex items-center justify-between gap-2 bg-neutral-900/60 border border-neutral-800/80 rounded-lg px-3 py-2">
+        <div className="flex-1 font-mono text-[12px] break-all select-all tracking-wider">
+          {pw ? (
+            pw.split("").map((c, i) => (
+              <span key={i} className={CHAR_STYLE[classifyChar(c)]}>{c}</span>
+            ))
+          ) : (
+            <span className="text-neutral-600">—</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setSeed(s => s + 1)}
+            className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80"
+            title="Regenerate"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80"
+            title="Copy password"
+          >
+            {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onUse(pw)}
+            className="px-2.5 py-1 text-[10.5px] font-semibold bg-neutral-100 text-neutral-900 hover:bg-white rounded-md transition-all cursor-pointer shrink-0 ml-0.5 shadow-sm"
+          >
+            Use
+          </button>
+        </div>
       </div>
 
-      <div className="relative flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2">
-        <span className="flex-1 font-mono text-[11px] text-[var(--fg)] break-all select-all leading-normal">{pw || "—"}</span>
-        <button onClick={() => setSeed(s => s+1)} className="w-6 h-6 flex items-center justify-center text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors cursor-pointer rounded-md hover:bg-[var(--surface-hover)]" title="Regenerate">
-          <RefreshCw className="w-3 h-3" />
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1 bg-[var(--surface)] rounded-full overflow-hidden">
+      {/* Slim Strength Bar */}
+      <div className="flex items-center gap-2 px-0.5">
+        <div className="flex-1 h-1 bg-neutral-800/80 rounded-full overflow-hidden">
           <div className={`h-full rounded-full transition-all duration-300 ${strength.color}`} style={{ width: strength.width }} />
         </div>
-        <span className="text-[9px] font-bold text-[var(--fg-muted)] uppercase tracking-wider">{strength.label}</span>
+        <span className={`text-[9px] font-semibold tracking-wider uppercase shrink-0 ${strength.color.replace("bg-", "text-")}`}>
+          {strength.label || "EMPTY"}
+        </span>
       </div>
 
-      {mode === "random" && (
-        <>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-[var(--fg-muted)] w-4 shrink-0">8</span>
-            <input type="range" min={8} max={64} value={len} onChange={e => setLen(+e.target.value)} className="flex-1 h-1 accent-[var(--accent)] cursor-pointer bg-[var(--surface)] rounded-full appearance-none" />
-            <span className="text-[10px] text-[var(--fg-muted)] w-6 text-right shrink-0">{len}</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {([["A–Z", upper, setUpper], ["a–z", lower, setLower], ["0–9", nums, setNums], ["!@#", syms, setSyms]] as [string, boolean, (v: boolean) => void][]).map(([lbl, val, set]) => (
-              <label key={lbl} className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border cursor-pointer select-none transition-all ${val ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]" : "border-[var(--border)] text-[var(--fg-muted)] hover:text-[var(--fg)]"}`}>
-                <input type="checkbox" checked={val} onChange={e => set(e.target.checked)} className="sr-only" />
-                {lbl}
-              </label>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Slim Controls Row: Slider & Character Toggles */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+        <div className="flex items-center gap-2 flex-1 min-w-[130px]">
+          <span className="text-[11px] text-neutral-100 font-mono font-semibold shrink-0">Len: {len}</span>
+          <input
+            type="range"
+            min={8}
+            max={64}
+            value={len}
+            onChange={e => setLen(+e.target.value)}
+            className="w-full h-1.5 accent-white cursor-pointer rounded-full appearance-none"
+            style={{
+              background: `linear-gradient(to right, #ffffff 0%, #ffffff ${((len - 8) / (64 - 8)) * 100}%, #3f3f46 ${((len - 8) / (64 - 8)) * 100}%, #3f3f46 100%)`
+            }}
+          />
+        </div>
 
-      <button onClick={() => onUse(pw)} className="w-full py-2 text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--bg)] rounded-lg border border-[var(--accent)] hover:bg-[var(--accent)] transition-all cursor-pointer">
-        Use Password
-      </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {([["A–Z", upper, setUpper], ["a–z", lower, setLower], ["0–9", nums, setNums], ["!@#", syms, setSyms]] as [string, boolean, (v: boolean) => void][]).map(([lbl, val, set]) => (
+            <button
+              key={lbl}
+              type="button"
+              onClick={() => set(!val)}
+              className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-medium border transition-colors cursor-pointer ${
+                val
+                  ? "border-neutral-700 bg-neutral-800 text-neutral-200"
+                  : "border-neutral-800/60 bg-transparent text-neutral-600 hover:text-neutral-400"
+              }`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.1em] mb-1.5 select-none">{children}</p>;
+function FieldLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <p className={`text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.1em] mb-1.5 select-none ${className}`}>{children}</p>;
 }
 
 function SecretInput({ value, onChange, placeholder, className = "" }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; placeholder?: string; className?: string }) {
@@ -989,29 +1055,38 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const renderForm = () => {
     if (template === "login") {
       return (
-        <div className="space-y-5 text-left">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <FieldLabel>Username / Email</FieldLabel>
-              <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="user@example.com" />
+        <div className="space-y-4 text-left">
+          {/* Username / Email */}
+          <div>
+            <FieldLabel>Username / Email</FieldLabel>
+            <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="user@example.com" />
+          </div>
+
+          {/* Password */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <FieldLabel className="mb-0">Password</FieldLabel>
+              <button
+                type="button"
+                onClick={() => setShowGen(v => !v)}
+                className={`flex items-center gap-1 text-[10.5px] font-medium transition-colors cursor-pointer ${
+                  showGen
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                }`}
+              >
+                <Wand2 className="w-3 h-3" /> Generate <span className="opacity-50 ml-0.5 text-[8.5px] font-mono">⌘G</span>
+              </button>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <FieldLabel>Password</FieldLabel>
-                <button type="button" onClick={() => setShowGen(v => !v)} className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md transition-all cursor-pointer ${showGen ? "bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30" : "text-[var(--fg-muted)] hover:text-[var(--fg)] border border-transparent"}`}>
-                  <Wand2 className="w-3 h-3" /> Generate <span className="opacity-50 ml-1 text-[8px]">⌘G</span>
-                </button>
-              </div>
-              <SecretInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="font-mono" />
-              {password && (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div className="flex-1 h-0.5 bg-[var(--surface)] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-300 ${strength.color}`} style={{ width: strength.width }} />
-                  </div>
-                  <span className={`text-[10px] font-medium shrink-0 ${strength.color.replace("bg-", "text-")}`}>{strength.label}</span>
+            <SecretInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="font-mono" />
+            {password && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="flex-1 h-0.5 bg-[var(--surface)] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-300 ${strength.color}`} style={{ width: strength.width }} />
                 </div>
-              )}
-            </div>
+                <span className={`text-[10px] font-medium shrink-0 ${strength.color.replace("bg-", "text-")}`}>{strength.label}</span>
+              </div>
+            )}
           </div>
 
           {showGen && <PasswordGenerator onUse={pw => { setPassword(pw); setShowGen(false); }} />}
@@ -1311,15 +1386,40 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const renderBentoFields = () => {
     if (template === "login") {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+        <div className="space-y-4 text-left">
+          {/* Username / Email */}
           <div>
             <FieldLabel>Username / Email</FieldLabel>
             <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="user@example.com" />
           </div>
+
+          {/* Password */}
           <div>
-            <FieldLabel>Password</FieldLabel>
+            <div className="flex items-center justify-between mb-1.5">
+              <FieldLabel className="mb-0">Password</FieldLabel>
+              <button
+                type="button"
+                onClick={() => setShowGen(v => !v)}
+                className={`flex items-center gap-1 text-[10.5px] font-medium transition-colors cursor-pointer ${
+                  showGen
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                }`}
+              >
+                <Wand2 className="w-3 h-3" /> Generate <span className="opacity-50 ml-0.5 text-[8.5px] font-mono">⌘G</span>
+              </button>
+            </div>
             <SecretInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="font-mono" />
+            {password && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="flex-1 h-0.5 bg-[var(--surface)] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-300 ${strength.color}`} style={{ width: strength.width }} />
+                </div>
+                <span className={`text-[10px] font-medium shrink-0 ${strength.color.replace("bg-", "text-")}`}>{strength.label}</span>
+              </div>
+            )}
           </div>
+          {showGen && <PasswordGenerator onUse={pw => { setPassword(pw); setShowGen(false); }} />}
           <div className="col-span-1 md:col-span-2 space-y-2">
             <div className="flex items-center justify-between">
               <FieldLabel>Website / URL</FieldLabel>

@@ -57,12 +57,12 @@ function ItemIconBadge({ item }: { item: any }) {
   const IconComp = TEMPLATE_ICONS[template] || Lock;
 
   if (template === "login" && item.domain) {
-    return <SiteIcon domain={item.domain} name={item.name} size={36} />;
+    return <SiteIcon domain={item.domain} name={item.name} size={38} />;
   }
 
   return (
     <View style={[styles.templateIconBox, { backgroundColor: tc.bg }]}>
-      <IconComp size={20} color={tc.icon} />
+      <IconComp size={22} color={tc.icon} />
     </View>
   );
 }
@@ -298,7 +298,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
                       activeOpacity={0.7}
                     >
                       <View style={styles.subfolderIconBox}>
-                        <Folder size={18} color="#fafafa" />
+                        <Folder size={20} color="#fafafa" />
                       </View>
                       <View style={{ flex: 1, justifyContent: "center" }}>
                         <Text style={styles.subfolderTitle}>{sub.name}</Text>
@@ -441,11 +441,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     elevation: 2,
   },
-  itemIconWrap: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  itemIconWrap: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   templateIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -527,9 +527,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   subfolderIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     backgroundColor: "#18181b",
     alignItems: "center",
     justifyContent: "center",

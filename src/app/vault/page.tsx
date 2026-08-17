@@ -219,14 +219,28 @@ function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }
   );
 }
 
-// ─── Password Generator widget ────────────────────────────────────────────────
+type CharClass = "lower" | "upper" | "digit" | "symbol";
+
+function classifyChar(c: string): CharClass {
+  if (/[a-z]/.test(c)) return "lower";
+  if (/[A-Z]/.test(c)) return "upper";
+  if (/[0-9]/.test(c)) return "digit";
+  return "symbol";
+}
+
+const CHAR_STYLE: Record<CharClass, string> = {
+  lower:  "text-neutral-300",
+  upper:  "text-sky-400 font-semibold",
+  digit:  "text-amber-400 font-bold",
+  symbol: "text-rose-400 font-bold",
+};
 
 function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void; compact?: boolean }) {
   const [len, setLen] = useState(20);
   const [upper, setUpper] = useState(true);
   const [lower, setLower] = useState(true);
   const [nums, setNums] = useState(true);
-  const [syms, setSyms] = useState(false);
+  const [syms, setSyms] = useState(true);
   const [seed, setSeed] = useState(0); // increment to trigger regen
   const [copied, setCopied] = useState(false);
 
@@ -240,46 +254,67 @@ function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void;
   const regen = () => setSeed(s => s + 1);
   const copy = () => { navigator.clipboard.writeText(pw); setCopied(true); setTimeout(() => setCopied(false), 1500); };
 
-
   return (
-    <div className={`space-y-3 ${compact ? "" : "p-4 border border-[var(--border)] rounded-lg bg-[var(--surface)]"}`}>
+    <div className={`space-y-2.5 text-left ${compact ? "" : "p-3 border border-neutral-800 rounded-xl bg-neutral-950/80 shadow-lg"}`}>
       {/* Output row */}
-      <div className="flex items-center gap-1 bg-neutral-900 border border-[var(--border)] rounded px-3 py-2">
-        <span className="flex-1 font-mono text-[12px] text-neutral-200 break-all select-all">{pw || "—"}</span>
-        <button onClick={regen} className="text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer p-1 shrink-0" title="Regenerate">
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
-        <button onClick={copy} className="text-neutral-600 hover:text-neutral-300 transition-colors cursor-pointer p-1 shrink-0" title="Copy">
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-        </button>
+      <div className="flex items-center justify-between gap-2 bg-neutral-900/60 border border-neutral-800/80 rounded-lg px-3 py-2">
+        <div className="flex-1 font-mono text-[12px] break-all select-all tracking-wider">
+          {pw ? (
+            pw.split("").map((c, i) => (
+              <span key={i} className={CHAR_STYLE[classifyChar(c)]}>{c}</span>
+            ))
+          ) : (
+            <span className="text-neutral-600">—</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={regen} className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80" title="Regenerate">
+            <RefreshCw className="w-3 h-3" />
+          </button>
+          <button onClick={copy} className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80" title="Copy">
+            {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+          </button>
+          {onUse && (
+            <button
+              onClick={() => onUse(pw)}
+              className="px-2.5 py-1 text-[10.5px] font-semibold bg-neutral-100 text-neutral-900 hover:bg-white rounded-md transition-all cursor-pointer shrink-0 ml-0.5 shadow-sm"
+            >
+              Use
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-3">
-        <span className="text-[11px] text-neutral-600 w-6 text-right shrink-0">{len}</span>
-        <input
-          type="range" min={8} max={64} value={len}
-          onChange={e => setLen(+e.target.value)}
-          className="flex-1 h-1 accent-neutral-500 cursor-pointer"
-        />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+        <div className="flex items-center gap-2 flex-1 min-w-[130px]">
+          <span className="text-[11px] text-neutral-100 font-mono font-semibold shrink-0">Len: {len}</span>
+          <input
+            type="range" min={8} max={64} value={len}
+            onChange={e => setLen(+e.target.value)}
+            className="w-full h-1.5 accent-white cursor-pointer rounded-full appearance-none"
+            style={{
+              background: `linear-gradient(to right, #ffffff 0%, #ffffff ${((len - 8) / (64 - 8)) * 100}%, #3f3f46 ${((len - 8) / (64 - 8)) * 100}%, #3f3f46 100%)`
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {([["A–Z", upper, setUpper], ["a–z", lower, setLower], ["0–9", nums, setNums], ["!@#", syms, setSyms]] as [string, boolean, (v: boolean) => void][]).map(([label, val, set]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => set(!val)}
+              className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-medium border transition-colors cursor-pointer ${
+                val
+                  ? "border-neutral-700 bg-neutral-800 text-neutral-200"
+                  : "border-neutral-800/60 bg-transparent text-neutral-600 hover:text-neutral-400"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {([["A–Z", upper, setUpper], ["a–z", lower, setLower], ["0–9", nums, setNums], ["!@#", syms, setSyms]] as [string, boolean, (v: boolean) => void][]).map(([label, val, set]) => (
-          <label key={label} className="flex items-center gap-1.5 text-[12px] text-neutral-500 hover:text-neutral-300 cursor-pointer select-none transition-colors">
-            <input type="checkbox" checked={val} onChange={e => set(e.target.checked)} className="accent-neutral-400 w-3 h-3" />
-            {label}
-          </label>
-        ))}
-      </div>
-
-      {onUse && (
-        <button
-          onClick={() => onUse(pw)}
-          className="text-[12px] text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
-        >
-          ↑ Use this password
-        </button>
-      )}
     </div>
   );
 }
@@ -1113,7 +1148,7 @@ export default function VaultPage() {
   const activeFilter = searchParams.get("filter");
   const activeTag = searchParams.get("tag");
   const activeType = searchParams.get("type"); // item template type filter
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["__uncategorized__"]));
 
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [revealedData, setRevealedData] = useState<DecryptedPayload | null>(null);
@@ -1177,26 +1212,64 @@ export default function VaultPage() {
   useEffect(() => {
     const newParam = searchParams.get("new");
     const revealParam = searchParams.get("reveal");
+    const editParam = searchParams.get("edit");
+    const targetParamId = editParam || revealParam;
 
     if (newParam && ["login", "card", "address", "profile", "note"].includes(newParam)) {
       setDefaultTemplate(newParam as Template);
       setIsNewEntryOpen(true);
       window.history.replaceState(null, "", "/vault");
-    } else if (revealParam && items.length > 0) {
-      const targetItem = items.find(x => x.id === revealParam);
+    } else if (targetParamId && items.length > 0) {
+      const targetItem = items.find(x => x.id === targetParamId);
       if (targetItem) {
         decryptItem(targetItem.encryptedBlob).then(raw => {
           let parsed: DecryptedPayload;
           try { parsed = JSON.parse(raw); } catch { parsed = { payload: raw }; }
-          if (!parsed._template && (parsed.username || parsed.password)) parsed._template = "login";
-          setEditDialogItem({
-            id: targetItem.id,
-            name: targetItem.name,
-            folder: targetItem.folder,
-            tags: targetItem.tags,
-            template: targetItem.template || parsed._template || "login",
-            payload: parsed,
-          });
+          if (!parsed._template && (parsed.username || parsed.password)) parsed._template = targetItem.template || "login";
+          if (editParam) {
+            setEditDialogItem({
+              id: targetItem.id,
+              name: targetItem.name,
+              folder: targetItem.folder,
+              tags: targetItem.tags,
+              template: targetItem.template || parsed._template || "login",
+              payload: parsed,
+            });
+          } else {
+            // Auto expand ancestor folders so the item is rendered in the DOM
+            if (targetItem.folder) {
+              const segments = targetItem.folder.split("/");
+              const pathsToOpen: string[] = [];
+              let currentPath = "";
+              for (const seg of segments) {
+                currentPath = currentPath ? `${currentPath}/${seg}` : seg;
+                pathsToOpen.push(currentPath);
+              }
+              setExpandedFolders(prev => {
+                const next = new Set(prev);
+                pathsToOpen.forEach(p => next.add(p));
+                return next;
+              });
+            } else {
+              setExpandedFolders(prev => new Set(prev).add("__uncategorized__"));
+            }
+
+            // Expand and reveal item
+            setRevealedId(targetItem.id);
+            setRevealedData(parsed);
+
+            // Smooth scroll to the item in viewport and pulse highlight ring
+            setTimeout(() => {
+              const el = document.getElementById(`vault-item-${targetItem.id}`);
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                el.classList.add("ring-2", "ring-[var(--accent,#6366f1)]", "ring-offset-2", "ring-offset-neutral-950", "transition-all");
+                setTimeout(() => {
+                  el.classList.remove("ring-2", "ring-[var(--accent,#6366f1)]", "ring-offset-2", "ring-offset-neutral-950");
+                }, 2200);
+              }
+            }, 120);
+          }
         }).catch(() => {});
       }
       window.history.replaceState(null, "", "/vault");
@@ -1415,7 +1488,7 @@ export default function VaultPage() {
   };
 
   const toggleFolderCollapse = (f: string) => {
-    setCollapsedFolders(prev => {
+    setExpandedFolders(prev => {
       const next = new Set(prev);
       if (next.has(f)) next.delete(f);
       else next.add(f);
@@ -1525,6 +1598,7 @@ export default function VaultPage() {
       return (
         <div
           key={item.id}
+          id={`vault-item-${item.id}`}
           className={`group relative flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
             isRevealed
               ? "border-neutral-700 bg-neutral-900/60 shadow-lg shadow-black/20"
@@ -1604,6 +1678,7 @@ export default function VaultPage() {
     return (
       <div
         key={item.id}
+        id={`vault-item-${item.id}`}
         className={`group relative transition-all duration-150 border-l-2 ${
           isRevealed
             ? "bg-neutral-900/50 border-l-[var(--accent,#6366f1)]"
@@ -1692,7 +1767,8 @@ export default function VaultPage() {
 
     const renderFolderNode = (node: FolderNode, depth: number = 0) => {
       const grpItems = grouped[node.name] ?? [];
-      const collapsed = collapsedFolders.has(node.name);
+      const isExpanded = expandedFolders.has(node.name);
+      const collapsed = !isExpanded;
       const indentPx = depth * 14;
       const hasChildren = node.children.length > 0;
 
@@ -1736,7 +1812,7 @@ export default function VaultPage() {
                   className="p-1 px-2 rounded-lg text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800/60 text-[10px] flex items-center gap-1 transition-colors"
                   title="Open folder"
                 >
-                  Open <ChevronRight className="w-3 h-3" />
+                  Open <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             </div>
@@ -1774,24 +1850,36 @@ export default function VaultPage() {
     // Uncategorized
     const loose = grouped[""] ?? [];
     if (loose.length > 0) {
+      const isLooseExpanded = expandedFolders.has("__uncategorized__");
+      const looseCollapsed = !isLooseExpanded;
       sections.push(
         <div key="uncategorized" className="my-3">
           <div className="rounded-2xl border border-neutral-800/60 overflow-hidden bg-neutral-900/20">
             {/* Uncategorized header */}
-            <div className="flex items-center gap-2 px-3 py-2.5">
-              <Inbox className="w-3.5 h-3.5 text-neutral-600" />
-              <span className="text-[12px] font-semibold text-neutral-500">Uncategorized</span>
-              <span className="text-[9px] font-mono text-neutral-600 bg-neutral-800/60 px-1.5 py-0.5 rounded-full">{loose.length}</span>
+            <div
+              className="flex items-center justify-between px-3 py-2.5 group cursor-pointer hover:bg-neutral-900/30 transition-colors"
+              onClick={() => toggleFolderCollapse("__uncategorized__")}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0">
+                  {looseCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </span>
+                <Inbox className="w-3.5 h-3.5 text-neutral-500" />
+                <span className="text-[12px] font-semibold text-neutral-400 group-hover:text-neutral-200">Uncategorized</span>
+                <span className="text-[9px] font-mono text-neutral-600 bg-neutral-800/60 px-1.5 py-0.5 rounded-full">{loose.length}</span>
+              </div>
             </div>
             {/* Items */}
-            {viewMode === "grid" ? (
-              <div className="border-t border-neutral-800/40 p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-3">
-                {loose.map(renderItem)}
-              </div>
-            ) : (
-              <div className="border-t border-neutral-800/40 divide-y divide-neutral-800/30">
-                {loose.map(renderItem)}
-              </div>
+            {!looseCollapsed && (
+              viewMode === "grid" ? (
+                <div className="border-t border-neutral-800/40 p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-start gap-3">
+                  {loose.map(renderItem)}
+                </div>
+              ) : (
+                <div className="border-t border-neutral-800/40 divide-y divide-neutral-800/30">
+                  {loose.map(renderItem)}
+                </div>
+              )
             )}
           </div>
         </div>

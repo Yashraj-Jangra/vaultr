@@ -8,7 +8,7 @@ import { LayoutDashboard, Heart, Wand2, Settings } from "lucide-react";
 const TABS = [
   { href: "/vault",   label: "Vault",     icon: <LayoutDashboard className="w-5 h-5" /> },
   { href: "/vault/health",  label: "Health",    icon: <Heart className="w-5 h-5" /> },
-  { href: "/generator", label: "Generate", icon: <Wand2 className="w-5 h-5" /> },
+  { href: "/vault/generator", label: "Generate", icon: <Wand2 className="w-5 h-5" /> },
   { href: "/settings", label: "Settings", icon: <Settings className="w-5 h-5" /> },
 ];
 

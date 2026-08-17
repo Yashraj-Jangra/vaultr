@@ -92,7 +92,7 @@ export function TotpCode({ secret, name, domain }: Props) {
           </Svg>
           {/* Favicon or Fallback Icon centered in ring — scaled to fit inside countdown ring */}
           <View style={styles.iconInsideRing}>
-            <SiteIcon domain={domain} name={name || ""} size={34} fill={true} borderless={true} />
+            <SiteIcon domain={domain} name={name || ""} size={38} fill={true} borderless={true} />
           </View>
         </View>
 

@@ -33,6 +33,7 @@ import {
 import { Illustration } from "../components/Illustration";
 import { QrScannerModal } from "../components/QrScannerModal";
 import { parseOtpAuthUri, ParsedOtpAuth } from "../utils/otpauth";
+import { useResponsive } from "../utils/responsive";
 
 function AuthenticatorItemRow({ item }: { item: any }) {
   const { decryptItemBlob } = useVaultStore();
@@ -127,7 +128,7 @@ const AssignLoginRow = React.memo(function AssignLoginRow({
       activeOpacity={0.7}
     >
       <View style={styles.loginRowIcon}>
-        <SiteIcon domain={item.domain} name={item.name} size={32} />
+        <SiteIcon domain={item.domain} name={item.name} size={38} />
       </View>
       <View style={styles.loginRowMeta}>
         <Text style={styles.loginRowTitle} numberOfLines={1}>
@@ -271,6 +272,8 @@ export function AuthenticatorScreen() {
     });
   }, [availableLoginItems, assignSearchQuery]);
 
+  const { numColumns } = useResponsive();
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
@@ -297,10 +300,20 @@ export function AuthenticatorScreen() {
 
       {/* 2FA Items List */}
       <FlatList
+        key={numColumns}
         data={totpItems}
+        numColumns={numColumns}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => <AuthenticatorItemRow item={item} />}
+        contentContainerStyle={[
+          styles.listContainer,
+          numColumns > 1 && { paddingHorizontal: 20 },
+        ]}
+        columnWrapperStyle={numColumns > 1 ? { gap: 16 } : undefined}
+        renderItem={({ item }) => (
+          <View style={numColumns > 1 ? { flex: 1, minWidth: 0 } : undefined}>
+            <AuthenticatorItemRow item={item} />
+          </View>
+        )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Illustration
@@ -850,8 +863,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   loginRowIcon: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
   },

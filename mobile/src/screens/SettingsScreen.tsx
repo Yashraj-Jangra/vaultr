@@ -358,8 +358,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerLogo: {
-    width: 80,
-    height: 22,
+    width: 98,
+    height: 26,
   },
   headerDivider: {
     width: 1,
@@ -469,9 +469,9 @@ const styles = StyleSheet.create({
   },
   rowLast: {},
   rowIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: "#1a1a1a",
     alignItems: "center",
     justifyContent: "center",

@@ -252,7 +252,7 @@ export default function DocsPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full border border-neutral-800 bg-neutral-900 text-[11px] text-neutral-400 mb-3">
               <BookOpen className="w-3.5 h-3.5 text-blue-400" />
-              {VAULTR_EDITION} User & Developer Documentation
+              {VAULTR_EDITION} v{VAULTR_VERSION} · Documentation
             </div>
             <h1 className="text-[32px] font-bold text-neutral-100 tracking-tight">Documentation Hub</h1>
             <p className="text-[14px] text-neutral-500 mt-2 max-w-xl">

@@ -16,6 +16,7 @@ import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useVault } from "@/context/VaultContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/context/ThemeContext";
+import { VAULTR_VERSION } from "@vaultr/core";
 import { DeleteFolderModal } from "@/components/vault/DeleteFolderModal";
 
 // ── Folder tree helpers ────────────────────────────────────────────────────────
@@ -622,7 +623,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               </div>
             </Link>
 
-            <Link href="/generator" className={navLinkCls(pathname === "/generator" || pathname === "/vault/generator")}>
+            <Link href="/vault/generator" className={navLinkCls(pathname === "/vault/generator" || pathname === "/generator")}>
               <Wand2 className="w-4 h-4 shrink-0" />
               <span className={`flex-1 truncate transition-opacity duration-200 whitespace-nowrap ${collapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                 Generator
@@ -848,7 +849,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                   className="flex items-center justify-between px-3 py-1.5 pt-2 border-t border-neutral-900/60 text-[10px] font-mono text-neutral-600 hover:text-neutral-400 transition-colors"
                 >
                   <span>VaultR 2026</span>
-                  <span className="text-neutral-700 hover:text-neutral-500">v0.2.5</span>
+                  <span className="text-neutral-700 hover:text-neutral-500">v{VAULTR_VERSION}</span>
                 </Link>
               )}
             </div>

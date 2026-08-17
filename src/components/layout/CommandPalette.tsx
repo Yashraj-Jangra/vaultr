@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, Settings, Plus, Wand2, X, Heart, Fingerprint, Clock, Shield, Sparkles, CreditCard, Globe, User, FileText } from "lucide-react";
+import {
+  Search, Lock, Settings, Plus, Wand2, X, Heart, Fingerprint, Clock,
+  Shield, Sparkles, CreditCard, Globe, User, FileText, Edit2, Copy, Check, ExternalLink
+} from "lucide-react";
 import { useVault } from "@/context/VaultContext";
 import { DynamicPreviewCanvas } from "@/components/vault/DialogPreviews";
 import { SiteIcon } from "@/components/vault/SiteIcon";
@@ -19,6 +22,7 @@ type Action = {
   description?: string;
   icon: React.ReactNode;
   run: () => void;
+  onEdit?: () => void;
   group: "action" | "entry";
   template?: "login" | "card" | "address" | "profile" | "note";
 };
@@ -80,9 +84,17 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [decryptedCache, setDecryptedCache] = useState<Record<string, any>>({});
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const copyVal = (val: string, key: string) => {
+    if (!val) return;
+    navigator.clipboard.writeText(val).catch(() => {});
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1500);
+  };
 
   // Load history on mount
   useEffect(() => {
@@ -130,7 +142,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
     { id: "lock", label: "Lock Vault", icon: <Lock className="w-4 h-4" />, run: () => { lock(); onClose(); }, group: "action" },
     { id: "health", label: "Password Health", icon: <Heart className="w-4 h-4" />, run: () => { router.push("/vault/health"); onClose(); }, group: "action" },
     { id: "auth", label: "Authenticator", icon: <Fingerprint className="w-4 h-4" />, run: () => { router.push("/vault/authenticator"); onClose(); }, group: "action" },
-    { id: "generator", label: "Password Generator", icon: <Wand2 className="w-4 h-4" />, run: () => { router.push("/generator"); onClose(); }, group: "action" },
+    { id: "generator", label: "Password Generator", icon: <Wand2 className="w-4 h-4" />, run: () => { router.push("/vault/generator"); onClose(); }, group: "action" },
     { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" />, run: () => { router.push("/settings"); onClose(); }, group: "action" },
   ], [router, lock, onClose]);
 
@@ -173,6 +185,11 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
             router.push(`/vault?reveal=${item.id}`);
             onClose();
           },
+          onEdit: () => {
+            saveToHistory(query);
+            router.push(`/vault?edit=${item.id}`);
+            onClose();
+          },
           group: "entry" as const,
           template,
         };
@@ -184,10 +201,37 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
     return ACTIONS.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
   }, [ACTIONS, query]);
 
-  const allResults: Action[] = useMemo(
-    () => [...entryResults, ...filteredActions],
-    [entryResults, filteredActions]
-  );
+  // Grouped results map
+  const groupedEntries = useMemo(() => {
+    const groups: Record<string, Action[]> = {
+      login: [],
+      card: [],
+      note: [],
+      address: [],
+      profile: []
+    };
+    entryResults.forEach(r => {
+      const t = r.template || "login";
+      if (groups[t]) {
+        groups[t].push(r);
+      } else {
+        groups.login.push(r);
+      }
+    });
+    return groups;
+  }, [entryResults]);
+
+  // Flatten results strictly matching the DOM grouping order
+  const allResults: Action[] = useMemo(() => {
+    const orderedEntries: Action[] = [
+      ...groupedEntries.login,
+      ...groupedEntries.card,
+      ...groupedEntries.note,
+      ...groupedEntries.address,
+      ...groupedEntries.profile,
+    ];
+    return [...orderedEntries, ...filteredActions];
+  }, [groupedEntries, filteredActions]);
 
   // Manage selection index boundary
   useEffect(() => {
@@ -205,7 +249,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
         decryptItem(targetItem.encryptedBlob).then(raw => {
           let parsed: any;
           try { parsed = JSON.parse(raw); } catch { parsed = { payload: raw }; }
-          if (!parsed._template && (parsed.username || parsed.password)) parsed._template = "login";
+          if (!parsed._template && (parsed.username || parsed.password)) parsed._template = targetItem.template || "login";
           setDecryptedCache(prev => ({ ...prev, [targetId]: parsed }));
         }).catch(() => { });
       }
@@ -243,37 +287,10 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
     el?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
 
-  // Grouped results map
-  const groupedEntries = useMemo(() => {
-    const groups: Record<string, Action[]> = {
-      login: [],
-      card: [],
-      note: [],
-      address: [],
-      profile: []
-    };
-    entryResults.forEach(r => {
-      if (r.template && groups[r.template]) {
-        groups[r.template].push(r);
-      }
-    });
-    return groups;
-  }, [entryResults]);
-
-  // Safe client-side payload obfuscation for right-pane previews
+  // Full decrypted payload for right-pane previews
   const activePayload = useMemo(() => {
     if (!hoveredItem || hoveredItem.group !== "entry" || !hoveredItem.itemId) return null;
-    const raw = decryptedCache[hoveredItem.itemId];
-    if (!raw) return null;
-    const copy = { ...raw };
-    if (copy.password) copy.password = "••••••••";
-    if (copy.cvv) copy.cvv = "•••";
-    if (copy.pin) copy.pin = "••••";
-    if (copy.cardNumber) {
-      const clean = copy.cardNumber.replace(/\D/g, "");
-      copy.cardNumber = clean.length > 4 ? `•••• •••• •••• ${clean.slice(-4)}` : "•••• •••• •••• ••••";
-    }
-    return copy;
+    return decryptedCache[hoveredItem.itemId] || null;
   }, [hoveredItem, decryptedCache]);
 
   // Fuzzy matches with golden light up glows on chars
@@ -287,7 +304,7 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
       const char = text[i];
       if (queryIdx < lowerQuery.length && char.toLowerCase() === lowerQuery[queryIdx]) {
         result.push(
-          <span key={i} className="relative inline-block text-[var(--accent)] font-semibold gold-glow">
+          <span key={i} className="relative inline-block text-[var(--accent,#6366f1)] font-semibold gold-glow">
             {char}
           </span>
         );
@@ -429,48 +446,144 @@ function PaletteInner({ onClose }: { onClose: () => void }) {
                 );
               })()}
 
-
-
             </div>
 
             {/* Right Pane: Live Hover Preview */}
-            <div className="hidden md:flex flex-1 flex-col bg-neutral-950/25 p-6 overflow-y-auto justify-center items-center relative border-l border-neutral-900">
+            <div className="hidden md:flex flex-1 flex-col bg-neutral-950/40 p-6 overflow-y-auto justify-center items-center relative border-l border-neutral-900">
               {hoveredItem && hoveredItem.group === "entry" ? (
                 activePayload ? (
                   <div className="w-full space-y-4 scale-95 origin-center animate-fade-in command-palette-preview">
-                    <div className="flex items-center gap-2 mb-2 text-neutral-500 text-[10px] uppercase font-bold tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 text-[var(--accent)] animate-pulse" />
-                      Live Vault Preview
+                    {/* Header: Title + Action controls */}
+                    <div className="flex items-center justify-between gap-2 mb-2 w-full">
+                      <div className="flex items-center gap-1.5 text-neutral-400 text-[10px] uppercase font-bold tracking-wider">
+                        <Sparkles className="w-3.5 h-3.5 text-[var(--accent,#6366f1)] animate-pulse" />
+                        Live Vault Preview
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            saveToHistory(query);
+                            router.push(`/vault?edit=${hoveredItem.itemId}`);
+                            onClose();
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 hover:border-neutral-700 transition-all cursor-pointer shadow-sm"
+                          title="Edit this item"
+                        >
+                          <Edit2 className="w-3 h-3 text-neutral-400" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            saveToHistory(query);
+                            router.push(`/vault?reveal=${hoveredItem.itemId}`);
+                            onClose();
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-neutral-100 text-neutral-900 hover:bg-white transition-all cursor-pointer shadow-sm"
+                          title="Open in Vault"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Open</span>
+                        </button>
+                      </div>
                     </div>
 
+                    {/* Card Canvas */}
                     <div className="relative rounded-2xl overflow-hidden shadow-2xl p-1 bg-neutral-900/30 border border-neutral-800">
-                      <DynamicPreviewCanvas
-                        template={hoveredItem.template}
-                        name={hoveredItem.label}
-                        username={activePayload.username}
-                        url={activePayload.url || activePayload.urls?.[0]}
-                        line1={activePayload.line1}
-                        line2={activePayload.line2}
-                        city={activePayload.city}
-                        state={activePayload.state}
-                        zip={activePayload.zip}
-                        country={activePayload.country}
-                        fullName={activePayload.fullName}
-                        email={activePayload.email}
-                        phone={activePayload.phone}
-                        dob={activePayload.dob}
-                        idNumber={activePayload.idNumber}
-                        note={activePayload.note}
-                        cardName={activePayload.cardName}
-                        cardNumber={activePayload.cardNumber || ""}
-                        expiry={activePayload.expiry}
-                        cardBrand={activePayload.cardBrand}
-                      />
+                      {(() => {
+                        const targetItem = items.find(x => x.id === hoveredItem.itemId);
+                        const resolvedTemplate = targetItem?.template || activePayload._template || hoveredItem.template || "login";
+                        return (
+                          <DynamicPreviewCanvas
+                            template={resolvedTemplate}
+                            name={targetItem?.name || hoveredItem.label}
+                            username={activePayload.username}
+                            url={activePayload.url || (activePayload.urls && activePayload.urls[0]) || targetItem?.domain}
+                            line1={activePayload.line1 || activePayload.street}
+                            line2={activePayload.line2}
+                            city={activePayload.city}
+                            state={activePayload.state}
+                            zip={activePayload.zip}
+                            country={activePayload.country}
+                            fullName={activePayload.fullName}
+                            email={activePayload.email}
+                            phone={activePayload.phone}
+                            dob={activePayload.dob}
+                            idNumber={activePayload.idNumber}
+                            note={activePayload.note || activePayload.entryNotes || (typeof activePayload.payload === "string" ? activePayload.payload : "")}
+                            cardName={activePayload.cardholderName || activePayload.cardName || targetItem?.name || hoveredItem.label}
+                            cardNumber={activePayload.cardNumber || ""}
+                            expiry={activePayload.expiry || (activePayload.expMonth && activePayload.expYear ? `${activePayload.expMonth}/${activePayload.expYear.length === 4 ? activePayload.expYear.slice(-2) : activePayload.expYear}` : "")}
+                            cardBrand={activePayload.cardBrand || activePayload.brand}
+                            fallbackBrand={activePayload.fallbackBrand}
+                          />
+                        );
+                      })()}
+                    </div>
+
+                    {/* Quick Copy Action Pills */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                      {activePayload.username && (
+                        <button
+                          type="button"
+                          onClick={() => copyVal(activePayload.username, "user")}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
+                          title="Copy Username"
+                        >
+                          {copiedKey === "user" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-neutral-500" />}
+                          <span className="truncate max-w-[120px]">{activePayload.username}</span>
+                        </button>
+                      )}
+                      {activePayload.password && (
+                        <button
+                          type="button"
+                          onClick={() => copyVal(activePayload.password, "pass")}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
+                          title="Copy Password"
+                        >
+                          {copiedKey === "pass" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-neutral-500" />}
+                          <span>Password</span>
+                        </button>
+                      )}
+                      {activePayload.cardNumber && (
+                        <button
+                          type="button"
+                          onClick={() => copyVal(activePayload.cardNumber.replace(/\s+/g, ""), "card")}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
+                          title="Copy Card Number"
+                        >
+                          {copiedKey === "card" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-neutral-500" />}
+                          <span>Card Number</span>
+                        </button>
+                      )}
+                      {activePayload.cvv && (
+                        <button
+                          type="button"
+                          onClick={() => copyVal(activePayload.cvv, "cvv")}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
+                          title="Copy CVV"
+                        >
+                          {copiedKey === "cvv" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-neutral-500" />}
+                          <span>CVV</span>
+                        </button>
+                      )}
+                      {activePayload.note && (
+                        <button
+                          type="button"
+                          onClick={() => copyVal(activePayload.note, "note")}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
+                          title="Copy Note"
+                        >
+                          {copiedKey === "note" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-neutral-500" />}
+                          <span>Copy Note</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-10 space-y-2">
-                    <div className="w-8 h-8 border border-neutral-800 border-t-[var(--accent)] rounded-full animate-spin mx-auto" />
+                    <div className="w-8 h-8 border border-neutral-800 border-t-[var(--accent,#6366f1)] rounded-full animate-spin mx-auto" />
                     <span className="text-[11px] text-neutral-500">Decrypting metadata…</span>
                   </div>
                 )
@@ -528,20 +641,44 @@ function ResultRow({
   onHover: () => void;
 }) {
   return (
-    <button
+    <div
       onClick={onClick}
       onMouseEnter={onHover}
       data-index={index}
-      className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${active ? "bg-neutral-900 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900/40 hover:text-neutral-300"
-        }`}
+      className={`group/row w-full flex items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
+        active ? "bg-neutral-900 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900/40 hover:text-neutral-300"
+      }`}
     >
-      <span className={`shrink-0 transition-transform ${active ? "scale-110 text-[var(--accent)]" : "text-neutral-500"}`}>{action.icon}</span>
-      <span className="flex-1 text-[13px] truncate">
-        {fuzzyHighlight(action.label, queryText)}
-      </span>
-      {action.description && (
-        <span className="text-[11px] text-neutral-600 truncate max-w-[140px] font-mono">{action.description}</span>
-      )}
-    </button>
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <span className={`shrink-0 transition-transform ${active ? "scale-110 text-[var(--accent)]" : "text-neutral-500"}`}>
+          {action.icon}
+        </span>
+        <span className="flex-1 text-[13px] truncate">
+          {fuzzyHighlight(action.label, queryText)}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {action.description && (
+          <span className="text-[11px] text-neutral-600 truncate max-w-[130px] font-mono hidden sm:inline-block">
+            {action.description}
+          </span>
+        )}
+
+        {action.onEdit && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              action.onEdit?.();
+            }}
+            className="opacity-0 group-hover/row:opacity-100 p-1.5 rounded-lg text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 transition-all cursor-pointer"
+            title="Edit Item"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

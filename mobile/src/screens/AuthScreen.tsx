@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  brandLogo: { height: 18, width: 90, opacity: 0.7 },
+  brandLogo: { height: 24, width: 115, opacity: 0.9 },
   serverConfigBtn: {
     width: 28,
     height: 28,

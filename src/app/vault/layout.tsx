@@ -18,6 +18,7 @@ import { MasterPasswordPrompt } from "@/components/vault/MasterPasswordPrompt";
 // requireVerificationOnNew is OFF (the default), users should see zero "unverified" UI.
 
 function VaultShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toasts, removeToast } = useToast();
@@ -55,7 +56,7 @@ function VaultShell({ children }: { children: React.ReactNode }) {
           onSearchOpen={() => setPaletteOpen(true)}
           onMenuOpen={() => setMobileMenuOpen(true)}
           onGeneratorOpen={() => {
-            window.location.href = "/generator";
+            router.push("/vault/generator");
           }}
         />
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
