@@ -4,7 +4,7 @@
 
 #### Public Repository Documentation & README Overhaul
 - **`README.md`**:
-  - Rebuilt complete `README.md` to official open-source standards with modern badge shields, comprehensive feature matrices, zero-knowledge architectural diagrams, platform capabilities table, Docker Compose quickstart, and monorepo structural guides.
+  - Rebuilt complete `README.md` to official open-source standards with GitHub theme-adaptive VaultR brand assets (`<picture>` dark/light logo switcher), curated amber/emerald/obsidian badges, visual feature showcase cards with SVG illustrations (`security_0ubl.svg`, `mobile-encryption_flk2.svg`, `cloud-sync_h1ig.svg`), zero-knowledge architectural diagrams, platform capabilities matrix, Docker Compose quickstart, and monorepo structural guides.
   - Removed outdated naming, deprecated sprint links, and stale references.
 - **Removed Internal Scratch & Planning Files**:
   - Deleted internal tracking files (`FLAWS_AND_IMPROVEMENTS_AUDIT.md`, `ROADMAP.md`, `CREATIVE_IDEAS.md`).
