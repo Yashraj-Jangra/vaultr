@@ -93,6 +93,63 @@ export interface ParsedImportItem {
   };
 }
 
+/**
+ * Normalizes a card expiry string into canonical "MM / YYYY" format.
+ * Handles inputs like: "3/25", "03/25", "3/2025", "03/2025", "3 / 25", "2025-03", "2025/03", etc.
+ * Returns empty string if the result would be invalid (month out of 01-12 range).
+ */
+export function normalizeExpiry(raw: string): string {
+  if (!raw) return "";
+  const cleaned = raw.trim();
+
+  // Match MM/YYYY or MM/YY (with optional whitespace or dash separator)
+  const matchSlash = cleaned.match(/^(\d{1,2})\s*[\/\-]\s*(\d{2,4})$/);
+  if (matchSlash) {
+    const monthNum = parseInt(matchSlash[1], 10);
+    if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) return "";
+    const month = String(monthNum).padStart(2, "0");
+
+    let year = matchSlash[2];
+    if (year.length === 2) {
+      const y = parseInt(year, 10);
+      year = String(y < 50 ? 2000 + y : 1900 + y);
+    }
+    return `${month} / ${year}`;
+  }
+
+  // Match YYYY-MM or YYYY/MM (ISO or inverted format)
+  const matchIso = cleaned.match(/^(\d{4})\s*[\/\-]\s*(\d{1,2})$/);
+  if (matchIso) {
+    const monthNum = parseInt(matchIso[2], 10);
+    if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) return "";
+    const month = String(monthNum).padStart(2, "0");
+    const year = matchIso[1];
+    return `${month} / ${year}`;
+  }
+
+  return "";
+}
+
+/**
+ * Normalizes separate month + year strings into canonical "MM / YYYY" format.
+ * Month and year may come from split fields (e.g., Bitwarden JSON expMonth/expYear).
+ */
+export function normalizeExpiryParts(monthRaw: string | number | undefined | null, yearRaw: string | number | undefined | null): string {
+  if (monthRaw === undefined || monthRaw === null || yearRaw === undefined || yearRaw === null) return "";
+  const mStr = String(monthRaw).trim();
+  const yStr = String(yearRaw).trim();
+  if (!mStr && !yStr) return "";
+
+  const monthNum = parseInt(mStr, 10);
+  const yearNum  = parseInt(yStr,  10);
+  if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) return "";
+  if (isNaN(yearNum)) return "";
+
+  const month = String(monthNum).padStart(2, "0");
+  const year  = yearNum < 100 ? String(yearNum < 50 ? 2000 + yearNum : 1900 + yearNum) : String(yearNum);
+  return `${month} / ${year}`;
+}
+
 /** Extracts and normalizes multiple URLs from various CSV columns & comma-separated strings */
 export function parseUrls(row: GenericImportRow): string[] {
   const candidates = [
@@ -153,165 +210,219 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
 
   const isPasskey = !!(row.passkey_id || row.credential_id || row.rp_id);
 
-  const payload: ParsedImportItem["payload"] = {
-    _template: template,
-    _folder: rawFolder || undefined,
-    username: (row.username || row.login_username || row.user || "").trim(),
-    password: row.password || row.login_password || "",
-    url: primaryUrl,
-    urls: urls.length > 0 ? urls : primaryUrl ? [primaryUrl] : [],
-    totpSecret: (row.totp || row.login_totp || "").trim(),
-    note: template === "note" ? rawNote : undefined,
-    entryNotes: rawNote || undefined,
-    cardNumber: (row.card_number || row.cc_number || "").trim(),
-    cardholderName: (row.cardholder_name || "").trim(),
-    cardName: (row.cardholder_name || "").trim(),
-    expiry: (row.expiry || "").trim(),
-    cvv: (row.cvv || "").trim(),
-    pin: (row.pin || "").trim(),
-    line1: (row.address || row.street || "").trim(),
-    street: (row.address || row.street || "").trim(),
-    city: (row.city || "").trim(),
-    state: (row.state || "").trim(),
-    zip: (row.zip || "").trim(),
-    country: (row.country || "").trim(),
-    isPasskey,
-    passkeyRpId: row.rp_id || "",
-    passkeyCredentialId: row.passkey_id || row.credential_id || "",
-    passkeyUserHandle: row.user_handle || "",
-  };
-
-  return {
-    id: `csv-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-    name,
-    folder: rawFolder,
-    template,
-    payload,
-  };
-}
-
-/** Parses Bitwarden JSON export structure */
-export function parseBitwardenJson(data: any): ParsedImportItem[] {
-  if (!data || !Array.isArray(data.items)) return [];
-
-  // Build folder map from Bitwarden UUIDs -> Folder Name
-  const folderMap = new Map<string, string>();
-  if (Array.isArray(data.folders)) {
-    for (const f of data.folders) {
-      if (f && f.id && f.name && typeof f.name === "string") {
-        folderMap.set(f.id, f.name.trim());
+    const rawCsvMonth = row.exp_month || row.expiration_month || row.expiry_month || row.expMonth || row.month || "";
+    const rawCsvYear = row.exp_year || row.expiration_year || row.expiry_year || row.expYear || row.year || "";
+    let csvExpiry = "";
+    let csvExpMonth = "";
+    let csvExpYear = "";
+    if (rawCsvMonth || rawCsvYear) {
+      csvExpiry = normalizeExpiryParts(rawCsvMonth, rawCsvYear);
+      if (csvExpiry) {
+        const parts = csvExpiry.split(" / ");
+        csvExpMonth = parts[0] || "";
+        csvExpYear = parts[1] || "";
+      }
+    } else if (row.expiry) {
+      csvExpiry = normalizeExpiry(row.expiry);
+      if (csvExpiry) {
+        const parts = csvExpiry.split(" / ");
+        csvExpMonth = parts[0] || "";
+        csvExpYear = parts[1] || "";
       }
     }
-  }
-
-  const result: ParsedImportItem[] = [];
-
-  data.items.forEach((item: any, idx: number) => {
-    if (!item) return;
-
-    let template: Template = "login";
-    // Bitwarden item types: 1 = Login, 2 = SecureNote, 3 = Card, 4 = Identity
-    if (item.type === 2) template = "note";
-    else if (item.type === 3) template = "card";
-    else if (item.type === 4) template = "profile";
-
-    const name = (item.name || `Imported Item #${idx + 1}`).trim();
-
-    // Look up folder name via folderMap using folderId
-    let folder = "";
-    if (item.folderId && folderMap.has(item.folderId)) {
-      folder = folderMap.get(item.folderId) || "";
-    } else if (item.folder && typeof item.folder === "string") {
-      // If folder is already a string name
-      const fStr = item.folder.trim();
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fStr)) {
-        folder = fStr;
-      }
-    }
-
-    const loginData = item.login || {};
-    const cardData = item.card || {};
-    const identityData = item.identity || {};
-    const secureNoteData = item.secureNote || {};
-
-    // Extract URIs
-    const urls: string[] = [];
-    if (Array.isArray(loginData.uris)) {
-      loginData.uris.forEach((u: any) => {
-        if (u?.uri && typeof u.uri === "string" && u.uri.trim().length > 0) {
-          urls.push(u.uri.trim());
-        }
-      });
-    }
-
-    // Custom fields → entryNotes
-    let extraNotes = (item.notes || "").trim();
-    if (Array.isArray(item.fields) && item.fields.length > 0) {
-      const fieldLines = item.fields
-        .map((f: any) => (f.name ? `${f.name}: ${f.value || ""}` : f.value))
-        .filter(Boolean);
-      if (fieldLines.length > 0) {
-        extraNotes += (extraNotes ? "\n\n--- Custom Fields ---\n" : "") + fieldLines.join("\n");
-      }
-    }
-
-    const noteContent =
-      template === "note"
-        ? extraNotes || secureNoteData.notes || item.notes || ""
-        : undefined;
-
-    // Passkeys in Bitwarden
-    const fido2 = Array.isArray(loginData.fido2Credentials) ? loginData.fido2Credentials[0] : null;
 
     const payload: ParsedImportItem["payload"] = {
       _template: template,
-      _folder: folder || undefined,
-      username: (loginData.username || "").trim(),
-      password: loginData.password || "",
-      url: urls[0] || "",
-      urls: urls.length > 0 ? urls : [],
-      totpSecret: (loginData.totp || "").trim(),
-      note: noteContent,
-      entryNotes: extraNotes || undefined,
-
-      // Card
-      cardNumber: (cardData.number || "").trim(),
-      cardholderName: (cardData.cardholderName || "").trim(),
-      cardName: (cardData.cardholderName || "").trim(),
-      expiry:
-        cardData.expirationMonth && cardData.expirationYear
-          ? `${cardData.expirationMonth}/${cardData.expirationYear}`
-          : "",
-      cvv: (cardData.code || "").trim(),
-
-      // Profile / Identity
-      fullName:
-        identityData.firstName && identityData.lastName
-          ? `${identityData.firstName} ${identityData.lastName}`
-          : identityData.firstName || "",
-      firstName: identityData.firstName || "",
-      lastName: identityData.lastName || "",
-      email: (identityData.email || "").trim(),
-      phone: (identityData.phone || "").trim(),
-      line1: (identityData.address1 || "").trim(),
-      street: (identityData.address1 || "").trim(),
-      line2: (identityData.address2 || "").trim(),
-      city: (identityData.city || "").trim(),
-      state: (identityData.state || "").trim(),
-      zip: (identityData.postalCode || "").trim(),
-      country: (identityData.country || "").trim(),
-
-      // Passkey
-      isPasskey: !!fido2,
-      passkeyRpId: fido2?.rpId || "",
-      passkeyCredentialId: fido2?.credentialId || "",
-      passkeyUserHandle: fido2?.userHandle || "",
+      _folder: rawFolder || undefined,
+      username: (row.username || row.login_username || row.user || "").trim(),
+      password: row.password || row.login_password || "",
+      url: primaryUrl,
+      urls: urls.length > 0 ? urls : primaryUrl ? [primaryUrl] : [],
+      totpSecret: (row.totp || row.login_totp || "").trim(),
+      note: template === "note" ? rawNote : undefined,
+      entryNotes: rawNote || undefined,
+      cardNumber: (row.card_number || row.cc_number || "").trim(),
+      cardholderName: (row.cardholder_name || "").trim(),
+      cardName: (row.cardholder_name || "").trim(),
+      cardBrand: (row.brand || row.card_brand || "").trim() || undefined,
+      expiry: csvExpiry || undefined,
+      expMonth: csvExpMonth || undefined,
+      expYear: csvExpYear || undefined,
+      cvv: (row.cvv || "").trim(),
+      pin: (row.pin || "").trim(),
+      line1: (row.address || row.street || "").trim(),
+      street: (row.address || row.street || "").trim(),
+      city: (row.city || "").trim(),
+      state: (row.state || "").trim(),
+      zip: (row.zip || "").trim(),
+      country: (row.country || "").trim(),
+      isPasskey,
+      passkeyRpId: row.rp_id || "",
+      passkeyCredentialId: row.passkey_id || row.credential_id || "",
+      passkeyUserHandle: row.user_handle || "",
     };
 
-    result.push({
-      id: `bw-${idx}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    return {
+      id: `csv-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name,
-      folder,
+      folder: rawFolder,
+      template,
+      payload,
+    };
+  }
+
+  /** Parses Bitwarden JSON export structure */
+  export function parseBitwardenJson(data: any): ParsedImportItem[] {
+    if (!data || !Array.isArray(data.items)) return [];
+
+    // Build folder map from Bitwarden UUIDs -> Folder Name
+    const folderMap = new Map<string, string>();
+    if (Array.isArray(data.folders)) {
+      for (const f of data.folders) {
+        if (f && f.id && f.name && typeof f.name === "string") {
+          folderMap.set(f.id, f.name.trim());
+        }
+      }
+    }
+
+    const result: ParsedImportItem[] = [];
+
+    data.items.forEach((item: any, idx: number) => {
+      if (!item) return;
+
+      let template: Template = "login";
+      // Bitwarden item types: 1 = Login, 2 = SecureNote, 3 = Card, 4 = Identity
+      if (item.type === 2) template = "note";
+      else if (item.type === 3) template = "card";
+      else if (item.type === 4) template = "profile";
+
+      const name = (item.name || `Imported Item #${idx + 1}`).trim();
+
+      // Look up folder name via folderMap using folderId
+      let folder = "";
+      if (item.folderId && folderMap.has(item.folderId)) {
+        folder = folderMap.get(item.folderId) || "";
+      } else if (item.folder && typeof item.folder === "string") {
+        // If folder is already a string name
+        const fStr = item.folder.trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fStr)) {
+          folder = fStr;
+        }
+      }
+
+      const loginData = item.login || {};
+      const cardData = item.card || {};
+      const identityData = item.identity || {};
+      const secureNoteData = item.secureNote || {};
+
+      // Extract URIs
+      const urls: string[] = [];
+      if (Array.isArray(loginData.uris)) {
+        loginData.uris.forEach((u: any) => {
+          if (u?.uri && typeof u.uri === "string" && u.uri.trim().length > 0) {
+            urls.push(u.uri.trim());
+          }
+        });
+      }
+
+      // Custom fields → entryNotes
+      let extraNotes = (item.notes || "").trim();
+      if (Array.isArray(item.fields) && item.fields.length > 0) {
+        const fieldLines = item.fields
+          .map((f: any) => (f.name ? `${f.name}: ${f.value || ""}` : f.value))
+          .filter(Boolean);
+        if (fieldLines.length > 0) {
+          extraNotes += (extraNotes ? "\n\n--- Custom Fields ---\n" : "") + fieldLines.join("\n");
+        }
+      }
+
+      const noteContent =
+        template === "note"
+          ? extraNotes || secureNoteData.notes || item.notes || ""
+          : undefined;
+
+      // Passkeys in Bitwarden
+      const fido2 = Array.isArray(loginData.fido2Credentials) ? loginData.fido2Credentials[0] : null;
+
+      // Card fields in Bitwarden schema (supports expMonth, expYear, expirationMonth, expirationYear, brand, code, etc.)
+      const rawBwMonth = cardData.expMonth ?? cardData.expirationMonth ?? cardData.expiryMonth ?? cardData.month ?? "";
+      const rawBwYear = cardData.expYear ?? cardData.expirationYear ?? cardData.expiryYear ?? cardData.year ?? "";
+      const rawBwExpiry = cardData.expiry ?? cardData.expirationDate ?? "";
+
+      let bwExpiry = "";
+      let bwExpMonth = "";
+      let bwExpYear = "";
+
+      if (rawBwMonth || rawBwYear) {
+        bwExpiry = normalizeExpiryParts(rawBwMonth, rawBwYear);
+        if (bwExpiry) {
+          const parts = bwExpiry.split(" / ");
+          bwExpMonth = parts[0] || "";
+          bwExpYear = parts[1] || "";
+        } else {
+          const mNum = parseInt(String(rawBwMonth), 10);
+          bwExpMonth = !isNaN(mNum) && mNum >= 1 && mNum <= 12 ? String(mNum).padStart(2, "0") : String(rawBwMonth).trim();
+          bwExpYear = String(rawBwYear).trim();
+        }
+      } else if (rawBwExpiry) {
+        bwExpiry = normalizeExpiry(rawBwExpiry);
+        if (bwExpiry) {
+          const parts = bwExpiry.split(" / ");
+          bwExpMonth = parts[0] || "";
+          bwExpYear = parts[1] || "";
+        }
+      }
+
+      const payload: ParsedImportItem["payload"] = {
+        _template: template,
+        _folder: folder || undefined,
+        username: (loginData.username || "").trim(),
+        password: loginData.password || "",
+        url: urls[0] || "",
+        urls: urls.length > 0 ? urls : [],
+        totpSecret: (loginData.totp || "").trim(),
+        note: noteContent,
+        entryNotes: extraNotes || undefined,
+
+        // Card
+        cardNumber: (cardData.number || cardData.cardNumber || "").trim(),
+        cardholderName: (cardData.cardholderName || cardData.cardName || "").trim(),
+        cardName: (cardData.cardholderName || cardData.cardName || "").trim(),
+        cardBrand: (cardData.brand || cardData.cardBrand || "").trim() || undefined,
+        expiry: bwExpiry || undefined,
+        expMonth: bwExpMonth || undefined,
+        expYear: bwExpYear || undefined,
+        cvv: (cardData.code || cardData.cvv || "").trim(),
+        pin: (cardData.pin || "").trim() || undefined,
+
+        // Profile / Identity
+        fullName:
+          identityData.firstName && identityData.lastName
+            ? `${identityData.firstName} ${identityData.lastName}`
+            : identityData.firstName || "",
+        firstName: identityData.firstName || "",
+        lastName: identityData.lastName || "",
+        email: (identityData.email || "").trim(),
+        phone: (identityData.phone || "").trim(),
+        line1: (identityData.address1 || "").trim(),
+        street: (identityData.address1 || "").trim(),
+        line2: (identityData.address2 || "").trim(),
+        city: (identityData.city || "").trim(),
+        state: (identityData.state || "").trim(),
+        zip: (identityData.postalCode || "").trim(),
+        country: (identityData.country || "").trim(),
+
+        // Passkey
+        isPasskey: !!fido2,
+        passkeyRpId: fido2?.rpId || "",
+        passkeyCredentialId: fido2?.credentialId || "",
+        passkeyUserHandle: fido2?.userHandle || "",
+      };
+
+      result.push({
+        id: `bw-${idx}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        name,
+        folder,
       template,
       payload,
     });

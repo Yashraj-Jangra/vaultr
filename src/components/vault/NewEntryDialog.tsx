@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { useSiteConfig } from "@/context/SiteConfigContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useVault } from "@/context/VaultContext";
-import { DynamicPreviewCanvas } from "./DialogPreviews";
+import { DynamicPreviewCanvas, detectCardBrand } from "./DialogPreviews";
 import { FolderSelect } from "./FolderSelect";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -29,13 +29,14 @@ export interface DecryptedPayload {
   _template?: Template;
   _folder?: string;
   username?: string; password?: string; url?: string; urls?: string[];
-  cardName?: string; cardNumber?: string; expiry?: string; cvv?: string; pin?: string; cardBrand?: string;
-  line1?: string; line2?: string; city?: string; state?: string; zip?: string; country?: string;
+  cardName?: string; cardholderName?: string; cardNumber?: string; expiry?: string; expMonth?: string; expYear?: string; cvv?: string; pin?: string; cardBrand?: string; brand?: string; code?: string;
+  line1?: string; line2?: string; street?: string; city?: string; state?: string; zip?: string; country?: string;
   fullName?: string; dob?: string; idNumber?: string; email?: string; phone?: string;
   note?: string;
   customFields?: { key: string; value: string; type?: "text" | "hidden" }[];
   fields?: { id?: string; name: string; value: string; type?: "text" | "hidden" }[];
   totpSecret?: string; entryNotes?: string; passwordHistory?: string[]; payload?: string;
+  [key: string]: any;
 }
 
 export interface NewEntryDialogProps {
@@ -582,6 +583,81 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
   );
 }
 
+function cleanExpiryMonth(mVal: any): string {
+  if (!mVal) return "";
+  const str = String(mVal).trim();
+  if (str.toUpperCase() === "MM" || str.toUpperCase() === "M") return "";
+  const num = parseInt(str.replace(/\D/g, ""), 10);
+  if (!isNaN(num) && num >= 1 && num <= 12) {
+    return String(num).padStart(2, "0");
+  }
+  return "";
+}
+
+function cleanExpiryYear(yVal: any): string {
+  if (!yVal) return "";
+  const str = String(yVal).trim();
+  if (str.toUpperCase() === "YY" || str.toUpperCase() === "YYYY" || str.toUpperCase() === "Y") return "";
+  const digits = str.replace(/\D/g, "");
+  if (digits.length === 2) {
+    const num = parseInt(digits, 10);
+    return String(num < 50 ? 2000 + num : 1900 + num);
+  }
+  if (digits.length === 4) return digits;
+  return digits.slice(0, 4);
+}
+
+function extractExpiryParts(payload?: any): { month: string; year: string } {
+  if (!payload) return { month: "", year: "" };
+
+  // If payload is a stringified JSON (legacy or raw string)
+  if (typeof payload === "string") {
+    try {
+      const parsed = JSON.parse(payload);
+      if (parsed && typeof parsed === "object") return extractExpiryParts(parsed);
+    } catch {}
+  }
+
+  // Check nested card, details, or data container if present
+  const source = payload.card || payload.data || payload.details || payload;
+
+  const rawM = source.expMonth ?? source.expirationMonth ?? source.expiryMonth ?? source.month ?? source.exp_month ?? source.expiration_month ?? "";
+  const rawY = source.expYear ?? source.expirationYear ?? source.expiryYear ?? source.year ?? source.exp_year ?? source.expiration_year ?? "";
+
+  if (rawM || rawY) {
+    const month = cleanExpiryMonth(rawM);
+    const year = cleanExpiryYear(rawY);
+    if (month || year) return { month, year };
+  }
+
+  const raw = String(source.expiry || source.expirationDate || source.expiration || source.exp_date || "").trim();
+  if (!raw) return { month: "", year: "" };
+
+  // Split by slash, hyphen, dot, or whitespace
+  const parts = raw.split(/[\/\-\.\s]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    // If first part is 4 digits -> YYYY/MM
+    if (/^\d{4}$/.test(parts[0])) {
+      return { month: cleanExpiryMonth(parts[1]), year: cleanExpiryYear(parts[0]) };
+    }
+    return { month: cleanExpiryMonth(parts[0]), year: cleanExpiryYear(parts[1]) };
+  } else if (parts.length === 1) {
+    const single = parts[0];
+    if (/^\d{4}$/.test(single)) {
+      const mNum = parseInt(single.slice(0, 2), 10);
+      if (mNum >= 1 && mNum <= 12) {
+        return { month: cleanExpiryMonth(single.slice(0, 2)), year: cleanExpiryYear(single.slice(2)) };
+      } else {
+        return { month: "", year: cleanExpiryYear(single) };
+      }
+    } else if (/^\d{6}$/.test(single)) {
+      return { month: cleanExpiryMonth(single.slice(0, 2)), year: cleanExpiryYear(single.slice(2)) };
+    }
+  }
+
+  return { month: "", year: "" };
+}
+
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 
 export function NewEntryDialog({ open, folders, onSave, onClose, initialData, defaultTemplate, defaultFolder }: NewEntryDialogProps) {
@@ -593,7 +669,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const [attachments, setAttachments] = useState<any[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
-  const [template, setTemplate] = useState<Template>(initialData?.template ?? defaultTemplate ?? "login");
+  const [template, setTemplate] = useState<Template>(initialData?.template ?? (initialData?.payload as any)?._template ?? defaultTemplate ?? "login");
   const [name,     setName]     = useState(initialData?.name ?? "");
   const [folder,   setFolder]   = useState(() => initialData?.folder ?? defaultFolder ?? currentNavFolder ?? "");
   const [newFolder,setNewFolder]= useState("");
@@ -601,47 +677,49 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const [saving,   setSaving]   = useState(false);
   const [nameError, setNameError] = useState(false);
   const [showGen,  setShowGen]  = useState(false);
-  const [showTotp, setShowTotp] = useState(!!initialData?.payload.totpSecret);
+  const [showTotp, setShowTotp] = useState(!!initialData?.payload?.totpSecret);
 
   // Payload fields
-  const [username, setUsername] = useState(initialData?.payload.username ?? "");
-  const [password, setPassword] = useState(initialData?.payload.password ?? "");
+  const [username, setUsername] = useState(initialData?.payload?.username ?? "");
+  const [password, setPassword] = useState(initialData?.payload?.password ?? "");
   const [urls,     setUrls]     = useState<string[]>(() => {
-    const raw = initialData?.payload.urls ?? (initialData?.payload.url ? [initialData.payload.url] : []);
+    const raw = initialData?.payload?.urls ?? (initialData?.payload?.url ? [initialData.payload.url] : []);
     const valid = (Array.isArray(raw) ? raw : []).filter(u => typeof u === "string" && u.trim().length > 0);
     return valid.length > 0 ? valid : [""];
   });
-  const [totpSecret, setTotpSecret] = useState(initialData?.payload.totpSecret ?? "");
-  const [cardName,     setCardName]     = useState(initialData?.payload.cardName ?? "");
-  const [cardNumber,   setCardNumber]   = useState(initialData?.payload.cardNumber ?? "");
-  const [cardBrand,    setCardBrand]    = useState(initialData?.payload.cardBrand ?? "");
-  const [isManualBrand,setIsManualBrand]= useState(!!initialData?.payload.cardBrand);
+  const [totpSecret, setTotpSecret] = useState(initialData?.payload?.totpSecret ?? "");
+  const [cardName,     setCardName]     = useState(initialData?.payload?.cardName || initialData?.payload?.cardholderName || (initialData?.payload as any)?.card?.cardholderName || (initialData?.payload as any)?.card?.cardName || "");
+  const [cardNumber,   setCardNumber]   = useState(initialData?.payload?.cardNumber ?? (initialData?.payload as any)?.card?.number ?? (initialData?.payload as any)?.number ?? "");
+  const [cardBrand,    setCardBrand]    = useState(initialData?.payload?.cardBrand || (initialData?.payload as any)?.brand || (initialData?.payload as any)?.card?.brand || "");
+  const [isManualBrand,setIsManualBrand]= useState(!!(initialData?.payload?.cardBrand || (initialData?.payload as any)?.brand || (initialData?.payload as any)?.card?.brand));
   const [expiryMonth,  setExpiryMonth]  = useState(() => {
-    const parts = initialData?.payload.expiry?.split("/") ?? [];
-    return parts[0]?.trim() ?? "";
+    const { month } = extractExpiryParts(initialData?.payload);
+    return month;
   });
+  const [expiryMonthError, setExpiryMonthError] = useState(false);
   const [expiryYear,   setExpiryYear]   = useState(() => {
-    const parts = initialData?.payload.expiry?.split("/") ?? [];
-    return parts[1]?.trim() ?? "";
+    const { year } = extractExpiryParts(initialData?.payload);
+    return year;
   });
-  const [cvv,          setCvv]          = useState(initialData?.payload.cvv ?? "");
-  const [pin,          setPin]          = useState(initialData?.payload.pin ?? "");
-  const [line1,        setLine1]        = useState(initialData?.payload.line1 ?? "");
-  const [line2,        setLine2]        = useState(initialData?.payload.line2 ?? "");
-  const [city,         setCity]         = useState(initialData?.payload.city ?? "");
-  const [stateVal,     setStateVal]     = useState(initialData?.payload.state ?? "");
-  const [zip,          setZip]          = useState(initialData?.payload.zip ?? "");
-  const [country,      setCountry]      = useState(initialData?.payload.country ?? "");
-  const [fullName,     setFullName]     = useState(initialData?.payload.fullName ?? "");
-  const [dob,          setDob]          = useState(initialData?.payload.dob ?? "");
-  const [idNumber,     setIdNumber]     = useState(initialData?.payload.idNumber ?? "");
-  const [profEmail,    setProfEmail]    = useState(initialData?.payload.email ?? "");
-  const [phone,        setPhone]        = useState(initialData?.payload.phone ?? "");
-  const [note,         setNote]         = useState(initialData?.payload.note ?? "");
-  const [entryNotes,   setEntryNotes]   = useState(initialData?.payload.entryNotes ?? "");
+  const [expiryYearError, setExpiryYearError] = useState(false);
+  const [cvv,          setCvv]          = useState(initialData?.payload?.cvv || (initialData?.payload as any)?.code || (initialData?.payload as any)?.card?.code || "");
+  const [pin,          setPin]          = useState(initialData?.payload?.pin || (initialData?.payload as any)?.card?.pin || "");
+  const [line1,        setLine1]        = useState(initialData?.payload?.line1 || initialData?.payload?.street || "");
+  const [line2,        setLine2]        = useState(initialData?.payload?.line2 ?? "");
+  const [city,         setCity]         = useState(initialData?.payload?.city ?? "");
+  const [stateVal,     setStateVal]     = useState(initialData?.payload?.state ?? "");
+  const [zip,          setZip]          = useState(initialData?.payload?.zip ?? "");
+  const [country,      setCountry]      = useState(initialData?.payload?.country ?? "");
+  const [fullName,     setFullName]     = useState(initialData?.payload?.fullName ?? "");
+  const [dob,          setDob]          = useState(initialData?.payload?.dob ?? "");
+  const [idNumber,     setIdNumber]     = useState(initialData?.payload?.idNumber ?? "");
+  const [profEmail,    setProfEmail]    = useState(initialData?.payload?.email ?? "");
+  const [phone,        setPhone]        = useState(initialData?.payload?.phone ?? "");
+  const [note,         setNote]         = useState(initialData?.payload?.note ?? "");
+  const [entryNotes,   setEntryNotes]   = useState(initialData?.payload?.entryNotes ?? "");
   const [fallbackIndex,setFallbackIndex]= useState<number | null>(null);
   const [customFields, setCustomFields] = useState<CustomField[]>(() => {
-    const raw = initialData?.payload.fields || initialData?.payload.customFields || [];
+    const raw = initialData?.payload?.fields || initialData?.payload?.customFields || [];
     if (!Array.isArray(raw)) return [];
     return raw.map((f: any) => ({
       id: crypto.randomUUID(),
@@ -657,24 +735,9 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   // Auto-detect brand from card number BINs
   useEffect(() => {
     if (isManualBrand || !cardNumber) return;
-    const bins = config?.cardBins || [];
-    if (bins.length > 0) {
-      let found = false;
-      const sorted = [...bins].sort((a, b) => b.prefix.length - a.prefix.length);
-      for (const bin of sorted) {
-        if (cardNumber.startsWith(bin.prefix.trim())) {
-          setCardBrand(bin.brand);
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        setCardBrand("Other");
-        setFallbackIndex(prev => prev === null ? Math.floor(Math.random() * 1000) : prev);
-      }
-    } else {
-      setCardBrand("Other");
-      setFallbackIndex(prev => prev === null ? Math.floor(Math.random() * 1000) : prev);
+    const detected = detectCardBrand(cardNumber, config?.cardBins);
+    if (detected) {
+      setCardBrand(detected);
     }
   }, [cardNumber, config, isManualBrand]);
 
@@ -689,15 +752,61 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     return () => document.removeEventListener("keydown", h);
   }, [open, onClose, template]);
 
+  // Re-synchronize state whenever dialog opens or initialData changes (Edit Mode)
   useEffect(() => {
-    if (open) {
-      if (initialData) {
-        setFolder(initialData.folder ?? "");
-      } else {
-        setFolder(currentNavFolder);
+    if (!open) return;
+    if (initialData) {
+      const p = initialData.payload || {};
+      setName(initialData.name ?? "");
+      setTemplate(initialData.template || (p as any)?._template || "login");
+      setFolder(initialData.folder ?? "");
+      setTags(initialData.tags?.join(", ") ?? "");
+      setUsername(p.username ?? "");
+      setPassword(p.password ?? "");
+      const rawUrls = p.urls ?? (p.url ? [p.url] : []);
+      const validUrls = (Array.isArray(rawUrls) ? rawUrls : []).filter(u => typeof u === "string" && u.trim().length > 0);
+      setUrls(validUrls.length > 0 ? validUrls : [""]);
+      setTotpSecret(p.totpSecret ?? "");
+      setShowTotp(!!p.totpSecret);
+      setCardName(p.cardName || p.cardholderName || (p as any)?.card?.cardholderName || (p as any)?.card?.cardName || "");
+      setCardNumber(p.cardNumber ?? (p as any)?.card?.number ?? (p as any)?.number ?? "");
+      setCardBrand(p.cardBrand || (p as any)?.brand || (p as any)?.card?.brand || "");
+      setIsManualBrand(!!(p.cardBrand || (p as any)?.brand || (p as any)?.card?.brand));
+      const { month, year } = extractExpiryParts(p);
+      setExpiryMonth(month);
+      setExpiryYear(year);
+      setExpiryMonthError(false);
+      setExpiryYearError(false);
+      setCvv(p.cvv || (p as any)?.code || (p as any)?.card?.code || "");
+      setPin(p.pin || (p as any)?.card?.pin || "");
+      setLine1(p.line1 || p.street || "");
+      setLine2(p.line2 ?? "");
+      setCity(p.city ?? "");
+      setStateVal(p.state ?? "");
+      setZip(p.zip ?? "");
+      setCountry(p.country ?? "");
+      setFullName(p.fullName ?? "");
+      setDob(p.dob ?? "");
+      setIdNumber(p.idNumber ?? "");
+      setProfEmail(p.email ?? "");
+      setPhone(p.phone ?? "");
+      setNote(p.note ?? "");
+      setEntryNotes(p.entryNotes ?? "");
+
+      const rawFields = p.fields || p.customFields || [];
+      if (Array.isArray(rawFields)) {
+        setCustomFields(rawFields.map((f: any) => ({
+          id: f.id || crypto.randomUUID(),
+          key: f.key || f.name || "",
+          value: f.value || "",
+          type: f.type === "hidden" ? "hidden" : "text",
+        })));
       }
+    } else {
+      setFolder(defaultFolder || currentNavFolder || "");
+      setTemplate(defaultTemplate || "login");
     }
-  }, [open, initialData, currentNavFolder]);
+  }, [open, initialData, defaultTemplate, defaultFolder, currentNavFolder]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -735,12 +844,24 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
         totpSecret: totpSecret.trim() || undefined
       });
     } else if (template === "card") {
-      const exp = (expiryMonth.trim() || expiryYear.trim()) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : undefined;
+      // Normalize 2-digit year to 4-digit on save
+      let saveYear = expiryYear.trim();
+      if (saveYear.length === 2) {
+        const y = parseInt(saveYear, 10);
+        saveYear = String(y < 50 ? 2000 + y : 1900 + y);
+      }
+      const saveMonth = expiryMonth.trim() ? expiryMonth.trim().padStart(2, "0") : "";
+      const exp = (saveMonth || saveYear) ? `${saveMonth || "MM"} / ${saveYear || "YY"}` : undefined;
+      const detected = detectCardBrand(cardNumber, config?.cardBins);
+      const effectiveBrand = (cardBrand && cardBrand.toLowerCase() !== "auto-detect" ? cardBrand.trim() : "") || detected || undefined;
       Object.assign(payload, {
         cardName: cardName.trim() || undefined,
+        cardholderName: cardName.trim() || undefined,
         cardNumber: cardNumber.trim() || undefined,
-        cardBrand: cardBrand.trim() || undefined,
+        cardBrand: effectiveBrand,
         expiry: exp,
+        expMonth: saveMonth || undefined,
+        expYear: saveYear || undefined,
         cvv: cvv.trim() || undefined,
         pin: pin.trim() || undefined
       });
@@ -767,24 +888,27 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
       });
     }
 
-    // Auto-clean empty properties
-    for (const key of Object.keys(payload)) {
-      const val = (payload as any)[key];
-      if (val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) {
-        delete (payload as any)[key];
-      }
+    if (attachments.length > 0) {
+      payload.attachments = attachments.map(att => ({
+        id: att.id,
+        filename: att.filename,
+        size: att.size,
+        contentType: att.contentType,
+        encryptedBlob: att.encryptedBlob,
+        iv: att.iv,
+      }));
     }
-    const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
-    if (initialData?.payload.password && initialData.payload.password !== password) { payload.passwordHistory = [...(initialData.payload.passwordHistory ?? []), initialData.payload.password].slice(-5); }
-    else if (initialData?.payload.passwordHistory) { payload.passwordHistory = initialData.payload.passwordHistory; }
-    const itemId = await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id);
 
-    const targetItemId = initialData?.id || itemId;
-    if (targetItemId && pendingFiles.length > 0) {
+    let editId = initialData?.id;
+    const res = await onSave(name.trim(), template, activeFolder, tags.split(",").map(t => t.trim()).filter(Boolean), payload, editId);
+    if (typeof res === "string") {
+      editId = res;
+    }
+
+    const targetItemId = editId;
+    if (targetItemId && pendingFiles.length > 0 && cryptoKey) {
       for (const file of pendingFiles) {
         try {
-          if (!cryptoKey) throw new Error("Vault is locked");
-
           // Read raw bytes and encrypt with binary path — same format as mobile
           const { encryptBinary } = await import("@vaultr/core");
           const rawBuffer = await file.arrayBuffer();
@@ -799,13 +923,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
           fd.append("encryptedName", encName);
           fd.append("mimeType", file.type || "application/octet-stream");
 
-          const res = await fetch("/api/vault/attachments", {
+          const resFetch = await fetch("/api/vault/attachments", {
             method: "POST",
             body: fd,
           });
 
-          if (!res.ok) {
-            const errData = await res.json();
+          if (!resFetch.ok) {
+            const errData = await resFetch.json();
             throw new Error(errData.error || "Upload failed");
           }
         } catch (err: any) {
@@ -815,7 +939,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     }
 
     setSaving(false);
-  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave, pendingFiles, encryptData]);
+  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, cardBrand, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave, pendingFiles, encryptData, config]);
 
   // Load attachments if editing
   useEffect(() => {
@@ -834,52 +958,6 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     }
   }, [open, initialData]);
 
-
-  useEffect(() => {
-    if (!open) return;
-    setTemplate(initialData?.template ?? defaultTemplate ?? "login");
-    setName(initialData?.name ?? "");
-    setFolder(initialData?.folder ?? defaultFolder ?? currentNavFolder ?? "");
-    setNewFolder("");
-    setTags(initialData?.tags?.join(", ") ?? "");
-    setUsername(initialData?.payload.username ?? "");
-    setPassword(initialData?.payload.password ?? "");
-    const rawUrls = initialData?.payload.urls ?? (initialData?.payload.url ? [initialData.payload.url] : []);
-    const validUrls = (Array.isArray(rawUrls) ? rawUrls : []).filter(u => typeof u === "string" && u.trim().length > 0);
-    setUrls(validUrls.length > 0 ? validUrls : [""]);
-    setTotpSecret(initialData?.payload.totpSecret ?? "");
-    setCardName(initialData?.payload.cardName ?? "");
-    setCardNumber(initialData?.payload.cardNumber ?? "");
-    setCardBrand(initialData?.payload.cardBrand ?? "");
-    setIsManualBrand(!!initialData?.payload.cardBrand);
-    setExpiryMonth(() => {
-      const parts = initialData?.payload.expiry?.split("/") ?? [];
-      return parts[0]?.trim() ?? "";
-    });
-    setExpiryYear(() => {
-      const parts = initialData?.payload.expiry?.split("/") ?? [];
-      return parts[1]?.trim() ?? "";
-    });
-    setCvv(initialData?.payload.cvv ?? "");
-    setPin(initialData?.payload.pin ?? "");
-    setLine1(initialData?.payload.line1 ?? "");
-    setLine2(initialData?.payload.line2 ?? "");
-    setCity(initialData?.payload.city ?? "");
-    setStateVal(initialData?.payload.state ?? "");
-    setZip(initialData?.payload.zip ?? "");
-    setCountry(initialData?.payload.country ?? "");
-    setFullName(initialData?.payload.fullName ?? "");
-    setDob(initialData?.payload.dob ?? "");
-    setIdNumber(initialData?.payload.idNumber ?? "");
-    setProfEmail(initialData?.payload.email ?? "");
-    setPhone(initialData?.payload.phone ?? "");
-    setNote(initialData?.payload.note ?? "");
-    setEntryNotes(initialData?.payload.entryNotes ?? "");
-    const rawCustom = initialData?.payload.fields || initialData?.payload.customFields || [];
-    setCustomFields(Array.isArray(rawCustom) ? rawCustom.map((f: any) => ({ id: crypto.randomUUID(), key: f.key || f.name || "", value: f.value || "", type: f.type === "hidden" ? "hidden" : "text" })) : []);
-    setShowTotp(!!initialData?.payload.totpSecret);
-  }, [open, initialData]);
-
   const displayCardNumber = useMemo(() => {
     let val = cardNumber;
     if (/^3[47]/.test(val)) {
@@ -896,7 +974,9 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     }
   }, [cardNumber]);
 
-  const displayExpiry = (expiryMonth || expiryYear) ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}` : "";
+  const displayExpiry = (expiryMonth || expiryYear)
+    ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}`
+    : "";
 
   const fallbackBrand = (() => {
     const configuredEggs = config?.cardEasterEggs || [];
@@ -1046,8 +1126,53 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4">
-            <div><FieldLabel>Exp Month</FieldLabel><Input value={expiryMonth} onChange={e => setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0,2))} placeholder="MM" /></div>
-            <div><FieldLabel>Exp Year</FieldLabel><Input value={expiryYear} onChange={e => setExpiryYear(e.target.value.replace(/\D/g, "").slice(0,4))} placeholder="YYYY" /></div>
+            <div>
+              <FieldLabel>Exp Month</FieldLabel>
+              <Input
+                value={expiryMonth}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                  setExpiryMonth(v);
+                  setExpiryMonthError(false);
+                }}
+                onBlur={() => {
+                  if (!expiryMonth) { setExpiryMonthError(false); return; }
+                  const n = parseInt(expiryMonth, 10);
+                  if (isNaN(n) || n < 1 || n > 12) {
+                    setExpiryMonthError(true);
+                  } else {
+                    setExpiryMonth(String(n).padStart(2, "0"));
+                    setExpiryMonthError(false);
+                  }
+                }}
+                placeholder="MM"
+                className={expiryMonthError ? "border-red-500" : ""}
+              />
+              {expiryMonthError && <p className="text-red-400 text-[10px] mt-1">Must be 01 – 12</p>}
+            </div>
+            <div>
+              <FieldLabel>Exp Year</FieldLabel>
+              <Input
+                value={expiryYear}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                  setExpiryYear(v);
+                  setExpiryYearError(false);
+                }}
+                onBlur={() => {
+                  if (!expiryYear) { setExpiryYearError(false); return; }
+                  const len = expiryYear.length;
+                  if (len !== 2 && len !== 4) {
+                    setExpiryYearError(true);
+                  } else {
+                    setExpiryYearError(false);
+                  }
+                }}
+                placeholder="YY or YYYY"
+                className={expiryYearError ? "border-red-500" : ""}
+              />
+              {expiryYearError && <p className="text-red-400 text-[10px] mt-1">Enter YY or YYYY</p>}
+            </div>
             <div><FieldLabel>CVV</FieldLabel><SecretInput value={cvv} onChange={e => setCvv(e.target.value)} placeholder="•••" /></div>
             <div><FieldLabel>ATM PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
           </div>
@@ -1300,8 +1425,53 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4">
-            <div><FieldLabel>Exp Month</FieldLabel><Input value={expiryMonth} onChange={e => setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0,2))} placeholder="MM" /></div>
-            <div><FieldLabel>Exp Year</FieldLabel><Input value={expiryYear} onChange={e => setExpiryYear(e.target.value.replace(/\D/g, "").slice(0,4))} placeholder="YYYY" /></div>
+            <div>
+              <FieldLabel>Exp Month</FieldLabel>
+              <Input
+                value={expiryMonth}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                  setExpiryMonth(v);
+                  setExpiryMonthError(false);
+                }}
+                onBlur={() => {
+                  if (!expiryMonth) { setExpiryMonthError(false); return; }
+                  const n = parseInt(expiryMonth, 10);
+                  if (isNaN(n) || n < 1 || n > 12) {
+                    setExpiryMonthError(true);
+                  } else {
+                    setExpiryMonth(String(n).padStart(2, "0"));
+                    setExpiryMonthError(false);
+                  }
+                }}
+                placeholder="MM"
+                className={expiryMonthError ? "border-red-500" : ""}
+              />
+              {expiryMonthError && <p className="text-red-400 text-[10px] mt-1">Must be 01 – 12</p>}
+            </div>
+            <div>
+              <FieldLabel>Exp Year</FieldLabel>
+              <Input
+                value={expiryYear}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                  setExpiryYear(v);
+                  setExpiryYearError(false);
+                }}
+                onBlur={() => {
+                  if (!expiryYear) { setExpiryYearError(false); return; }
+                  const len = expiryYear.length;
+                  if (len !== 2 && len !== 4) {
+                    setExpiryYearError(true);
+                  } else {
+                    setExpiryYearError(false);
+                  }
+                }}
+                placeholder="YY or YYYY"
+                className={expiryYearError ? "border-red-500" : ""}
+              />
+              {expiryYearError && <p className="text-red-400 text-[10px] mt-1">Enter YY or YYYY</p>}
+            </div>
             <div><FieldLabel>CVV</FieldLabel><SecretInput value={cvv} onChange={e => setCvv(e.target.value)} placeholder="•••" /></div>
             <div><FieldLabel>PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
           </div>

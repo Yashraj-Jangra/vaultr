@@ -76,7 +76,9 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [cardholderName, setCardholderName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expMonth, setExpMonth] = useState("");
+  const [expMonthError, setExpMonthError] = useState(false);
   const [expYear, setExpYear] = useState("");
+  const [expYearError, setExpYearError] = useState(false);
   const [cvv, setCvv] = useState("");
   const [pin, setPin] = useState("");
   const [cardBrand, setCardBrand] = useState("");
@@ -178,11 +180,32 @@ export function ItemFormScreen({ route, navigation }: Props) {
           
           if (p.cardholderName || p.cardName) setCardholderName(p.cardholderName || p.cardName);
           if (p.cardNumber) setCardNumber(p.cardNumber);
-          if (p.expMonth) setExpMonth(p.expMonth);
-          if (p.expYear) setExpYear(p.expYear);
-          if (p.cvv) setCvv(p.cvv);
+
+          const m = p.expMonth || p.expirationMonth || p.expiryMonth || p.month || "";
+          const y = p.expYear || p.expirationYear || p.expiryYear || p.year || "";
+          if (m || y) {
+            const mNum = parseInt(String(m), 10);
+            setExpMonth(!isNaN(mNum) && mNum >= 1 && mNum <= 12 ? String(mNum).padStart(2, "0") : String(m).trim());
+            setExpYear(String(y).trim());
+          } else if (p.expiry || p.expirationDate) {
+            const rawExp = String(p.expiry || p.expirationDate).trim();
+            const matchSlash = rawExp.match(/^(\d{1,2})\s*[\/\-]\s*(\d{2,4})$/);
+            if (matchSlash) {
+              const mNum = parseInt(matchSlash[1], 10);
+              setExpMonth(!isNaN(mNum) && mNum >= 1 && mNum <= 12 ? String(mNum).padStart(2, "0") : matchSlash[1]);
+              setExpYear(matchSlash[2]);
+            } else {
+              const parts = rawExp.split(/\s*[\/\-]\s*/);
+              if (parts[0]) setExpMonth(parts[0].trim().padStart(2, "0"));
+              if (parts[1]) setExpYear(parts[1].trim());
+            }
+          }
+          setExpMonthError(false);
+          setExpYearError(false);
+
+          if (p.cvv || p.code) setCvv(p.cvv || p.code);
           if (p.pin) setPin(p.pin);
-          if (p.cardBrand) setCardBrand(p.cardBrand);
+          if (p.cardBrand || p.brand) setCardBrand(p.cardBrand || p.brand);
 
           if (p.street || p.line1) setStreet(p.street || p.line1 || "");
           if (p.city) setCity(p.city);
@@ -281,11 +304,38 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.urls = allUrls;
         if (totpSecret.trim()) unencryptedPayload.totpSecret = totpSecret.trim();
       } else if (template === "card") {
+        let normMonth = expMonth.trim();
+        if (normMonth) {
+          const mNum = parseInt(normMonth, 10);
+          if (isNaN(mNum) || mNum < 1 || mNum > 12) {
+            setExpMonthError(true);
+            vaultAlert.alert("Invalid Expiry Month", "Expiration month must be between 01 and 12.", undefined, { illustration: "cancel_k4w9" });
+            setSaving(false);
+            return;
+          }
+          normMonth = String(mNum).padStart(2, "0");
+        }
+
+        let normYear = expYear.trim();
+        if (normYear) {
+          if (normYear.length !== 2 && normYear.length !== 4) {
+            setExpYearError(true);
+            vaultAlert.alert("Invalid Expiry Year", "Expiration year must be 2 digits (YY) or 4 digits (YYYY).", undefined, { illustration: "cancel_k4w9" });
+            setSaving(false);
+            return;
+          }
+          if (normYear.length === 2) {
+            const yNum = parseInt(normYear, 10);
+            normYear = String(yNum < 50 ? 2000 + yNum : 1900 + yNum);
+          }
+        }
+
         unencryptedPayload.cardholderName = cardholderName.trim();
         unencryptedPayload.cardName = cardholderName.trim(); // web compat
         unencryptedPayload.cardNumber = cardNumber.trim();
-        unencryptedPayload.expMonth = expMonth.trim();
-        unencryptedPayload.expYear = expYear.trim();
+        unencryptedPayload.expMonth = normMonth || undefined;
+        unencryptedPayload.expYear = normYear || undefined;
+        unencryptedPayload.expiry = (normMonth || normYear) ? `${normMonth || "MM"} / ${normYear || "YY"}` : "";
         unencryptedPayload.cvv = cvv.trim();
         if (pin.trim()) unencryptedPayload.pin = pin.trim();
         if (cardBrand.trim()) unencryptedPayload.cardBrand = cardBrand.trim();
@@ -740,26 +790,61 @@ export function ItemFormScreen({ route, navigation }: Props) {
               <View style={[styles.formGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Exp Month</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, expMonthError && { borderColor: "#ef4444" }]}
                   value={expMonth}
-                  onChangeText={setExpMonth}
-                  placeholder="08"
+                  onChangeText={(t) => {
+                    const v = t.replace(/\D/g, "").slice(0, 2);
+                    setExpMonth(v);
+                    setExpMonthError(false);
+                  }}
+                  onBlur={() => {
+                    if (!expMonth.trim()) {
+                      setExpMonthError(false);
+                      return;
+                    }
+                    const n = parseInt(expMonth, 10);
+                    if (isNaN(n) || n < 1 || n > 12) {
+                      setExpMonthError(true);
+                    } else {
+                      setExpMonth(String(n).padStart(2, "0"));
+                      setExpMonthError(false);
+                    }
+                  }}
+                  placeholder="MM"
                   placeholderTextColor={colors.textDim}
                   keyboardType="numeric"
                   maxLength={2}
                 />
+                {expMonthError && <Text style={styles.errorHint}>Must be 01 – 12</Text>}
               </View>
               <View style={[styles.formGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Exp Year</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, expYearError && { borderColor: "#ef4444" }]}
                   value={expYear}
-                  onChangeText={setExpYear}
-                  placeholder="2028"
+                  onChangeText={(t) => {
+                    const v = t.replace(/\D/g, "").slice(0, 4);
+                    setExpYear(v);
+                    setExpYearError(false);
+                  }}
+                  onBlur={() => {
+                    if (!expYear.trim()) {
+                      setExpYearError(false);
+                      return;
+                    }
+                    const len = expYear.trim().length;
+                    if (len !== 2 && len !== 4) {
+                      setExpYearError(true);
+                    } else {
+                      setExpYearError(false);
+                    }
+                  }}
+                  placeholder="YY or YYYY"
                   placeholderTextColor={colors.textDim}
                   keyboardType="numeric"
                   maxLength={4}
                 />
+                {expYearError && <Text style={styles.errorHint}>Enter YY or YYYY</Text>}
               </View>
               <View style={[styles.formGroup, { flex: 1 }]}>
                 <Text style={styles.label}>CVV / Security Code</Text>
@@ -1473,5 +1558,11 @@ const styles = StyleSheet.create({
   formFolderPillTextActive: {
     color: "#fafafa",
     fontWeight: "600",
+  },
+  errorHint: {
+    color: "#ef4444",
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: "500",
   },
 });

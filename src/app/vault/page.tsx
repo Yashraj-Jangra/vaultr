@@ -24,7 +24,7 @@ import { SiteIcon } from "@/components/vault/SiteIcon";
 import { PasswordHealth } from "@/components/vault/PasswordHealth";
 import { NewEntryDialog, AttachmentRow } from "@/components/vault/NewEntryDialog";
 import { FolderSelect } from "@/components/vault/FolderSelect";
-import { DetailedCardVisual } from "@/components/vault/DialogPreviews";
+import { DetailedCardVisual, detectCardBrand } from "@/components/vault/DialogPreviews";
 import { ConfirmDeleteModal } from "@/components/vault/ConfirmDeleteModal";
 import { EmptyTrashModal, PurgeTarget } from "@/components/vault/EmptyTrashModal";
 
@@ -327,7 +327,16 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
   // Card
   const [cardName, setCardName] = useState(initialData?.payload.cardName || "");
   const [cardNumber, setCardNumber] = useState(initialData?.payload.cardNumber || "");
-  const [expiry, setExpiry] = useState(initialData?.payload.expiry || "");
+  const [expiryMonth, setExpiryMonth] = useState(() => {
+    const raw = initialData?.payload.expiry ?? "";
+    return raw.split(/\s*\/\s*/)[0]?.trim() ?? "";
+  });
+  const [expiryMonthError, setExpiryMonthError] = useState(false);
+  const [expiryYear, setExpiryYear] = useState(() => {
+    const raw = initialData?.payload.expiry ?? "";
+    return raw.split(/\s*\/\s*/)[1]?.trim() ?? "";
+  });
+  const [expiryYearError, setExpiryYearError] = useState(false);
   const [cvv, setCvv] = useState(initialData?.payload.cvv || "");
   const [pin, setPin] = useState(initialData?.payload.pin || "");
 
@@ -379,7 +388,15 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
         totpSecret: totpSecret.trim() 
       });
     }
-    if (template === "card") Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
+    if (template === "card") {
+      let saveYear = expiryYear.trim();
+      if (saveYear.length === 2) {
+        const y = parseInt(saveYear, 10);
+        saveYear = String(y < 50 ? 2000 + y : 1900 + y);
+      }
+      const expiry = (expiryMonth.trim() || saveYear) ? `${expiryMonth.padStart(2, '0')} / ${saveYear}` : "";
+      Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
+    }
     if (template === "address") Object.assign(payload, { line1, line2, city, state: state, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note") Object.assign(payload, { note });
@@ -546,8 +563,43 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
             <span className="text-[10px] text-neutral-700 uppercase tracking-widest">Card Details</span>
             <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Cardholder name" />
             <Input value={cardNumber} onChange={e => setCardNumber(e.target.value)} placeholder="Card number" className="font-mono" />
-            <div className="grid grid-cols-3 gap-2">
-              <Input value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" />
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <Input
+                  value={expiryMonth}
+                  onChange={e => {
+                    setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0, 2));
+                    setExpiryMonthError(false);
+                  }}
+                  onBlur={() => {
+                    if (!expiryMonth) { setExpiryMonthError(false); return; }
+                    const n = parseInt(expiryMonth, 10);
+                    if (isNaN(n) || n < 1 || n > 12) { setExpiryMonthError(true); }
+                    else { setExpiryMonth(String(n).padStart(2, "0")); setExpiryMonthError(false); }
+                  }}
+                  placeholder="MM"
+                  className={expiryMonthError ? "border-red-500" : ""}
+                />
+                {expiryMonthError && <p className="text-red-400 text-[10px] mt-0.5">01 – 12</p>}
+              </div>
+              <div>
+                <Input
+                  value={expiryYear}
+                  onChange={e => {
+                    setExpiryYear(e.target.value.replace(/\D/g, "").slice(0, 4));
+                    setExpiryYearError(false);
+                  }}
+                  onBlur={() => {
+                    if (!expiryYear) { setExpiryYearError(false); return; }
+                    const len = expiryYear.length;
+                    if (len !== 2 && len !== 4) { setExpiryYearError(true); }
+                    else { setExpiryYearError(false); }
+                  }}
+                  placeholder="YY / YYYY"
+                  className={expiryYearError ? "border-red-500" : ""}
+                />
+                {expiryYearError && <p className="text-red-400 text-[10px] mt-0.5">YY or YYYY</p>}
+              </div>
               <Input value={cvv} onChange={e => setCvv(e.target.value)} placeholder="CVV" type="password" />
               <Input value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN" type="password" />
             </div>
@@ -826,24 +878,27 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
         </>
       )}
 
-      {t === "card" && (
-        <>
-          <CreditCardGraphic data={data} showCard={showCard} />
-          <SectionGroup title="CARD DETAILS">
-            {data.cardBrand && <DetailRow label="Network" value={data.cardBrand} />}
-            <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
-            <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
-          </SectionGroup>
-
-          {(data.expiry || data.expMonth || data.expYear || data.cvv || data.pin) && (
-            <SectionGroup title="SECURITY & VALIDITY">
-              <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "")} />
-              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
-              {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
+      {t === "card" && (() => {
+        const resolvedBrand = (data.cardBrand && data.cardBrand.toLowerCase() !== "auto-detect" ? data.cardBrand : "") || detectCardBrand(data.cardNumber || "");
+        return (
+          <>
+            <CreditCardGraphic data={data} showCard={showCard} />
+            <SectionGroup title="CARD DETAILS">
+              {resolvedBrand ? <DetailRow label="Network" value={resolvedBrand} /> : null}
+              <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
+              <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
             </SectionGroup>
-          )}
-        </>
-      )}
+
+            {(data.expiry || data.expMonth || data.expYear || data.cvv || data.pin) && (
+              <SectionGroup title="SECURITY & VALIDITY">
+                <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "")} />
+                <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
+                {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
+              </SectionGroup>
+            )}
+          </>
+        );
+      })()}
 
       {t === "address" && (
         <>
@@ -964,14 +1019,15 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
 
 function CreditCardGraphic({ data, showCard }: { data: DecryptedPayload; showCard?: boolean }) {
   const cardName = data.cardName || data.cardholderName || "";
-  const expiry = data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"}/${data.expYear || "YY"}` : "");
+  const expiry = data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "");
+  const cardBrand = (data.cardBrand && data.cardBrand.toLowerCase() !== "auto-detect" ? data.cardBrand : "") || detectCardBrand(data.cardNumber || "");
   return (
     <div className="w-full max-w-[280px] mx-auto mb-4 scale-95 origin-center">
       <DetailedCardVisual
         cardNumber={data.cardNumber || ""}
         cardName={cardName}
         expiry={expiry}
-        cardBrand={data.cardBrand}
+        cardBrand={cardBrand}
         isNumberVisible={showCard}
       />
     </div>
@@ -1138,7 +1194,7 @@ export default function VaultPage() {
             name: targetItem.name,
             folder: targetItem.folder,
             tags: targetItem.tags,
-            template: targetItem.template || "login",
+            template: targetItem.template || parsed._template || "login",
             payload: parsed,
           });
         }).catch(() => {});
@@ -1389,7 +1445,7 @@ export default function VaultPage() {
     const isRevealed = revealedId === item.id;
     const itemPayload = isRevealed ? revealedData : null;
     const itemIcon = getItemIcon(item, itemPayload?.url || itemPayload?.urls?.[0]);
-    const template = (item.template || "login") as Template;
+    const template = (item.template || (isRevealed && revealedData?._template) || "login") as Template;
     const meta = TEMPLATE_META[template];
 
     // Smart sub-line preview

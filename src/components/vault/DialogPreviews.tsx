@@ -2,14 +2,39 @@ import React, { useMemo } from "react";
 import { Lock, Globe, User } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 
+// ── Standard Card Network / Brand Detection ──────────────────────────────────
+export function detectCardBrand(cardNumber: string, customBins?: { prefix: string; brand: string }[]): string {
+  const clean = cardNumber.replace(/\D/g, "");
+  if (!clean) return "";
+  if (customBins && customBins.length > 0) {
+    const sorted = [...customBins].sort((a, b) => b.prefix.length - a.prefix.length);
+    for (const bin of sorted) {
+      if (clean.startsWith(bin.prefix.trim())) {
+        return bin.brand;
+      }
+    }
+  }
+  if (/^4/.test(clean)) return "Visa";
+  if (/^(5[1-5]|2[2-7])/.test(clean)) return "Mastercard";
+  if (/^3[47]/.test(clean)) return "AMEX";
+  if (/^(6011|65|64[4-9]|622)/.test(clean)) return "Discover";
+  if (/^(60|6521|6522)/.test(clean)) return "RuPay";
+  return "";
+}
+
 // ── Credit Card Visual (Untouched & Preserved, with subtle watermark) ──────────
 export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fallbackBrand, isNumberVisible }: { cardNumber: string; cardName: string; expiry: string; cardBrand?: string; fallbackBrand?: string; isNumberVisible?: boolean }) {
-  const isVisa = cardBrand?.toLowerCase() === "visa";
-  const isMC = cardBrand?.toLowerCase() === "mastercard";
-  const isAmex = cardBrand?.toLowerCase() === "amex";
-  const isDiscover = cardBrand?.toLowerCase() === "discover";
-  const isRuPay = cardBrand?.toLowerCase() === "rupay";
-  const isOther = cardBrand?.toLowerCase() === "other";
+  const resolvedBrand = useMemo(() => {
+    if (cardBrand && cardBrand.toLowerCase() !== "auto-detect") return cardBrand;
+    return detectCardBrand(cardNumber) || fallbackBrand || "";
+  }, [cardBrand, cardNumber, fallbackBrand]);
+
+  const isVisa = resolvedBrand.toLowerCase() === "visa";
+  const isMC = resolvedBrand.toLowerCase() === "mastercard";
+  const isAmex = resolvedBrand.toLowerCase() === "amex";
+  const isDiscover = resolvedBrand.toLowerCase() === "discover";
+  const isRuPay = resolvedBrand.toLowerCase() === "rupay";
+  const isOther = resolvedBrand.toLowerCase() === "other";
 
   const num = cardNumber.replace(/\D/g, "");
 

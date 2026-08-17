@@ -394,15 +394,15 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               )}
 
               {/* Card Validity Section */}
-              {(payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
+              {(payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
                 <View style={{ gap: 6 }}>
                   <Text style={styles.sectionHeaderLabel}>SECURITY & VALIDITY</Text>
                   <View style={styles.sectionGroup}>
-                    {payload.expMonth || payload.expYear ? (
+                    {(payload.expiry || payload.expMonth || payload.expYear) ? (
                       <FieldRow
                         label="Expiry Date"
-                        value={`${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
-                        onCopy={() => copyToClipboard("exp", `${payload.expMonth}/${payload.expYear}`)}
+                        value={payload.expiry || `${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
+                        onCopy={() => copyToClipboard("exp", payload.expiry || `${payload.expMonth}/${payload.expYear}`)}
                         isCopied={copiedField === "exp"}
                         hasDivider={!!(payload.cvv || payload.pin)}
                       />
