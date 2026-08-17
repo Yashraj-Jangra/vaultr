@@ -15,7 +15,35 @@ import com.facebook.react.bridge.ReactMethod
 class VaultrAutofillModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
+    companion object {
+        const val ACTION_AUTOFILL_UNLOCKED = "com.vaultr.mobile.AUTOFILL_UNLOCKED"
+        @Volatile
+        var isAutofillUnlockPending: Boolean = false
+    }
+
     override fun getName(): String = "VaultrAutofillModule"
+
+    @ReactMethod
+    fun isAutofillUnlockPending(promise: Promise) {
+        promise.resolve(isAutofillUnlockPending)
+    }
+
+    @ReactMethod
+    fun finishAutofillUnlock(promise: Promise) {
+        try {
+            isAutofillUnlockPending = false
+            val intent = Intent(ACTION_AUTOFILL_UNLOCKED).apply {
+                setPackage(reactContext.packageName)
+            }
+            reactContext.sendBroadcast(intent)
+
+            // Gracefully move MainActivity to the background so the user returns to the autofill flow
+            reactContext.currentActivity?.moveTaskToBack(true)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("FINISH_UNLOCK_ERROR", e.message, e)
+        }
+    }
 
     @ReactMethod
     fun checkStatus(promise: Promise) {
@@ -87,12 +115,28 @@ class VaultrAutofillModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun syncCredentials(jsonString: String, promise: Promise) {
+    fun syncCredentials(jsonString: String, timeoutMinutes: Double, promise: Promise) {
         try {
-            AutofillCredentialStore.syncCredentials(reactContext, jsonString)
-            promise.resolve(AutofillCredentialStore.getCount())
+            val timeoutMs = if (timeoutMinutes > 0) (timeoutMinutes * 60 * 1000).toLong() else 5 * 60 * 1000L
+            AutofillCredentialStore.syncCredentials(reactContext, jsonString, timeoutMs)
+            val count = AutofillCredentialStore.getCount()
+            val intent = Intent(ACTION_AUTOFILL_UNLOCKED).apply {
+                setPackage(reactContext.packageName)
+            }
+            reactContext.sendBroadcast(intent)
+            promise.resolve(count)
         } catch (e: Exception) {
             promise.reject("SYNC_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun recordHeartbeat(promise: Promise) {
+        try {
+            AutofillCredentialStore.recordHeartbeat(reactContext)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.resolve(false)
         }
     }
 
@@ -100,6 +144,10 @@ class VaultrAutofillModule(private val reactContext: ReactApplicationContext) :
     fun clearCredentials(promise: Promise) {
         try {
             AutofillCredentialStore.clear(reactContext)
+            val intent = Intent(ACTION_AUTOFILL_UNLOCKED).apply {
+                setPackage(reactContext.packageName)
+            }
+            reactContext.sendBroadcast(intent)
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("CLEAR_ERROR", e.message, e)

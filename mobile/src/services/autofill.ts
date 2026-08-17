@@ -74,15 +74,23 @@ export function openAccessibilitySettings(): void {
 }
 
 /** Sync decrypted credentials with Android Autofill Service native store. */
-export async function syncAutofillCredentials(logins: AutofillDataset[]): Promise<void> {
+export async function syncAutofillCredentials(logins: AutofillDataset[], timeoutMinutes: number = 5): Promise<void> {
   if (Platform.OS !== "android" || !VaultrAutofillModule) return;
   try {
     const jsonString = JSON.stringify(logins);
-    const count = await VaultrAutofillModule.syncCredentials(jsonString);
-    console.log(`[Android Autofill] Indexed ${count} credentials into native store.`);
+    const count = await VaultrAutofillModule.syncCredentials(jsonString, timeoutMinutes);
+    console.log(`[Android Autofill] Indexed ${count} credentials into native store (timeout: ${timeoutMinutes}m).`);
   } catch (err) {
     console.error("[Android Autofill] Failed to sync credentials to native store:", err);
   }
+}
+
+/** Record user heartbeat activity to keep native autofill cache fresh while active. */
+export async function recordAutofillHeartbeat(): Promise<void> {
+  if (Platform.OS !== "android" || !VaultrAutofillModule) return;
+  try {
+    await VaultrAutofillModule.recordHeartbeat();
+  } catch {}
 }
 
 /** Clear all cached credentials from native store on vault lock or logout. */
@@ -105,3 +113,24 @@ export async function testAutofillMatch(query: string): Promise<Array<{ id: stri
     return [];
   }
 }
+
+/** Check if the app was launched specifically to authenticate an Android autofill request. */
+export async function isAutofillUnlockPending(): Promise<boolean> {
+  if (Platform.OS !== "android" || !VaultrAutofillModule?.isAutofillUnlockPending) return false;
+  try {
+    return await VaultrAutofillModule.isAutofillUnlockPending();
+  } catch {
+    return false;
+  }
+}
+
+/** Finish the autofill unlock sequence, return to the autofill search sheet, and minimize Vaultr. */
+export async function finishAutofillUnlock(): Promise<void> {
+  if (Platform.OS !== "android" || !VaultrAutofillModule?.finishAutofillUnlock) return;
+  try {
+    await VaultrAutofillModule.finishAutofillUnlock();
+  } catch (err) {
+    console.warn("[Autofill] Failed to finish autofill unlock:", err);
+  }
+}
+

@@ -5,25 +5,39 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:background="?android:attr/selectableItemBackground"
-    android:paddingStart="12dp"
-    android:paddingEnd="8dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp"
-    android:layout_marginStart="4dp"
-    android:layout_marginEnd="4dp">
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp">
 
-    <!-- Avatar Glyph -->
-    <TextView
-        android:id="@+id/search_item_avatar"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:background="@drawable/bg_search_input"
-        android:gravity="center"
-        android:text="V"
-        android:textColor="#F4F4F5"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:layout_marginEnd="12dp" />
+    <!-- Avatar / Favicon Container -->
+    <FrameLayout
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_avatar_rounded"
+        android:layout_marginEnd="14dp">
+
+        <!-- Async Favicon Image -->
+        <ImageView
+            android:id="@+id/search_item_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:scaleType="fitCenter"
+            android:contentDescription="Site Favicon"
+            android:visibility="gone" />
+
+        <!-- Fallback Monogram Glyph -->
+        <TextView
+            android:id="@+id/search_item_avatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="V"
+            android:textColor="#F4F4F5"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </FrameLayout>
 
     <!-- Info Column -->
     <LinearLayout
@@ -48,7 +62,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="username@example.com"
-            android:textColor="#71717A"
+            android:textColor="#A1A1AA"
             android:textSize="12sp"
             android:layout_marginTop="2dp"
             android:singleLine="true"

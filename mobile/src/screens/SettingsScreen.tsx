@@ -17,6 +17,7 @@ import { vaultAlert } from "../store/alertStore";
 import { colors } from "../theme/colors";
 import { getAvatarUri } from "../utils/avatar";
 import { openAutofillSettings } from "../services/autofill";
+import { VAULTR_VERSION, VAULTR_BUILD_NUMBER, getBuildSignature } from "@vaultr/core";
 import {
   Shield,
   Fingerprint,
@@ -114,7 +115,7 @@ export function SettingsScreen({ navigation }: any) {
   };
 
   const handleCopyDiagnostics = async () => {
-    const text = `VaultR 2026 Mobile v0.2.4 (Build 2026.08.16) • AES-256-GCM Zero-Knowledge • Server: ${serverUrl || "Not configured"}`;
+    const text = `${getBuildSignature("mobile")} • AES-256-GCM Zero-Knowledge • Server: ${serverUrl || "Not configured"}`;
     await Clipboard.setStringAsync(text);
     vaultAlert.alert(
       "Diagnostics Copied",
@@ -306,7 +307,7 @@ export function SettingsScreen({ navigation }: any) {
             <SettingsRow
               icon={<Info size={15} color="#a1a1aa" />}
               title="VaultR 2026 Mobile"
-              subtitle="v0.2.4 (Build 2026.08.16 · Stable)"
+              subtitle={`v${VAULTR_VERSION} (Build ${VAULTR_BUILD_NUMBER} · Stable)`}
               onPress={handleCopyDiagnostics}
               last
             />

@@ -17,8 +17,17 @@
     <item name="android:windowIsFloating">false</item>
     <item name="android:windowIsTranslucent">true</item>
     <item name="android:windowBackground">@android:color/transparent</item>
-    <item name="android:statusBarColor">#09090b</item>
-    <item name="android:navigationBarColor">#09090b</item>
-    <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+    <item name="android:statusBarColor">#80000000</item>
+    <item name="android:navigationBarColor">#0c0d12</item>
+    <item name="android:windowAnimationStyle">@style/Animation.Vaultr.BottomSheet</item>
+  </style>
+
+  <style name="Theme.Vaultr.BottomSheetDialog" parent="Theme.Vaultr.Dialog">
+    <item name="android:windowAnimationStyle">@style/Animation.Vaultr.BottomSheet</item>
+  </style>
+
+  <style name="Animation.Vaultr.BottomSheet" parent="@android:style/Animation.Dialog">
+    <item name="android:windowEnterAnimation">@anim/slide_in_bottom</item>
+    <item name="android:windowExitAnimation">@anim/slide_out_bottom</item>
   </style>
 </resources>

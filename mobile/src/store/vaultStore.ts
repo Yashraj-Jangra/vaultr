@@ -1117,6 +1117,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 async function syncAutofillStore() {
   const { items, cryptoKey } = useVaultStore.getState();
   if (!cryptoKey) return;
+  const timeoutStr = await AsyncStorage.getItem("vaultr_auto_lock_timeout");
+  const timeoutMinutes = parseInt(timeoutStr || "5", 10) || 5;
+
   const loginItems = items.filter((i) => (i.template || "login") === "login" && !i.deletedAt);
   const datasets: any[] = [];
   for (const item of loginItems) {
@@ -1144,7 +1147,7 @@ async function syncAutofillStore() {
       }
     } catch {}
   }
-  await syncAutofillCredentials(datasets);
+  await syncAutofillCredentials(datasets, timeoutMinutes);
 }
 
 

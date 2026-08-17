@@ -20,9 +20,17 @@ object AutofillCredentialStore {
     private const val TAG = "VaultrAutofillStore"
     private const val PREFS_NAME = "vaultr_autofill_secure_cache"
     private const val KEY_CREDENTIALS = "cached_credentials_json"
+    private const val KEY_UNLOCKED_AT = "vaultr_autofill_unlocked_at"
+    private const val KEY_TIMEOUT_MS = "vaultr_autofill_timeout_ms"
+    private const val DEFAULT_TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes default
 
     // In-memory cache for ultra-fast matching
+    @Volatile
     private var cachedItems: List<AutofillItem> = emptyList()
+    @Volatile
+    private var lastUnlockedAt: Long = 0L
+    @Volatile
+    private var autoLockTimeoutMs: Long = DEFAULT_TIMEOUT_MS
 
     // Common Android package to web domain mapping table
     private val PACKAGE_DOMAIN_MAP = mapOf(
@@ -55,51 +63,105 @@ object AutofillCredentialStore {
     )
 
     fun initialize(context: Context) {
-        if (cachedItems.isNotEmpty()) return
         try {
             val prefs = getPrefs(context)
-            val raw = prefs.getString(KEY_CREDENTIALS, null)
-            if (!raw.isNullOrBlank()) {
-                cachedItems = parseJson(raw)
-                Log.d(TAG, "Loaded ${cachedItems.size} credentials from local store")
+            lastUnlockedAt = prefs.getLong(KEY_UNLOCKED_AT, 0L)
+            autoLockTimeoutMs = prefs.getLong(KEY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
+
+            // If auto-lock timeout has expired, wipe immediately
+            if (isVaultLockedInternal()) {
+                clear(context)
+                return
+            }
+
+            if (cachedItems.isEmpty()) {
+                val raw = prefs.getString(KEY_CREDENTIALS, null)
+                if (!raw.isNullOrBlank()) {
+                    cachedItems = parseJson(raw)
+                    Log.d(TAG, "Loaded ${cachedItems.size} credentials from local store")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize credentials from store", e)
         }
     }
 
-    fun syncCredentials(context: Context, jsonString: String) {
+    fun isVaultLocked(): Boolean {
+        return isVaultLockedInternal()
+    }
+
+    private fun isVaultLockedInternal(): Boolean {
+        if (cachedItems.isEmpty() && lastUnlockedAt == 0L) return true
+        if (autoLockTimeoutMs > 0 && lastUnlockedAt > 0) {
+            val elapsed = System.currentTimeMillis() - lastUnlockedAt
+            if (elapsed >= autoLockTimeoutMs) {
+                Log.d(TAG, "Auto-lock timeout expired ($elapsed >= $autoLockTimeoutMs ms). Vault is locked.")
+                cachedItems = emptyList()
+                lastUnlockedAt = 0L
+                return true
+            }
+        }
+        return cachedItems.isEmpty()
+    }
+
+    fun syncCredentials(context: Context, jsonString: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS) {
         try {
             val items = parseJson(jsonString)
             cachedItems = items
+            lastUnlockedAt = System.currentTimeMillis()
+            autoLockTimeoutMs = if (timeoutMs > 0) timeoutMs else DEFAULT_TIMEOUT_MS
+
             val prefs = getPrefs(context)
-            prefs.edit().putString(KEY_CREDENTIALS, jsonString).apply()
-            Log.d(TAG, "Successfully synced and indexed ${items.size} credentials")
+            prefs.edit()
+                .putString(KEY_CREDENTIALS, jsonString)
+                .putLong(KEY_UNLOCKED_AT, lastUnlockedAt)
+                .putLong(KEY_TIMEOUT_MS, autoLockTimeoutMs)
+                .apply()
+            Log.d(TAG, "Successfully synced ${items.size} credentials. Timeout: ${autoLockTimeoutMs}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync credentials", e)
         }
     }
 
+    fun recordHeartbeat(context: Context) {
+        if (cachedItems.isNotEmpty()) {
+            lastUnlockedAt = System.currentTimeMillis()
+            try {
+                getPrefs(context).edit().putLong(KEY_UNLOCKED_AT, lastUnlockedAt).apply()
+            } catch (_: Exception) {}
+        }
+    }
+
     fun clear(context: Context) {
         cachedItems = emptyList()
+        lastUnlockedAt = 0L
         try {
             val prefs = getPrefs(context)
-            prefs.edit().remove(KEY_CREDENTIALS).apply()
+            prefs.edit()
+                .remove(KEY_CREDENTIALS)
+                .remove(KEY_UNLOCKED_AT)
+                .apply()
             Log.d(TAG, "Wiped autofill credential store")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear credentials", e)
         }
     }
 
-    fun getCount(): Int = cachedItems.size
+    fun getCount(): Int {
+        if (isVaultLocked()) return 0
+        return cachedItems.size
+    }
 
-    fun getAll(): List<AutofillItem> = cachedItems
+    fun getAll(): List<AutofillItem> {
+        if (isVaultLocked()) return emptyList()
+        return cachedItems
+    }
 
     /**
      * Finds matching credentials by target domain, URL, or native Android package name.
      */
     fun findMatches(target: String?): List<AutofillItem> {
-        if (target.isNullOrBlank()) return emptyList()
+        if (isVaultLocked() || target.isNullOrBlank()) return emptyList()
 
         val cleanTarget = normalizeDomain(target)
         val mappedDomain = PACKAGE_DOMAIN_MAP[target.trim().lowercase()]

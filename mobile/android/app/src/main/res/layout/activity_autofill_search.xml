@@ -3,121 +3,161 @@
     android:id="@+id/root_backdrop"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#99000000"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="36dp"
-    android:paddingBottom="16dp">
+    android:background="#80000000">
 
     <LinearLayout
+        android:id="@+id/sheet_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@drawable/bg_quick_autofill_sheet"
-        android:paddingTop="12dp">
+        android:paddingTop="12dp"
+        android:paddingBottom="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:focusableInTouchMode="true">
 
-        <!-- Top Drag Pill -->
+        <!-- Top Drag Pill Handle -->
         <View
-            android:layout_width="32dp"
+            android:layout_width="38dp"
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
-            android:background="#333542"
+            android:background="#3F3F46"
             android:layout_marginBottom="12dp" />
 
-        <!-- Search & Action Row -->
-        <LinearLayout
+        <!-- Header Row (Title & Close Button) -->
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="10dp"
-            android:layout_marginBottom="4dp">
+            android:layout_height="40dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="12dp"
+            android:layout_marginBottom="6dp">
 
             <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_weight="1"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:background="@drawable/bg_search_input"
-                android:paddingStart="12dp"
-                android:paddingEnd="10dp">
+                android:layout_alignParentStart="true">
 
                 <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:src="@drawable/ic_search_clean"
-                    android:contentDescription="Search"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_vaultr_lock_small"
+                    android:contentDescription="VaultR"
                     android:layout_marginEnd="8dp" />
 
-                <EditText
-                    android:id="@+id/search_edit_text"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:hint="Search vault..."
-                    android:textColorHint="#52525B"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="VaultR Autofill"
                     android:textColor="#F4F4F5"
-                    android:textSize="14sp"
-                    android:background="@null"
-                    android:singleLine="true"
-                    android:imeOptions="actionSearch" />
-
-                <ImageButton
-                    android:id="@+id/btn_clear_search"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_close_clean"
-                    android:background="@null"
-                    android:contentDescription="Clear"
-                    android:visibility="gone" />
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <ImageButton
                 android:id="@+id/btn_close_search"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
                 android:src="@drawable/ic_close_clean"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Close"
-                android:layout_marginStart="4dp" />
+                android:padding="6dp" />
+        </RelativeLayout>
+
+        <!-- Search Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_search_input"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="10dp"
+            android:layout_marginBottom="8dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_search_clean"
+                android:contentDescription="Search"
+                android:layout_marginEnd="8dp" />
+
+            <EditText
+                android:id="@+id/search_edit_text"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:hint="Search vault accounts..."
+                android:textColorHint="#71717A"
+                android:textColor="#F4F4F5"
+                android:textSize="14sp"
+                android:background="@null"
+                android:singleLine="true"
+                android:imeOptions="actionSearch" />
+
+            <ImageButton
+                android:id="@+id/btn_clear_search"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_close_clean"
+                android:background="@null"
+                android:contentDescription="Clear"
+                android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Detected Context Subtitle -->
+        <!-- Suggestion / Context Indicator Badge -->
         <TextView
             android:id="@+id/text_detected_context"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Tap any account to autofill"
-            android:textColor="#71717A"
+            android:textColor="#A1A1AA"
             android:textSize="12sp"
-            android:paddingStart="18dp"
-            android:paddingEnd="18dp"
-            android:paddingBottom="6dp" />
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="8dp" />
 
-        <!-- Empty State -->
-        <TextView
-            android:id="@+id/search_status_text"
+        <!-- Empty State Container -->
+        <LinearLayout
+            android:id="@+id/container_empty_state"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="No matching credentials found."
-            android:textColor="#52525B"
-            android:textSize="13sp"
+            android:orientation="vertical"
             android:gravity="center"
-            android:padding="32dp"
-            android:visibility="gone" />
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="28dp"
+            android:paddingBottom="28dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/search_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No matching credentials found."
+                android:textColor="#71717A"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.2"
+                android:gravity="center" />
+        </LinearLayout>
 
         <!-- Results List -->
         <ListView
             android:id="@+id/search_results_list"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="wrap_content"
             android:divider="@null"
             android:dividerHeight="0dp"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp"
-            android:clipToPadding="false" />
+            android:clipToPadding="false"
+            android:scrollbars="vertical"
+            android:nestedScrollingEnabled="true" />
     </LinearLayout>
 </FrameLayout>

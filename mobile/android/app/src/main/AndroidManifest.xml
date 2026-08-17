@@ -1,13 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-  <uses-permission android:name="android.permission.BIND_AUTOFILL_SERVICE"/>
   <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
-  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -73,12 +69,10 @@
     <!-- Vaultr Quick Autofill Search Activity -->
     <activity
         android:name=".autofill.AutofillSearchActivity"
-        android:theme="@style/Theme.Vaultr.Dialog"
+        android:theme="@style/Theme.Vaultr.BottomSheetDialog"
         android:taskAffinity=""
-        android:launchMode="singleTask"
-        android:noHistory="true"
         android:excludeFromRecents="true"
-        android:windowSoftInputMode="stateVisible|adjustResize"
+        android:windowSoftInputMode="adjustResize|stateHidden"
         android:exported="true" />
   </application>
 </manifest>

@@ -31,6 +31,7 @@ import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
 import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
+import { isAutofillUnlockPending, finishAutofillUnlock } from "../services/autofill";
 
 function GridBackground() {
   return (
@@ -108,6 +109,9 @@ export function UnlockScreen() {
         InteractionManager.runAfterInteractions(async () => {
           try {
             await unlock(pw);
+            if (await isAutofillUnlockPending()) {
+              await finishAutofillUnlock();
+            }
           } catch (err: any) {
             const msg = err?.message || "Incorrect master password.";
             setUnlockError(msg);
@@ -163,9 +167,11 @@ export function UnlockScreen() {
         const enabled = await isBiometricEnabled();
         if (enabled) {
           setBiometricEnrolled(true);
+          const isPending = await isAutofillUnlockPending();
+          // If summoned from autofill, trigger biometric instantly!
           setTimeout(() => {
             handleBiometricUnlock();
-          }, 400);
+          }, isPending ? 50 : 300);
         } else {
           setBiometricEnrolled(false);
         }
@@ -206,6 +212,9 @@ export function UnlockScreen() {
     InteractionManager.runAfterInteractions(async () => {
       try {
         await unlock(masterPassword);
+        if (await isAutofillUnlockPending()) {
+          await finishAutofillUnlock();
+        }
       } catch (err: any) {
         const msg = err?.message || "Incorrect password";
         setUnlockError(msg.includes("decrypt") ? "Incorrect master password." : msg);
