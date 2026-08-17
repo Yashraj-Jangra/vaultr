@@ -78,8 +78,8 @@ interface VaultState {
     name: string;
     unencryptedPayload: any;
     template?: Template;
-    folder?: string;
-    domain?: string;
+    folder?: string | null;
+    domain?: string | null;
     favorite?: boolean;
     hasTotp?: boolean;
     tags?: string[];
@@ -90,8 +90,8 @@ interface VaultState {
       name?: string;
       unencryptedPayload?: any;
       template?: Template;
-      folder?: string;
-      domain?: string;
+      folder?: string | null;
+      domain?: string | null;
       favorite?: boolean;
       hasTotp?: boolean;
       tags?: string[];
@@ -121,10 +121,11 @@ interface VaultState {
 }
 
 /** Helper to instantiate an authenticated VaultrApiClient using current store state. */
-function getApiClient(): VaultrApiClient {
+function getApiClient(overrideServerUrl?: string): VaultrApiClient {
   const { serverUrl, accountToken } = useVaultStore.getState();
+  const baseUrl = overrideServerUrl || serverUrl;
   return new VaultrApiClient({
-    baseUrl: serverUrl,
+    baseUrl,
     getToken: () => accountToken || "",
     getCookies: () => (accountToken ? `better-auth.session_token=${accountToken}` : ""),
     customFetch: (url: string | URL | Request, init: RequestInit = {}) => {
@@ -180,7 +181,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const { token, user, serverUrl } = await getSavedAccountSession();
     if (serverUrl) set({ serverUrl });
     if (token && user) {
-      set({ accountToken: token, accountUser: user, isAuthenticated: true });
+      let customFolders: string[] = [];
+      try {
+        const cached = await AsyncStorage.getItem(`vaultr_custom_folders_${user.id}`);
+        if (cached) customFolders = JSON.parse(cached);
+      } catch {}
+      set({ accountToken: token, accountUser: user, isAuthenticated: true, customFolders });
       get().syncUserProfile();
     }
 
@@ -458,19 +464,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ isLoading: true });
     try {
       const serverUrl = customServerUrl || get().serverUrl;
-      const { accountUser, accountToken } = get();
+      const { accountUser } = get();
       const salt = accountUser?.id || "vaultr_default_salt";
-
-      const api = new VaultrApiClient({
-        baseUrl: serverUrl,
-        getToken: () => accountToken || "",
-        getCookies: () => (accountToken ? `better-auth.session_token=${accountToken}` : ""),
-      });
+      const api = getApiClient(serverUrl);
 
       let isOnline = true;
 
-      // ⚡ Parallel: derive crypto key AND fetch items concurrently
-      const [key, items] = await Promise.all([
+      // ⚡ Parallel: derive crypto key AND fetch items & custom folders concurrently
+      const [key, items, serverFolders] = await Promise.all([
         deriveKey(masterPassword, salt),
         api.getItems().then(async (fetched) => {
           await cacheVaultItems(fetched, accountUser?.id);
@@ -493,7 +494,24 @@ export const useVaultStore = create<VaultState>((set, get) => ({
           }
           return cached;
         }),
+        api.getFolders().catch(() => []),
       ]);
+
+      // Load cached custom folders and merge with server folders
+      let customFolders: string[] = [];
+      if (accountUser?.id) {
+        try {
+          const cachedFolders = await AsyncStorage.getItem(`vaultr_custom_folders_${accountUser.id}`);
+          if (cachedFolders) {
+            customFolders = JSON.parse(cachedFolders);
+          }
+        } catch {}
+      }
+      const cleanServerFolders = (serverFolders || []).map((f: any) => typeof f === "string" ? f : f?.name || f?.path || "").filter(Boolean);
+      customFolders = Array.from(new Set([...customFolders, ...cleanServerFolders])).sort();
+      if (accountUser?.id && customFolders.length > 0) {
+        AsyncStorage.setItem(`vaultr_custom_folders_${accountUser.id}`, JSON.stringify(customFolders)).catch(() => {});
+      }
 
       // Zero-Knowledge Master Password Validation: test decrypting a sample item
       const testItem = items.find((i) => !!i.encryptedBlob);
@@ -509,6 +527,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         cryptoKey: key,
         masterPassword,
         items,
+        customFolders,
         isUnlocked: true,
         isLoading: false,
         isOnline,
@@ -547,21 +566,21 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const { accountUser } = get();
     get().syncUserProfile();
     try {
-      const items = await api.getItems();
+      const [items, serverFolders] = await Promise.all([
+        api.getItems(),
+        api.getFolders().catch(() => []),
+      ]);
       await cacheVaultItems(items, accountUser?.id);
-      set({ items, isOnline: true });
 
-      // Sync server folders (including empty custom folders)
-      try {
-        const serverFolders = await api.getFolders();
-        const cleanServerFolders = (serverFolders || []).map((f: any) => typeof f === "string" ? f : f?.name || f?.path || "").filter(Boolean);
-        const cleanCurrentCustom = (get().customFolders || []).map((f: any) => typeof f === "string" ? f : f?.name || f?.path || "").filter(Boolean);
-        const mergedCustom = Array.from(new Set([...cleanCurrentCustom, ...cleanServerFolders])).sort();
-        set({ customFolders: mergedCustom });
-        if (accountUser?.id) {
-          await AsyncStorage.setItem(`vaultr_custom_folders_${accountUser.id}`, JSON.stringify(mergedCustom));
-        }
-      } catch {}
+      const cleanServerFolders = (serverFolders || []).map((f: any) => typeof f === "string" ? f : f?.name || f?.path || "").filter(Boolean);
+      const cleanCurrentCustom = (get().customFolders || []).map((f: any) => typeof f === "string" ? f : f?.name || f?.path || "").filter(Boolean);
+      const mergedCustom = Array.from(new Set([...cleanCurrentCustom, ...cleanServerFolders])).sort();
+
+      set({ items, customFolders: mergedCustom, isOnline: true });
+
+      if (accountUser?.id && mergedCustom.length > 0) {
+        await AsyncStorage.setItem(`vaultr_custom_folders_${accountUser.id}`, JSON.stringify(mergedCustom));
+      }
     } catch (err: any) {
       if (err?.status === 401 || (err?.message && (err.message.includes("401") || err.message.toLowerCase().includes("unauthorized")))) {
         console.warn("[VaultStore] Session revoked on server (401), logging out mobile device...");
@@ -570,7 +589,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       }
       console.warn("[VaultStore] Failed to fetch online items, loading cache:", err);
       const cached = await getCachedVaultItems(accountUser?.id);
-      set({ items: cached, isOnline: false });
+      let cachedFolders: string[] = [];
+      if (accountUser?.id) {
+        try {
+          const raw = await AsyncStorage.getItem(`vaultr_custom_folders_${accountUser.id}`);
+          if (raw) cachedFolders = JSON.parse(raw);
+        } catch {}
+      }
+      set({ items: cached, customFolders: cachedFolders, isOnline: false });
     }
   },
 
@@ -595,8 +621,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const payload: NewVaultItemPayload = {
       name: params.name,
       encryptedBlob,
-      domain: params.domain,
-      folder: params.folder,
+      domain: params.domain ?? undefined,
+      folder: params.folder ? params.folder.trim() : null,
       template: params.template || "login",
       favorite: params.favorite || false,
       hasTotp: params.hasTotp || false,
@@ -623,8 +649,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
     const patch: Partial<VaultItem> = {};
     if (params.name !== undefined) patch.name = params.name;
-    if (params.domain !== undefined) patch.domain = params.domain;
-    if (params.folder !== undefined) patch.folder = params.folder;
+    if (params.domain !== undefined) patch.domain = params.domain ? params.domain.trim() : null;
+    if (params.folder !== undefined) patch.folder = params.folder ? params.folder.trim() : null;
     if (params.template !== undefined) patch.template = params.template;
     if (params.favorite !== undefined) patch.favorite = params.favorite;
     if (params.hasTotp !== undefined) patch.hasTotp = params.hasTotp;

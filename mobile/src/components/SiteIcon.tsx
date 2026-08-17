@@ -9,14 +9,14 @@ export function SiteIcon({
   name,
   url,
   template = "login",
-  size = 32,
+  size = 38,
   resizeMode = "contain",
   fill = false,
   borderless = false,
 }: {
-  domain?: string;
+  domain?: string | null;
   name: string;
-  url?: string;
+  url?: string | null;
   template?: string;
   size?: number;
   resizeMode?: "contain" | "cover";
@@ -27,11 +27,11 @@ export function SiteIcon({
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
 
   if (template !== "login" || !effectiveDomain || hasError) {
-    let icon = <Globe size={size * 0.75} color={colors.textMuted} />;
-    if (template === "card") icon = <CreditCard size={size * 0.75} color={colors.accent} />;
-    if (template === "note") icon = <FileText size={size * 0.75} color={colors.warning} />;
-    if (template === "address") icon = <MapPin size={size * 0.75} color={colors.success} />;
-    if (template === "profile") icon = <User size={size * 0.75} color={colors.cardBlue} />;
+    let icon = <Globe size={size * 0.62} color={colors.textMuted} />;
+    if (template === "card") icon = <CreditCard size={size * 0.62} color={colors.accent} />;
+    if (template === "note") icon = <FileText size={size * 0.62} color={colors.warning} />;
+    if (template === "address") icon = <MapPin size={size * 0.62} color={colors.success} />;
+    if (template === "profile") icon = <User size={size * 0.62} color={colors.cardBlue} />;
 
     return (
       <View
@@ -55,7 +55,7 @@ export function SiteIcon({
     ? "https://developer.android.com/static/images/brand/android-head_flat.png"
     : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=128`;
 
-  const imgSize = fill ? size : size * 0.85;
+  const imgSize = fill ? size : size * 0.9;
 
   return (
     <View

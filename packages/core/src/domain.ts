@@ -251,7 +251,7 @@ export function cleanHostname(hostname: string): string {
   return hostname.toLowerCase().replace(/^www\./, "").trim();
 }
 
-export function resolveDomain(domain?: string, name?: string, url?: string): string {
+export function resolveDomain(domain?: string | null, name?: string | null, url?: string | null): string {
   const d = (domain || "").toLowerCase().trim();
   const u = (url || "").toLowerCase().trim();
   const n = (name || "").toLowerCase().trim();

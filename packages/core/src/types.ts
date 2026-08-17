@@ -8,8 +8,8 @@ export interface VaultItem {
   id: string;
   name: string;
   encryptedBlob: string;
-  domain?: string;
-  folder?: string;
+  domain?: string | null;
+  folder?: string | null;
   template?: Template;
   createdAt?: string;
   updatedAt?: string;

@@ -20,6 +20,7 @@ import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
+import { useResponsive } from "../utils/responsive";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import {
@@ -385,13 +386,14 @@ export function ItemFormScreen({ route, navigation }: Props) {
       }
       const hasTotp = template === "login" && !!totpSecret.trim();
 
+      const finalFolder = folder.trim() ? folder.trim() : null;
       let targetItemId = item?.id || "";
 
       if (isEdit && item) {
         await updateItem(item.id, {
           name: name.trim(),
           template,
-          folder: folder.trim() || undefined,
+          folder: finalFolder,
           tags: tagsList,
           domain,
           hasTotp,
@@ -401,7 +403,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
         const created = await createItem({
           name: name.trim(),
           template,
-          folder: folder.trim() || undefined,
+          folder: finalFolder,
           tags: tagsList,
           domain,
           hasTotp,
@@ -439,107 +441,78 @@ export function ItemFormScreen({ route, navigation }: Props) {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+  const { isSplitView } = useResponsive();
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <X size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isEdit ? "Edit Entry" : "New Entry"}
-        </Text>
-        <TouchableOpacity
-          style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={!name.trim() || saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#09090b" />
-          ) : (
-            <Save size={18} color="#09090b" />
-          )}
-        </TouchableOpacity>
+  const renderLeftPane = () => (
+    <View style={{ gap: 14 }}>
+      {/* Dynamic Live Preview Canvas */}
+      <View style={styles.previewCanvasWrap}>
+        <ItemPreviewCard
+          template={template}
+          name={name}
+          username={username}
+          url={url}
+          cardholderName={cardholderName}
+          cardNumber={cardNumber}
+          expMonth={expMonth}
+          expYear={expYear}
+          cvv={cvv}
+          cardBrand={cardBrand}
+          street={street}
+          city={city}
+          state={stateStr}
+          zip={zip}
+          country={country}
+          fullName={firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
+          email={email}
+          phone={phone}
+          note={note}
+        />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-        {/* Dynamic Live Preview Canvas */}
-        <View style={styles.previewCanvasWrap}>
-          <ItemPreviewCard
-            template={template}
-            name={name}
-            username={username}
-            url={url}
-            cardholderName={cardholderName}
-            cardNumber={cardNumber}
-            expMonth={expMonth}
-            expYear={expYear}
-            cvv={cvv}
-            cardBrand={cardBrand}
-            street={street}
-            city={city}
-            state={stateStr}
-            zip={zip}
-            country={country}
-            fullName={firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
-            email={email}
-            phone={phone}
-            note={note}
-          />
-        </View>
-
-        {/* Template selector pills */}
-        {!isEdit && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Entry Type</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.templateRow}
-            >
-              {TEMPLATES.map((t) => {
-                const IconComponent = t.icon;
-                const active = template === t.id;
-                return (
-                  <TouchableOpacity
-                    key={t.id}
-                    style={[styles.templatePill, active && styles.templatePillActive]}
-                    onPress={() => setTemplate(t.id)}
-                  >
-                    <IconComponent
-                      size={14}
-                      color={active ? colors.bg : colors.textMuted}
-                    />
-                    <Text
-                      style={[
-                        styles.templatePillText,
-                        active && styles.templatePillTextActive,
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Common Fields */}
+      {/* Template selector pills */}
+      {!isEdit && (
         <View style={styles.formGroup}>
+          <Text style={styles.label}>Entry Type</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.templateRow}
+          >
+            {TEMPLATES.map((t) => {
+              const IconComponent = t.icon;
+              const active = template === t.id;
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.templatePill, active && styles.templatePillActive]}
+                  onPress={() => setTemplate(t.id)}
+                >
+                  <IconComponent
+                    size={14}
+                    color={active ? colors.bg : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.templatePillText,
+                      active && styles.templatePillTextActive,
+                    ]}
+                  >
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderFormFields = () => (
+    <View style={{ gap: 16 }}>
+      {/* Common Fields */}
+      <View style={styles.formGroup}>
           <Text style={styles.label}>Item Name *</Text>
           <TextInput
             style={styles.input}
@@ -1193,7 +1166,64 @@ export function ItemFormScreen({ route, navigation }: Props) {
             </View>
           )}
         </View>
-      </ScrollView>
+      </View>
+    );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <X size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {isEdit ? "Edit Entry" : "New Entry"}
+        </Text>
+        <TouchableOpacity
+          style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={!name.trim() || saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#09090b" />
+          ) : (
+            <Save size={18} color="#09090b" />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        {isSplitView ? (
+          <ScrollView
+            contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.splitLeftCol}>
+              {renderLeftPane()}
+            </View>
+            <View style={styles.splitRightCol}>
+              {renderFormFields()}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {renderLeftPane()}
+            {renderFormFields()}
+          </ScrollView>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1203,6 +1233,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  splitContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 24,
+    gap: 24,
+  },
+  splitLeftCol: {
+    width: 380,
+    maxWidth: "42%",
+    gap: 16,
+  },
+  splitRightCol: {
+    flex: 1,
+    gap: 16,
   },
   header: {
     flexDirection: "row",

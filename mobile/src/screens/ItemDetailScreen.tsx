@@ -23,6 +23,7 @@ import { SiteIcon } from "../components/SiteIcon";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
+import { useResponsive } from "../utils/responsive";
 import {
   ArrowLeft,
   Copy,
@@ -141,11 +142,501 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     }
   };
 
+  const { isSplitView } = useResponsive();
+
+  const renderVisualPreviewAndHeader = () => (
+    <View style={{ gap: 14 }}>
+      {/* Dynamic Live Preview Canvas (Kept as requested) */}
+      <View style={{ marginBottom: 4 }}>
+        <ItemPreviewCard
+          template={item.template || "login"}
+          name={item.name}
+          username={payload?.username}
+          url={payload?.url || item.domain}
+          domain={item.domain || payload?.url}
+          cardholderName={payload?.cardholderName || payload?.cardName}
+          cardName={payload?.cardName || payload?.cardholderName}
+          cardNumber={payload?.cardNumber}
+          isNumberVisible={showPassword}
+          expMonth={payload?.expMonth}
+          expYear={payload?.expYear}
+          expiry={payload?.expiry}
+          cvv={payload?.cvv}
+          cardBrand={payload?.cardBrand}
+          street={payload?.street || payload?.line1}
+          line2={payload?.line2}
+          city={payload?.city}
+          state={payload?.state}
+          zip={payload?.zip}
+          country={payload?.country}
+          fullName={
+            payload?.fullName ||
+            (payload?.firstName && payload?.lastName
+              ? `${payload.firstName} ${payload.lastName}`
+              : payload?.firstName || payload?.lastName)
+          }
+          email={payload?.email}
+          phone={payload?.phone}
+          note={payload?.note}
+        />
+      </View>
+
+      {/* Header Badge Card */}
+      <View style={styles.badgeCard}>
+        <View style={styles.badgeCardHeader}>
+          <SiteIcon
+            domain={item.domain}
+            name={item.name}
+            url={payload?.url || item.domain}
+            template={item.template || "login"}
+            size={48}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <View style={styles.metaRow}>
+              <View style={styles.templatePill}>
+                <Text style={styles.templatePillText}>
+                  {(item.template || "login").toUpperCase()}
+                </Text>
+              </View>
+              {item.folder ? (
+                <Text style={styles.folderText}>{item.folder}</Text>
+              ) : null}
+            </View>
+            {item.tags && item.tags.length > 0 && (
+              <View style={styles.tagsRow}>
+                <Star size={11} color={colors.textMuted} style={{ marginRight: 2 }} />
+                {item.tags.map((t: string, idx: number) => (
+                  <View key={idx} style={styles.tagBadge}>
+                    <Text style={styles.tagBadgeText}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
+          <TouchableOpacity
+            style={styles.launchBtn}
+            onPress={() => handleLaunchUrl(payload?.url || item.domain)}
+          >
+            <ExternalLink size={16} color={colors.bg} />
+            <Text style={styles.launchBtnText}>Launch Website</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const renderDetailSections = () => (
+    <View style={{ gap: 16 }}>
+      {/* Live 2FA TOTP Code */}
+      {payload && (payload.totpSecret || payload.totp_secret) ? (
+        <View style={{ gap: 6 }}>
+          <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
+          <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
+        </View>
+      ) : null}
+
+      {/* Grouped Fields Sections */}
+      {payload && (
+        <View style={{ gap: 16 }}>
+          {/* Credentials Section */}
+          {(payload.username || payload.password) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>LOGIN CREDENTIALS</Text>
+              <View style={styles.sectionGroup}>
+                {payload.username ? (
+                  <FieldRow
+                    label="Username"
+                    value={payload.username}
+                    onCopy={() => copyToClipboard("username", payload.username)}
+                    isCopied={copiedField === "username"}
+                  />
+                ) : null}
+
+                {payload.password ? (
+                  <FieldRow
+                    label="Password"
+                    value={showPassword ? payload.password : "••••••••••••"}
+                    onCopy={() => copyToClipboard("password", payload.password)}
+                    isCopied={copiedField === "password"}
+                    onToggleShow={() => setShowPassword(!showPassword)}
+                    isPassword
+                    showPassword={showPassword}
+                    hasDivider={false}
+                  />
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* URLs Section */}
+          {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>AUTOFILL / WEBSITE OPTIONS</Text>
+              <View style={styles.sectionGroup}>
+                <FieldRow
+                  label="Website (URI)"
+                  value={payload?.url || item.domain}
+                  onCopy={() => copyToClipboard("url", payload?.url || item.domain)}
+                  isCopied={copiedField === "url"}
+                  onLaunch={() => handleLaunchUrl(payload?.url || item.domain)}
+                  hasDivider={payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1}
+                />
+
+                {payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1 ? (
+                  payload.urls.slice(1).map((extraUrl: string, idx: number) => (
+                    <FieldRow
+                      key={idx}
+                      label={`Website (URI #${idx + 2})`}
+                      value={extraUrl}
+                      onCopy={() => copyToClipboard(`extra_url_${idx}`, extraUrl)}
+                      isCopied={copiedField === `extra_url_${idx}`}
+                      onLaunch={() => handleLaunchUrl(extraUrl)}
+                      hasDivider={idx < payload.urls.length - 2}
+                    />
+                  ))
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Card Details Section */}
+          {(payload.cardholderName || payload.cardNumber) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>CARD DETAILS</Text>
+              <View style={styles.sectionGroup}>
+                {payload.cardholderName ? (
+                  <FieldRow
+                    label="Cardholder Name"
+                    value={payload.cardholderName}
+                    onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
+                    isCopied={copiedField === "cardholderName"}
+                    hasDivider={!!payload.cardNumber}
+                  />
+                ) : null}
+
+                {payload.cardNumber ? (
+                  <FieldRow
+                    label="Card Number"
+                    value={
+                      showPassword
+                        ? (() => {
+                            const clean = payload.cardNumber.replace(/\D/g, "");
+                            if (!clean) return payload.cardNumber;
+                            const groups = clean.length === 15 ? [4, 6, 5] : [4, 4, 4, 4];
+                            const parts: string[] = [];
+                            let idx = 0;
+                            for (const g of groups) {
+                              if (idx >= clean.length) break;
+                              parts.push(clean.slice(idx, idx + g));
+                              idx += g;
+                            }
+                            if (idx < clean.length) parts.push(clean.slice(idx));
+                            return parts.join(" ");
+                          })()
+                        : (payload.cardNumber.replace(/\D/g, "").length >= 4
+                            ? "•••• •••• •••• " + payload.cardNumber.replace(/\D/g, "").slice(-4)
+                            : "•••• •••• •••• ••••")
+                    }
+                    onCopy={() => copyToClipboard("cardNumber", payload.cardNumber)}
+                    isCopied={copiedField === "cardNumber"}
+                    onToggleShow={() => setShowPassword(!showPassword)}
+                    isPassword
+                    showPassword={showPassword}
+                    hasDivider={false}
+                  />
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Card Validity Section */}
+          {(payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>SECURITY & VALIDITY</Text>
+              <View style={styles.sectionGroup}>
+                {(payload.expiry || payload.expMonth || payload.expYear) ? (
+                  <FieldRow
+                    label="Expiry Date"
+                    value={payload.expiry || `${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
+                    onCopy={() => copyToClipboard("exp", payload.expiry || `${payload.expMonth}/${payload.expYear}`)}
+                    isCopied={copiedField === "exp"}
+                    hasDivider={!!(payload.cvv || payload.pin)}
+                  />
+                ) : null}
+
+                {payload.cvv ? (
+                  <FieldRow
+                    label="CVV / Security Code"
+                    value={showPassword ? payload.cvv : "•••"}
+                    onCopy={() => copyToClipboard("cvv", payload.cvv)}
+                    isCopied={copiedField === "cvv"}
+                    onToggleShow={() => setShowPassword(!showPassword)}
+                    isPassword
+                    showPassword={showPassword}
+                    hasDivider={!!payload.pin}
+                  />
+                ) : null}
+
+                {payload.pin ? (
+                  <FieldRow
+                    label="ATM PIN"
+                    value={showPassword ? payload.pin : "••••"}
+                    onCopy={() => copyToClipboard("pin", payload.pin)}
+                    isCopied={copiedField === "pin"}
+                    onToggleShow={() => setShowPassword(!showPassword)}
+                    isPassword
+                    showPassword={showPassword}
+                    hasDivider={false}
+                  />
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Address Section */}
+          {(payload.street || payload.city || payload.state || payload.zip || payload.country) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>ADDRESS DETAILS</Text>
+              <View style={styles.sectionGroup}>
+                {payload.street ? (
+                  <FieldRow
+                    label="Street Address"
+                    value={payload.street}
+                    onCopy={() => copyToClipboard("street", payload.street)}
+                    isCopied={copiedField === "street"}
+                    hasDivider={!!(payload.city || payload.state || payload.zip || payload.country)}
+                  />
+                ) : null}
+
+                {payload.city || payload.state || payload.zip ? (
+                  <FieldRow
+                    label="City, State & ZIP"
+                    value={[payload.city, payload.state, payload.zip].filter(Boolean).join(", ")}
+                    onCopy={() => copyToClipboard("cityState", [payload.city, payload.state, payload.zip].filter(Boolean).join(", "))}
+                    isCopied={copiedField === "cityState"}
+                    hasDivider={!!payload.country}
+                  />
+                ) : null}
+
+                {payload.country ? (
+                  <FieldRow
+                    label="Country"
+                    value={payload.country}
+                    onCopy={() => copyToClipboard("country", payload.country)}
+                    isCopied={copiedField === "country"}
+                    hasDivider={false}
+                  />
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Profile Identity Section */}
+          {(payload.firstName || payload.lastName || payload.email || payload.phone) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
+              <View style={styles.sectionGroup}>
+                {payload.firstName || payload.lastName ? (
+                  <FieldRow
+                    label="Full Name"
+                    value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
+                    onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
+                    isCopied={copiedField === "fullName"}
+                    hasDivider={!!(payload.email || payload.phone)}
+                  />
+                ) : null}
+
+                {payload.email ? (
+                  <FieldRow
+                    label="Email Address"
+                    value={payload.email}
+                    onCopy={() => copyToClipboard("email", payload.email)}
+                    isCopied={copiedField === "email"}
+                    hasDivider={!!payload.phone}
+                  />
+                ) : null}
+
+                {payload.phone ? (
+                  <FieldRow
+                    label="Phone Number"
+                    value={payload.phone}
+                    onCopy={() => copyToClipboard("phone", payload.phone)}
+                    isCopied={copiedField === "phone"}
+                    hasDivider={false}
+                  />
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Note Content */}
+          {(payload.note || ((item.template === "note" || payload._template === "note") && payload.entryNotes)) ? (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
+              <View style={styles.noteCardBox}>
+                <View style={styles.noteCardHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <FileText size={15} color="#fbbf24" />
+                    <Text style={styles.noteCardTitle}>CONTENT</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.noteCopyBtn}
+                    onPress={() => copyToClipboard("noteContent", payload.note || payload.entryNotes)}
+                    activeOpacity={0.7}
+                  >
+                    {copiedField === "noteContent" ? (
+                      <Check size={13} color="#34d399" />
+                    ) : (
+                      <Copy size={13} color="#a1a1aa" />
+                    )}
+                    <Text style={[styles.noteCopyBtnText, copiedField === "noteContent" && { color: "#34d399" }]}>
+                      {copiedField === "noteContent" ? "COPIED" : "COPY"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                  <Text style={styles.noteContentBody} selectable>{payload.note || payload.entryNotes}</Text>
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Custom Fields */}
+          {((payload.fields && Array.isArray(payload.fields) && payload.fields.length > 0) ||
+            (payload.customFields && Array.isArray(payload.customFields) && payload.customFields.length > 0)) ? (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>CUSTOM FIELDS</Text>
+              <View style={styles.sectionGroup}>
+                {(payload.fields || payload.customFields).map((field: any, idx: number) => {
+                  const isHidden = field.type === "hidden";
+                  const labelStr = field.name || field.key || "Custom Field";
+                  const valStr = String(field.value || "");
+                  const allFields = payload.fields || payload.customFields;
+                  return (
+                    <FieldRow
+                      key={field.id || idx}
+                      label={labelStr}
+                      value={isHidden && !showPassword ? "••••••••••••" : valStr}
+                      onCopy={() => copyToClipboard(`cf_${idx}`, valStr)}
+                      isCopied={copiedField === `cf_${idx}`}
+                      isPassword={isHidden}
+                      showPassword={showPassword}
+                      onToggleShow={isHidden ? () => setShowPassword(!showPassword) : undefined}
+                      hasDivider={idx < allFields.length - 1}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Attachments Section */}
+          {((payload.attachments && Array.isArray(payload.attachments) && payload.attachments.length > 0) || serverAttachments.length > 0) ? (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>
+                FILE ATTACHMENTS ({(serverAttachments.length || payload.attachments?.length || 0)})
+              </Text>
+              <View style={styles.sectionGroup}>
+                {(serverAttachments.length > 0 ? serverAttachments : (payload.attachments || [])).map((att: any, idx: number) => {
+                  const totalCount = serverAttachments.length > 0 ? serverAttachments.length : payload.attachments.length;
+                  return (
+                    <TouchableOpacity
+                      key={att.id || idx}
+                      style={[
+                        styles.attachDetailRow,
+                        idx < totalCount - 1 && styles.rowDivider,
+                      ]}
+                      onPress={async () => {
+                        if (att.uri) {
+                          Linking.openURL(att.uri).catch(() =>
+                            vaultAlert.alert("Notice", "Cannot open local file URI.", undefined, { illustration: "cancel_k4w9" })
+                          );
+                        } else if (att.id) {
+                          try {
+                            const decrypted = await downloadAndDecryptAttachment(att.id, att.encryptedName || att.name);
+
+                            // Save decrypted bytes to a temp file then open system share sheet
+                            const safeFilename = decrypted.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
+                            const outUri = FileSystem.cacheDirectory + safeFilename;
+
+                            // Write raw bytes via base64
+                            const { uint8ArrayToBase64 } = require('../utils/base64');
+                            const b64 = uint8ArrayToBase64(new Uint8Array(decrypted.bytes.buffer ?? decrypted.bytes));
+                            await FileSystem.writeAsStringAsync(outUri, b64, { encoding: FileSystem.EncodingType.Base64 });
+
+                            const canShare = await Sharing.isAvailableAsync();
+                            if (canShare) {
+                              await Sharing.shareAsync(outUri, {
+                                mimeType: att.mimeType || 'application/octet-stream',
+                                dialogTitle: `Save ${decrypted.name}`,
+                              });
+                            } else {
+                              vaultAlert.alert("Saved", `"${decrypted.name}" has been saved to cache. Sharing not available on this device.`, undefined, { illustration: "completed-task_c11d" });
+                            }
+
+                            // Clean up temp file after share
+                            FileSystem.deleteAsync(outUri, { idempotent: true }).catch(() => {});
+                          } catch (err: any) {
+                            vaultAlert.alert("Download Error", err?.message || "Failed to download attachment.", undefined, { illustration: "cancel_k4w9" });
+                          }
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <FileText size={16} color="#60a5fa" />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.attachDetailName} numberOfLines={1}>{att.name}</Text>
+                        <Text style={styles.attachDetailSize}>
+                          {att.sizeBytes ? (att.sizeBytes / 1024).toFixed(1) + " KB" : att.size ? (att.size / 1024).toFixed(1) + " KB" : "Encrypted S3 Attachment"}
+                        </Text>
+                      </View>
+                      <ExternalLink size={14} color="#71717a" />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      )}
+
+      {/* Timestamps & Password History Footer */}
+      <View style={styles.metadataFooter}>
+        {item.updatedAt && (
+          <Text style={styles.metaTimeText}>
+            Last edited: {new Date(item.updatedAt).toLocaleDateString()}
+          </Text>
+        )}
+        {item.createdAt && (
+          <Text style={styles.metaTimeText}>
+            Created: {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+        )}
+
+        {/* Password History Button */}
+        {payload?.passwordHistory && Array.isArray(payload.passwordHistory) && payload.passwordHistory.length > 0 ? (
+          <PasswordHistoryButton history={payload.passwordHistory} onCopy={copyToClipboard} copiedField={copiedField} />
+        ) : null}
+      </View>
+
+      <View style={styles.footerNote}>
+        <ShieldCheck size={14} color={colors.textDim} />
+        <Text style={styles.footerNoteText}>
+          Decrypted securely in memory on device
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
-      {/* Navigation Bar */}
+      {/* Nav Header */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -166,7 +657,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             <Star
               size={20}
               color={item.favorite ? colors.warning : colors.textMuted}
-              fill={item.favorite ? colors.warning : "none"}
+              fill={item.favorite ? colors.warning : "transparent"}
             />
           </TouchableOpacity>
 
@@ -188,487 +679,19 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           <ActivityIndicator color={colors.accent} size="large" />
           <Text style={styles.loadingText}>Decrypting payload...</Text>
         </View>
+      ) : isSplitView ? (
+        <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.splitLeftCol}>
+            {renderVisualPreviewAndHeader()}
+          </View>
+          <View style={styles.splitRightCol}>
+            {renderDetailSections()}
+          </View>
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
-          {/* Dynamic Live Preview Canvas (Kept as requested) */}
-          <View style={{ marginBottom: 4 }}>
-            <ItemPreviewCard
-              template={item.template || "login"}
-              name={item.name}
-              username={payload?.username}
-              url={payload?.url || item.domain}
-              domain={item.domain || payload?.url}
-              cardholderName={payload?.cardholderName || payload?.cardName}
-              cardName={payload?.cardName || payload?.cardholderName}
-              cardNumber={payload?.cardNumber}
-              isNumberVisible={showPassword}
-              expMonth={payload?.expMonth}
-              expYear={payload?.expYear}
-              expiry={payload?.expiry}
-              cvv={payload?.cvv}
-              cardBrand={payload?.cardBrand}
-              street={payload?.street || payload?.line1}
-              line2={payload?.line2}
-              city={payload?.city}
-              state={payload?.state}
-              zip={payload?.zip}
-              country={payload?.country}
-              fullName={
-                payload?.fullName ||
-                (payload?.firstName && payload?.lastName
-                  ? `${payload.firstName} ${payload.lastName}`
-                  : payload?.firstName || payload?.lastName)
-              }
-              email={payload?.email}
-              phone={payload?.phone}
-              note={payload?.note}
-            />
-          </View>
-
-          {/* Header Badge Card */}
-          <View style={styles.badgeCard}>
-            <View style={styles.badgeCardHeader}>
-              <SiteIcon
-                domain={item.domain}
-                name={item.name}
-                url={payload?.url || item.domain}
-                template={item.template || "login"}
-                size={44}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <View style={styles.metaRow}>
-                  <View style={styles.templatePill}>
-                    <Text style={styles.templatePillText}>
-                      {(item.template || "login").toUpperCase()}
-                    </Text>
-                  </View>
-                  {item.folder ? (
-                    <Text style={styles.folderText}>{item.folder}</Text>
-                  ) : null}
-                </View>
-                {item.tags && item.tags.length > 0 && (
-                  <View style={styles.tagsRow}>
-                    <Star size={11} color={colors.textMuted} style={{ marginRight: 2 }} />
-                    {item.tags.map((t: string, idx: number) => (
-                      <View key={idx} style={styles.tagBadge}>
-                        <Text style={styles.tagBadgeText}>{t}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
-              <TouchableOpacity
-                style={styles.launchBtn}
-                onPress={() => handleLaunchUrl(payload?.url || item.domain)}
-              >
-                <ExternalLink size={16} color={colors.bg} />
-                <Text style={styles.launchBtnText}>Launch Website</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-
-          {/* Live 2FA TOTP Code */}
-          {payload && (payload.totpSecret || payload.totp_secret) ? (
-            <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
-              <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
-            </View>
-          ) : null}
-
-          {/* Grouped Fields Sections */}
-          {payload && (
-            <View style={{ gap: 16 }}>
-              {/* Credentials Section */}
-              {(payload.username || payload.password) && (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>LOGIN CREDENTIALS</Text>
-                  <View style={styles.sectionGroup}>
-                    {payload.username ? (
-                      <FieldRow
-                        label="Username"
-                        value={payload.username}
-                        onCopy={() => copyToClipboard("username", payload.username)}
-                        isCopied={copiedField === "username"}
-                      />
-                    ) : null}
-
-                    {payload.password ? (
-                      <FieldRow
-                        label="Password"
-                        value={showPassword ? payload.password : "••••••••••••"}
-                        onCopy={() => copyToClipboard("password", payload.password)}
-                        isCopied={copiedField === "password"}
-                        onToggleShow={() => setShowPassword(!showPassword)}
-                        isPassword
-                        showPassword={showPassword}
-                        hasDivider={false}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* URLs Section */}
-              {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>AUTOFILL / WEBSITE OPTIONS</Text>
-                  <View style={styles.sectionGroup}>
-                    <FieldRow
-                      label="Website (URI)"
-                      value={payload?.url || item.domain}
-                      onCopy={() => copyToClipboard("url", payload?.url || item.domain)}
-                      isCopied={copiedField === "url"}
-                      onLaunch={() => handleLaunchUrl(payload?.url || item.domain)}
-                      hasDivider={payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1}
-                    />
-
-                    {payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1 ? (
-                      payload.urls.slice(1).map((extraUrl: string, idx: number) => (
-                        <FieldRow
-                          key={idx}
-                          label={`Website (URI #${idx + 2})`}
-                          value={extraUrl}
-                          onCopy={() => copyToClipboard(`extra_url_${idx}`, extraUrl)}
-                          isCopied={copiedField === `extra_url_${idx}`}
-                          onLaunch={() => handleLaunchUrl(extraUrl)}
-                          hasDivider={idx < payload.urls.length - 2}
-                        />
-                      ))
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
-              {/* Card Details Section */}
-              {(payload.cardholderName || payload.cardNumber) && (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>CARD DETAILS</Text>
-                  <View style={styles.sectionGroup}>
-                    {payload.cardholderName ? (
-                      <FieldRow
-                        label="Cardholder Name"
-                        value={payload.cardholderName}
-                        onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
-                        isCopied={copiedField === "cardholderName"}
-                        hasDivider={!!payload.cardNumber}
-                      />
-                    ) : null}
-
-                    {payload.cardNumber ? (
-                      <FieldRow
-                        label="Card Number"
-                        value={
-                          showPassword
-                            ? (() => {
-                                const clean = payload.cardNumber.replace(/\D/g, "");
-                                if (!clean) return payload.cardNumber;
-                                const groups = clean.length === 15 ? [4, 6, 5] : [4, 4, 4, 4];
-                                const parts: string[] = [];
-                                let idx = 0;
-                                for (const g of groups) {
-                                  if (idx >= clean.length) break;
-                                  parts.push(clean.slice(idx, idx + g));
-                                  idx += g;
-                                }
-                                if (idx < clean.length) parts.push(clean.slice(idx));
-                                return parts.join(" ");
-                              })()
-                            : (payload.cardNumber.replace(/\D/g, "").length >= 4
-                                ? "•••• •••• •••• " + payload.cardNumber.replace(/\D/g, "").slice(-4)
-                                : "•••• •••• •••• ••••")
-                        }
-                        onCopy={() => copyToClipboard("cardNumber", payload.cardNumber)}
-                        isCopied={copiedField === "cardNumber"}
-                        onToggleShow={() => setShowPassword(!showPassword)}
-                        isPassword
-                        showPassword={showPassword}
-                        hasDivider={false}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* Card Validity Section */}
-              {(payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>SECURITY & VALIDITY</Text>
-                  <View style={styles.sectionGroup}>
-                    {(payload.expiry || payload.expMonth || payload.expYear) ? (
-                      <FieldRow
-                        label="Expiry Date"
-                        value={payload.expiry || `${payload.expMonth || "MM"}/${payload.expYear || "YY"}`}
-                        onCopy={() => copyToClipboard("exp", payload.expiry || `${payload.expMonth}/${payload.expYear}`)}
-                        isCopied={copiedField === "exp"}
-                        hasDivider={!!(payload.cvv || payload.pin)}
-                      />
-                    ) : null}
-
-                    {payload.cvv ? (
-                      <FieldRow
-                        label="CVV / Security Code"
-                        value={showPassword ? payload.cvv : "•••"}
-                        onCopy={() => copyToClipboard("cvv", payload.cvv)}
-                        isCopied={copiedField === "cvv"}
-                        onToggleShow={() => setShowPassword(!showPassword)}
-                        isPassword
-                        showPassword={showPassword}
-                        hasDivider={!!payload.pin}
-                      />
-                    ) : null}
-
-                    {payload.pin ? (
-                      <FieldRow
-                        label="ATM PIN"
-                        value={showPassword ? payload.pin : "••••"}
-                        onCopy={() => copyToClipboard("pin", payload.pin)}
-                        isCopied={copiedField === "pin"}
-                        onToggleShow={() => setShowPassword(!showPassword)}
-                        isPassword
-                        showPassword={showPassword}
-                        hasDivider={false}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* Address Section */}
-              {(payload.street || payload.city || payload.state || payload.zip || payload.country) && (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>ADDRESS DETAILS</Text>
-                  <View style={styles.sectionGroup}>
-                    {payload.street ? (
-                      <FieldRow
-                        label="Street Address"
-                        value={payload.street}
-                        onCopy={() => copyToClipboard("street", payload.street)}
-                        isCopied={copiedField === "street"}
-                        hasDivider={!!(payload.city || payload.state || payload.zip || payload.country)}
-                      />
-                    ) : null}
-
-                    {payload.city || payload.state || payload.zip ? (
-                      <FieldRow
-                        label="City, State & ZIP"
-                        value={[payload.city, payload.state, payload.zip].filter(Boolean).join(", ")}
-                        onCopy={() => copyToClipboard("cityState", [payload.city, payload.state, payload.zip].filter(Boolean).join(", "))}
-                        isCopied={copiedField === "cityState"}
-                        hasDivider={!!payload.country}
-                      />
-                    ) : null}
-
-                    {payload.country ? (
-                      <FieldRow
-                        label="Country"
-                        value={payload.country}
-                        onCopy={() => copyToClipboard("country", payload.country)}
-                        isCopied={copiedField === "country"}
-                        hasDivider={false}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* Profile Identity Section */}
-              {(payload.firstName || payload.lastName || payload.email || payload.phone) && (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
-                  <View style={styles.sectionGroup}>
-                    {payload.firstName || payload.lastName ? (
-                      <FieldRow
-                        label="Full Name"
-                        value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
-                        onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
-                        isCopied={copiedField === "fullName"}
-                        hasDivider={!!(payload.email || payload.phone)}
-                      />
-                    ) : null}
-
-                    {payload.email ? (
-                      <FieldRow
-                        label="Email Address"
-                        value={payload.email}
-                        onCopy={() => copyToClipboard("email", payload.email)}
-                        isCopied={copiedField === "email"}
-                        hasDivider={!!payload.phone}
-                      />
-                    ) : null}
-
-                    {payload.phone ? (
-                      <FieldRow
-                        label="Phone Number"
-                        value={payload.phone}
-                        onCopy={() => copyToClipboard("phone", payload.phone)}
-                        isCopied={copiedField === "phone"}
-                        hasDivider={false}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* Note Content */}
-              {(payload.note || ((item.template === "note" || payload._template === "note") && payload.entryNotes)) ? (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
-                  <View style={styles.noteCardBox}>
-                    <View style={styles.noteCardHeader}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <FileText size={15} color="#fbbf24" />
-                        <Text style={styles.noteCardTitle}>CONTENT</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.noteCopyBtn}
-                        onPress={() => copyToClipboard("noteContent", payload.note || payload.entryNotes)}
-                        activeOpacity={0.7}
-                      >
-                        {copiedField === "noteContent" ? (
-                          <Check size={13} color="#34d399" />
-                        ) : (
-                          <Copy size={13} color="#a1a1aa" />
-                        )}
-                        <Text style={[styles.noteCopyBtnText, copiedField === "noteContent" && { color: "#34d399" }]}>
-                          {copiedField === "noteContent" ? "COPIED" : "COPY"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled showsVerticalScrollIndicator>
-                      <Text style={styles.noteContentBody} selectable>{payload.note || payload.entryNotes}</Text>
-                    </ScrollView>
-                  </View>
-                </View>
-              ) : null}
-
-              {/* Custom Fields */}
-              {((payload.fields && Array.isArray(payload.fields) && payload.fields.length > 0) ||
-                (payload.customFields && Array.isArray(payload.customFields) && payload.customFields.length > 0)) ? (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>CUSTOM FIELDS</Text>
-                  <View style={styles.sectionGroup}>
-                    {(payload.fields || payload.customFields).map((field: any, idx: number) => {
-                      const isHidden = field.type === "hidden";
-                      const labelStr = field.name || field.key || "Custom Field";
-                      const valStr = String(field.value || "");
-                      const allFields = payload.fields || payload.customFields;
-                      return (
-                        <FieldRow
-                          key={field.id || idx}
-                          label={labelStr}
-                          value={isHidden && !showPassword ? "••••••••••••" : valStr}
-                          onCopy={() => copyToClipboard(`cf_${idx}`, valStr)}
-                          isCopied={copiedField === `cf_${idx}`}
-                          isPassword={isHidden}
-                          showPassword={showPassword}
-                          onToggleShow={isHidden ? () => setShowPassword(!showPassword) : undefined}
-                          hasDivider={idx < allFields.length - 1}
-                        />
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-
-              {/* Attachments Section */}
-              {((payload.attachments && Array.isArray(payload.attachments) && payload.attachments.length > 0) || serverAttachments.length > 0) ? (
-                <View style={{ gap: 6 }}>
-                  <Text style={styles.sectionHeaderLabel}>
-                    FILE ATTACHMENTS ({(serverAttachments.length || payload.attachments?.length || 0)})
-                  </Text>
-                  <View style={styles.sectionGroup}>
-                    {(serverAttachments.length > 0 ? serverAttachments : (payload.attachments || [])).map((att: any, idx: number) => {
-                      const totalCount = serverAttachments.length > 0 ? serverAttachments.length : payload.attachments.length;
-                      return (
-                        <TouchableOpacity
-                          key={att.id || idx}
-                          style={[
-                            styles.attachDetailRow,
-                            idx < totalCount - 1 && styles.rowDivider,
-                          ]}
-                          onPress={async () => {
-                            if (att.uri) {
-                              Linking.openURL(att.uri).catch(() =>
-                                vaultAlert.alert("Notice", "Cannot open local file URI.", undefined, { illustration: "cancel_k4w9" })
-                              );
-                            } else if (att.id) {
-                              try {
-                                const decrypted = await downloadAndDecryptAttachment(att.id, att.encryptedName || att.name);
-
-                                // Save decrypted bytes to a temp file then open system share sheet
-                                const safeFilename = decrypted.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
-                                const outUri = FileSystem.cacheDirectory + safeFilename;
-
-                                // Write raw bytes via base64
-                                const { uint8ArrayToBase64 } = require('../utils/base64');
-                                const b64 = uint8ArrayToBase64(new Uint8Array(decrypted.bytes.buffer ?? decrypted.bytes));
-                                await FileSystem.writeAsStringAsync(outUri, b64, { encoding: FileSystem.EncodingType.Base64 });
-
-                                const canShare = await Sharing.isAvailableAsync();
-                                if (canShare) {
-                                  await Sharing.shareAsync(outUri, {
-                                    mimeType: att.mimeType || 'application/octet-stream',
-                                    dialogTitle: `Save ${decrypted.name}`,
-                                  });
-                                } else {
-                                  vaultAlert.alert("Saved", `"${decrypted.name}" has been saved to cache. Sharing not available on this device.`, undefined, { illustration: "completed-task_c11d" });
-                                }
-
-                                // Clean up temp file after share
-                                FileSystem.deleteAsync(outUri, { idempotent: true }).catch(() => {});
-                              } catch (err: any) {
-                                vaultAlert.alert("Download Error", err?.message || "Failed to download attachment.", undefined, { illustration: "cancel_k4w9" });
-                              }
-                            }
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <FileText size={16} color="#60a5fa" />
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={styles.attachDetailName} numberOfLines={1}>{att.name}</Text>
-                            <Text style={styles.attachDetailSize}>
-                              {att.sizeBytes ? (att.sizeBytes / 1024).toFixed(1) + " KB" : att.size ? (att.size / 1024).toFixed(1) + " KB" : "Encrypted S3 Attachment"}
-                            </Text>
-                          </View>
-                          <ExternalLink size={14} color="#71717a" />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          {/* Timestamps & Password History Footer */}
-          <View style={styles.metadataFooter}>
-            {item.updatedAt && (
-              <Text style={styles.metaTimeText}>
-                Last edited: {new Date(item.updatedAt).toLocaleDateString()}
-              </Text>
-            )}
-            {item.createdAt && (
-              <Text style={styles.metaTimeText}>
-                Created: {new Date(item.createdAt).toLocaleDateString()}
-              </Text>
-            )}
-
-            {/* Password History Button */}
-            {payload?.passwordHistory && Array.isArray(payload.passwordHistory) && payload.passwordHistory.length > 0 ? (
-              <PasswordHistoryButton history={payload.passwordHistory} onCopy={copyToClipboard} copiedField={copiedField} />
-            ) : null}
-          </View>
-
-          <View style={styles.footerNote}>
-            <ShieldCheck size={14} color={colors.textDim} />
-            <Text style={styles.footerNoteText}>
-              Decrypted securely in memory on device
-            </Text>
-          </View>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {renderVisualPreviewAndHeader()}
+          {renderDetailSections()}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -841,6 +864,21 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    gap: 16,
+  },
+  splitContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 24,
+    gap: 24,
+  },
+  splitLeftCol: {
+    width: 380,
+    maxWidth: "42%",
+    gap: 16,
+  },
+  splitRightCol: {
+    flex: 1,
     gap: 16,
   },
   badgeCard: {
