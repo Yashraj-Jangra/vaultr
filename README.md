@@ -1,207 +1,259 @@
-# SecureVault
+<div align="center">
 
-A zero-knowledge, client-side encrypted password manager built with Next.js and Better Auth / Postgres.
+# 🛡️ VaultR 2026
 
-> **Zero-knowledge**: Your master password never leaves your browser. All encryption and decryption happens locally using AES-256-GCM via the Web Crypto API.
+**Modern, Zero-Knowledge, Multi-Platform Password & Secrets Vault**
 
----
+[![Version](https://img.shields.io/badge/version-v0.2.7-amber.svg?style=flat-square)](https://github.com)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=flat-square&logo=docker)](https://www.docker.com/)
+[![Encryption](https://img.shields.io/badge/Security-AES--256--GCM-emerald?style=flat-square)](/security)
 
-## Features
+<p align="center">
+  <a href="#-key-features">Key Features</a> •
+  <a href="#-security-architecture">Security Architecture</a> •
+  <a href="#-platform-ecosystem">Platform Ecosystem</a> •
+  <a href="#-quickstart-with-docker">Quickstart</a> •
+  <a href="#-development-setup">Development</a> •
+  <a href="#-monorepo-structure">Architecture</a>
+</p>
 
-- **AES-256-GCM Encryption** — PBKDF2 key derivation (100,000 iterations, SHA-256), unique IV per encrypted blob
-- **PostgreSQL Persistence** — encrypted blobs synced in real-time; only ciphertext is stored, never plaintext
-- **Multi-field Vault Entries** — name (cleartext), username/email, password, URL, arbitrary custom fields
-- **Copy to Clipboard** — one-click copy on every sensitive field
-- **Masked Reveal** — eye toggle on password and custom fields; values stay hidden until explicitly revealed
-- **Wrong Master Password Detection** — trial-decryption on unlock; shows inline error instead of silently failing
-- **Site URL field** — optional URL per entry with direct "open link" shortcut
-- **User / Email label** — visible username preview on entry cards
-- **Better Auth / Postgres Auth** — email/password sign-in and registration
-- **Strict PostgreSQL rules** — users can only read/write their own `users/{uid}/vaultItems`
-- **Auto-lock hooks** — idle detection with configurable timer
-- **Keyboard shortcuts** — `N` new entry, `/` search, `Esc` close
-- **Command palette** — `Ctrl+K` / `⌘K` fuzzy search across entries
-- **Toast notifications** — success / error / warning / info, auto-dismiss
-- **Navigation shell** — Sidebar (desktop), BottomNav (mobile), TopBar with search
-- **Legal pages** — `/privacy`, `/terms`, `/security`
-- **Password generator page** — `/generator`
+</div>
 
 ---
 
-## Tech Stack
+## 🌟 Overview
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 15 (App Router) |
-| Styling | Tailwind CSS |
-| Auth | Better Auth / Postgres Authentication |
-| Database | Cloud PostgreSQL |
-| Encryption | Web Crypto API (AES-256-GCM, PBKDF2) |
-| Icons | Lucide React |
-| Language | TypeScript |
+**VaultR 2026** is a self-hostable, zero-knowledge password and secrets manager designed for individuals and teams who prioritize cryptographic sovereignty, data privacy, and desktop/mobile ergonomics.
+
+VaultR operates under a strict **Zero-Knowledge Architecture**: your master password and encryption keys never touch the server or leave your local client unencrypted. All cryptographic operations (key derivation, encryption, and decryption) execute purely in client memory using WebCrypto (`SubtleCrypto`) and native hardware-backed keystores.
 
 ---
 
-## Project Structure
+## ✨ Key Features
+
+### 🔑 Cryptographic Security
+- **AES-256-GCM Binary Encryption** — Industry-standard authenticated cipher with 128-bit integrity authentication tags and unique 96-bit random Initialization Vectors (IVs) per item.
+- **Client-Side PBKDF2 Key Derivation** — Master keys derived locally with 100,000 iterations of SHA-256 and unique user-specific cryptographic salts.
+- **Non-Extractable CryptoKeys** — Derived master keys reside strictly in ephemeral client memory and are non-exportable from memory heaps.
+- **Trial-Decryption Validation** — Client-side trial decryption detects invalid master passwords instantly without leaking authentication hints to the backend.
+
+### 🗄️ Multi-Tier Organization & Navigation
+- **Hierarchical Nested Folders** — Multi-depth folder tree with recursive item counts, collapse/expand toggles, and drag-and-drop hierarchy organization.
+- **Multi-Type Vault Templates** — First-class schemas for Logins, Payment Cards, Secure Notes, Server/API Credentials, and Personal Identities.
+- **Smart Card Network Detection** — Real-time IIN/BIN pattern detection for Visa, Mastercard, American Express, Discover, and RuPay with live interactive card preview canvases.
+- **Command Palette (`⌘K` / `Ctrl+K`)** — Instant fuzzy search across vault entries, folders, custom tags, and administrative actions with live credential preview.
+
+### ⏱️ Integrated 2FA Authenticator
+- **Dynamic TOTP Verification (RFC 6238)** — Native 30-second time-based one-time password generator with live animated sync countdown rings.
+- **Camera QR Scanner** — 1-tap QR code scanning to import authenticator seeds directly into vault credentials.
+
+### 🎲 Advanced Password & Passphrase Generator
+- **Real-Time Entropy Calculation** — Dynamic password strength analysis with visual scoring and crack-time estimates.
+- **Continuous Syntax Highlighting** — Visual color coding for uppercase, lowercase, numbers, and special symbols.
+- **Diceware Passphrase Engine** — Memorable multi-word passphrase generation with custom separators and capitalized word boundaries.
+
+### 📱 Native Mobile & Browser Ecosystem
+- **Android Native Autofill Service** — Seamless Android autofill integration with dropdown overlays and inline Gboard/Samsung Keyboard suggestion chips.
+- **Biometric Security** — 1-tap fingerprint and face unlock integration across Android and iOS clients.
+- **Tablet & Landscape Command Canvas** — Responsive multi-pane master-detail dashboards designed for tablets, foldables, and desktop displays.
+- **Browser Extension (Manifest V3)** — High-performance Chrome, Firefox, and Edge companion extension for contextual autofill and credential capture.
+
+### 🎛️ Enterprise-Grade Administration & Self-Hosting
+- **Self-Contained Docker Deployment** — One-command deployment bundle including Next.js, PostgreSQL, and MinIO S3-compatible attachment storage.
+- **Zero-Knowledge Encrypted Attachments** — Client-side encrypted file uploads with presigned URL streaming and quota limits.
+- **Audit Logging & Device Trust** — Immutable audit trail of authentication events, active session revocation, and device telemetry.
+- **Universal Importer & Exporter** — Full support for encrypted JSON backups, Bitwarden, 1Password, and CSV formats.
+
+---
+
+## 🛡️ Security Architecture
 
 ```
-src/
-├── app/
-│   ├── page.tsx              # Landing page
-│   ├── auth/page.tsx         # Sign in / Register
-│   ├── vault/page.tsx        # Main vault (unlock + entries)
-│   ├── generator/            # Password generator
-│   ├── privacy/              # Privacy policy
-│   ├── terms/                # Terms of service
-│   └── security/             # Security explainer
-├── components/
-│   ├── layout/
-│   │   ├── Sidebar.tsx       # Desktop sidebar nav
-│   │   ├── TopBar.tsx        # Sticky header + search
-│   │   ├── BottomNav.tsx     # Mobile tab bar
-│   │   └── CommandPalette.tsx# ⌘K overlay
-│   ├── common/
-│   │   └── ToastContainer.tsx
-│   └── ui/
-│       ├── Button.tsx
-│       ├── Card.tsx
-│       └── Input.tsx
-├── hooks/
-│   ├── useBetter Auth / PostgresAuth.ts    # Auth state + sign in/out
-│   ├── useCrypto.ts          # encrypt / decrypt + deriveKey
-│   ├── useToast.ts           # Toast queue management
-│   ├── useAutoLock.ts        # Idle timer auto-lock
-│   └── useKeyboardShortcuts.ts
-└── lib/
-    └── Better Auth / Postgres/
-        └── client.ts         # Better Auth / Postgres app + auth + db init
+┌──────────────────────────────────────────────────────────────────┐
+│                      CLIENT DEVICE (BROWSER / APP)               │
+│                                                                  │
+│  User Master Password ──► PBKDF2-SHA256 (100k rounds + Salt)    │
+│                                     │                            │
+│                                     ▼                            │
+│                              Master Key (AES-256)                │
+│                                     │                            │
+│  Plaintext Payload ──► AES-256-GCM Encrypt (Unique 96-bit IV)    │
+│                                     │                            │
+└─────────────────────────────────────┼────────────────────────────┘
+                                      │  (Encrypted Ciphertext Only)
+                                      ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                       VAULTR BACKEND (POSTGRES)                  │
+│                                                                  │
+│  • Stored Data: Encrypted Blobs, IVs, Salts, Metadata            │
+│  • Zero knowledge of master password or plaintext data          │
+│  • Cannot decrypt user records even with full DB access          │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Security Model
+## 📱 Platform Ecosystem
 
-1. **Master password** is used only to derive the AES-256-GCM key via PBKDF2 locally in the browser.
-2. The **derived key is never stored** — it lives only in memory for the duration of the session.
-3. Only **encrypted ciphertext** (Base64-encoded IV + encrypted blob) is written to PostgreSQL.
-4. **Wrong password detection**: on unlock, the key is tested by decrypting an existing entry; an error is shown inline if it fails.
-5. PostgreSQL security rules enforce **per-user ownership** — no cross-user access is possible.
-
----
-
-## Getting Started
-
-This project supports running in two environments: **Docker** (recommended for production/self-hosting) and **Local Development** (hybrid Docker + local node process).
+| Platform | Technology | Status | Key Capabilities |
+| :--- | :--- | :--- | :--- |
+| **Web Dashboard** | Next.js 15, Tailwind CSS, React 19 | ✅ Production | Command palette, card canvas, TOTP manager, admin panel |
+| **Mobile App** | React Native, Expo 57, TurboModules | ✅ Production | Android Autofill, Gboard chips, Biometrics, Tablet canvas |
+| **Browser Extension** | TypeScript, Webpack, Manifest V3 | ✅ Production | Contextual autofill, quick generator, zero-knowledge sync |
+| **Core Library** | `@vaultr/core` (TypeScript) | ✅ Production | Shared crypto routines, schema validators, version constants |
 
 ---
 
-### Prerequisites
-* **Docker** and **Docker Compose** installed.
-* **Node.js 20+** installed (if running in local development mode).
+## 🚀 Quickstart with Docker
 
----
+The fastest way to deploy your own instance of VaultR:
 
-### Step 1: Configure Environment Variables
-Copy `.env.example` to `.env` (or `.env.local` for local development):
+### 1. Prerequisites
+- [Docker Engine](https://docs.docker.com/engine/install/) (v24.0+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2.0+)
 
+### 2. Clone & Configure
 ```bash
+git clone https://github.com/your-username/vaultr.git
+cd vaultr
+
+# Copy sample environment configuration
 cp .env.example .env
 ```
 
-Open `.env` in an editor and fill in the required variables:
+### 3. Generate Auth Secret & Update `.env`
+Generate a cryptographically secure 64-byte secret:
+```bash
+# Using openssl
+openssl rand -base64 64
 
-#### 1. Generate Auth Secrets
-Better Auth requires a strong, random key. You can generate a 64-byte Base64-encoded secret by running either of the following commands:
-* **Using Openssl** (macOS, Linux, Git Bash):
-  ```bash
-  openssl rand -base64 64
-  ```
-* **Using Node.js** (Cross-platform):
-  ```bash
-  node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
-  ```
-Copy the generated string and paste it into the `BETTER_AUTH_SECRET` field.
+# Or using Node.js
+node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
+```
+Paste this value into `BETTER_AUTH_SECRET` inside your `.env` file.
 
-#### 2. Set App URLs
-Change the URLs to point to your deployment IP and port (default for Docker is `3005`):
-```env
-BETTER_AUTH_URL=http://localhost:3005
-NEXT_PUBLIC_APP_URL=http://localhost:3005
+### 4. Launch Services
+```bash
+docker compose up -d --build
 ```
 
-#### 3. Update Database and Storage Credentials
-Set strong passwords for Postgres and MinIO:
-```env
-DB_USER=vaultr
-DB_PASSWORD=YOUR_STRONG_POSTGRES_PASSWORD
-DB_NAME=vaultr_db
-DATABASE_URL=postgresql://vaultr:YOUR_STRONG_POSTGRES_PASSWORD@localhost:5432/vaultr_db
+- **Web Dashboard**: `http://localhost:3005`
+- **MinIO Storage Console**: `http://localhost:9011`
 
-MINIO_ROOT_USER=vaultr
-MINIO_ROOT_PASSWORD=YOUR_STRONG_MINIO_PASSWORD
+### 5. Bootstrap the Admin Account
+1. Open `http://localhost:3005` and register your primary account.
+2. Grant administrator privileges via CLI:
+   ```bash
+   docker compose exec app node scripts/make-admin.js your.email@example.com
+   ```
+3. Log out and log back in to refresh claims and access the `/admin` dashboard.
+
+---
+
+## 💻 Development Setup
+
+For local monorepo development:
+
+### 1. Prerequisites
+- Node.js 20+
+- npm 10+
+- Docker (for PostgreSQL & MinIO backing services)
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Start Database Services
+```bash
+docker compose up -d postgres minio
+```
+
+### 4. Run Schema Migrations
+```bash
+npm run db:migrate
+```
+
+### 5. Launch Development Servers
+
+- **Web Dashboard**:
+  ```bash
+  npm run dev
+  ```
+- **Mobile Client** (`mobile/`):
+  ```bash
+  cd mobile
+  npx expo start
+  # Or run on Android emulator / physical device:
+  npx expo run:android
+  ```
+- **Browser Extension** (`extension/`):
+  ```bash
+  cd extension
+  npm run dev
+  # Load the generated 'dist/' folder into chrome://extensions
+  ```
+
+---
+
+## 📁 Monorepo Structure
+
+```
+_vaultr/
+├── packages/
+│   └── core/                 # Shared cryptographic utilities, schemas & versioning
+│       └── src/
+│           ├── index.ts
+│           └── version.ts    # Single source of truth for build metadata
+├── src/                      # Next.js 15 Web Application
+│   ├── app/                  # App Router pages & API routes
+│   │   ├── (auth)/           # Authentication & recovery flows
+│   │   ├── admin/            # Administrative control center
+│   │   ├── api/              # REST endpoints & auth handlers
+│   │   ├── vault/            # Interactive password manager dashboard
+│   │   ├── docs/             # Public documentation & user guides
+│   │   └── changelog/        # Interactive release notes
+│   ├── components/           # Modular React components & modals
+│   ├── context/              # React state providers (Auth, Vault, Theme)
+│   ├── db/                   # Drizzle ORM schemas & database client
+│   ├── hooks/                # Custom React hooks (useCrypto, useAutoLock)
+│   └── lib/                  # Server-side auth, email, S3 storage & crypto
+├── mobile/                   # React Native & Expo Mobile Client
+│   ├── android/              # Native Android wrapper & Autofill Service
+│   └── src/
+│       ├── navigation/       # Responsive navigation & tablet dock
+│       ├── screens/          # Mobile view controllers & form canvases
+│       └── services/         # Native autofill, biometrics & sync
+├── extension/                # Browser Extension (Manifest V3)
+│   └── src/                  # Background service worker, popup UI & content scripts
+├── drizzle/                  # PostgreSQL migration artifacts
+├── docker-compose.yml        # Self-hosting orchestration
+└── Dockerfile                # Production multi-stage container build
 ```
 
 ---
 
-### Step 2: Deploy & Run
+## 🧪 Quality & Verification
 
-#### Option A: Running with Docker (Recommended)
-This starts the Next.js app, PostgreSQL, and MinIO storage in the background. Schema migrations will run automatically on startup.
+Run static analysis and build verification across the monorepo:
 
-1. Build and launch the containers:
-   ```bash
-   docker compose up -d --build
-   ```
-2. The web application is now running at `http://localhost:3005`.
-3. MinIO S3 Console is running at `http://localhost:9011`.
+```bash
+# Type check web application
+npm run lint
 
-#### Option B: Local Development Mode (Hybrid)
-In this mode, databases run in Docker, and the Next.js app runs directly on your local node environment:
+# Build production web bundle
+npm run build
 
-1. Spin up only the backing databases:
-   ```bash
-   docker compose up -d postgres minio
-   ```
-2. Install local Node dependencies:
-   ```bash
-   npm install
-   ```
-3. Run database migrations to prepare the database schema:
-   ```bash
-   npm run db:migrate
-   ```
-4. Start the Next.js development server:
-   ```bash
-   npm run dev
-   ```
-5. The local dev app is now running at `http://localhost:3000`.
+# Package browser extension
+cd extension && npm run package
+```
 
 ---
 
-### Step 3: Bootstrapping the Admin Panel
+## 📄 License
 
-The Admin Panel (`/admin`) is protected and requires an account with the `admin` role. To bootstrap your first admin account:
-
-1. Open the web interface (`http://localhost:3005` for Docker, or `http://localhost:3000` for Local Dev).
-2. Go to the sign-up page and register a new user account.
-3. Grant admin status to your registered account:
-   * **If running in Docker**:
-     ```bash
-     docker compose exec app node scripts/make-admin.js your.email@example.com
-     ```
-   * **If running in Local Development**:
-     ```bash
-     node scripts/make-admin.js your.email@example.com
-     ```
-4. Log out of your account on the web page, then log back in to refresh your authentication claims.
-5. You can now access the Admin Dashboard at `/admin`.
-
----
-
-## Roadmap
-
-See [ROADMAP.md](./ROADMAP.md) for full sprint-by-sprint feature plan.
-
----
-
-*Last updated: 2026-04-08*
+This project is licensed under the [MIT License](LICENSE).

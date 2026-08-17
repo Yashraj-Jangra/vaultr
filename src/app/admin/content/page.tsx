@@ -16,7 +16,7 @@ export default function ContentAdminPage() {
         </div>
         <h3 className="text-lg font-medium text-[var(--fg)]">Module Under Construction</h3>
         <p className="text-sm text-[var(--fg-muted)] mt-2 max-w-md">
-          The content management system (CMS) for dynamic injects is planned for a future sprint. 
+          The content management system (CMS) for dynamic injects is planned for an upcoming release. 
           Use the codebase directly to update static copy in the meantime.
         </p>
       </div>
