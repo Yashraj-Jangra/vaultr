@@ -71,3 +71,6 @@ rebase-editor.js
 /backups
 .kotlin
 **/.kotlin
+*.crx
+*.pem
+extension/*.zip
