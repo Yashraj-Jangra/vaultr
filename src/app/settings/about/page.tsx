@@ -4,10 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  Info,
   ShieldCheck,
   Cpu,
-  HardDrive,
   Copy,
   Check,
   ExternalLink,
@@ -15,9 +13,6 @@ import {
   History,
   LifeBuoy,
   Shield,
-  Layers,
-  Terminal,
-  Activity,
 } from "lucide-react";
 import {
   VAULTR_EDITION,
@@ -64,7 +59,6 @@ function Section({
 export default function AboutSettingsPage() {
   const { activeTheme, mode } = useTheme();
   const [copied, setCopied] = useState(false);
-  const [storageEstimate, setStorageEstimate] = useState<string>("Calculating…");
   const [subtleCryptoOk, setSubtleCryptoOk] = useState<boolean>(true);
   const [clientPlatform, setClientPlatform] = useState<string>("Web Browser");
 
@@ -73,19 +67,6 @@ export default function AboutSettingsPage() {
     if (typeof window !== "undefined") {
       setSubtleCryptoOk(!!(window.crypto && window.crypto.subtle));
       setClientPlatform(navigator.userAgent || "Web Browser");
-    }
-
-    // Query storage quota
-    if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.estimate) {
-      navigator.storage.estimate().then((est) => {
-        const usageMb = ((est.usage || 0) / (1024 * 1024)).toFixed(2);
-        const quotaMb = ((est.quota || 0) / (1024 * 1024)).toFixed(0);
-        setStorageEstimate(`${usageMb} MB used of ~${quotaMb} MB available`);
-      }).catch(() => {
-        setStorageEstimate("Standard Web Storage");
-      });
-    } else {
-      setStorageEstimate("Standard Web Storage");
     }
   }, []);
 
@@ -99,7 +80,6 @@ export default function AboutSettingsPage() {
       subtleCryptoSupported: subtleCryptoOk,
       themeMode: mode,
       themeName: activeTheme.name,
-      storageEstimate,
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "N/A",
       timestamp: new Date().toISOString(),
     };
@@ -206,10 +186,6 @@ export default function AboutSettingsPage() {
               <div className="flex justify-between text-neutral-400">
                 <span>Key Derivation Function:</span>
                 <span className="font-mono text-neutral-200 font-medium">{VAULTR_CRYPTO_SPEC.kdf} ({VAULTR_CRYPTO_SPEC.iterations.toLocaleString()} rounds)</span>
-              </div>
-              <div className="flex justify-between text-neutral-400">
-                <span>Storage Quota:</span>
-                <span className="font-mono text-neutral-200 font-medium">{storageEstimate}</span>
               </div>
               <div className="flex justify-between text-neutral-400">
                 <span>Active Theme:</span>
