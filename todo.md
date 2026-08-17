@@ -1,4 +1,20 @@
-# Vaultr — Project Tracker
+## Current Session: VaultR Repository Hygiene & .gitignore Consolidation (2026-08-18)
+
+### ✅ What Was Done
+
+#### .gitignore Consolidation & Secret/Artifact Protection
+- **Consolidated Root `.gitignore`**:
+  - Added recursive directory rules for `backups/` and `backup/` across all root and sub-packages.
+  - Added protection for database exports (`*.sql.gz`, `*.sql.tar.gz`, `*.dump`) and local SQLite databases/WAL logs (`*.sqlite`, `*.sqlite3`, `*.db`, `*.db3`, `*.db-wal`, `*.db-shm`, `*.db-journal`).
+  - Added recursive ignore rules for Expo (`**/.expo/`, `**/.expo-shared/`), Android build outputs (`**/.gradle/`, `**/build/`, `local.properties`, `**/.cxx/`, `*.apk`, `*.aab`), iOS artifacts (`**/ios/Pods/`, `**/ios/build/`, `*.ipa`, `*.dSYM`), and Metro cache.
+  - Hardened secrets & keystore filtering: ignored all cloud service accounts (`firebase_service_account*.json`, `service-account*.json`, `google-services.json`, `GoogleService-Info.plist`), private keys/certificates (`*.key`, `*.pem`, `*.crt`, `*.pfx`, `*.p12`, `id_rsa*`, `id_ed25519*`), and release signing keystores (`*.keystore`, `*.jks`).
+  - Added browser extension artifacts (`extension/dist-*/`, `extension/web-ext-artifacts/`, `*.xpi`, `*.crx`, `extension/*.zip`).
+  - Added test coverage and diagnostics (`playwright-report/`, `test-results/`, `blob-report/`, `cypress/`, `.nyc_output/`, `*.log`).
+  - Added OS and IDE metadata (`Thumbs.db`, `ehthumbs.db`, `[Dd]esktop.ini`, `.idea/`, `.vscode/`, `*.swp`, `*.swo`, `*~`, `scratch/`).
+
+#### Git Index Hygiene
+- **Untracked Cached Backup & Build Files**:
+  - Removed `backups/backup-2026-06-12T16-36-05-186Z.sql.gz`, `extension/dist.crx`, and `mobile/android/app/release.keystore` from Git cache index without touching local disk files.
 
 ## Current Session: VaultR 2026 Tablet Command Canvas, Responsive Dock & Folder Parity (2026-08-18)
 

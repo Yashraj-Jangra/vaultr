@@ -1,7 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
+# ==========================================
+# Dependencies
+# ==========================================
+node_modules/
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,67 +11,180 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-/extension/dist
-/.expo
-**/node_modules
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-firebase_service_account.json
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
 .env
-.env.local
-.env.*.local
-.env.development
-.env.production
-.env.test
+.env.*
+!.env.example
+!.env.template
+firebase_service_account*.json
+service-account*.json
+serviceAccountKey*.json
+google-services.json
+GoogleService-Info.plist
+*.pem
+*.key
+*.crt
+*.cert
+*.pfx
+*.p12
+*.pkcs12
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
 
-# firebase files
-firebase-debug.log
-firebase-debug.*.log
-# vercel
+# ==========================================
+# Backups, Database Dumps & Local Data
+# ==========================================
+backups/
+**/backups/
+backup/
+**/backup/
+*.sql.gz
+*.sql.tar.gz
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.db-wal
+*.db-shm
+*.db-journal
+*.bak
+*.backup
+*.old
+*.orig
+
+# ==========================================
+# Next.js, Web & Monorepo Builds
+# ==========================================
+.next/
+**/.next/
+out/
+**/out/
+build/
+**/build/
+dist/
+**/dist/
 .vercel
-
-# typescript
+.turbo/
+.cache/
+.parcel-cache/
 *.tsbuildinfo
 next-env.d.ts
 
-# test credentials
+# ==========================================
+# Mobile (React Native / Expo / Android / iOS)
+# ==========================================
+.expo/
+**/.expo/
+.expo-shared/
+**/.expo-shared/
+.gradle/
+**/.gradle/
+local.properties
+**/local.properties
+.cxx/
+**/.cxx/
+.kotlin/
+**/.kotlin/
+*.iml
+*.hprof
+*.keystore
+*.jks
+*.apk
+*.aab
+*.ap_
+*.dex
+*.jsbundle
+
+# Keep standard Expo/React Native debug keystore tracked if needed
+!mobile/android/app/debug.keystore
+
+# iOS (React Native)
+ios/Pods/
+**/ios/Pods/
+ios/build/
+**/ios/build/
+*.xcworkspace
+*.xcuserdata
+*.ipa
+*.dSYM/
+*.dSYM.zip
+metro-cache/
+**/.metro-health-check*
+
+# ==========================================
+# Browser Extension (extension/)
+# ==========================================
+extension/dist/
+extension/dist-*/
+extension/build/
+extension/web-ext-artifacts/
+extension/*.zip
+*.crx
+*.xpi
+
+# ==========================================
+# Logs & Diagnostics
+# ==========================================
+logs/
+**/logs/
+*.log
+npm-debug.log*
+npm-error.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+firebase-debug.log
+firebase-debug.*.log
+
+# ==========================================
+# Testing & Coverage
+# ==========================================
+coverage/
+**/coverage/
+*.lcov
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+cypress/videos/
+cypress/screenshots/
 test-accounts.txt
-test_credentials.md
 test_credentials*.md
+test_users*.md
 
-# security audit logs (local filesystem, never commit)
-/logs/
-
-# development helpers & test credentials
-test_users.md
+# ==========================================
+# Editor, OS & Scratch Artifacts
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+scratch/
+**/scratch/
+rebase-editor.js
 *creative*.md
 *plan*.md
 *idea*.md
-
-mobile/.expo/dev/logs/start.log
-rebase-editor.js
-/backups
-.kotlin
-**/.kotlin
-*.crx
-*.pem
-extension/*.zip
