@@ -13,6 +13,17 @@
 - **Interactive Release Notes & Changelog**:
   - Added `v0.2.5` release entry to `src/app/changelog/page.tsx` capturing Google OAuth proxy resilience, DB storage aggregation, 2FA camera SVG mask cutout, and UI polish.
 
+#### Android Native Autofill Bottom Sheet & Suggestion Engine Overhaul
+- **`AutofillSearchActivity.kt` & `activity_autofill_search.xml`**:
+  - Rebuilt quick search as a smooth Android Bottom Sheet with rounded top corners, top drag pill handle, header, search bar, and empty state container.
+  - Implemented strict context-filtered suggestions: when launched on a website or native app, displays **ONLY** matching credentials with an amber counter badge (`📍 Suggested for domain.com (X)`). If no credentials match, displays a clean empty state prompt rather than dumping the full vault.
+  - Full vault search is instantly activated whenever the user enters a search query.
+- **Keyboard Window Insets & Autofill Authentication Fixes**:
+  - Removed `FLAG_ACTIVITY_NEW_TASK` from `PendingIntent`s in `VaultrAutofillService.kt` to allow `setResult(Activity.RESULT_OK, replyIntent)` to return the authenticated `Dataset` back to the calling app/browser.
+  - Enabled `FLAG_MUTABLE` on Android 12+ so the Android OS Autofill framework can attach `AutofillManager.EXTRA_ASSIST_STRUCTURE`.
+  - Added `StructureParser` fallback in `AutofillSearchActivity.kt` to ensure `usernameId`, `passwordId`, and `currentFocusedId` are always resolved.
+  - Handled keyboard WindowInsets via `ViewCompat.setOnApplyWindowInsetsListener` to dynamically lift the bottom sheet above the software keyboard (`imeInsets.bottom`) and capped list max height so the search bar and results are fully visible while typing.
+
 #### Web App Information Pages & Documentation Hub
 - **`src/app/about/page.tsx`**:
   - Built comprehensive public **About VaultR 2026** page with hero illustration (`visionary-technology_f6b3.svg`), ambient glow, foundational architectural pillars, cross-platform client ecosystem matrix, and cryptographic specifications.
@@ -52,6 +63,9 @@
 - **Android Adaptive App Icons & Asset Standards**:
   - Rescaled Android adaptive icon (`adaptive-icon.png` & `ic_launcher_foreground.webp`) to official 66dp safe-zone standards (`0.44` scale), preventing clipping across circular, squircle, and rounded-square launchers.
   - Separated tight in-app UI lock assets from launcher icons and regenerated all Android mipmap densities (`mdpi` to `xxxhdpi`).
+- **Android Security & Manifest Hardening**:
+  - Removed risky unused permissions (`RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW`, legacy storage) and sanitized `accessibility_service_config.xml` (`flagDefault|flagIncludeNotImportantViews`) to prevent Play Protect heuristic false-positives and avoid triggering banking anti-fraud security guards.
+  - Set default auto-lock background timeout to **5 minutes** in `mobile/src/services/autoLock.ts`.
 - **`mobile/src/screens/settings/AutofillSettingsScreen.tsx`**:
   - Redesigned with dark aesthetic tokens, native Android autofill status indicators, quick settings tile guide, and a dedicated warning callout on the legacy accessibility fallback explaining banking/security app conflicts and recommending it be kept OFF.
 - **Android Google OAuth Flow & Deep Link Resolution**:
@@ -70,9 +84,27 @@
 - **2FA Favicon & Countdown Ring Sizing**:
   - Scaled up 2FA site favicons to fit snugly and boldly inside circular countdown sync rings across mobile (`TotpCode.tsx`, `SiteIcon.tsx`) and web (`src/app/vault/authenticator/page.tsx`). Added `borderless` support to prevent inner double-border clipping.
 
+- **Mobile Native Autofill & Biometric Unlock Bridge**:
+  - Upgraded `VaultrAutofillService.kt` to present both dropdown menu items and **inline keyboard suggestion chips** (Gboard, Samsung Keyboard) across all API levels (API 26 to API 35).
+  - Implemented locked vault detection: displays "🔒 Vault is locked" with tap-to-unlock on both dropdown and keyboard strip, automatically routing into `AutofillSearchActivity` and launching biometric authentication in `MainActivity`.
+  - Implemented unlocked vault detection: directly presents matched credentials with 1-tap fill and always appends a "VaultR" search option at the end.
+  - Upgraded `AutofillSearchActivity.kt` to handle native Android autofill authentication intents (`EXTRA_IS_AUTOFILL_REQUEST`) and construct/return native `Dataset`s (`EXTRA_AUTHENTICATION_RESULT`) directly to the OS framework, bypassing accessibility service requirements for direct injection.
+  - Implemented `VaultrAutofillModule.kt` broadcast triggers (`com.vaultr.mobile.AUTOFILL_UNLOCKED`) and `finishAutofillUnlock()` lifecycle bridge in `UnlockScreen.tsx` to automatically minimize the app and return to the search sheet upon successful biometric/master password decryption.
+
+- **Universal Card Expiry & Network Auto-Detection Parity**:
+  - Enhanced `importer.ts` (`normalizeExpiry`, `normalizeExpiryParts`, `parseBitwardenJson`, `mapCsvRow`) to handle split Bitwarden fields (`expMonth: "8"`, `expYear: "2029"`, `expirationMonth`, `expirationYear`, `month`, `year`) and ISO/slash variants (`YYYY-MM`, `MM/YY`, `MM/YYYY`).
+  - Added `extractExpiryParts` in `NewEntryDialog.tsx` and full state re-synchronization on `initialData` changes when opening Edit mode on the web.
+  - Added onBlur validity checks (`01–12` month check, `YY/YYYY` year check with red highlight error hints) to `ItemFormScreen.tsx` on Mobile matching the website UX.
+  - Standardized card persistence on both web and mobile to save both combined `expiry` ("MM / YYYY") and normalized individual `expMonth` ("MM") and `expYear` ("YYYY") fields.
+  - Implemented `detectCardBrand` utility and dynamic network resolution across web card visual previews and details view to eliminate "Auto-detect" reset bugs.
+
+- **Android Native Module Fix & Build Verification**:
+  - Fixed `currentActivity` scope reference in `VaultrAutofillModule.kt`.
+  - Successfully compiled debug APK via `./gradlew assembleDebug` (592 actionable tasks, build successful).
+
 ---
 
 ### 📌 What's Next
 - Re-verify cross-platform file attachment roundtrips (upload on Mobile -> download on Web, upload on Web -> download on Mobile).
-- Finalize mobile autofill settings & biometric integration audits.
+- Test native autofill behavior across different browser apps (Chrome, Firefox, Brave) and native login screens.
 - Polish mobile autofill sheet UI and empty state illustrations.

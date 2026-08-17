@@ -160,7 +160,7 @@ export function TopBar({ onSearchOpen, onGeneratorOpen, onMenuOpen }: TopBarProp
                 <div className="flex items-center gap-2">
                   <Info className="w-3.5 h-3.5" /> About Vaultr
                 </div>
-                <span className="text-[10px] font-mono text-neutral-500">v0.2.4</span>
+                <span className="text-[10px] font-mono text-neutral-500">v0.2.5</span>
               </button>
 
               <button

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Vaultr — Secure Password Manager",
   "short_name": "Vaultr",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "VaultR 2026 — Zero-knowledge, client-side encrypted password manager.",
   "icons": {
     "16": "icons/vaultr-lock-dark-transparent-16.png",

@@ -33,11 +33,25 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.6",
+    codename: "Better Autofill & Experience Polish",
+    date: "August 17, 2026",
+    tagline: "Better Autofill, Bottom Sheet Animations, Website Favicons & Card Pre-fill Fixes",
+    isLatest: true,
+    changes: [
+      { type: "mobile", text: "Better autofill: Redesigned quick search into a smooth native bottom sheet with slide animations and backdrop dismissal." },
+      { type: "mobile", text: "Context-aware suggestions: Displays matching credentials for the active site/app with full vault search on query." },
+      { type: "mobile", text: "Website favicons: Asynchronous icon loader with memory and disk caching across suggestions." },
+      { type: "security", text: "Fixed autofill: Instant biometric prompt on locked autofill launch and native auto-lock parity." },
+      { type: "fix", text: "Fixed autofill keyboard overlap: Dynamic window insets handling keeps the sheet and search bar fully visible above the keyboard." },
+      { type: "fix", text: "Fixed card expiry pre-fill and auto-detect brand reset across web and mobile editors." },
+    ],
+  },
+  {
     version: "v0.2.5",
     codename: "Mobile Refinement & Experience Polish",
     date: "August 16, 2026",
     tagline: "Live Storage Meter, Smooth 2FA Scanner, Android Icon Standards & Master Password Polish",
-    isLatest: true,
     changes: [
       { type: "security", text: "Streamlined mobile Google Sign-In with reliable browser handoff and secure token dispatch." },
       { type: "performance", text: "Added real-time storage usage tracking calculated directly from active attachments and vault data." },
