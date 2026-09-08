@@ -27,6 +27,7 @@ export interface UserPayload {
   sessionId: string;  // Resolved DB session.id (real PK, not the cookie token)
   email: string | null | undefined;
   name: string | null | undefined;
+  role?: string;
 }
 
 /**
@@ -39,9 +40,6 @@ export interface UserPayload {
  * Throws a Response (401 / 403) if the check fails.
  */
 export async function verifyUserToken(req: NextRequest): Promise<UserPayload> {
-  console.log("[verifyUserToken] Headers Authorization:", req.headers.get("authorization"));
-  console.log("[verifyUserToken] Headers Cookie:", req.headers.get("cookie"));
-
   const sessionResult = await auth.api.getSession({
     headers: req.headers,
   });
@@ -55,7 +53,7 @@ export async function verifyUserToken(req: NextRequest): Promise<UserPayload> {
 
   // Check if this account has been disabled by an admin
   const [profile] = await db
-    .select({ disabled: userProfiles.disabled })
+    .select({ disabled: userProfiles.disabled, role: userProfiles.role })
     .from(userProfiles)
     .where(eq(userProfiles.userId, sessionResult.user.id))
     .limit(1);
@@ -100,5 +98,6 @@ export async function verifyUserToken(req: NextRequest): Promise<UserPayload> {
     sessionId: resolvedSessionId,
     email:     sessionResult.user.email,
     name:      sessionResult.user.name,
+    role:      profile?.role ?? "user",
   };
 }

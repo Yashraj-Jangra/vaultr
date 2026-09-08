@@ -66,7 +66,6 @@ function lockVault() {
   chrome.storage.session.remove(["vaultr_master_password"]);
   chrome.storage.local.remove(["autolock_expiry"]);
   chrome.alarms.clear("vaultr_autolock");
-  console.log("[Vaultr SW] Vault locked.");
 }
 
 async function getApiClient(): Promise<VaultrApiClient> {
@@ -617,4 +616,3 @@ function getBaseRootDomain(hostname: string): string {
   return true;
 });
 
-console.log("[Vaultr SW] Background service worker initialized.");
