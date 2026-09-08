@@ -19,6 +19,10 @@ import { db } from "@/db";
 import { vaultItems } from "@/db/schema";
 import { eq, max } from "drizzle-orm";
 
+const POLL_INTERVAL_MS = 3_000;
+const PING_INTERVAL_MS = 25_000;
+const MAX_STREAM_TTL_MS = 5 * 60 * 1000; // 5 minutes max connection lifetime
+
 export async function GET(req: NextRequest) {
   let user: { id: string };
   try {
@@ -55,17 +59,26 @@ export async function GET(req: NextRequest) {
             send({ type: "vault_changed" });
           }
         } catch { /* db error — silently skip this tick */ }
-      }, 3000);
+      }, POLL_INTERVAL_MS);
 
       // Keep-alive ping every 25 seconds (prevents proxy timeouts)
       const keepAlive = setInterval(() => {
         send({ type: "ping" });
-      }, 25_000);
+      }, PING_INTERVAL_MS);
+
+      // Max connection lifetime to prevent zombie intervals
+      const maxTtl = setTimeout(() => {
+        clearInterval(interval);
+        clearInterval(keepAlive);
+        send({ type: "stream_timeout" });
+        try { controller.close(); } catch { /* ignore */ }
+      }, MAX_STREAM_TTL_MS);
 
       // Clean up when client disconnects
       req.signal.addEventListener("abort", () => {
         clearInterval(interval);
         clearInterval(keepAlive);
+        clearTimeout(maxTtl);
         try { controller.close(); } catch { /* ignore */ }
       });
     },
