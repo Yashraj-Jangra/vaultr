@@ -1,3 +1,56 @@
+## Current Session: Architecture Hardening, Security Sanitization & Best Practices (2026-09-08)
+
+### ✅ What Was Done
+
+#### 1. Credential Log Sanitization & Tooling Standards
+- **`src/lib/auth/verifyUser.ts`**:
+  - Removed insecure `console.log` statements leaking raw session cookies and bearer headers on incoming requests into server stdout.
+  - Combined `disabled` and `role` checks into a single database select from `userProfiles`, including `role` directly in `UserPayload`.
+- **`extension/src/background/service-worker.ts`**:
+  - Cleaned up debug logging statements from background service worker initialization and lock operations.
+- **`.editorconfig`**:
+  - Added root `.editorconfig` standardizing `end_of_line = lf`, `charset = utf-8`, `indent_style = space`, `indent_size = 2`, and trailing whitespace trimming monorepo-wide.
+
+#### 2. Distributed OTP Persistence & API Rate Limiting
+- **`src/lib/rateLimit.ts`**:
+  - Implemented lightweight, zero-dependency sliding-window in-memory rate limiter with automated memory cleanup.
+  - Generates RFC-compliant headers (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `Retry-After`).
+  - Added client IP extraction supporting `x-forwarded-for`, `cf-connecting-ip`, and `x-real-ip`.
+- **`src/lib/linkOtpStore.ts`**:
+  - Migrated OTP store from transient in-memory `Map` to Postgres `verification` table (`identifier = "link_password:${userId}"`).
+  - Guarantees OTP continuity across serverless cold-starts, horizontal multi-container instances, and process restarts.
+- **`src/app/api/settings/link-password/send-otp/route.ts` & `verify/route.ts`**:
+  - Wired rate limiting guards (3 send attempts / 10m, 5 verify attempts / 10m) to stop OTP email abuse and brute-force guessing.
+
+#### 3. S3 Upload Rollback & Data Integrity Guards
+- **`src/app/api/vault/attachments/route.ts`**:
+  - Wrapped S3/MinIO upload and DB row creation in a transactional rollback block: if DB insert fails or throws, `deleteAttachment(s3Key)` immediately purges the orphaned storage object.
+  - Mitigated TOCTOU quota race conditions by validating quota usage right before persistence.
+- **`src/app/api/admin/users/route.ts`**:
+  - Replaced dynamic `require("drizzle-orm")` inside IIFE with top-level static `import { inArray, sql } from "drizzle-orm"`.
+  - Populated user `lastSignInTime` dynamically from `sessionMeta` table by grouping maximum `lastActiveAt` per user.
+- **`src/lib/auth/verifyAdmin.ts`**:
+  - Eliminated redundant second database query on `userProfiles` by evaluating `user.role === "admin"` directly from the pre-resolved `UserPayload`.
+- **`src/app/api/vault/schedule-delete/route.ts`**:
+  - Added direct 1-click cancellation CTA button and link to the scheduled deletion alert email.
+  - Added rate limiting protection against automated deletion triggering.
+- **`src/app/api/vault/folders/route.ts`**:
+  - Clarified Postgres 1-based substring indexing and nested path delimiter extraction comments.
+
+#### 4. Vault Context, Real-Time Sync & Health Page Optimization
+- **`src/context/VaultContext.tsx`**:
+  - Removed client-side chunking in `batchAction`, delegating batch processing to the server.
+  - Implemented instant optimistic UI updates for `batchAction` across `purge`, `trash`, `restore`, `favorite`, `unfavorite`, and `move`.
+  - Hardened `emptyTrash` to fetch fresh items before computing purge list, preventing accidental deletion of restored items caused by stale state.
+  - Made `customFolders` `useState` initialization SSR-safe (`typeof window !== "undefined"` guard).
+  - Implemented graceful reconnect with randomized jitter on SSE `stream_timeout` events.
+- **`src/app/vault/health/page.tsx`**:
+  - Stabilized `useEffect` analysis dependencies using an `itemsSignature` checksum, eliminating re-analysis loops on every 3-second SSE polling cycle.
+  - Added `prefixCache` memoization for HIBP k-anonymity ranges, deduplicating external API requests for shared passwords.
+  - Added 100ms throttle delay between distinct HIBP API calls to comply with rate limits.
+
+---
+
 ## Current Session: Critical Stability, Crypto Unification & Parity Hardening (2026-09-08)
 
 ### ✅ What Was Done
