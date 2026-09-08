@@ -304,10 +304,15 @@ export default function SecuritySettingsPage() {
   const [lastChanged, setLastChanged] = useState<string | null>(null);
 
   // Clipboard timer
-  const [clipboardSecs, setClipboardSecs] = useState<number>(() => {
-    if (typeof window === "undefined" || !user?.uid) return 0;
-    return Number(localStorage.getItem(CLIPBOARD_KEY(user.uid)) ?? 0);
-  });
+  const [clipboardSecs, setClipboardSecs] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.uid) return;
+    const stored = localStorage.getItem(CLIPBOARD_KEY(user.uid));
+    if (stored !== null) {
+      setClipboardSecs(Number(stored));
+    }
+  }, [user?.uid]);
 
   // Session state
   const [sessions, setSessions] = useState<SessionData[]>([]);
