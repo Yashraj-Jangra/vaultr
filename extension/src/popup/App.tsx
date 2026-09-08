@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { VaultItem, isWebPageUrl } from "@vaultr/core";
 import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
@@ -60,7 +60,16 @@ export function App() {
     tags?: string[];
     template: any;
     payload: any;
+    favorite?: boolean;
   } | null>(null);
+
+  const combinedFolders = useMemo(() => {
+    const set = new Set<string>(folders);
+    items.forEach((i) => {
+      if (i.folder) set.add(i.folder);
+    });
+    return Array.from(set).sort();
+  }, [folders, items]);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
@@ -169,12 +178,13 @@ export function App() {
     folder: string,
     tags: string[],
     payload: any,
-    editId?: string
+    editId?: string,
+    favorite?: boolean
   ) => {
     const type = editId ? "UPDATE_ITEM" : "SAVE_ITEM";
     const msg = editId
-      ? { type, id: editId, name, template, folder, tags, payload }
-      : { type, name, template, folder, tags, payload };
+      ? { type, id: editId, name, template, folder, tags, payload, favorite }
+      : { type, name, template, folder, tags, payload, favorite };
 
     return new Promise<void>((resolve, reject) => {
       chrome.runtime.sendMessage(msg, (res) => {
@@ -207,6 +217,7 @@ export function App() {
       tags: item.tags,
       template: item.template || "login",
       payload: decryptedPayload,
+      favorite: item.favorite,
     });
   };
 
@@ -317,7 +328,7 @@ export function App() {
           <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <ErrorBoundary>
               <NewEntryForm
-                folders={folders}
+                folders={combinedFolders}
                 onSave={handleSaveItem}
                 onCancel={() => {
                   setIsNewEntryOpen(false);
