@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { vaultItems, configStats, userProfiles } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 // ── Validation schema ──────────────────────────────────────────────────────────
@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
     const items = await db
       .select()
       .from(vaultItems)
-      .where(eq(vaultItems.userId, user.id));
+      .where(eq(vaultItems.userId, user.id))
+      .orderBy(desc(sql`COALESCE(${vaultItems.updatedAt}, ${vaultItems.createdAt})`));
 
     return NextResponse.json({ items });
   } catch (err) {
