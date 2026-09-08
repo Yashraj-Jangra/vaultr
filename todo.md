@@ -10,6 +10,11 @@
   - Cleaned up debug logging statements from background service worker initialization and lock operations.
 - **`.editorconfig`**:
   - Added root `.editorconfig` standardizing `end_of_line = lf`, `charset = utf-8`, `indent_style = space`, `indent_size = 2`, and trailing whitespace trimming monorepo-wide.
+- **Android Release Build v0.2.8 (`vaultr-v0.2.8-release.apk`)**:
+  - Synchronized Android `defaultConfig` to `versionCode 8` and `versionName "0.2.8"`.
+  - Automated versioned APK output naming (`vaultr-v${version}-${buildType}.apk`) in Gradle.
+  - Successfully built signed standalone release APK (`mobile/android/app/build/outputs/apk/release/vaultr-v0.2.8-release.apk`).
+  - Synced all 19 commits to remote origin (`main -> main`).
 
 #### 2. Distributed OTP Persistence & API Rate Limiting
 - **`src/lib/rateLimit.ts`**:
