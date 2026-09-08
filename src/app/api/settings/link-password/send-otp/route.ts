@@ -5,6 +5,12 @@ import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { generateAndStoreOtp } from "@/lib/linkOtpStore";
 import { sendTemplatedEmail } from "@/lib/emailTemplates";
 import { safeError } from "@/lib/safeError";
+import { rateLimit, getRateLimitHeaders, getClientIp } from "@/lib/rateLimit";
+
+const RATE_LIMIT_OPTIONS = {
+  limit: 3,
+  windowMs: 10 * 60 * 1000, // 3 requests per 10 minutes
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +20,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Session has no email address associated" }, { status: 400 });
     }
 
-    const otp = generateAndStoreOtp(user.id);
+    // Rate limit by userId and client IP
+    const clientIp = getClientIp(req);
+    const rlKey = `link_password_send_otp:${user.id}:${clientIp}`;
+    const rl = rateLimit(rlKey, RATE_LIMIT_OPTIONS);
+    const headers = getRateLimitHeaders(rl);
+
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "Too many OTP requests. Please wait a few minutes before trying again." },
+        { status: 429, headers }
+      );
+    }
+
+    const otp = await generateAndStoreOtp(user.id);
 
     // Send the OTP using the device_verification template, styled as linking request
     await sendTemplatedEmail({
@@ -26,7 +45,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers });
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[send-otp POST]", err);
