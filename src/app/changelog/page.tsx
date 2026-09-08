@@ -33,11 +33,27 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.8",
+    codename: "Architecture Hardening & Security Best Practices",
+    date: "September 8, 2026",
+    tagline: "API Rate Limiting, Distributed OTP Persistence, S3 Upload Rollback & Optimistic State Sync",
+    isLatest: true,
+    changes: [
+      { type: "security", text: "Zero-dependency API rate limiting: Sliding-window rate limiter protecting OTP distribution, verification, and scheduled deletion endpoints." },
+      { type: "security", text: "Distributed OTP persistence: Migrated one-time codes from transient memory to PostgreSQL verification storage, ensuring resilience across serverless cold starts." },
+      { type: "security", text: "Credential log sanitization: Removed raw authorization header and session cookie logging from authentication verification routes." },
+      { type: "fix", text: "Transactional S3 rollback: Guaranteed zero orphaned storage objects by rolling back S3/MinIO binaries on database insertion failures, with TOCTOU quota protection." },
+      { type: "performance", text: "Optimistic batch mutations: Instantaneous UI updates for multi-item purge, trash, restore, and favorites, with server-side batch handling." },
+      { type: "performance", text: "HIBP k-anonymity memoization: Range query caching for duplicate passwords with 100ms throttle delay to respect external API rate limits." },
+      { type: "performance", text: "Zero-round-trip admin verification: Admin role evaluated directly from pre-resolved user payload, eliminating redundant database queries." },
+      { type: "extension", text: "Extension background hygiene: Cleaned up extraneous console logging in service worker lock and initialization paths." },
+    ],
+  },
+  {
     version: "v0.2.7",
     codename: "Tablet Command Canvas & Responsive Polish",
     date: "August 18, 2026",
     tagline: "Tablet Rail Navigation, Landscape Command Dashboard, Empty Folder Sync & Folder Edit Fixes",
-    isLatest: true,
     changes: [
       { type: "mobile", text: "Compact tablet navigation rail: Redesigned left sidebar into a sleek 72px vertically centered navigation dock with dedicated quick-lock action." },
       { type: "mobile", text: "Adaptive tablet vault layouts: Phone-like centered single column in portrait mode, and dual-pane Command Dashboard in landscape mode." },
