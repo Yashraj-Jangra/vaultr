@@ -214,23 +214,38 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     // Initial fetch
     fetchItems();
 
-    // SSE stream
-    const es = new EventSource("/api/vault/stream", { withCredentials: true });
-    sseRef.current = es;
+    // SSE stream with turnover resilience
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    es.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === "vault_changed") fetchItems();
-      } catch { /* ignore malformed messages */ }
-    };
+    function connectSSE() {
+      es = new EventSource("/api/vault/stream", { withCredentials: true });
+      sseRef.current = es;
 
-    es.onerror = () => {
-      // SSE reconnects automatically; no action needed
-    };
+      es.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "vault_changed") {
+            fetchItems();
+          } else if (msg.type === "stream_timeout") {
+            // Connection expired on server after max TTL — close and reconnect with jitter
+            es?.close();
+            const jitter = 1000 + Math.random() * 2000;
+            reconnectTimer = setTimeout(connectSSE, jitter);
+          }
+        } catch { /* ignore malformed messages */ }
+      };
+
+      es.onerror = () => {
+        // EventSource auto-reconnects on dropped connections
+      };
+    }
+
+    connectSSE();
 
     return () => {
-      es.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      es?.close();
       sseRef.current = null;
     };
   }, [user?.id, fetchItems]);
@@ -430,36 +445,53 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     payload?: string
   ): Promise<number> => {
     if (!user?.id || ids.length === 0) return 0;
-    const CHUNK_SIZE = 500;
-    let totalUpdated = 0;
+    const idSet = new Set(ids);
 
-    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-      const chunk = ids.slice(i, i + CHUNK_SIZE);
+    // ⚡ Instant optimistic UI state update
+    setItems((prev) => {
+      if (action === "purge") {
+        return prev.filter((i) => !idSet.has(i.id));
+      }
+      return prev.map((i) => {
+        if (!idSet.has(i.id)) return i;
+        if (action === "trash") return { ...i, deletedAt: new Date().toISOString() };
+        if (action === "restore") return { ...i, deletedAt: null };
+        if (action === "favorite") return { ...i, favorite: true };
+        if (action === "unfavorite") return { ...i, favorite: false };
+        if (action === "move") return { ...i, folder: payload || undefined };
+        return i;
+      });
+    });
+
+    try {
       const res = await apiFetch("/api/vault/items/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ids: chunk, payload: payload || undefined }),
+        body: JSON.stringify({ action, ids, payload: payload || undefined }),
       });
-      totalUpdated += res.updated ?? 0;
+      fetchItems();
+      return res.updated ?? 0;
+    } catch (err) {
+      fetchItems();
+      throw err;
     }
-
-    fetchItems();
-    return totalUpdated;
   }, [user, fetchItems]);
 
   const emptyTrash = useCallback(async (): Promise<number> => {
     if (!user?.id) return 0;
+    // Refresh items first to avoid acting on stale client state
+    await fetchItems();
     const trashItems = items.filter(i => !!i.deletedAt);
     if (trashItems.length === 0) return 0;
     const ids = trashItems.map(i => i.id);
     const count = await batchAction("purge", ids);
     return count;
-  }, [user, items, batchAction]);
+  }, [user, items, batchAction, fetchItems]);
 
   // ── Custom / empty folders state (persisted per user)
   const CUSTOM_FOLDERS_KEY = user?.id ? `vaultr_custom_folders_${user.id}` : null;
   const [customFolders, setCustomFolders] = useState<string[]>(() => {
-    if (!user?.id) return [];
+    if (typeof window === "undefined" || !user?.id) return [];
     try {
       const stored = localStorage.getItem(`vaultr_custom_folders_${user.id}`);
       if (stored) return JSON.parse(stored);

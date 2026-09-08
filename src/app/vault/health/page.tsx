@@ -40,6 +40,14 @@ export default function PasswordHealthPage() {
   const [filter, setFilter] = useState<"all" | "compromised" | "weak" | "reused" | "no2fa">("all");
   const [search, setSearch] = useState("");
 
+  // Stable signature of login items to prevent restarting decryption on every 3s SSE poll
+  const itemsSignature = useMemo(() => {
+    return items
+      .filter((i) => (i.template || "login") === "login" && !i.deletedAt)
+      .map((i) => `${i.id}:${i.updatedAt || ""}:${i.encryptedBlob ? i.encryptedBlob.length : 0}`)
+      .join("|");
+  }, [items]);
+
   // Decrypt and analyze vault items
   useEffect(() => {
     if (!cryptoKey || items.length === 0) {
@@ -112,37 +120,50 @@ export default function PasswordHealthPage() {
         setLoading(false);
       }
 
+      // In-memory cache for HIBP range results during this run
+      const prefixCache = new Map<string, Record<string, number>>();
+
+      async function getPwnedCount(password: string): Promise<number> {
+        const buffer = new TextEncoder().encode(password);
+        const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+
+        const prefix = hashHex.slice(0, 5);
+        const suffix = hashHex.slice(5);
+
+        let suffixes = prefixCache.get(prefix);
+        if (!suffixes) {
+          // Polite delay between distinct external requests to respect HIBP rate limits
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+          if (!res.ok) return 0;
+          const text = await res.text();
+          suffixes = {};
+          for (const line of text.split("\n")) {
+            const [hSuffix, cStr] = line.split(":");
+            if (hSuffix && cStr) {
+              suffixes[hSuffix.trim()] = parseInt(cStr.trim() || "0", 10);
+            }
+          }
+          prefixCache.set(prefix, suffixes);
+        }
+
+        return suffixes[suffix] ?? 0;
+      }
+
       // Asynchronously perform k-Anonymity breach check on passwords
       for (let i = 0; i < results.length; i++) {
+        if (!mounted) break;
         const entry = results[i];
         if (!entry.password) continue;
 
         try {
-          const buffer = new TextEncoder().encode(entry.password);
-          const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-
-          const prefix = hashHex.slice(0, 5);
-          const suffix = hashHex.slice(5);
-
-          const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
-          if (res.ok) {
-            const text = await res.text();
-            let count = 0;
-            for (const line of text.split("\n")) {
-              const [hSuffix, cStr] = line.split(":");
-              if (hSuffix?.trim() === suffix) {
-                count = parseInt(cStr?.trim() || "0", 10);
-                break;
-              }
-            }
-
-            if (mounted) {
-              setAnalyzed((prev) =>
-                prev.map((it) => (it.id === entry.id ? { ...it, pwnedCount: count } : it))
-              );
-            }
+          const count = await getPwnedCount(entry.password);
+          if (mounted) {
+            setAnalyzed((prev) =>
+              prev.map((it) => (it.id === entry.id ? { ...it, pwnedCount: count } : it))
+            );
           }
         } catch {
           // silent fail
@@ -155,7 +176,7 @@ export default function PasswordHealthPage() {
     return () => {
       mounted = false;
     };
-  }, [cryptoKey, items]);
+  }, [cryptoKey, itemsSignature]);
 
   // Aggregate metrics
   const totalAnalyzed = analyzed.length;
