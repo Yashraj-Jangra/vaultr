@@ -92,10 +92,18 @@ android {
         applicationId 'com.vaultr.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 6
-        versionName "0.2.6"
+        versionCode 8
+        versionName "0.2.8"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+    }
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def project = "vaultr"
+            def version = variant.versionName
+            def buildType = variant.buildType.name
+            outputFileName = "${project}-v${version}-${buildType}.apk"
+        }
     }
     signingConfigs {
         debug {
