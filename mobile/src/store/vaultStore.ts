@@ -354,8 +354,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         const { serverUrl } = get();
         const user: AccountUser = {
           id,
-          email: email || "google-user@vaultr.local",
-          name: name || "Google User",
+          email: email || "",
+          name: name || "User",
           image: image,
           avatarUrl: image,
         };
