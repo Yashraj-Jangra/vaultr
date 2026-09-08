@@ -1,3 +1,53 @@
+## Current Session: Critical Stability, Crypto Unification & Parity Hardening (2026-09-08)
+
+### ✅ What Was Done
+
+#### 1. Extension TypeScript & Type-Safety Resolution
+- **`extension/src/popup/App.tsx` & `extension/src/popup/VaultScreen.tsx`**:
+  - Resolved `string | null | undefined` to `string | undefined` type mismatches for `folder` in `handleEditTrigger` and `domain` in `SiteIcon`.
+  - Extension package TypeScript check now compiles with **0 errors**.
+
+#### 2. Vault Items Deterministic Sort Order
+- **`src/app/api/vault/items/route.ts`**:
+  - Added `.orderBy(desc(sql`COALESCE(${vaultItems.updatedAt}, ${vaultItems.createdAt})`))` to the GET handler.
+  - Guarantees newly created and updated entries are returned consistently across all clients.
+
+#### 3. Security Settings Clipboard Timer Hydration
+- **`src/app/settings/security/page.tsx`**:
+  - Replaced eager `useState` localStorage lookup (which ran before `user?.uid` resolved, defaulting to 0) with a targeted `useEffect([user?.uid])` reader.
+  - Clipboard auto-clear selection now reliably reflects the user's saved preference upon page load.
+
+#### 4. Unified Cryptographic Implementation (@vaultr/core)
+- **`src/hooks/useCrypto.ts`**:
+  - Consolidated Web crypto routines onto `@vaultr/core`'s canonical `deriveKey`, `encrypt`, and `decrypt` functions.
+  - Eliminated parallel duplicate crypto implementation, preventing algorithmic drift across web, mobile, and browser extensions.
+
+#### 5. SSE Real-Time Stream Resource Leak Prevention
+- **`src/app/api/vault/stream/route.ts`**:
+  - Enforced a 5-minute maximum connection TTL (`MAX_STREAM_TTL_MS`) with self-closing timeout handler.
+  - Closes zombie interval timers and polling cycles when clients terminate abruptly without sending an abort signal (clients automatically reconnect via EventSource).
+
+#### 6. Mobile Deep Link Token Minimization
+- **`src/app/api/auth/mobile-callback/route.ts` & `mobile/src/store/vaultStore.ts`**:
+  - Removed PII (`email`, `name`, `avatarUrl`) from the deep link URL string (`vaultr://auth-callback`), passing only the necessary authentication `token` and `id`.
+  - Removed dummy fallback email (`google-user@vaultr.local`); the mobile app securely fetches profile attributes post-auth via `/api/me`.
+
+#### 7. Extension Entry Form Folder & Favorite Parity
+- **`extension/src/popup/App.tsx`**:
+  - Aggregated existing item folders with server folders into `combinedFolders` for the folder select picker.
+  - Added `favorite` state propagation through `editingItem`, `handleEditTrigger`, `handleSaveItem`, and background service worker messaging.
+
+---
+
+### 📋 Planned Next Steps
+1. **Automated End-to-End Testing**:
+   - Add integration tests for `/api/vault/stream` connection timeout and reconnect behavior.
+   - Add unit tests verifying cross-platform encryption/decryption round-trip between `@vaultr/core` and web hooks.
+2. **Version Bump**:
+   - Bump version to `0.2.8` (PATCH) across `package.json`, `packages/core`, `extension`, and `mobile` manifests upon user confirmation.
+
+---
+
 ## Current Session: Public Repository Standardization, README Revamp & Artifact Cleanup (2026-08-18)
 
 ### ✅ What Was Done
