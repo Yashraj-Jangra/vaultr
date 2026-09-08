@@ -12,7 +12,7 @@ import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { vaultAttachments, vaultItems, userProfiles } from "@/db/schema";
 import { eq, and, count, sql } from "drizzle-orm";
-import { uploadAttachment } from "@/lib/storage";
+import { uploadAttachment, deleteAttachment } from "@/lib/storage";
 import { randomUUID } from "crypto";
 
 const MAX_FILE_BYTES      = 25 * 1024 * 1024; // 25 MB (encrypted blob)
@@ -116,44 +116,78 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Upload to MinIO ───────────────────────────────────────────────────────
-    const attachmentId   = randomUUID();
-    const buffer         = Buffer.from(bytes);
+    // ── Upload to MinIO & Insert DB row (with atomic rollback) ────────────────
+    const attachmentId = randomUUID();
+    const buffer = Buffer.from(bytes);
 
-    const s3Key = await uploadAttachment(
-      user.id,
-      vaultItemId,
-      attachmentId,
-      buffer,
-      mimeType
-    );
-
-    // ── Insert DB row ─────────────────────────────────────────────────────────
-    const [attachment] = await db
-      .insert(vaultAttachments)
-      .values({
-        id:            attachmentId,
+    let s3Key: string | null = null;
+    try {
+      s3Key = await uploadAttachment(
+        user.id,
         vaultItemId,
-        userId:        user.id,
-        encryptedName,
-        mimeType,
-        sizeBytes:     size,
-        s3Key,
-      })
-      .returning();
+        attachmentId,
+        buffer,
+        mimeType
+      );
 
-    // ── Increment storageUsedBytes ────────────────────────────────────────────
-    await db
-      .insert(userProfiles)
-      .values({ userId: user.id, storageUsedBytes: size })
-      .onConflictDoUpdate({
-        target: userProfiles.userId,
-        set: {
-          storageUsedBytes: sql`${userProfiles.storageUsedBytes} + ${size}`,
-        },
-      });
+      // Re-check quota immediately before DB insertion to mitigate TOCTOU race
+      const [freshProfile] = await db
+        .select({
+          usedBytes: userProfiles.storageUsedBytes,
+          quotaBytes: userProfiles.storageQuotaBytes,
+        })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, user.id))
+        .limit(1);
 
-    return NextResponse.json({ attachment }, { status: 201 });
+      const latestUsed = freshProfile?.usedBytes ?? 0;
+      const latestQuota = freshProfile?.quotaBytes ?? 104_857_600;
+
+      if (latestUsed + size > latestQuota) {
+        await deleteAttachment(s3Key);
+        const remainingMB = Math.max(0, (latestQuota - latestUsed) / 1024 / 1024).toFixed(1);
+        return NextResponse.json(
+          { error: `Storage quota exceeded. You have ${remainingMB} MB remaining.` },
+          { status: 413 }
+        );
+      }
+
+      // ── Insert DB row ─────────────────────────────────────────────────────────
+      const [attachment] = await db
+        .insert(vaultAttachments)
+        .values({
+          id:            attachmentId,
+          vaultItemId,
+          userId:        user.id,
+          encryptedName,
+          mimeType,
+          sizeBytes:     size,
+          s3Key,
+        })
+        .returning();
+
+      // ── Increment storageUsedBytes ────────────────────────────────────────────
+      await db
+        .insert(userProfiles)
+        .values({ userId: user.id, storageUsedBytes: size })
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: {
+            storageUsedBytes: sql`${userProfiles.storageUsedBytes} + ${size}`,
+          },
+        });
+
+      return NextResponse.json({ attachment }, { status: 201 });
+    } catch (uploadOrDbErr) {
+      if (s3Key) {
+        try {
+          await deleteAttachment(s3Key);
+        } catch (cleanupErr) {
+          console.error("[POST /api/vault/attachments] Failed to cleanup orphaned S3 object:", cleanupErr);
+        }
+      }
+      throw uploadOrDbErr;
+    }
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[POST /api/vault/attachments]", err);

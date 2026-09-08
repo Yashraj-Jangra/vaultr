@@ -188,7 +188,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     const fromPrefix = `${from}/`;
-    const fromLen = from.length + 1; // 1-indexed for Postgres substring
+    // 1-indexed for Postgres substring: extracts the '/' prefix and nested path (e.g. from 'Work/Project', extracts '/Project' to concatenate with '${to}')
+    const fromLen = from.length + 1;
 
     const updated = await db
       .update(vaultItems)

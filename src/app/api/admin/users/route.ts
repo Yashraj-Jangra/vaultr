@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminToken } from "@/lib/auth/verifyAdmin";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/db";
-import { userProfiles } from "@/db/schema";
+import { userProfiles, sessionMeta } from "@/db/schema";
+import { inArray, sql } from "drizzle-orm";
 
 // Hard cap on results per request
 const MAX_RESULTS = 200;
@@ -28,27 +29,37 @@ export async function GET(req: NextRequest) {
       query: { limit, offset },
     });
 
-    // Fetch ONLY profiles for the current page of users (not the entire table)
+    // Fetch ONLY profiles and session activity for the current page of users
     const userIds = users.map((u) => u.id);
-    const profileRows =
+
+    const [profileRows, sessionRows] = await Promise.all([
       userIds.length > 0
-        ? await db.select().from(userProfiles).where(
-            // Drizzle inArray — matches all returned user IDs
-            (() => {
-              const { inArray } = require("drizzle-orm");
-              return inArray(userProfiles.userId, userIds);
-            })()
-          )
-        : [];
+        ? db
+            .select()
+            .from(userProfiles)
+            .where(inArray(userProfiles.userId, userIds))
+        : Promise.resolve([]),
+      userIds.length > 0
+        ? db
+            .select({
+              userId: sessionMeta.userId,
+              lastActiveAt: sql<Date | null>`max(${sessionMeta.lastActiveAt})`,
+            })
+            .from(sessionMeta)
+            .where(inArray(sessionMeta.userId, userIds))
+            .groupBy(sessionMeta.userId)
+        : Promise.resolve([]),
+    ]);
 
     const profileMap = Object.fromEntries(profileRows.map((p) => [p.userId, p]));
+    const sessionMap = Object.fromEntries(sessionRows.map((s) => [s.userId, s.lastActiveAt]));
 
     const mapped = users.map((u) => ({
       uid:          u.id,
       email:        u.email,
       displayName:  u.name,
       creationTime: u.createdAt,
-      lastSignInTime: null, // Better Auth does not expose this directly
+      lastSignInTime: sessionMap[u.id] ?? null,
       disabled:     profileMap[u.id]?.disabled ?? false,
       isAdmin:      profileMap[u.id]?.role === "admin",
     }));

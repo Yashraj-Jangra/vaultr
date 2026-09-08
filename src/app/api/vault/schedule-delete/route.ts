@@ -6,6 +6,12 @@ import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createTransporter, WRAPPER, getBrandLogoAttachment } from "@/lib/emailTemplates";
+import { rateLimit, getRateLimitHeaders, getClientIp } from "@/lib/rateLimit";
+
+const RATE_LIMIT_OPTIONS = {
+  limit: 3,
+  windowMs: 10 * 60 * 1000, // 3 requests per 10 minutes
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,10 +34,23 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyUserToken(req);
+
+    const clientIp = getClientIp(req);
+    const rlKey = `schedule_delete_post:${user.id}:${clientIp}`;
+    const rl = rateLimit(rlKey, RATE_LIMIT_OPTIONS);
+    const headers = getRateLimitHeaders(rl);
+
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "Too many schedule deletion requests. Please wait." },
+        { status: 429, headers }
+      );
+    }
+
     const body = await req.json();
 
     if (body.confirm !== "DELETE") {
-      return NextResponse.json({ error: 'Confirmation string "DELETE" required' }, { status: 400 });
+      return NextResponse.json({ error: 'Confirmation string "DELETE" required' }, { status: 400, headers });
     }
 
     const scheduledDeleteAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
@@ -51,6 +70,9 @@ export async function POST(req: NextRequest) {
     try {
       const conn = await createTransporter();
       if (conn && user.email) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+        const cancelUrl = `${appUrl}/settings?tab=data`;
+
         await conn.transporter.sendMail({
           from: conn.fromAddress,
           to: user.email,
@@ -71,10 +93,13 @@ export async function POST(req: NextRequest) {
                 ${scheduledDeleteAt.toUTCString()} (in 24 hours)
               </p>
             </div>
-            <p style="font-size:13px;color:#71717a;margin-bottom:24px;line-height:1.6;">
-              If you did not request this deletion, sign in to Vaultr immediately and cancel the request from <strong style="color:#ffffff;">Settings &rarr; Data</strong>.
+            <p style="font-size:13px;color:#71717a;margin-bottom:20px;line-height:1.6;">
+              If you did not request this deletion, cancel the request immediately using the button below or navigate to <strong style="color:#ffffff;">Settings &rarr; Data</strong>.
+            </p>
+            <p style="margin:0 0 24px;">
+              <a href="${cancelUrl}" style="display:inline-block;padding:11px 22px;background-color:#ef4444;color:#ffffff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:700;">Cancel Deletion Immediately</a>
             </p>`, "DELETION SCHEDULED"),
-          text: `Vault Deletion Scheduled.\n\nAll data in your Vaultr vault is scheduled for permanent deletion in 24 hours (${scheduledDeleteAt.toUTCString()}).\n\nIf you did not request this, please sign in immediately and cancel the deletion from Settings -> Data.`,
+          text: `Vault Deletion Scheduled.\n\nAll data in your Vaultr vault is scheduled for permanent deletion in 24 hours (${scheduledDeleteAt.toUTCString()}).\n\nIf you did not request this, please sign in immediately and cancel the deletion from Settings -> Data: ${cancelUrl}`,
           attachments: getBrandLogoAttachment(),
         });
       }
@@ -85,7 +110,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       scheduledDeleteAt: scheduledDeleteAt.toISOString(),
-    });
+    }, { headers });
   } catch (err) {
     if (err instanceof Response) return err;
     console.error("[schedule-delete POST]", err);
