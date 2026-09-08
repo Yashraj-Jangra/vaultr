@@ -56,7 +56,7 @@ function getItemIcon(item: VaultItem) {
   const template = item.template || "login";
 
   if (template === "login") {
-    return <SiteIcon domain={item.domain} name={item.name} url={(item as any).url} />;
+    return <SiteIcon domain={item.domain ?? undefined} name={item.name} url={(item as any).url} />;
   }
 
   if (template === "card") {

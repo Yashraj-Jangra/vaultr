@@ -203,7 +203,7 @@ export function App() {
     setEditingItem({
       id: item.id,
       name: item.name,
-      folder: item.folder,
+      folder: item.folder ?? undefined,
       tags: item.tags,
       template: item.template || "login",
       payload: decryptedPayload,
