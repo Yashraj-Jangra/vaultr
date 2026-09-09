@@ -12,6 +12,7 @@ import {
   Image,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../store/vaultStore";
@@ -88,6 +89,7 @@ export function AuthScreen() {
   const [errorMsg, setErrorMsg] = useState("");
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverInput, setServerInput] = useState(serverUrl || "");
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -107,10 +109,13 @@ export function AuthScreen() {
 
   const handleGoogleLogin = async () => {
     setErrorMsg("");
+    setIsGoogleLoading(true);
     try {
       await signInWithGoogle(serverInput.trim() || serverUrl);
     } catch (err: any) {
       setErrorMsg(err?.message || "Google sign-in failed.");
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -244,13 +249,19 @@ export function AuthScreen() {
 
             {/* Google Social Sign-In — matches web page */}
             <TouchableOpacity
-              style={styles.googleBtn}
+              style={[styles.googleBtn, (isLoading || isGoogleLoading) && { opacity: 0.7 }]}
               onPress={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
               activeOpacity={0.8}
             >
-              <GoogleIcon />
-              <Text style={styles.googleBtnText}>Continue with Google</Text>
+              {isGoogleLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <GoogleIcon />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <View style={styles.dividerRow}>
@@ -345,13 +356,13 @@ export function AuthScreen() {
 
             {/* Submit button */}
             <TouchableOpacity
-              style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
+              style={[styles.primaryBtn, (isLoading || isGoogleLoading) && styles.primaryBtnDisabled]}
               onPress={isSignUp ? handleSignUp : handleSignIn}
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
               activeOpacity={0.85}
             >
-              {isLoading ? (
-                <View style={styles.spinner} />
+              {isLoading && !isGoogleLoading ? (
+                <ActivityIndicator size="small" color="#09090b" />
               ) : (
                 <>
                   <Text style={styles.primaryBtnText}>
