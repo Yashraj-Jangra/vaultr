@@ -55,6 +55,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [serverAttachments, setServerAttachments] = useState<Array<{ id: string; name: string; sizeBytes: number; mimeType: string; createdAt: string }>>([]);
+  const [downloadingAttId, setDownloadingAttId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -543,19 +544,24 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               <View style={styles.sectionGroup}>
                 {(serverAttachments.length > 0 ? serverAttachments : (payload.attachments || [])).map((att: any, idx: number) => {
                   const totalCount = serverAttachments.length > 0 ? serverAttachments.length : payload.attachments.length;
+                  const attKey = att.id || att.name || String(idx);
+                  const isDownloading = downloadingAttId === attKey;
                   return (
                     <TouchableOpacity
                       key={att.id || idx}
                       style={[
                         styles.attachDetailRow,
                         idx < totalCount - 1 && styles.rowDivider,
+                        isDownloading && { opacity: 0.7 },
                       ]}
                       onPress={async () => {
+                        if (isDownloading) return;
                         if (att.uri) {
                           Linking.openURL(att.uri).catch(() =>
                             vaultAlert.alert("Notice", "Cannot open local file URI.", undefined, { illustration: "cancel_k4w9" })
                           );
                         } else if (att.id) {
+                          setDownloadingAttId(attKey);
                           try {
                             const decrypted = await downloadAndDecryptAttachment(att.id, att.encryptedName || att.name);
 
@@ -582,9 +588,12 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                             FileSystem.deleteAsync(outUri, { idempotent: true }).catch(() => {});
                           } catch (err: any) {
                             vaultAlert.alert("Download Error", err?.message || "Failed to download attachment.", undefined, { illustration: "cancel_k4w9" });
+                          } finally {
+                            setDownloadingAttId(null);
                           }
                         }
                       }}
+                      disabled={isDownloading}
                       activeOpacity={0.7}
                     >
                       <FileText size={16} color="#60a5fa" />
@@ -594,7 +603,11 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                           {att.sizeBytes ? (att.sizeBytes / 1024).toFixed(1) + " KB" : att.size ? (att.size / 1024).toFixed(1) + " KB" : "Encrypted S3 Attachment"}
                         </Text>
                       </View>
-                      <ExternalLink size={14} color="#71717a" />
+                      {isDownloading ? (
+                        <ActivityIndicator size="small" color="#60a5fa" />
+                      ) : (
+                        <ExternalLink size={14} color="#71717a" />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
