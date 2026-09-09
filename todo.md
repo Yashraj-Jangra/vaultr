@@ -31,6 +31,10 @@
 - **Unsaved Changes Guard**:
   - Intercepts top-left navigation back button and Android hardware back button via `BackHandler` with a `vaultAlert` discard confirmation dialog.
 
+#### 4. Fixed Header Item Name Left-Alignment Bug (`mobile/src/screens/ItemDetailScreen.tsx`)
+- **Root Cause**: `styles.navTitle` had `textAlign: "center"`. When an item's title was short (e.g. "Work", "Amex"), it centered inside the remaining `flex: 1` space between the single back button on the left and the 3 action buttons on the right, appearing awkwardly centered and off-axis.
+- **Fix**: Removed `textAlign: "center"` and used `marginLeft: 8, marginRight: 8`, keeping all titles consistently left-aligned right beside the back navigation arrow regardless of title length.
+
 ---
 
 ## Current Session: Mobile UX & Production Reliability — Button Spinners & Loading States (2026-09-10)

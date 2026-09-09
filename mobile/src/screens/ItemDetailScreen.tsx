@@ -1010,8 +1010,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
     flex: 1,
-    textAlign: "center",
-    marginHorizontal: 8,
+    marginLeft: 8,
+    marginRight: 8,
   },
   navRight: {
     flexDirection: "row",
