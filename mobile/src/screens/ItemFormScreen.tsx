@@ -19,7 +19,7 @@ import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
-import { ItemPreviewCard } from "../components/ItemPreviewCard";
+import { ItemPreviewCard, detectCardBrand } from "../components/ItemPreviewCard";
 import { useResponsive } from "../utils/responsive";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -83,7 +83,25 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [cvv, setCvv] = useState("");
   const [pin, setPin] = useState("");
   const [cardBrand, setCardBrand] = useState("");
+  const [isManualBrand, setIsManualBrand] = useState(false);
+  const [fallbackIndex, setFallbackIndex] = useState<number | null>(null);
   const [showNetworkPicker, setShowNetworkPicker] = useState(false);
+
+  const fallbackBrand = useMemo(() => {
+    const eggs = ["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD"];
+    return fallbackIndex !== null ? eggs[fallbackIndex % eggs.length] : undefined;
+  }, [fallbackIndex]);
+
+  // Reactive card brand auto-detect from number
+  useEffect(() => {
+    if (isManualBrand) return;
+    if (!cardNumber) {
+      setCardBrand("");
+      return;
+    }
+    const detected = detectCardBrand(cardNumber);
+    setCardBrand(detected);
+  }, [cardNumber, isManualBrand]);
 
   // Sensitive Field Eye Toggles
   const [showPassword, setShowPassword] = useState(false);
@@ -206,7 +224,14 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
           if (p.cvv || p.code) setCvv(p.cvv || p.code);
           if (p.pin) setPin(p.pin);
-          if (p.cardBrand || p.brand) setCardBrand(p.cardBrand || p.brand);
+          if (p.cardBrand || p.brand) {
+            const b = p.cardBrand || p.brand;
+            setCardBrand(b);
+            setIsManualBrand(true);
+            if (b === "Other") {
+              setFallbackIndex(Math.floor(Math.random() * 1000));
+            }
+          }
 
           if (p.street || p.line1) setStreet(p.street || p.line1 || "");
           if (p.city) setCity(p.city);
@@ -339,7 +364,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.expiry = (normMonth || normYear) ? `${normMonth || "MM"} / ${normYear || "YY"}` : "";
         unencryptedPayload.cvv = cvv.trim();
         if (pin.trim()) unencryptedPayload.pin = pin.trim();
-        if (cardBrand.trim()) unencryptedPayload.cardBrand = cardBrand.trim();
+        const effectiveBrand = (cardBrand && cardBrand.toLowerCase() !== "auto-detect" ? cardBrand.trim() : "") || detectCardBrand(cardNumber) || "";
+        if (effectiveBrand) unencryptedPayload.cardBrand = effectiveBrand;
       } else if (template === "address") {
         unencryptedPayload.street = street.trim();
         unencryptedPayload.line1 = street.trim();
@@ -458,6 +484,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
           expYear={expYear}
           cvv={cvv}
           cardBrand={cardBrand}
+          fallbackBrand={fallbackBrand}
           street={street}
           city={city}
           state={stateStr}
@@ -732,6 +759,12 @@ export function ItemFormScreen({ route, navigation }: Props) {
                       ]}
                       onPress={() => {
                         setCardBrand(n.value);
+                        setIsManualBrand(n.value !== "");
+                        if (n.value === "Other") {
+                          setFallbackIndex(Math.floor(Math.random() * 1000));
+                        } else {
+                          setFallbackIndex(null);
+                        }
                         setShowNetworkPicker(false);
                       }}
                     >

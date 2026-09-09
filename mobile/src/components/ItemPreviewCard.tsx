@@ -35,6 +35,7 @@ interface ItemPreviewCardProps {
   expYear?: string;
   cvv?: string;
   cardBrand?: string; // Explicit override (Visa, Mastercard, AMEX, Discover, RuPay, Other)
+  fallbackBrand?: string; // Easter egg or custom brand display
   expiry?: string;    // Combined "MM / YYYY" from web
   cardName?: string;  // Web uses cardName
   isNumberVisible?: boolean; // Show card number digits when revealed
@@ -205,20 +206,22 @@ function CreditCardVisual({
   expYear = "",
   expiry = "",
   cardBrand = "",
+  fallbackBrand = "",
   isNumberVisible = false,
 }: ItemPreviewCardProps) {
 
   // Resolve effective brand: explicit > auto-detect from number
   const effectiveBrand = useMemo(() => {
     if (cardBrand && cardBrand.toLowerCase() !== "auto-detect") return cardBrand;
-    return detectCardBrand(cardNumber);
-  }, [cardBrand, cardNumber]);
+    return detectCardBrand(cardNumber) || fallbackBrand || "";
+  }, [cardBrand, cardNumber, fallbackBrand]);
 
   const isVisa = effectiveBrand?.toLowerCase() === "visa";
   const isMC = effectiveBrand?.toLowerCase() === "mastercard";
   const isAmex = effectiveBrand?.toLowerCase() === "amex";
   const isDiscover = effectiveBrand?.toLowerCase() === "discover";
   const isRuPay = effectiveBrand?.toLowerCase() === "rupay";
+  const isOther = effectiveBrand?.toLowerCase() === "other";
 
   // Background themes matching web exactly
   const theme = useMemo(() => {
@@ -317,9 +320,13 @@ function CreditCardVisual({
           {isAmex && <AmexLogo />}
           {isDiscover && <DiscoverLogo />}
           {isRuPay && <RuPayLogo />}
-          {!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && effectiveBrand ? (
-            <Text style={card.fallbackBrandText}>{effectiveBrand.toUpperCase()}</Text>
-          ) : null}
+          {!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && (
+            isOther && fallbackBrand ? (
+              <Text style={[card.fallbackBrandText, { color: "#34d399" }]}>{fallbackBrand.toUpperCase()}</Text>
+            ) : effectiveBrand ? (
+              <Text style={card.fallbackBrandText}>{effectiveBrand.toUpperCase()}</Text>
+            ) : null
+          )}
         </View>
       </View>
 
