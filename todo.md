@@ -1,3 +1,34 @@
+## Current Session: Mobile Web-Parity — Card Type Auto-Detect & Pattern Generator (2026-09-09)
+
+### ✅ What Was Done
+
+#### 1. Card Brand Auto-Detection & Other Network Parity (`mobile/src/screens/ItemFormScreen.tsx` & `mobile/src/components/ItemPreviewCard.tsx`)
+- **Reactive Card Brand Auto-Detect**:
+  - Imported `detectCardBrand` from `ItemPreviewCard` into `ItemFormScreen`.
+  - Added `isManualBrand` tracking state to distinguish user-selected overrides from auto-detected values.
+  - Implemented `useEffect([cardNumber, isManualBrand])` that reactively computes and updates the card brand (Visa, Mastercard, AMEX, Discover, RuPay) as digits are typed.
+  - Set `isManualBrand = true` when editing existing card items that already have a saved brand to prevent overriding stored records.
+  - In `CARD_NETWORKS` modal picker, picking a network sets `isManualBrand(true)` while selecting `"Auto-detect"` clears `isManualBrand`, allowing dynamic detection to resume.
+- **"Other" Network Random Easter-Egg Strings**:
+  - Enabled `"Other"` network option with randomized `fallbackIndex` picking easter egg strings (`["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD"]`), achieving full parity with web's `NewEntryDialog`.
+  - Added `fallbackBrand` prop to `ItemPreviewCardProps` and passed it down to `CreditCardVisual` in `ItemPreviewCard.tsx`.
+  - Rendered `fallbackBrand` in emerald accent (`#34d399`) in the card preview header when `"Other"` network is active.
+
+#### 2. Pattern Generator Mode (`mobile/src/screens/GeneratorScreen.tsx`)
+- **4th Generator Mode Tab**:
+  - Extended `Mode` union type to `"random" | "passphrase" | "pin" | "pattern"`.
+  - Added `"Pattern"` tab to the mode tab bar.
+- **Pattern Template Input & Computation**:
+  - Imported `generatePattern` and `PatternOptions` from `@vaultr/core`.
+  - Added `patternStr` state defaulting to `"ULL-ddd-SS"`.
+  - Wired `generatePattern({ pattern: patternStr })` reactively inside `currentPassword` `useMemo`.
+- **Token Legend & Monospace Controls**:
+  - Added `Pattern Template` monospace input card with auto-capitalization and spellcheck disabled.
+  - Created a 2-column token legend grid with color-coded token badges (`L` lowercase, `U` uppercase, `d` digit, `S` symbol, `*` any random, `- / _` literal).
+  - Character colorization in output display seamlessly formats patterned strings.
+
+---
+
 ## Current Session: Architecture Hardening, Security Sanitization & Best Practices (2026-09-08)
 
 ### ✅ What Was Done
