@@ -6,15 +6,18 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   generateRandom,
   generatePassphrase,
   generatePin,
+  generatePattern,
   scorePassword,
   GeneratorMode,
   StrengthResult,
+  PatternOptions,
 } from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
@@ -23,7 +26,7 @@ import { CustomSwitch } from "../components/CustomSwitch";
 import { Wand2, Copy, Check, RefreshCw, History } from "lucide-react-native";
 import { useResponsive } from "../utils/responsive";
 
-type Mode = "random" | "passphrase" | "pin";
+type Mode = "random" | "passphrase" | "pin" | "pattern";
 
 interface HistoryEntry {
   id: string;
@@ -96,6 +99,9 @@ export function GeneratorScreen() {
 
   // PIN options
   const [pinLength, setPinLength] = useState(6);
+
+  // Pattern options
+  const [patternStr, setPatternStr] = useState("ULL-ddd-SS");
   const [seed, setSeed] = useState(0);
 
   // Copy state
@@ -130,11 +136,14 @@ export function GeneratorScreen() {
       if (mode === "pin") {
         return generatePin({ length: pinLength });
       }
+      if (mode === "pattern") {
+        return generatePattern({ pattern: patternStr });
+      }
     } catch {
       return "";
     }
     return "";
-  }, [mode, length, useUpper, useLower, useDigits, useSymbols, wordCount, separator, capitalize, pinLength, seed]);
+  }, [mode, length, useUpper, useLower, useDigits, useSymbols, wordCount, separator, capitalize, pinLength, patternStr, seed]);
 
   const strength = useMemo(() => scorePassword(currentPassword), [currentPassword]);
 
@@ -176,14 +185,14 @@ export function GeneratorScreen() {
     <View style={{ gap: 16 }}>
       {/* Mode Selector Tabs */}
       <View style={styles.modeTabs}>
-        {(["random", "passphrase", "pin"] as Mode[]).map((m) => (
+        {(["random", "passphrase", "pin", "pattern"] as Mode[]).map((m) => (
           <TouchableOpacity
             key={m}
             style={[styles.modeTab, mode === m && styles.modeTabActive]}
             onPress={() => setMode(m)}
           >
             <Text style={[styles.modeTabText, mode === m && styles.modeTabTextActive]}>
-              {m === "random" ? "Password" : m === "passphrase" ? "Passphrase" : "PIN"}
+              {m === "random" ? "Password" : m === "passphrase" ? "Passphrase" : m === "pin" ? "PIN" : "Pattern"}
             </Text>
           </TouchableOpacity>
         ))}
@@ -433,6 +442,43 @@ export function GeneratorScreen() {
                   {l} Digits
                 </Text>
               </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* 4. PATTERN CONTROLS */}
+      {mode === "pattern" && (
+        <View style={styles.controlsCard}>
+          <Text style={styles.controlTitle}>Pattern Template</Text>
+          <TextInput
+            style={styles.patternInput}
+            value={patternStr}
+            onChangeText={setPatternStr}
+            placeholder="ULL-ddd-SS"
+            placeholderTextColor={colors.textDim}
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+          />
+
+          <View style={styles.divider} />
+          <Text style={styles.sectionSubLabel}>Pattern Tokens</Text>
+          <View style={styles.patternLegend}>
+            {[
+              { token: "L", desc: "lowercase (a-z)", color: "#e4e4e7" },
+              { token: "U", desc: "uppercase (A-Z)", color: "#38bdf8" },
+              { token: "d", desc: "digit (0-9)",     color: "#fbbf24" },
+              { token: "S", desc: "symbol (!@#)",    color: "#fb7185" },
+              { token: "*", desc: "any random",      color: "#c084fc" },
+              { token: "- / _", desc: "literal text", color: "#71717a" },
+            ].map(({ token, desc, color }) => (
+              <View key={token} style={styles.legendTokenRow}>
+                <View style={styles.tokenBadge}>
+                  <Text style={[styles.legendToken, { color }]}>{token}</Text>
+                </View>
+                <Text style={styles.legendTokenDesc}>{desc}</Text>
+              </View>
             ))}
           </View>
         </View>
@@ -852,5 +898,50 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#71717a",
     marginTop: 2,
+  },
+  patternInput: {
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: "monospace",
+    color: "#f4f4f5",
+  },
+  patternLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  legendTokenRow: {
+    width: "48%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#0d0d0d",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+    borderRadius: 8,
+    padding: 8,
+  },
+  tokenBadge: {
+    backgroundColor: "#18181b",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  legendToken: {
+    fontFamily: "monospace",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  legendTokenDesc: {
+    fontSize: 11,
+    color: "#a1a1aa",
+    flex: 1,
   },
 });
