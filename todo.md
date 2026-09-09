@@ -1,3 +1,38 @@
+## Current Session: Mobile Secure Notes Overhaul — In-Place Plain-Text Editor & Ecosystem Parity (2026-09-10)
+
+### ✅ What Was Done
+
+#### 1. Cross-System Impact & Parity Rule Enforcement
+- **`GEMINI.md` (Rule 14)** & **`AGENTS.md` (Section 5)**:
+  - Enforced systematic cross-platform verification before proposing changes.
+  - Mandated preserving wire format integrity (`unencryptedPayload.note` as plain string) across Web, Extension, Mobile, and PostgreSQL DB.
+
+#### 2. Mobile Note Form Overhaul (`mobile/src/screens/ItemFormScreen.tsx`)
+- **Suppressed Skeuomorphic Preview Card**:
+  - Hid `<ItemPreviewCard>` when `template === "note"`, recovering over 200px of vertical space above the virtual keyboard.
+- **Expansive Note Text Area**:
+  - Replaced standard 80px input with `noteTextArea` (`minHeight: 240`, `fontSize: 15`, `lineHeight: 22`).
+  - Added live word & character stats counter (`XX words · YY characters`).
+
+#### 3. Living In-Place Note Editor on Detail Screen (`mobile/src/screens/ItemDetailScreen.tsx`)
+- **Preview Card Removal for Notes**:
+  - Suppressed `<ItemPreviewCard>` when `isNoteTemplate`, letting notes open directly to their real content.
+- **Editable Title & Living Plain-Text Canvas**:
+  - In `badgeCardHeader`, rendered an editable `noteTitleInput` for `editedName` while preserving the amber note icon, folder, and tags.
+  - Replaced the cramped 220px read-only scrollbox with `livingNoteCanvas`:
+    - Auto-growing multiline `livingNoteInput` with relaxed typography (`lineHeight: 24`, `minHeight: 250`).
+    - Note footer with real-time word and character statistics and 1-tap clipboard copy action.
+    - Custom fields and attachments remain fully accessible below the note canvas.
+- **Header Save Action & Loading Spinner**:
+  - Added `isDirty` detection comparing current edits against saved state.
+  - When dirty, replaces `Edit2` in header with high-contrast "Save" pill button.
+  - Displays native `ActivityIndicator` spinner during in-flight AES-256-GCM encryption and network sync via `updateItem`.
+  - Shows green "SAVED" confirmation badge upon successful save.
+- **Unsaved Changes Guard**:
+  - Intercepts top-left navigation back button and Android hardware back button via `BackHandler` with a `vaultAlert` discard confirmation dialog.
+
+---
+
 ## Current Session: Mobile UX & Production Reliability — Button Spinners & Loading States (2026-09-10)
 
 ### ✅ What Was Done

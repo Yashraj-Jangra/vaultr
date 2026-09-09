@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   Dimensions,
   Linking,
+  TextInput,
+  Platform,
+  BackHandler,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -48,7 +51,7 @@ type Props = StackScreenProps<RootStackParamList, "ItemDetail">;
 export function ItemDetailScreen({ route, navigation }: Props) {
   const rawItem = route.params.item;
   const item = useVaultStore((state) => state.items.find((i) => i.id === rawItem.id)) || rawItem;
-  const { isOnline, decryptItemBlob, toggleFavorite, trashItem, fetchAttachments, downloadAndDecryptAttachment, deleteAttachment } = useVaultStore();
+  const { isOnline, decryptItemBlob, toggleFavorite, trashItem, fetchAttachments, downloadAndDecryptAttachment, deleteAttachment, updateItem } = useVaultStore();
 
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +59,15 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [serverAttachments, setServerAttachments] = useState<Array<{ id: string; name: string; sizeBytes: number; mimeType: string; createdAt: string }>>([]);
   const [downloadingAttId, setDownloadingAttId] = useState<string | null>(null);
+
+  // In-place Note editing state
+  const [editedName, setEditedName] = useState(item.name || "");
+  const [editedNote, setEditedNote] = useState("");
+  const [lastSavedName, setLastSavedName] = useState(item.name || "");
+  const [lastSavedNote, setLastSavedNote] = useState("");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const isInitialLoadedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -77,7 +89,17 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       try {
         const raw = await decryptItemBlob(item.encryptedBlob);
         if (mounted) {
-          setPayload(JSON.parse(raw));
+          const parsed = JSON.parse(raw);
+          setPayload(parsed);
+          if (!isInitialLoadedRef.current) {
+            const noteVal = parsed.note ?? parsed.entryNotes ?? "";
+            const nameVal = item.name || "";
+            setEditedNote(noteVal);
+            setLastSavedNote(noteVal);
+            setEditedName(nameVal);
+            setLastSavedName(nameVal);
+            isInitialLoadedRef.current = true;
+          }
         }
       } catch (err) {
         if (mounted) {
@@ -145,55 +167,124 @@ export function ItemDetailScreen({ route, navigation }: Props) {
 
   const { isSplitView } = useResponsive();
 
+  const isNoteTemplate = item.template === "note" || payload?._template === "note";
+  const isDirty = isNoteTemplate && !loading && (
+    editedName.trim() !== lastSavedName.trim() ||
+    editedNote !== lastSavedNote
+  );
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const backAction = () => {
+      vaultAlert.alert(
+        "Unsaved Changes",
+        "You have unsaved edits on this note. Are you sure you want to discard them?",
+        [
+          { text: "Keep Editing", style: "cancel" },
+          { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+        ],
+        { illustration: "throw-away_k2t5" }
+      );
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, [isDirty]);
+
+  const handleSaveNote = async () => {
+    if (!isOnline) {
+      vaultAlert.alert("Offline Mode", "Internet connection is required to save changes.", undefined, { illustration: "clouds_bmtk" });
+      return;
+    }
+    const finalName = editedName.trim() || item.name;
+    setIsSavingNote(true);
+    try {
+      const updatedPayload = {
+        ...payload,
+        note: editedNote,
+      };
+      if (payload?.entryNotes !== undefined) {
+        updatedPayload.entryNotes = editedNote;
+      }
+      await updateItem(item.id, {
+        name: finalName,
+        unencryptedPayload: updatedPayload,
+      });
+      setPayload(updatedPayload);
+      setLastSavedName(finalName);
+      setLastSavedNote(editedNote);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+    } catch (err: any) {
+      vaultAlert.alert("Error", err?.message || "Failed to save note.", undefined, { illustration: "cancel_k4w9" });
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
   const renderVisualPreviewAndHeader = () => (
     <View style={{ gap: 14 }}>
-      {/* Dynamic Live Preview Canvas (Kept as requested) */}
-      <View style={{ marginBottom: 4 }}>
-        <ItemPreviewCard
-          template={item.template || "login"}
-          name={item.name}
-          username={payload?.username}
-          url={payload?.url || item.domain}
-          domain={item.domain || payload?.url}
-          cardholderName={payload?.cardholderName || payload?.cardName}
-          cardName={payload?.cardName || payload?.cardholderName}
-          cardNumber={payload?.cardNumber}
-          isNumberVisible={showPassword}
-          expMonth={payload?.expMonth}
-          expYear={payload?.expYear}
-          expiry={payload?.expiry}
-          cvv={payload?.cvv}
-          cardBrand={payload?.cardBrand}
-          street={payload?.street || payload?.line1}
-          line2={payload?.line2}
-          city={payload?.city}
-          state={payload?.state}
-          zip={payload?.zip}
-          country={payload?.country}
-          fullName={
-            payload?.fullName ||
-            (payload?.firstName && payload?.lastName
-              ? `${payload.firstName} ${payload.lastName}`
-              : payload?.firstName || payload?.lastName)
-          }
-          email={payload?.email}
-          phone={payload?.phone}
-          note={payload?.note}
-        />
-      </View>
+      {/* Dynamic Live Preview Canvas (omitted for notes) */}
+      {!isNoteTemplate && (
+        <View style={{ marginBottom: 4 }}>
+          <ItemPreviewCard
+            template={item.template || "login"}
+            name={item.name}
+            username={payload?.username}
+            url={payload?.url || item.domain}
+            domain={item.domain || payload?.url}
+            cardholderName={payload?.cardholderName || payload?.cardName}
+            cardName={payload?.cardName || payload?.cardholderName}
+            cardNumber={payload?.cardNumber}
+            isNumberVisible={showPassword}
+            expMonth={payload?.expMonth}
+            expYear={payload?.expYear}
+            expiry={payload?.expiry}
+            cvv={payload?.cvv}
+            cardBrand={payload?.cardBrand}
+            street={payload?.street || payload?.line1}
+            line2={payload?.line2}
+            city={payload?.city}
+            state={payload?.state}
+            zip={payload?.zip}
+            country={payload?.country}
+            fullName={
+              payload?.fullName ||
+              (payload?.firstName && payload?.lastName
+                ? `${payload.firstName} ${payload.lastName}`
+                : payload?.firstName || payload?.lastName)
+            }
+            email={payload?.email}
+            phone={payload?.phone}
+            note={payload?.note}
+          />
+        </View>
+      )}
 
       {/* Header Badge Card */}
       <View style={styles.badgeCard}>
         <View style={styles.badgeCardHeader}>
           <SiteIcon
             domain={item.domain}
-            name={item.name}
+            name={isNoteTemplate ? editedName || item.name : item.name}
             url={payload?.url || item.domain}
             template={item.template || "login"}
             size={48}
           />
           <View style={{ flex: 1 }}>
-            <Text style={styles.itemName}>{item.name}</Text>
+            {isNoteTemplate ? (
+              <TextInput
+                style={styles.noteTitleInput}
+                value={editedName}
+                onChangeText={setEditedName}
+                placeholder="Note Title"
+                placeholderTextColor={colors.textDim}
+                returnKeyType="done"
+              />
+            ) : (
+              <Text style={styles.itemName}>{item.name}</Text>
+            )}
             <View style={styles.metaRow}>
               <View style={styles.templatePill}>
                 <Text style={styles.templatePillText}>
@@ -474,8 +565,51 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {/* Note Content */}
-          {(payload.note || ((item.template === "note" || payload._template === "note") && payload.entryNotes)) ? (
+          {/* Note Content / Living Plain-Text Editor */}
+          {isNoteTemplate ? (
+            <View style={{ gap: 6 }}>
+              <View style={styles.noteSectionHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>SECURE NOTE CONTENT</Text>
+                {savedSuccess && (
+                  <View style={styles.savedBadge}>
+                    <Check size={12} color="#10b981" />
+                    <Text style={styles.savedBadgeText}>SAVED</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.livingNoteCanvas}>
+                <TextInput
+                  style={styles.livingNoteInput}
+                  value={editedNote}
+                  onChangeText={setEditedNote}
+                  placeholder="Type secure note content here..."
+                  placeholderTextColor={colors.textDim}
+                  multiline
+                  textAlignVertical="top"
+                  scrollEnabled={false}
+                />
+                <View style={styles.livingNoteFooter}>
+                  <Text style={styles.noteStatsText}>
+                    {editedNote.trim() ? editedNote.trim().split(/\s+/).length : 0} words · {editedNote.length} characters
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.noteCopyBtn}
+                    onPress={() => copyToClipboard("noteContent", editedNote)}
+                    activeOpacity={0.7}
+                  >
+                    {copiedField === "noteContent" ? (
+                      <Check size={13} color="#34d399" />
+                    ) : (
+                      <Copy size={13} color="#a1a1aa" />
+                    )}
+                    <Text style={[styles.noteCopyBtnText, copiedField === "noteContent" && { color: "#34d399" }]}>
+                      {copiedField === "noteContent" ? "COPIED" : "COPY"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ) : (payload.note || payload.entryNotes) ? (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
               <View style={styles.noteCardBox}>
@@ -653,16 +787,52 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (isDirty) {
+              vaultAlert.alert(
+                "Unsaved Changes",
+                "You have unsaved edits on this note. Are you sure you want to discard them?",
+                [
+                  { text: "Keep Editing", style: "cancel" },
+                  { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+                ],
+                { illustration: "throw-away_k2t5" }
+              );
+            } else {
+              navigation.goBack();
+            }
+          }}
         >
           <ArrowLeft size={20} color={colors.text} />
         </TouchableOpacity>
 
         <Text style={styles.navTitle} numberOfLines={1}>
-          {item.name}
+          {isNoteTemplate ? (editedName || "Untitled Note") : item.name}
         </Text>
 
         <View style={styles.navRight}>
+          {isDirty ? (
+            <TouchableOpacity
+              style={[styles.saveNavBtn, isSavingNote && { opacity: 0.7 }]}
+              onPress={handleSaveNote}
+              disabled={isSavingNote}
+              activeOpacity={0.8}
+            >
+              {isSavingNote ? (
+                <ActivityIndicator size="small" color="#09090b" />
+              ) : (
+                <Text style={styles.saveNavBtnText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.navActionBtn}
+              onPress={handleEdit}
+            >
+              <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.navActionBtn}
             onPress={handleToggleFavorite}
@@ -672,13 +842,6 @@ export function ItemDetailScreen({ route, navigation }: Props) {
               color={item.favorite ? colors.warning : colors.textMuted}
               fill={item.favorite ? colors.warning : "transparent"}
             />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navActionBtn}
-            onPress={handleEdit}
-          >
-            <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
@@ -693,7 +856,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           <Text style={styles.loadingText}>Decrypting payload...</Text>
         </View>
       ) : isSplitView ? (
-        <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.splitLeftCol}>
             {renderVisualPreviewAndHeader()}
           </View>
@@ -702,7 +865,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           </View>
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {renderVisualPreviewAndHeader()}
           {renderDetailSections()}
         </ScrollView>
@@ -855,6 +1018,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  saveNavBtn: {
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 58,
+    minHeight: 32,
+  },
+  saveNavBtnText: {
+    color: "#09090b",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   navActionBtn: {
     padding: 8,
     borderRadius: 8,
@@ -911,6 +1090,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: colors.text,
+    marginBottom: 4,
+  },
+  noteTitleInput: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
     marginBottom: 4,
   },
   metaRow: {
@@ -1034,6 +1223,57 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 10,
+  },
+  noteSectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginRight: 4,
+  },
+  savedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  savedBadgeText: {
+    color: "#10b981",
+    fontSize: 10.5,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  livingNoteCanvas: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 16,
+    minHeight: 320,
+  },
+  livingNoteInput: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#f4f4f5",
+    minHeight: 250,
+    textAlignVertical: "top",
+    padding: 0,
+  },
+  livingNoteFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
+    marginTop: 12,
+  },
+  noteStatsText: {
+    fontSize: 11,
+    color: colors.textDim,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   noteCardHeader: {
     flexDirection: "row",

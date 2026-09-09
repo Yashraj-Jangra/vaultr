@@ -471,31 +471,33 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
   const renderLeftPane = () => (
     <View style={{ gap: 14 }}>
-      {/* Dynamic Live Preview Canvas */}
-      <View style={styles.previewCanvasWrap}>
-        <ItemPreviewCard
-          template={template}
-          name={name}
-          username={username}
-          url={url}
-          cardholderName={cardholderName}
-          cardNumber={cardNumber}
-          expMonth={expMonth}
-          expYear={expYear}
-          cvv={cvv}
-          cardBrand={cardBrand}
-          fallbackBrand={fallbackBrand}
-          street={street}
-          city={city}
-          state={stateStr}
-          zip={zip}
-          country={country}
-          fullName={firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
-          email={email}
-          phone={phone}
-          note={note}
-        />
-      </View>
+      {/* Dynamic Live Preview Canvas (omitted for notes) */}
+      {template !== "note" && (
+        <View style={styles.previewCanvasWrap}>
+          <ItemPreviewCard
+            template={template}
+            name={name}
+            username={username}
+            url={url}
+            cardholderName={cardholderName}
+            cardNumber={cardNumber}
+            expMonth={expMonth}
+            expYear={expYear}
+            cvv={cvv}
+            cardBrand={cardBrand}
+            fallbackBrand={fallbackBrand}
+            street={street}
+            city={city}
+            state={stateStr}
+            zip={zip}
+            country={country}
+            fullName={firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
+            email={email}
+            phone={phone}
+            note={note}
+          />
+        </View>
+      )}
 
       {/* Template selector pills */}
       {!isEdit && (
@@ -1029,14 +1031,19 @@ export function ItemFormScreen({ route, navigation }: Props) {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Note Content</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, styles.noteTextArea]}
               value={note}
               onChangeText={setNote}
               placeholder="Type secure note here..."
               placeholderTextColor={colors.textDim}
               multiline
-              numberOfLines={6}
+              textAlignVertical="top"
             />
+            <View style={styles.noteStatsRow}>
+              <Text style={styles.noteStatsText}>
+                {note.trim() ? note.trim().split(/\s+/).length : 0} words · {note.length} characters
+              </Text>
+            </View>
           </View>
         )}
 
@@ -1501,6 +1508,23 @@ const styles = StyleSheet.create({
   textArea: {
     textAlignVertical: "top",
     minHeight: 80,
+  },
+  noteTextArea: {
+    textAlignVertical: "top",
+    minHeight: 240,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
+  },
+  noteStatsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 2,
+  },
+  noteStatsText: {
+    fontSize: 11,
+    color: colors.textDim,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   attachHeader: {
     flexDirection: "row",
