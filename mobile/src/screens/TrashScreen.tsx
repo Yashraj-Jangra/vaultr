@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +19,8 @@ import { PurgeConfirmModal, PurgeTarget } from "../components/PurgeConfirmModal"
 export function TrashScreen({ navigation }: any) {
   const { items, restoreItem, deleteItem, batchAction, isOnline } = useVaultStore();
   const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
+  const [restoringAll, setRestoringAll] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const trashedItems = items.filter((i) => !!i.deletedAt);
 
@@ -35,6 +38,7 @@ export function TrashScreen({ navigation }: any) {
           text: "Restore",
           style: "default",
           onPress: async () => {
+            setRestoringId(id);
             try {
               await restoreItem(id);
             } catch (e: any) {
@@ -42,6 +46,8 @@ export function TrashScreen({ navigation }: any) {
                 illustration: "cancel_k4w9",
                 glowColor: "rgba(239, 68, 68, 0.10)",
               });
+            } finally {
+              setRestoringId(null);
             }
           },
         },
@@ -65,6 +71,7 @@ export function TrashScreen({ navigation }: any) {
           text: "Restore All",
           style: "default",
           onPress: async () => {
+            setRestoringAll(true);
             try {
               const ids = trashedItems.map((i) => i.id);
               await batchAction("restore", ids);
@@ -73,6 +80,8 @@ export function TrashScreen({ navigation }: any) {
                 illustration: "cancel_k4w9",
                 glowColor: "rgba(239, 68, 68, 0.10)",
               });
+            } finally {
+              setRestoringAll(false);
             }
           },
         },
@@ -124,9 +133,20 @@ export function TrashScreen({ navigation }: any) {
 
         {trashedItems.length > 0 && (
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.restoreAllBtn} onPress={handleRestoreAll} activeOpacity={0.8}>
-              <RotateCcw size={13} color="#34d399" style={{ marginRight: 4 }} />
-              <Text style={styles.restoreAllText}>Restore All</Text>
+            <TouchableOpacity
+              style={[styles.restoreAllBtn, restoringAll && { opacity: 0.7 }]}
+              onPress={handleRestoreAll}
+              disabled={restoringAll}
+              activeOpacity={0.8}
+            >
+              {restoringAll ? (
+                <ActivityIndicator size="small" color="#34d399" />
+              ) : (
+                <>
+                  <RotateCcw size={13} color="#34d399" style={{ marginRight: 4 }} />
+                  <Text style={styles.restoreAllText}>Restore All</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.emptyTrashBtn} onPress={handleEmptyTrash} activeOpacity={0.8}>
@@ -153,8 +173,13 @@ export function TrashScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.actionBtn}
               onPress={() => handleRestore(item.id, item.name)}
+              disabled={restoringId === item.id || restoringAll}
             >
-              <RotateCcw size={16} color={colors.success} />
+              {restoringId === item.id ? (
+                <ActivityIndicator size="small" color={colors.success} />
+              ) : (
+                <RotateCcw size={16} color={colors.success} />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
