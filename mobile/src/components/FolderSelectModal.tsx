@@ -7,6 +7,7 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -41,6 +42,7 @@ export function FolderSelectModal({ value, onChange }: FolderSelectModalProps) {
   const [creating, setCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [createParent, setCreateParent] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const { items, customFolders, addCustomFolder } = useVaultStore();
 
@@ -138,12 +140,19 @@ export function FolderSelectModal({ value, onChange }: FolderSelectModalProps) {
       return;
     }
 
-    await addCustomFolder(fullPath);
-    onChange(fullPath);
-    setNewFolderName("");
-    setCreateParent("");
-    setCreating(false);
-    handleClose();
+    setIsCreating(true);
+    try {
+      await addCustomFolder(fullPath);
+      onChange(fullPath);
+      setNewFolderName("");
+      setCreateParent("");
+      setCreating(false);
+      handleClose();
+    } catch (e: any) {
+      vaultAlert.alert("Error", e.message || "Failed to create folder.", undefined, { illustration: "cancel_k4w9" });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const currentLabel = value ? value : "No folder";
@@ -327,14 +336,20 @@ export function FolderSelectModal({ value, onChange }: FolderSelectModalProps) {
                   <TouchableOpacity
                     style={styles.createCancelBtn}
                     onPress={() => setCreating(false)}
+                    disabled={isCreating}
                   >
                     <Text style={styles.createCancelText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.createConfirmBtn}
+                    style={[styles.createConfirmBtn, isCreating && { opacity: 0.7 }]}
                     onPress={handleCreateSubmit}
+                    disabled={isCreating}
                   >
-                    <Text style={styles.createConfirmText}>Create & Select</Text>
+                    {isCreating ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.createConfirmText}>Create & Select</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
