@@ -22,7 +22,6 @@ import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
-import { SiteIcon } from "../components/SiteIcon";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
@@ -44,6 +43,8 @@ import {
   Trash2,
   ExternalLink,
   CreditCard,
+  Folder,
+  Tag,
 } from "lucide-react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemDetail">;
@@ -230,11 +231,42 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const renderVisualPreviewAndHeader = () => (
-    <View style={{ gap: 14 }}>
-      {/* Dynamic Live Preview Canvas (omitted for notes) */}
-      {!isNoteTemplate && (
-        <View style={{ marginBottom: 4 }}>
+  const renderMetaChips = () => {
+    const hasFolder = !!item.folder;
+    const tags = item.tags;
+    const hasTags = !!(tags && tags.length > 0);
+    if (!hasFolder && !hasTags) return null;
+
+    return (
+      <View style={styles.metaChipBar}>
+        {hasFolder && (
+          <View style={styles.folderChip}>
+            <Folder size={12} color="#fbbf24" />
+            <Text style={styles.folderChipText} numberOfLines={1}>
+              {item.folder}
+            </Text>
+          </View>
+        )}
+        {hasTags &&
+          tags?.map((tag: string, idx: number) => (
+            <View key={idx} style={styles.tagChip}>
+              <Tag size={11} color="#a1a1aa" />
+              <Text style={styles.tagChipText} numberOfLines={1}>
+                {tag}
+              </Text>
+            </View>
+          ))}
+      </View>
+    );
+  };
+
+  const renderVisualPreviewAndHeader = () => {
+    if (isNoteTemplate) {
+      return renderMetaChips();
+    }
+    return (
+      <View style={{ gap: 8 }}>
+        <View>
           <ItemPreviewCard
             template={item.template || "login"}
             name={item.name}
@@ -267,55 +299,11 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             note={payload?.note}
           />
         </View>
-      )}
 
-      {/* Header Badge Card */}
-      <View style={styles.badgeCard}>
-        <View style={styles.badgeCardHeader}>
-          <SiteIcon
-            domain={item.domain}
-            name={item.name}
-            url={payload?.url || item.domain}
-            template={item.template || "login"}
-            size={48}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <View style={styles.metaRow}>
-              <View style={styles.templatePill}>
-                <Text style={styles.templatePillText}>
-                  {(item.template || "login").toUpperCase()}
-                </Text>
-              </View>
-              {item.folder ? (
-                <Text style={styles.folderText}>{item.folder}</Text>
-              ) : null}
-            </View>
-            {item.tags && item.tags.length > 0 && (
-              <View style={styles.tagsRow}>
-                <Star size={11} color={colors.textMuted} style={{ marginRight: 2 }} />
-                {item.tags.map((t: string, idx: number) => (
-                  <View key={idx} style={styles.tagBadge}>
-                    <Text style={styles.tagBadgeText}>{t}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
-          <TouchableOpacity
-            style={styles.launchBtn}
-            onPress={() => handleLaunchUrl(payload?.url || item.domain)}
-          >
-            <ExternalLink size={16} color={colors.bg} />
-            <Text style={styles.launchBtnText}>Launch Website</Text>
-          </TouchableOpacity>
-        ) : null}
+        {renderMetaChips()}
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderDetailSections = () => (
     <View style={{ gap: 16 }}>
@@ -888,7 +876,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           <ActivityIndicator color={colors.accent} size="large" />
           <Text style={styles.loadingText}>Decrypting payload...</Text>
         </View>
-      ) : isSplitView ? (
+      ) : isSplitView && !isNoteTemplate ? (
         <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.splitLeftCol}>
             {renderVisualPreviewAndHeader()}
@@ -1106,79 +1094,45 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 16,
   },
-  badgeCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
-  },
-  badgeCardHeader: {
+  metaChipBar: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: 12,
-  },
-  itemName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.text,
+    gap: 6,
+    marginTop: 2,
     marginBottom: 4,
   },
-  metaRow: {
+  folderChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 5,
+    backgroundColor: "rgba(245, 158, 11, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.22)",
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 8,
   },
-  templatePill: {
-    backgroundColor: colors.accentBg,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+  folderChipText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#fef3c7",
   },
-  templatePillText: {
-    color: colors.accent,
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  folderText: {
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  tagsRow: {
+  tagChip: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
     gap: 4,
-    marginTop: 6,
-  },
-  tagBadge: {
     backgroundColor: "#18181b",
     borderWidth: 1,
     borderColor: "#27272a",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
+    borderRadius: 7,
   },
-  tagBadgeText: {
-    color: "#d4d4d8",
-    fontSize: 10.5,
+  tagChipText: {
+    fontSize: 11,
     fontWeight: "500",
-  },
-  launchBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.text,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    gap: 8,
-  },
-  launchBtnText: {
-    color: colors.bg,
-    fontSize: 13,
-    fontWeight: "700",
+    color: "#d4d4d8",
   },
   sectionHeaderLabel: {
     fontSize: 11,

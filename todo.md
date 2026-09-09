@@ -1,24 +1,40 @@
-## Current Session: Mobile Secure Notes Overhaul — In-Place Plain-Text Editor & Ecosystem Parity (2026-09-10)
+## Current Session: Mobile Secure Notes Overhaul & Detail View Modernization (2026-09-10)
 
 ### ✅ What Was Done
 
-#### 1. Cross-System Impact & Parity Rule Enforcement
+#### 1. Removed Redundant Detail Badge Card & Added Sleek Metadata Chips (`mobile/src/screens/ItemDetailScreen.tsx`)
+- **Eliminated Redundant `badgeCard`**:
+  - Removed the bulky card container positioned under `<ItemPreviewCard>`.
+  - Removed duplicate item title (already clearly visible in the top navigation header).
+  - Removed 48px `SiteIcon` (already prominently displayed inside the preview card).
+  - Removed template badge pill (`LOGIN`, `CARD`, etc.) and single "Launch Website" button (multi-URL items access links directly in detail fields).
+  - Purged all associated dead styles: `badgeCard`, `badgeCardHeader`, `itemName`, `metaRow`, `templatePill`, `templatePillText`, `folderText`, `tagsRow`, `tagBadge`, `tagBadgeText`, `launchBtn`, `launchBtnText`.
+- **Introduced Minimal & Sleek `metaChipBar`**:
+  - Positioned directly beneath `<ItemPreviewCard>` (or at the very top for notes).
+  - Amber folder chip (`folderChip`) with `Folder` icon (`#fbbf24`) and subtle ambient background `rgba(245, 158, 11, 0.08)`.
+  - Neutral dark tag chips (`tagChip`) with `Tag` icon (`#a1a1aa`) and `#18181b` surface.
+  - Zero-space preservation: renders `null` when neither folder nor tags exist on the item.
+- **Tablet Split-View Layout Optimization**:
+  - Updated tablet condition `isSplitView && !isNoteTemplate` so note items render full-width without an empty left column where the preview card used to be.
+- **Updated `mobile/src/lucide.d.ts`**:
+  - Added type definitions for `Tag` and `Hash` icons to ensure clean TypeScript compilation.
+
+#### 2. Cross-System Impact & Parity Rule Enforcement
 - **`GEMINI.md` (Rule 14)** & **`AGENTS.md` (Section 5)**:
   - Enforced systematic cross-platform verification before proposing changes.
   - Mandated preserving wire format integrity (`unencryptedPayload.note` as plain string) across Web, Extension, Mobile, and PostgreSQL DB.
 
-#### 2. Mobile Note Form Overhaul (`mobile/src/screens/ItemFormScreen.tsx`)
+#### 3. Mobile Note Form Overhaul (`mobile/src/screens/ItemFormScreen.tsx`)
 - **Suppressed Skeuomorphic Preview Card**:
   - Hid `<ItemPreviewCard>` when `template === "note"`, recovering over 200px of vertical space above the virtual keyboard.
 - **Expansive Note Text Area**:
   - Replaced standard 80px input with `noteTextArea` (`minHeight: 240`, `fontSize: 15`, `lineHeight: 22`).
   - Added live word & character stats counter (`XX words · YY characters`).
 
-#### 3. Living In-Place Note Editor on Detail Screen (`mobile/src/screens/ItemDetailScreen.tsx`)
+#### 4. Living In-Place Note Editor on Detail Screen (`mobile/src/screens/ItemDetailScreen.tsx`)
 - **Preview Card Removal for Notes**:
   - Suppressed `<ItemPreviewCard>` when `isNoteTemplate`, letting notes open directly to their real content.
-- **Editable Title & Living Plain-Text Canvas**:
-  - In `badgeCardHeader`, rendered an editable `noteTitleInput` for `editedName` while preserving the amber note icon, folder, and tags.
+- **Living Plain-Text Canvas**:
   - Replaced the cramped 220px read-only scrollbox with `livingNoteCanvas`:
     - Auto-growing multiline `livingNoteInput` with relaxed typography (`lineHeight: 24`, `minHeight: 250`).
     - Note footer with real-time word and character statistics and 1-tap clipboard copy action.
@@ -31,11 +47,11 @@
 - **Unsaved Changes Guard**:
   - Intercepts top-left navigation back button and Android hardware back button via `BackHandler` with a `vaultAlert` discard confirmation dialog.
 
-#### 4. Fixed Header Item Name Left-Alignment Bug (`mobile/src/screens/ItemDetailScreen.tsx`)
+#### 5. Fixed Header Item Name Left-Alignment Bug (`mobile/src/screens/ItemDetailScreen.tsx`)
 - **Root Cause**: `styles.navTitle` had `textAlign: "center"`. When an item's title was short (e.g. "Work", "Amex"), it centered inside the remaining `flex: 1` space between the single back button on the left and the 3 action buttons on the right, appearing awkwardly centered and off-axis.
 - **Fix**: Removed `textAlign: "center"` and used `marginLeft: 8, marginRight: 8`, keeping all titles consistently left-aligned right beside the back navigation arrow regardless of title length.
 
-#### 5. Scope Refinement: Static Item Name & Content Edit Toggle (`mobile/src/screens/ItemDetailScreen.tsx`)
+#### 6. Scope Refinement: Static Item Name & Content Edit Toggle (`mobile/src/screens/ItemDetailScreen.tsx`)
 - Reverted item name in header and badgeCard back to static text (`item.name`), keeping in-place editing strictly scoped to the note body.
 - Added top-right `Edit` / `Done` toggle button inside the content card (`noteEditToggleBtn`) to switch between selectable read mode (`noteReadView`) and multiline editing mode (`livingNoteInput`).
 - When toggling `Done`, automatically persists edits via `updateItem` if dirty and returns to read mode.

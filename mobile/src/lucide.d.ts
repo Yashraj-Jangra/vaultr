@@ -69,4 +69,6 @@ declare module "lucide-react-native" {
   export const QrCode: ComponentType<IconProps>;
   export const ScanQrCode: ComponentType<IconProps>;
   export const ScanLine: ComponentType<IconProps>;
+  export const Tag: ComponentType<IconProps>;
+  export const Hash: ComponentType<IconProps>;
 }
