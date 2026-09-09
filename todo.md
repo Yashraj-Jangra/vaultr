@@ -2,7 +2,20 @@
 
 ### ✅ What Was Done
 
-#### 1. Removed Redundant Detail Badge Card & Added Sleek Metadata Chips (`mobile/src/screens/ItemDetailScreen.tsx`)
+#### 1. Login Preview Card Favicon Enhancement & Alignment (`mobile/src/components/ItemPreviewCard.tsx`)
+- **Enlarged Favicon Container & Icon**:
+  - Increased `faviconBox` dimensions from 40×40 to 48×48 (`borderRadius: 13`) to achieve parity with web's 48px `SiteIcon` standard.
+  - Increased `faviconImg` size from 26×26 to 32×32 with `borderRadius: 6` for smooth corner clipping.
+  - Increased fallback `Globe` icon from 20 to 24 (`color="rgba(255,255,255,0.45)"`).
+- **High-DPI Retina/OLED Resolution**:
+  - Upgraded Google Favicon resolution query from `sz=64` to `sz=128`, rendering crisp icons across modern high-density phone displays.
+  - Added dedicated Android app domain detection (`isAndroid`) to return the official Android robot head for native app credentials.
+- **Improved Alignment & Aesthetics**:
+  - Replaced `alignItems: "flex-start"` with `alignItems: "center"` in `login.topRow`, aligning the favicon box symmetrically with the two-line header text.
+  - Wrapped header texts in `headerLeft` with `flex: 1` and `marginRight: 12`, removing fixed `maxWidth: 200` to allow natural text scaling and clean ellipsis truncation.
+  - Added subtle drop shadow (`shadowOpacity: 0.35`, `elevation: 3`) and refined glassmorphic border `rgba(255, 255, 255, 0.1)`.
+
+#### 2. Removed Redundant Detail Badge Card & Added Sleek Metadata Chips (`mobile/src/screens/ItemDetailScreen.tsx`)
 - **Eliminated Redundant `badgeCard`**:
   - Removed the bulky card container positioned under `<ItemPreviewCard>`.
   - Removed duplicate item title (already clearly visible in the top navigation header).

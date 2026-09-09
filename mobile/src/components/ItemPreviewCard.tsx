@@ -369,8 +369,15 @@ function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProp
     }
   }, [url, effectiveDomain]);
 
+  const isAndroid =
+    effectiveDomain === "android" ||
+    effectiveDomain === "androidapp" ||
+    effectiveDomain?.startsWith("android:");
+
   const faviconSrc = effectiveDomain
-    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=64`
+    ? isAndroid
+      ? "https://developer.android.com/static/images/brand/android-head_flat.png"
+      : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(effectiveDomain)}&sz=128`
     : null;
 
   return (
@@ -380,7 +387,7 @@ function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProp
 
       {/* Top Row: Label + Site Favicon */}
       <View style={login.topRow}>
-        <View>
+        <View style={login.headerLeft}>
           <Text style={login.cardTag}>ACCESS KEYCARD</Text>
           <Text style={login.title} numberOfLines={1}>{name || "Untitled Login"}</Text>
         </View>
@@ -393,7 +400,7 @@ function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProp
               onError={() => setFaviconError(true)}
             />
           ) : (
-            <Globe size={20} color="rgba(255,255,255,0.4)" />
+            <Globe size={24} color="rgba(255,255,255,0.45)" />
           )}
         </View>
       </View>
@@ -617,20 +624,33 @@ const login = StyleSheet.create({
     position: "relative",
   },
   glow: {
-    position: "absolute", top: -30, right: -30, width: 120, height: 120,
-    borderRadius: 60, backgroundColor: "rgba(255,255,255,0.03)",
+    position: "absolute", top: -24, right: -24, width: 120, height: 120,
+    borderRadius: 60, backgroundColor: "rgba(255,255,255,0.04)",
   },
   topRow: {
-    flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between",
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12,
+  },
+  headerLeft: {
+    flex: 1,
   },
   cardTag: { fontSize: 9, fontWeight: "800", color: "#737373", letterSpacing: 1.5, textTransform: "uppercase" },
-  title: { fontSize: 17, fontWeight: "700", color: "#ffffff", marginTop: 4, maxWidth: 200 },
+  title: { fontSize: 17, fontWeight: "700", color: "#ffffff", marginTop: 4 },
   faviconBox: {
-    width: 40, height: 40, borderRadius: 10,
-    backgroundColor: "#141418", borderWidth: 1, borderColor: "#27272a",
-    alignItems: "center", justifyContent: "center",
+    width: 48,
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: "#16161b",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  faviconImg: { width: 26, height: 26, resizeMode: "contain" },
+  faviconImg: { width: 32, height: 32, borderRadius: 6, resizeMode: "contain" },
   identityWrap: {},
   identityLabel: { fontSize: 8.5, fontWeight: "800", color: "rgba(255,255,255,0.3)", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 3 },
   identityValue: { fontSize: 12, fontFamily: "monospace", color: "#e4e4e7" },
