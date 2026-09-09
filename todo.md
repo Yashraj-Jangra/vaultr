@@ -13,6 +13,8 @@
   - Enabled `"Other"` network option with randomized `fallbackIndex` picking easter egg strings (`["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD"]`), achieving full parity with web's `NewEntryDialog`.
   - Added `fallbackBrand` prop to `ItemPreviewCardProps` and passed it down to `CreditCardVisual` in `ItemPreviewCard.tsx`.
   - Rendered `fallbackBrand` in emerald accent (`#34d399`) in the card preview header when `"Other"` network is active.
+- **Credit Card Preview Number Centering**:
+  - Centered credit card digits horizontally across the preview canvas (`numberWrap` with `width: "100%"`, `alignItems: "center"`, `justifyContent: "center"` and `numberText` with `textAlign: "center"`).
 
 #### 2. Pattern Generator Mode (`mobile/src/screens/GeneratorScreen.tsx`)
 - **4th Generator Mode Tab**:
