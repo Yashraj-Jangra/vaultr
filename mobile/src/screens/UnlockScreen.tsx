@@ -13,6 +13,7 @@ import {
   Dimensions,
   InteractionManager,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import Animated, {
@@ -22,7 +23,6 @@ import Animated, {
   withRepeat,
   withSequence,
   withSpring,
-  cancelAnimation,
   Easing,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -85,7 +85,6 @@ export function UnlockScreen() {
   const haloAnim = useSharedValue(0);
   const shakeAnim = useSharedValue(0);
   const fadeInAnim = useSharedValue(0);
-  const spinAnim = useSharedValue(0);
 
   const handleBiometricUnlock = async () => {
     if (unlocking) return;
@@ -145,20 +144,6 @@ export function UnlockScreen() {
     }
   };
 
-  // Spin the spinner while unlocking
-  useEffect(() => {
-    if (unlocking) {
-      spinAnim.value = 0;
-      spinAnim.value = withRepeat(
-        withTiming(360, { duration: 700, easing: Easing.linear }),
-        -1,
-        false
-      );
-    } else {
-      cancelAnimation(spinAnim);
-      spinAnim.value = 0;
-    }
-  }, [unlocking]);
 
   useEffect(() => {
     // Fade in on mount
@@ -251,10 +236,6 @@ export function UnlockScreen() {
     opacity: 0.2 + haloAnim.value * 0.4,
   }));
 
-  const animatedSpinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spinAnim.value}deg` }],
-  }));
-
   // ── Main unlock view ──────────────────────────────────────────────────────────
   const renderMain = () => (
     <Animated.View style={animatedMainStyle}>
@@ -330,7 +311,7 @@ export function UnlockScreen() {
             activeOpacity={0.85}
           >
             {unlocking ? (
-              <Animated.View style={[styles.spinner, animatedSpinStyle]} />
+              <ActivityIndicator size="small" color="#09090b" />
             ) : (
               <>
                 <Lock size={14} color="#09090b" />
