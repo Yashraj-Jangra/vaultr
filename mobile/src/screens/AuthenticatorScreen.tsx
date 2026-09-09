@@ -88,10 +88,12 @@ const AssignLoginRow = React.memo(function AssignLoginRow({
   item,
   onPress,
   disabled,
+  isAssigning,
 }: {
   item: any;
   onPress: () => void;
   disabled: boolean;
+  isAssigning?: boolean;
 }) {
   const { decryptItemBlob } = useVaultStore();
   const [username, setUsername] = useState<string>(usernameCache.get(item.id) || "");
@@ -147,7 +149,11 @@ const AssignLoginRow = React.memo(function AssignLoginRow({
           <Text style={styles.loginRowSubWarning}>Will overwrite existing 2FA key</Text>
         )}
       </View>
-      <ChevronRight size={16} color="#52525b" />
+      {isAssigning ? (
+        <ActivityIndicator size="small" color={colors.accent} />
+      ) : (
+        <ChevronRight size={16} color="#52525b" />
+      )}
     </TouchableOpacity>
   );
 });
@@ -175,7 +181,7 @@ export function AuthenticatorScreen() {
 
   // Assign modal search
   const [assignSearchQuery, setAssignSearchQuery] = useState("");
-  const [assigning, setAssigning] = useState(false);
+  const [assigningTargetId, setAssigningTargetId] = useState<string | null>(null);
 
   // Handle scanned result from QR code camera
   const handleQrScanResult = (parsed: ParsedOtpAuth) => {
@@ -221,8 +227,8 @@ export function AuthenticatorScreen() {
 
   // Choice B: Attach 2FA secret to existing login item
   const handleAttachToExistingItem = async (targetItem: any) => {
-    if (!pendingSecret || assigning) return;
-    setAssigning(true);
+    if (!pendingSecret || assigningTargetId) return;
+    setAssigningTargetId(targetItem.id);
 
     try {
       // 1. Decrypt target item payload
@@ -255,7 +261,7 @@ export function AuthenticatorScreen() {
         { illustration: "cancel_k4w9", glowColor: "rgba(239, 68, 68, 0.12)" }
       );
     } finally {
-      setAssigning(false);
+      setAssigningTargetId(null);
     }
   };
 
@@ -484,8 +490,9 @@ export function AuthenticatorScreen() {
 
             {/* Create New Item Option with + icon */}
             <TouchableOpacity
-              style={styles.createNewBtnCard}
+              style={[styles.createNewBtnCard, !!assigningTargetId && { opacity: 0.6 }]}
               onPress={handleCreateNewItem}
+              disabled={!!assigningTargetId}
               activeOpacity={0.8}
             >
               <View style={styles.createBtnLeft}>
@@ -510,6 +517,7 @@ export function AuthenticatorScreen() {
                 placeholderTextColor="#71717a"
                 value={assignSearchQuery}
                 onChangeText={setAssignSearchQuery}
+                editable={!assigningTargetId}
               />
             </View>
 
@@ -527,7 +535,8 @@ export function AuthenticatorScreen() {
                 <AssignLoginRow
                   item={item}
                   onPress={() => handleAttachToExistingItem(item)}
-                  disabled={assigning}
+                  disabled={!!assigningTargetId}
+                  isAssigning={assigningTargetId === item.id}
                 />
               )}
               ListEmptyComponent={
