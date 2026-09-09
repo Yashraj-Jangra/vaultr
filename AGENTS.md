@@ -71,4 +71,9 @@ Follow these core UI design and theming principles across the Vaultr application
    - Keep all manifests (`package.json`, `extension/manifest.json`, `extension/package.json`, `mobile/package.json`, `mobile/app.json`) in sync when bumping versions.
    - Maintain `src/app/changelog/page.tsx` with release notes and categorized tags (`✨ Feature`, `🛡️ Security`, `⚡ Performance`, `📱 Mobile`, `🧩 Extension`, `🔧 Fix`).
 
-
+5. **Cross-Platform Parity & Impact Verification**:
+   - VaultR functions as an ecosystem spanning Web (`src/`), Extension (`extension/`), Mobile (`mobile/`), Core (`packages/core/`), and Database.
+   - Before modifying any data structures, payload fields, or UI workflows, verify full cross-system impact:
+     - Check if Web or Extension rely on this exact format (e.g. `unencryptedPayload.note`, `unencryptedPayload.entryNotes`).
+     - Ensure data contracts remain 100% interoperable across all clients without divergence.
+     - Detail what else must change across other subsystems whenever a change is proposed.
