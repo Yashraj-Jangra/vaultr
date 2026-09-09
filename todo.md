@@ -1,3 +1,40 @@
+## Current Session: Mobile UX & Production Reliability — Button Spinners & Loading States (2026-09-10)
+
+### ✅ What Was Done
+
+#### 1. Fixed Broken Spinners (Empty/Invisible Buttons)
+- **`mobile/src/screens/UnlockScreen.tsx`**:
+  - Identified root cause where `styles.spinner` was undefined in `StyleSheet`, rendering an invisible 0×0 box while unlocking.
+  - Replaced broken reanimated view with native `ActivityIndicator` (dark `#09090b` on `#f4f4f5` button).
+  - Cleaned up unused `spinAnim` shared value and animation effects.
+- **`mobile/src/screens/AuthScreen.tsx`**:
+  - Resolved undefined `styles.spinner` on primary submit button ("Sign in" / "Create account") by rendering native `ActivityIndicator`.
+  - Added `isGoogleLoading` state to distinguish Google OAuth from email/password submission.
+  - Added white `ActivityIndicator` and disable guard to Google Sign-In button during in-flight auth.
+
+#### 2. Added Missing Spinners & Async Double-Submit Prevention
+- **`mobile/src/screens/settings/FolderManagerScreen.tsx`**:
+  - Added `submitting` state with white `ActivityIndicator` to "Create Folder" and "Save Name" (rename) modal buttons.
+  - Added `deletingDisposition` state to Delete confirmation modal with proper spinners on "Keep Items" (`#09090b`) and "Delete folder and move items to Trash" (`#ef4444`).
+  - Added row-level `deletingRowPath` with danger spinner on single empty folder deletion.
+- **`mobile/src/components/FolderSelectModal.tsx`**:
+  - Wrapped `handleCreateSubmit` in `try / finally` with `isCreating` state.
+  - Rendered white `ActivityIndicator` on "Create & Select" button and disabled repeated taps.
+- **`mobile/src/screens/AuthenticatorScreen.tsx`**:
+  - Replaced global `assigning` boolean with `assigningTargetId` to give row-specific feedback.
+  - Replaced static `ChevronRight` with accent-colored `ActivityIndicator` on the exact login row being linked.
+  - Disabled "Create New Login" button and search input while assigning.
+- **`mobile/src/screens/ItemDetailScreen.tsx`**:
+  - Added `downloadingAttId` state to attachment rows.
+  - Disabled row and swapped `ExternalLink` icon for blue `ActivityIndicator` while downloading and decrypting attachment files.
+- **`mobile/src/screens/settings/DataScreen.tsx`**:
+  - Added danger `ActivityIndicator` to "Export Unencrypted CSV" button while exporting.
+- **`mobile/src/screens/TrashScreen.tsx`**:
+  - Added `restoringAll` and `restoringId` states.
+  - Rendered green `ActivityIndicator` on "Restore All" header action and individual row restore buttons.
+
+---
+
 ## Current Session: Mobile Web-Parity — Card Type Auto-Detect & Pattern Generator (2026-09-09)
 
 ### ✅ What Was Done
