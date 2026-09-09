@@ -8,6 +8,7 @@ import {
   FlatList,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -50,6 +51,10 @@ export function FolderManagerScreen({ navigation }: any) {
     name: string;
     count: number;
   } | null>(null);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingDisposition, setDeletingDisposition] = useState<"uncategorize" | "trash" | null>(null);
+  const [deletingRowPath, setDeletingRowPath] = useState<string | null>(null);
 
   // Compute combined unique folder list with counts & depth
   const folderTree = useMemo(() => {
@@ -141,6 +146,7 @@ export function FolderManagerScreen({ navigation }: any) {
       return;
     }
 
+    setSubmitting(true);
     try {
       await addCustomFolder(fullPath);
       setCreateName("");
@@ -148,6 +154,8 @@ export function FolderManagerScreen({ navigation }: any) {
       setShowCreateModal(false);
     } catch (e: any) {
       vaultAlert.alert("Error", e.message || "Failed to create folder.", undefined, { illustration: "cancel_k4w9" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -168,14 +176,20 @@ export function FolderManagerScreen({ navigation }: any) {
     const newPath = parts.join("/");
 
     if (newPath !== renameTarget) {
+      setSubmitting(true);
       try {
         await renameFolder(renameTarget, newPath);
+        setRenameTarget(null);
+        setRenameName("");
       } catch (e: any) {
         vaultAlert.alert("Error", e.message || "Failed to rename folder.", undefined, { illustration: "cancel_k4w9" });
+      } finally {
+        setSubmitting(false);
       }
+    } else {
+      setRenameTarget(null);
+      setRenameName("");
     }
-    setRenameTarget(null);
-    setRenameName("");
   };
 
   const handleDeleteExecute = async (disposition: "uncategorize" | "trash") => {
@@ -184,12 +198,15 @@ export function FolderManagerScreen({ navigation }: any) {
       return;
     }
     if (!deleteTarget) return;
+    setDeletingDisposition(disposition);
     try {
       await deleteFolder(deleteTarget.name, disposition);
+      setDeleteTarget(null);
     } catch (e: any) {
       vaultAlert.alert("Error", e.message || "Failed to delete folder.", undefined, { illustration: "cancel_k4w9" });
+    } finally {
+      setDeletingDisposition(null);
     }
-    setDeleteTarget(null);
   };
 
   return (
@@ -288,16 +305,28 @@ export function FolderManagerScreen({ navigation }: any) {
                 {/* Delete Button */}
                 <TouchableOpacity
                   style={[styles.actionIconButton, styles.deleteActionBtn]}
-                  onPress={() => {
+                  onPress={async () => {
                     if (item.count === 0) {
-                      deleteFolder(item.fullPath, "uncategorize");
+                      setDeletingRowPath(item.fullPath);
+                      try {
+                        await deleteFolder(item.fullPath, "uncategorize");
+                      } catch (e: any) {
+                        vaultAlert.alert("Error", e.message || "Failed to delete folder.", undefined, { illustration: "cancel_k4w9" });
+                      } finally {
+                        setDeletingRowPath(null);
+                      }
                     } else {
                       setDeleteTarget({ name: item.fullPath, count: item.count });
                     }
                   }}
+                  disabled={deletingRowPath === item.fullPath}
                   activeOpacity={0.7}
                 >
-                  <Trash2 size={15} color="#ef4444" />
+                  {deletingRowPath === item.fullPath ? (
+                    <ActivityIndicator size="small" color="#ef4444" />
+                  ) : (
+                    <Trash2 size={15} color="#ef4444" />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -376,15 +405,21 @@ export function FolderManagerScreen({ navigation }: any) {
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setShowCreateModal(false)}
+                disabled={submitting}
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.confirmBtn}
+                style={[styles.confirmBtn, submitting && { opacity: 0.7 }]}
                 onPress={handleCreateSubmit}
+                disabled={submitting}
               >
-                <Text style={styles.confirmBtnText}>Create Folder</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#09090b" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Create Folder</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -423,15 +458,21 @@ export function FolderManagerScreen({ navigation }: any) {
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setRenameTarget(null)}
+                disabled={submitting}
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.confirmBtn}
+                style={[styles.confirmBtn, submitting && { opacity: 0.7 }]}
                 onPress={handleRenameSubmit}
+                disabled={submitting}
               >
-                <Text style={styles.confirmBtnText}>Save Name</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#09090b" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Save Name</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -464,26 +505,38 @@ export function FolderManagerScreen({ navigation }: any) {
 
           {/* Primary Action Button (Safe Workflow) */}
           <TouchableOpacity
-            style={styles.primarySafeButton}
+            style={[styles.primarySafeButton, deletingDisposition !== null && { opacity: 0.7 }]}
             onPress={() => handleDeleteExecute("uncategorize")}
+            disabled={deletingDisposition !== null}
             activeOpacity={0.8}
           >
-            <Text style={styles.primarySafeButtonText}>
-              Keep Items (Move to Uncategorized)
-            </Text>
+            {deletingDisposition === "uncategorize" ? (
+              <ActivityIndicator size="small" color="#09090b" />
+            ) : (
+              <Text style={styles.primarySafeButtonText}>
+                Keep Items (Move to Uncategorized)
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Secondary Destructive Action (Red Link) */}
           <TouchableOpacity
-            style={styles.secondaryRedLink}
+            style={[styles.secondaryRedLink, deletingDisposition !== null && { opacity: 0.7 }]}
             onPress={() => handleDeleteExecute("trash")}
+            disabled={deletingDisposition !== null}
             activeOpacity={0.7}
           >
-            <Trash2 size={14} color="#ef4444" style={{ marginRight: 6 }} />
-            <Text style={styles.secondaryRedLinkText}>
-              Delete folder and move {deleteTarget?.count || 0} item
-              {(deleteTarget?.count || 0) === 1 ? "" : "s"} to Trash
-            </Text>
+            {deletingDisposition === "trash" ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <>
+                <Trash2 size={14} color="#ef4444" style={{ marginRight: 6 }} />
+                <Text style={styles.secondaryRedLinkText}>
+                  Delete folder and move {deleteTarget?.count || 0} item
+                  {(deleteTarget?.count || 0) === 1 ? "" : "s"} to Trash
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </ReanimatedModal>
