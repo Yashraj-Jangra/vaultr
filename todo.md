@@ -35,6 +35,11 @@
 - **Root Cause**: `styles.navTitle` had `textAlign: "center"`. When an item's title was short (e.g. "Work", "Amex"), it centered inside the remaining `flex: 1` space between the single back button on the left and the 3 action buttons on the right, appearing awkwardly centered and off-axis.
 - **Fix**: Removed `textAlign: "center"` and used `marginLeft: 8, marginRight: 8`, keeping all titles consistently left-aligned right beside the back navigation arrow regardless of title length.
 
+#### 5. Scope Refinement: Static Item Name & Content Edit Toggle (`mobile/src/screens/ItemDetailScreen.tsx`)
+- Reverted item name in header and badgeCard back to static text (`item.name`), keeping in-place editing strictly scoped to the note body.
+- Added top-right `Edit` / `Done` toggle button inside the content card (`noteEditToggleBtn`) to switch between selectable read mode (`noteReadView`) and multiline editing mode (`livingNoteInput`).
+- When toggling `Done`, automatically persists edits via `updateItem` if dirty and returns to read mode.
+
 ---
 
 ## Current Session: Mobile UX & Production Reliability — Button Spinners & Loading States (2026-09-10)

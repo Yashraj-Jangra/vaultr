@@ -60,11 +60,10 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   const [serverAttachments, setServerAttachments] = useState<Array<{ id: string; name: string; sizeBytes: number; mimeType: string; createdAt: string }>>([]);
   const [downloadingAttId, setDownloadingAttId] = useState<string | null>(null);
 
-  // In-place Note editing state
-  const [editedName, setEditedName] = useState(item.name || "");
+  // In-place Note content editing state
   const [editedNote, setEditedNote] = useState("");
-  const [lastSavedName, setLastSavedName] = useState(item.name || "");
   const [lastSavedNote, setLastSavedNote] = useState("");
+  const [isEditingNote, setIsEditingNote] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const isInitialLoadedRef = useRef(false);
@@ -93,11 +92,8 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           setPayload(parsed);
           if (!isInitialLoadedRef.current) {
             const noteVal = parsed.note ?? parsed.entryNotes ?? "";
-            const nameVal = item.name || "";
             setEditedNote(noteVal);
             setLastSavedNote(noteVal);
-            setEditedName(nameVal);
-            setLastSavedName(nameVal);
             isInitialLoadedRef.current = true;
           }
         }
@@ -168,10 +164,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   const { isSplitView } = useResponsive();
 
   const isNoteTemplate = item.template === "note" || payload?._template === "note";
-  const isDirty = isNoteTemplate && !loading && (
-    editedName.trim() !== lastSavedName.trim() ||
-    editedNote !== lastSavedNote
-  );
+  const isDirty = isNoteTemplate && !loading && editedNote !== lastSavedNote;
 
   useEffect(() => {
     if (!isDirty) return;
@@ -192,12 +185,11 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     return () => backHandler.remove();
   }, [isDirty]);
 
-  const handleSaveNote = async () => {
+  const handleSaveNote = async (): Promise<boolean> => {
     if (!isOnline) {
       vaultAlert.alert("Offline Mode", "Internet connection is required to save changes.", undefined, { illustration: "clouds_bmtk" });
-      return;
+      return false;
     }
-    const finalName = editedName.trim() || item.name;
     setIsSavingNote(true);
     try {
       const updatedPayload = {
@@ -208,18 +200,33 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         updatedPayload.entryNotes = editedNote;
       }
       await updateItem(item.id, {
-        name: finalName,
         unencryptedPayload: updatedPayload,
       });
       setPayload(updatedPayload);
-      setLastSavedName(finalName);
       setLastSavedNote(editedNote);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
+      return true;
     } catch (err: any) {
       vaultAlert.alert("Error", err?.message || "Failed to save note.", undefined, { illustration: "cancel_k4w9" });
+      return false;
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  const handleToggleEditMode = async () => {
+    if (isEditingNote) {
+      if (isDirty) {
+        const success = await handleSaveNote();
+        if (success) {
+          setIsEditingNote(false);
+        }
+      } else {
+        setIsEditingNote(false);
+      }
+    } else {
+      setIsEditingNote(true);
     }
   };
 
@@ -267,24 +274,13 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         <View style={styles.badgeCardHeader}>
           <SiteIcon
             domain={item.domain}
-            name={isNoteTemplate ? editedName || item.name : item.name}
+            name={item.name}
             url={payload?.url || item.domain}
             template={item.template || "login"}
             size={48}
           />
           <View style={{ flex: 1 }}>
-            {isNoteTemplate ? (
-              <TextInput
-                style={styles.noteTitleInput}
-                value={editedName}
-                onChangeText={setEditedName}
-                placeholder="Note Title"
-                placeholderTextColor={colors.textDim}
-                returnKeyType="done"
-              />
-            ) : (
-              <Text style={styles.itemName}>{item.name}</Text>
-            )}
+            <Text style={styles.itemName}>{item.name}</Text>
             <View style={styles.metaRow}>
               <View style={styles.templatePill}>
                 <Text style={styles.templatePillText}>
@@ -565,29 +561,66 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {/* Note Content / Living Plain-Text Editor */}
+          {/* Note Content / Living Plain-Text Canvas */}
           {isNoteTemplate ? (
             <View style={{ gap: 6 }}>
-              <View style={styles.noteSectionHeaderRow}>
-                <Text style={styles.sectionHeaderLabel}>SECURE NOTE CONTENT</Text>
-                {savedSuccess && (
-                  <View style={styles.savedBadge}>
-                    <Check size={12} color="#10b981" />
-                    <Text style={styles.savedBadgeText}>SAVED</Text>
+              <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
+              <View style={styles.livingNoteCanvas}>
+                <View style={styles.noteCardHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <FileText size={15} color="#fbbf24" />
+                    <Text style={styles.noteCardTitle}>CONTENT</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    {savedSuccess && (
+                      <View style={styles.savedBadge}>
+                        <Check size={12} color="#10b981" />
+                        <Text style={styles.savedBadgeText}>SAVED</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.noteEditToggleBtn, isEditingNote && styles.noteEditToggleBtnActive]}
+                      onPress={handleToggleEditMode}
+                      activeOpacity={0.7}
+                      disabled={isSavingNote}
+                    >
+                      {isSavingNote ? (
+                        <ActivityIndicator size="small" color="#09090b" />
+                      ) : isEditingNote ? (
+                        <>
+                          <Check size={13} color="#09090b" />
+                          <Text style={styles.noteEditToggleBtnActiveText}>Done</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Edit2 size={13} color="#d4d4d8" />
+                          <Text style={styles.noteEditToggleBtnText}>Edit</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {isEditingNote ? (
+                  <TextInput
+                    style={styles.livingNoteInput}
+                    value={editedNote}
+                    onChangeText={setEditedNote}
+                    placeholder="Type secure note content here..."
+                    placeholderTextColor={colors.textDim}
+                    multiline
+                    textAlignVertical="top"
+                    scrollEnabled={false}
+                    autoFocus
+                  />
+                ) : (
+                  <View style={styles.noteReadView}>
+                    <Text style={styles.noteContentBody} selectable>
+                      {editedNote || "Empty note. Tap Edit above to add content."}
+                    </Text>
                   </View>
                 )}
-              </View>
-              <View style={styles.livingNoteCanvas}>
-                <TextInput
-                  style={styles.livingNoteInput}
-                  value={editedNote}
-                  onChangeText={setEditedNote}
-                  placeholder="Type secure note content here..."
-                  placeholderTextColor={colors.textDim}
-                  multiline
-                  textAlignVertical="top"
-                  scrollEnabled={false}
-                />
+
                 <View style={styles.livingNoteFooter}>
                   <Text style={styles.noteStatsText}>
                     {editedNote.trim() ? editedNote.trim().split(/\s+/).length : 0} words · {editedNote.length} characters
@@ -807,7 +840,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         </TouchableOpacity>
 
         <Text style={styles.navTitle} numberOfLines={1}>
-          {isNoteTemplate ? (editedName || "Untitled Note") : item.name}
+          {item.name}
         </Text>
 
         <View style={styles.navRight}>
@@ -1092,16 +1125,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
-  noteTitleInput: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#ffffff",
-    paddingVertical: 2,
-    paddingHorizontal: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
-    marginBottom: 4,
-  },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1251,13 +1274,43 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 16,
     padding: 16,
-    minHeight: 320,
+    gap: 12,
+    minHeight: 280,
+  },
+  noteEditToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#1c1c20",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  noteEditToggleBtnText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#d4d4d8",
+  },
+  noteEditToggleBtnActive: {
+    backgroundColor: "#ffffff",
+    borderColor: "#ffffff",
+  },
+  noteEditToggleBtnActiveText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#09090b",
+  },
+  noteReadView: {
+    minHeight: 180,
+    paddingVertical: 4,
   },
   livingNoteInput: {
     fontSize: 15,
     lineHeight: 24,
     color: "#f4f4f5",
-    minHeight: 250,
+    minHeight: 200,
     textAlignVertical: "top",
     padding: 0,
   },
