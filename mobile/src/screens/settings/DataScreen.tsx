@@ -838,10 +838,14 @@ export function DataScreen({ navigation }: any) {
               onPress={handleExportDecryptedCSV}
               disabled={exporting}
             >
-              <View style={styles.btnRow}>
-                <ShieldAlert size={16} color={colors.danger} />
-                <Text style={styles.dangerBtnText}>Export Unencrypted CSV</Text>
-              </View>
+              {exporting ? (
+                <ActivityIndicator size="small" color={colors.danger} />
+              ) : (
+                <View style={styles.btnRow}>
+                  <ShieldAlert size={16} color={colors.danger} />
+                  <Text style={styles.dangerBtnText}>Export Unencrypted CSV</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
