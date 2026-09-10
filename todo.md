@@ -1,3 +1,66 @@
+## Current Session: Cross-System Parity & Ecosystem Alignment Overhaul (2026-09-11)
+
+### ✅ What Was Done
+
+#### 1. Core Types & Universal Helpers (`packages/core/`)
+- **Canonical Payload Interfaces (`packages/core/src/types.ts`)**:
+  - Expanded `DecryptedLoginPayload`, `DecryptedCardPayload`, `DecryptedAddressPayload`, `DecryptedProfilePayload`, and `DecryptedNotePayload` to include `entryNotes`, `customFields`, `fields`, and `attachments`.
+  - Added `passwordHistory?: string[]` to login payload.
+  - Added `cardBrand?: string`, `pin?: string`, `expiry?: string`, and `cardName?: string` to card payload.
+  - Defined canonical `DecryptedPayload`, `CustomFieldEntry`, and `AttachmentMetadata` types.
+  - Exported universal `detectCardBrand` helper from `@vaultr/core` to eliminate divergent inline brand regex across Web, Mobile, and Extension.
+- **Universal Importer Mapping (`packages/core/src/importer.ts`)**:
+  - Added `dob` and `idNumber` to `ParsedImportItem["payload"]`.
+  - Mapped `dob`, `idNumber`, `full_name`, `email`, and `phone` in generic CSV parsing.
+  - Mapped `dob` (date of birth) and `idNumber` (SSN/passport/license) in Bitwarden JSON identity parsing.
+
+#### 2. Prevented Silent Data Loss & Enforced Editor Parity
+- **Mobile Edit Screen (`mobile/src/screens/ItemFormScreen.tsx`)**:
+  - **Address `line2`**: Added state and dedicated `"Apartment, Suite, Unit"` text input with `"Apt 4B (optional)"` placeholder. Stopped hardcoding `line2 = ""` on save.
+  - **Profile `dob` & `idNumber`**: Added state and dedicated inputs for `"Date of Birth"` (`YYYY-MM-DD`) and `"ID / Passport No."` (`e.g. DL-12345678`). Loaded and persisted to `unencryptedPayload.dob` and `idNumber`.
+  - **Password History**: Tracked initial password and preserved/appended previous passwords to `passwordHistory` on password change (keeping last 5 entries).
+  - **Dual-Key Custom Fields**: Saved both `key` and `name` properties to prevent field label loss across web/mobile readers.
+  - Passed `line2`, `dob`, and `idNumber` directly into `<ItemPreviewCard>`.
+- **Web Primary Editor (`src/components/vault/NewEntryDialog.tsx`)**:
+  - Added `passwordHistory` preservation and appending when editing a login entry.
+- **Web Quick-Entry Modal (`src/app/vault/page.tsx`)**:
+  - Added `cardholderName`, `expMonth`, `expYear`, and auto-detected `cardBrand` on card saves.
+- **Browser Extension Editor (`extension/src/popup/NewEntryForm.tsx`)**:
+  - Added card brand auto-detection with visual badge preview.
+  - Split expiry input into canonical `expMonth` and `expYear`.
+  - Saved `cardholderName` dual-key alongside `cardName`.
+  - Added `passwordHistory` preservation and appending on password changes.
+  - Saved dual-key `key` and `name` in `customFields`.
+
+#### 3. Cross-Platform Detail Displays & Robust Fallbacks
+- **Mobile Detail View (`mobile/src/screens/ItemDetailScreen.tsx`)**:
+  - **Address Section**: Supported `payload.street || payload.line1` and added dedicated `Apartment / Suite` row for `payload.line2`.
+  - **Personal Identity Section**: Supported `payload.fullName || (firstName + lastName)`. Added dedicated rows for `Date of Birth` and maskable `ID / Passport No.`.
+  - **Card Section**: Supported `payload.cardholderName || payload.cardName`. Added dedicated `Card Network` row displaying `payload.cardBrand || detectCardBrand()`.
+  - **URLs Section**: Added `payload?.urls?.[0]` fallback.
+  - **Note Header**: Renamed section header from `SECURE NOTE` to `NOTE CONTENT`.
+- **Browser Extension Panel (`extension/src/popup/VaultScreen.tsx`)**:
+  - **Custom Fields Display**: Implemented full `CUSTOM FIELDS` section with masked values for `hidden` types and 1-tap copy.
+  - **Card Details**: Added `cardholderName || cardName` fallback, `cardBrand` network row, and split `expMonth / expYear` expiry fallback.
+  - **Address Details**: Added `line1 || street` fallback.
+  - **Profile Details**: Added `fullName || (firstName + lastName)` fallback.
+  - **Note Title**: Renamed section title from `SECURE NOTE` to `NOTE`.
+- **Web Detail View (`src/app/vault/page.tsx`)**:
+  - Added `data.line1 || data.street` fallback in Street Address section.
+
+#### 4. Mobile Decrypted CSV Export Parity (`mobile/src/screens/settings/DataScreen.tsx`)
+- Expanded exported CSV schema from 9 basic login columns to 24 universal columns:
+  `folder,favorite,type,name,notes,login_username,login_password,login_uri,login_totp,card_number,cardholder_name,expiry,cvv,pin,address,city,state,zip,country,full_name,email,phone,dob,id_number`
+- Export now preserves cards, addresses, identities, TOTP secrets, and notes with proper CSV escaping, matching `@vaultr/core` importer specifications for 100% roundtrip fidelity.
+
+### 📋 Planned Next Steps
+1. **Version Bump**:
+   - Propose version bump to `0.3.0` (MAJOR milestone) across `packages/core/src/version.ts`, `package.json`, `mobile/package.json`, `mobile/app.json`, and `extension/manifest.json`.
+2. **Pull Request & Main Merge**:
+   - Open Pull Request from `dev` to `main` and merge upon user confirmation.
+
+---
+
 ## Current Session: Mobile Secure Notes Overhaul & Detail View Modernization (2026-09-10)
 
 ### ✅ What Was Done
