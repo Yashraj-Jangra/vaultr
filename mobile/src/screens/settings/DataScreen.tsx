@@ -191,32 +191,84 @@ export function DataScreen({ navigation }: any) {
           onPress: async () => {
             setExporting(true);
             try {
-              let csvRows = ["folder,favorite,type,name,notes,fields,login_username,login_password,login_uri"];
+              let csvRows = [
+                "folder,favorite,type,name,notes,login_username,login_password,login_uri,login_totp,card_number,cardholder_name,expiry,cvv,pin,address,city,state,zip,country,full_name,email,phone,dob,id_number"
+              ];
+              const escapeCsv = (str: string) => `"${(str || "").replace(/"/g, '""')}"`;
+
               for (const item of items) {
                 let username = "";
                 let password = "";
                 let url = "";
                 let notes = "";
+                let totp = "";
+                let cardNumber = "";
+                let cardholderName = "";
+                let expiry = "";
+                let cvv = "";
+                let pin = "";
+                let address = "";
+                let city = "";
+                let state = "";
+                let zip = "";
+                let country = "";
+                let fullName = "";
+                let email = "";
+                let phone = "";
+                let dob = "";
+                let idNumber = "";
 
                 try {
                   const raw = await decryptItemBlob(item.encryptedBlob);
                   const p = JSON.parse(raw);
+                  notes = p.entryNotes || p.note || "";
                   username = p.username || "";
                   password = p.password || "";
-                  url = p.url || item.domain || "";
-                  notes = p.entryNotes || p.note || "";
+                  url = p.url || (p.urls && p.urls[0]) || item.domain || "";
+                  totp = p.totpSecret || "";
+                  cardNumber = p.cardNumber || "";
+                  cardholderName = p.cardholderName || p.cardName || "";
+                  expiry = p.expiry || (p.expMonth && p.expYear ? `${p.expMonth}/${p.expYear}` : "");
+                  cvv = p.cvv || "";
+                  pin = p.pin || "";
+                  address = p.street || p.line1 || "";
+                  if (p.line2) address = address ? `${address}, ${p.line2}` : p.line2;
+                  city = p.city || "";
+                  state = p.state || "";
+                  zip = p.zip || "";
+                  country = p.country || "";
+                  fullName = p.fullName || `${p.firstName || ""} ${p.lastName || ""}`.trim();
+                  email = p.email || "";
+                  phone = p.phone || "";
+                  dob = p.dob || "";
+                  idNumber = p.idNumber || "";
                 } catch {}
 
                 const row = [
-                  `"${item.folder || ""}"`,
+                  escapeCsv(item.folder || ""),
                   item.favorite ? "1" : "0",
-                  `"${item.template || "login"}"`,
-                  `"${(item.name || "").replace(/"/g, '""')}"`,
-                  `"${notes.replace(/"/g, '""')}"`,
-                  '""',
-                  `"${username.replace(/"/g, '""')}"`,
-                  `"${password.replace(/"/g, '""')}"`,
-                  `"${url.replace(/"/g, '""')}"`,
+                  escapeCsv(item.template || "login"),
+                  escapeCsv(item.name || ""),
+                  escapeCsv(notes),
+                  escapeCsv(username),
+                  escapeCsv(password),
+                  escapeCsv(url),
+                  escapeCsv(totp),
+                  escapeCsv(cardNumber),
+                  escapeCsv(cardholderName),
+                  escapeCsv(expiry),
+                  escapeCsv(cvv),
+                  escapeCsv(pin),
+                  escapeCsv(address),
+                  escapeCsv(city),
+                  escapeCsv(state),
+                  escapeCsv(zip),
+                  escapeCsv(country),
+                  escapeCsv(fullName),
+                  escapeCsv(email),
+                  escapeCsv(phone),
+                  escapeCsv(dob),
+                  escapeCsv(idNumber),
                 ].join(",");
                 csvRows.push(row);
               }
