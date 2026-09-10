@@ -25,6 +25,7 @@ import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
+import { detectCardBrand } from "@vaultr/core";
 import { useResponsive } from "../utils/responsive";
 import {
   ArrowLeft,
@@ -349,16 +350,16 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* URLs Section */}
-          {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
+          {item.template !== "card" && (payload?.url || payload?.urls?.[0] || (item.domain && !item.domain.includes("••••"))) ? (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>AUTOFILL / WEBSITE OPTIONS</Text>
               <View style={styles.sectionGroup}>
                 <FieldRow
                   label="Website (URI)"
-                  value={payload?.url || item.domain}
-                  onCopy={() => copyToClipboard("url", payload?.url || item.domain)}
+                  value={payload?.url || payload?.urls?.[0] || item.domain}
+                  onCopy={() => copyToClipboard("url", payload?.url || payload?.urls?.[0] || item.domain)}
                   isCopied={copiedField === "url"}
-                  onLaunch={() => handleLaunchUrl(payload?.url || item.domain)}
+                  onLaunch={() => handleLaunchUrl(payload?.url || payload?.urls?.[0] || item.domain)}
                   hasDivider={payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1}
                 />
 
@@ -380,17 +381,17 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           ) : null}
 
           {/* Card Details Section */}
-          {(payload.cardholderName || payload.cardNumber) && (
+          {(payload.cardholderName || payload.cardName || payload.cardNumber || payload.cardBrand) && (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>CARD DETAILS</Text>
               <View style={styles.sectionGroup}>
-                {payload.cardholderName ? (
+                {(payload.cardholderName || payload.cardName) ? (
                   <FieldRow
                     label="Cardholder Name"
-                    value={payload.cardholderName}
-                    onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
+                    value={payload.cardholderName || payload.cardName}
+                    onCopy={() => copyToClipboard("cardholderName", payload.cardholderName || payload.cardName)}
                     isCopied={copiedField === "cardholderName"}
-                    hasDivider={!!payload.cardNumber}
+                    hasDivider={!!(payload.cardNumber || payload.cardBrand || detectCardBrand(payload.cardNumber || ""))}
                   />
                 ) : null}
 
@@ -422,6 +423,16 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     onToggleShow={() => setShowPassword(!showPassword)}
                     isPassword
                     showPassword={showPassword}
+                    hasDivider={!!((payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || ""))}
+                  />
+                ) : null}
+
+                {((payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || "")) ? (
+                  <FieldRow
+                    label="Card Network"
+                    value={(payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || "")}
+                    onCopy={() => copyToClipboard("cardBrand", (payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || ""))}
+                    isCopied={copiedField === "cardBrand"}
                     hasDivider={false}
                   />
                 ) : null}
@@ -474,16 +485,26 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* Address Section */}
-          {(payload.street || payload.city || payload.state || payload.zip || payload.country) && (
+          {(payload.street || payload.line1 || payload.line2 || payload.city || payload.state || payload.zip || payload.country) && (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>ADDRESS DETAILS</Text>
               <View style={styles.sectionGroup}>
-                {payload.street ? (
+                {payload.street || payload.line1 ? (
                   <FieldRow
                     label="Street Address"
-                    value={payload.street}
-                    onCopy={() => copyToClipboard("street", payload.street)}
+                    value={payload.street || payload.line1}
+                    onCopy={() => copyToClipboard("street", payload.street || payload.line1)}
                     isCopied={copiedField === "street"}
+                    hasDivider={!!(payload.line2 || payload.city || payload.state || payload.zip || payload.country)}
+                  />
+                ) : null}
+
+                {payload.line2 ? (
+                  <FieldRow
+                    label="Apartment / Suite"
+                    value={payload.line2}
+                    onCopy={() => copyToClipboard("line2", payload.line2)}
+                    isCopied={copiedField === "line2"}
                     hasDivider={!!(payload.city || payload.state || payload.zip || payload.country)}
                   />
                 ) : null}
@@ -512,47 +533,75 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* Profile Identity Section */}
-          {(payload.firstName || payload.lastName || payload.email || payload.phone) && (
-            <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
-              <View style={styles.sectionGroup}>
-                {payload.firstName || payload.lastName ? (
-                  <FieldRow
-                    label="Full Name"
-                    value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
-                    onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
-                    isCopied={copiedField === "fullName"}
-                    hasDivider={!!(payload.email || payload.phone)}
-                  />
-                ) : null}
+          {(() => {
+            const profileName = payload.fullName || `${payload.firstName || ""} ${payload.lastName || ""}`.trim();
+            const hasProfile = !!(profileName || payload.email || payload.phone || payload.dob || payload.idNumber);
+            if (!hasProfile) return null;
+            return (
+              <View style={{ gap: 6 }}>
+                <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
+                <View style={styles.sectionGroup}>
+                  {profileName ? (
+                    <FieldRow
+                      label="Full Name"
+                      value={profileName}
+                      onCopy={() => copyToClipboard("fullName", profileName)}
+                      isCopied={copiedField === "fullName"}
+                      hasDivider={!!(payload.email || payload.phone || payload.dob || payload.idNumber)}
+                    />
+                  ) : null}
 
-                {payload.email ? (
-                  <FieldRow
-                    label="Email Address"
-                    value={payload.email}
-                    onCopy={() => copyToClipboard("email", payload.email)}
-                    isCopied={copiedField === "email"}
-                    hasDivider={!!payload.phone}
-                  />
-                ) : null}
+                  {payload.email ? (
+                    <FieldRow
+                      label="Email Address"
+                      value={payload.email}
+                      onCopy={() => copyToClipboard("email", payload.email)}
+                      isCopied={copiedField === "email"}
+                      hasDivider={!!(payload.phone || payload.dob || payload.idNumber)}
+                    />
+                  ) : null}
 
-                {payload.phone ? (
-                  <FieldRow
-                    label="Phone Number"
-                    value={payload.phone}
-                    onCopy={() => copyToClipboard("phone", payload.phone)}
-                    isCopied={copiedField === "phone"}
-                    hasDivider={false}
-                  />
-                ) : null}
+                  {payload.phone ? (
+                    <FieldRow
+                      label="Phone Number"
+                      value={payload.phone}
+                      onCopy={() => copyToClipboard("phone", payload.phone)}
+                      isCopied={copiedField === "phone"}
+                      hasDivider={!!(payload.dob || payload.idNumber)}
+                    />
+                  ) : null}
+
+                  {payload.dob ? (
+                    <FieldRow
+                      label="Date of Birth"
+                      value={payload.dob}
+                      onCopy={() => copyToClipboard("dob", payload.dob)}
+                      isCopied={copiedField === "dob"}
+                      hasDivider={!!payload.idNumber}
+                    />
+                  ) : null}
+
+                  {payload.idNumber ? (
+                    <FieldRow
+                      label="ID / Passport No."
+                      value={showPassword ? payload.idNumber : "••••••••"}
+                      onCopy={() => copyToClipboard("idNumber", payload.idNumber)}
+                      isCopied={copiedField === "idNumber"}
+                      onToggleShow={() => setShowPassword(!showPassword)}
+                      isPassword
+                      showPassword={showPassword}
+                      hasDivider={false}
+                    />
+                  ) : null}
+                </View>
               </View>
-            </View>
-          )}
+            );
+          })()}
 
           {/* Note Content / Living Plain-Text Canvas */}
           {isNoteTemplate ? (
             <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
+              <Text style={styles.sectionHeaderLabel}>NOTE CONTENT</Text>
               <View style={styles.livingNoteCanvas}>
                 <View style={styles.noteCardHeader}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

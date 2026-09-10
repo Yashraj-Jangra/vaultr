@@ -51,6 +51,7 @@ export interface DecryptedPayload {
   pin?: string;
   cardBrand?: string;
   line1?: string;
+  street?: string;
   line2?: string;
   city?: string;
   state?: string;
@@ -950,9 +951,9 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
 
       {t === "address" && (
         <>
-          {(data.line1 || data.line2) && (
+          {(data.line1 || data.street || data.line2) && (
             <SectionGroup title="STREET ADDRESS">
-              <DetailRow label="Line 1" value={data.line1 || ""} />
+              <DetailRow label="Line 1" value={data.line1 || data.street || ""} />
               <DetailRow label="Line 2" value={data.line2 || ""} />
             </SectionGroup>
           )}
