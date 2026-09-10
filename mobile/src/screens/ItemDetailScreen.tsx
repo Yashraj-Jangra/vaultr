@@ -630,35 +630,6 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                 </View>
               </View>
             </View>
-          ) : (payload.note || payload.entryNotes) ? (
-            <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
-              <View style={styles.noteCardBox}>
-                <View style={styles.noteCardHeader}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <FileText size={15} color="#fbbf24" />
-                    <Text style={styles.noteCardTitle}>CONTENT</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.noteCopyBtn}
-                    onPress={() => copyToClipboard("noteContent", payload.note || payload.entryNotes)}
-                    activeOpacity={0.7}
-                  >
-                    {copiedField === "noteContent" ? (
-                      <Check size={13} color="#34d399" />
-                    ) : (
-                      <Copy size={13} color="#a1a1aa" />
-                    )}
-                    <Text style={[styles.noteCopyBtnText, copiedField === "noteContent" && { color: "#34d399" }]}>
-                      {copiedField === "noteContent" ? "COPIED" : "COPY"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled showsVerticalScrollIndicator>
-                  <Text style={styles.noteContentBody} selectable>{payload.note || payload.entryNotes}</Text>
-                </ScrollView>
-              </View>
-            </View>
           ) : null}
 
           {/* Custom Fields */}
@@ -766,6 +737,48 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     </TouchableOpacity>
                   );
                 })}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Private Notes (non-note templates) */}
+          {!isNoteTemplate && (payload.entryNotes || payload.note) ? (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>PRIVATE NOTES</Text>
+              <View style={styles.noteCardBox}>
+                <View style={styles.noteCardHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <FileText size={15} color="#fbbf24" />
+                    <Text style={styles.noteCardTitle}>NOTES</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <TouchableOpacity
+                      style={styles.noteCopyBtn}
+                      onPress={() => navigation.navigate("ItemForm", { item })}
+                      activeOpacity={0.7}
+                    >
+                      <Edit2 size={13} color="#a1a1aa" />
+                      <Text style={styles.noteCopyBtnText}>EDIT</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.noteCopyBtn}
+                      onPress={() => copyToClipboard("entryNotes", payload.entryNotes || payload.note)}
+                      activeOpacity={0.7}
+                    >
+                      {copiedField === "entryNotes" ? (
+                        <Check size={13} color="#34d399" />
+                      ) : (
+                        <Copy size={13} color="#a1a1aa" />
+                      )}
+                      <Text style={[styles.noteCopyBtnText, copiedField === "entryNotes" && { color: "#34d399" }]}>
+                        {copiedField === "entryNotes" ? "COPIED" : "COPY"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                  <Text style={styles.noteContentBody} selectable>{payload.entryNotes || payload.note}</Text>
+                </ScrollView>
               </View>
             </View>
           ) : null}

@@ -77,3 +77,8 @@ Follow these core UI design and theming principles across the Vaultr application
      - Check if Web or Extension rely on this exact format (e.g. `unencryptedPayload.note`, `unencryptedPayload.entryNotes`).
      - Ensure data contracts remain 100% interoperable across all clients without divergence.
      - Detail what else must change across other subsystems whenever a change is proposed.
+
+6. **Branch & Pull Request (PR) Workflow**:
+   - Always do active feature and bugfix work on the `dev` branch (or dedicated feature branches).
+   - Never commit directly to `main` without explicit instructions.
+   - Stage, test, and commit changes on `dev`. When ready to deploy or merge into `main`: push `dev`, open a Pull Request referencing the GitHub issue, and merge to `main`.

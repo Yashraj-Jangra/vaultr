@@ -2,6 +2,17 @@
 
 ### ✅ What Was Done
 
+#### 1. Mobile Private Notes Alignment & Editability (GitHub Issue #1)
+- **Detail View Repositioning & Renaming (`mobile/src/screens/ItemDetailScreen.tsx`)**:
+  - Renamed section header from `SECURE NOTE` to `PRIVATE NOTES` for non-note templates (`!isNoteTemplate`) to eliminate confusion with standalone note items.
+  - Relocated Private Notes block from near the top to the bottom of the item detail layout (below Custom Fields and File Attachments, right above item metadata/history).
+  - Added an inline `EDIT` button with `Edit2` icon in the card header next to `COPY` that navigates directly to `ItemFormScreen` with the item loaded.
+- **Mobile Edit Mode Field (`mobile/src/screens/ItemFormScreen.tsx`)**:
+  - Added a dedicated multi-line `Private Notes` text input with placeholder `"Optional private notes…"` (matching web `NewEntryDialog.tsx`) for non-note templates.
+  - Bound directly to `entryNotes` and `setEntryNotes`, seamlessly saving to `unencryptedPayload.entryNotes` across the database, web, and mobile.
+- **Branch & PR Workflow Rule (`AGENTS.md`)**:
+  - Added Section 6 formally documenting the `dev` branch and GitHub Pull Request workflow before merging into `main`.
+
 #### 1. Bumped Mobile Version to 0.2.9 (Build 2026.09.10 · versionCode 9)
 - **Mobile Manifests & Android Build Config**:
   - `mobile/package.json`: Bumped version to `0.2.9`.
