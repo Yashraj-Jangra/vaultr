@@ -455,7 +455,7 @@ export default function DataSettingsPage() {
               domain,
               template: item.payload._template || item.template || "login",
               tags: [],
-              favorite: false,
+              favorite: !!item.favorite,
               hasTotp: !!item.payload.totpSecret,
             });
           } catch (encErr: any) {
