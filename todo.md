@@ -53,6 +53,12 @@
   `folder,favorite,type,name,notes,login_username,login_password,login_uri,login_totp,card_number,cardholder_name,expiry,cvv,pin,address,city,state,zip,country,full_name,email,phone,dob,id_number`
 - Export now preserves cards, addresses, identities, TOTP secrets, and notes with proper CSV escaping, matching `@vaultr/core` importer specifications for 100% roundtrip fidelity.
 
+#### 5. Verification & Edge Case Hardening
+- Fixed RuPay vs Discover prefix collision in `detectCardBrand` (`packages/core/src/types.ts`, `mobile/src/components/ItemPreviewCard.tsx`, `src/components/vault/DialogPreviews.tsx`).
+- Enabled explicit `card`, `address`, and `profile` template detection from `type` column in `packages/core/src/importer.ts`.
+- Preserved `favorite` flag across CSV and Bitwarden imports in `packages/core/src/importer.ts` and `src/app/settings/data/page.tsx`.
+- Successfully verified Next.js 16.2.2 production build (80 routes, 0 errors) and Browser Extension production webpack build (0 errors).
+
 ### 📋 Planned Next Steps
 1. **Version Bump**:
    - Propose version bump to `0.3.0` (MAJOR milestone) across `packages/core/src/version.ts`, `package.json`, `mobile/package.json`, `mobile/app.json`, and `extension/manifest.json`.
