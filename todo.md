@@ -9,7 +9,9 @@
   - `mobile/android/app/build.gradle`: Incremented `versionCode` to `9`, updated `versionName` to `"0.2.9"`.
 - **Core Version Synchronization**:
   - `packages/core/src/version.ts`: Added `VAULTR_MOBILE_VERSION = "0.2.9"` and updated `getAppVersionString("mobile")` for platform-specific versioning without disturbing web or extension manifests.
-  - `mobile/src/screens/SettingsScreen.tsx`: Wired `VAULTR_MOBILE_VERSION` into the settings version row and diagnostics bundle.
+- **Android Release Build v0.2.9 (`vaultr-v0.2.9-release.apk`)**:
+  - Successfully built signed standalone release APK (`mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk`).
+  - Integrated 8% shrunk app icon assets so the padlock shackle clears rounded launcher cutouts.
 
 #### 2. Login Preview Card Favicon Enhancement & Alignment (`mobile/src/components/ItemPreviewCard.tsx`)
 - **Enlarged Favicon Container & Icon**:
