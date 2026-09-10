@@ -1173,6 +1173,23 @@ export function ItemFormScreen({ route, navigation }: Props) {
           ))}
         </View>
 
+        {/* Private Notes (Non-note templates) */}
+        {template !== "note" && (
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Private Notes</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={entryNotes}
+              onChangeText={setEntryNotes}
+              placeholder="Optional private notes…"
+              placeholderTextColor={colors.textDim}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+        )}
+
         {/* Big Dashed File Attachments Box */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>File Attachments ({attachments.length})</Text>
