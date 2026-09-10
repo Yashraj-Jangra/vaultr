@@ -4,9 +4,10 @@
  */
 
 export const VAULTR_VERSION = "0.2.8";
+export const VAULTR_MOBILE_VERSION = "0.2.9";
 export const VAULTR_RELEASE_YEAR = "2026";
 export const VAULTR_EDITION = "VaultR 2026";
-export const VAULTR_BUILD_NUMBER = "2026.09.08";
+export const VAULTR_BUILD_NUMBER = "2026.09.10";
 export const VAULTR_BUILD_CHANNEL: "stable" | "preview" | "nightly" = "stable";
 
 export const VAULTR_CRYPTO_SPEC = {
@@ -34,8 +35,9 @@ export const VAULTR_OFFICIAL_LINKS = {
  * Returns a human-friendly version string e.g. "VaultR 2026 v0.2.4"
  */
 export function getAppVersionString(platform?: "web" | "extension" | "mobile"): string {
+  const version = platform === "mobile" ? VAULTR_MOBILE_VERSION : VAULTR_VERSION;
   const prefix = platform ? `VaultR ${platform.charAt(0).toUpperCase() + platform.slice(1)}` : VAULTR_EDITION;
-  return `${prefix} v${VAULTR_VERSION}`;
+  return `${prefix} v${version}`;
 }
 
 /**

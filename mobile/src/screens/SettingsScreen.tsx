@@ -17,7 +17,7 @@ import { vaultAlert } from "../store/alertStore";
 import { colors } from "../theme/colors";
 import { getAvatarUri } from "../utils/avatar";
 import { openAutofillSettings } from "../services/autofill";
-import { VAULTR_VERSION, VAULTR_BUILD_NUMBER, getBuildSignature } from "@vaultr/core";
+import { VAULTR_MOBILE_VERSION, VAULTR_BUILD_NUMBER, getBuildSignature } from "@vaultr/core";
 import {
   Shield,
   Fingerprint,
@@ -307,7 +307,7 @@ export function SettingsScreen({ navigation }: any) {
             <SettingsRow
               icon={<Info size={15} color="#a1a1aa" />}
               title="VaultR 2026 Mobile"
-              subtitle={`v${VAULTR_VERSION} (Build ${VAULTR_BUILD_NUMBER} · Stable)`}
+              subtitle={`v${VAULTR_MOBILE_VERSION} (Build ${VAULTR_BUILD_NUMBER} · Stable)`}
               onPress={handleCopyDiagnostics}
               last
             />

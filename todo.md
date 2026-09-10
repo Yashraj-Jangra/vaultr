@@ -2,7 +2,16 @@
 
 ### ✅ What Was Done
 
-#### 1. Login Preview Card Favicon Enhancement & Alignment (`mobile/src/components/ItemPreviewCard.tsx`)
+#### 1. Bumped Mobile Version to 0.2.9 (Build 2026.09.10 · versionCode 9)
+- **Mobile Manifests & Android Build Config**:
+  - `mobile/package.json`: Bumped version to `0.2.9`.
+  - `mobile/app.json`: Bumped version to `0.2.9`, incremented `versionCode` from 8 to `9`.
+  - `mobile/android/app/build.gradle`: Incremented `versionCode` to `9`, updated `versionName` to `"0.2.9"`.
+- **Core Version Synchronization**:
+  - `packages/core/src/version.ts`: Added `VAULTR_MOBILE_VERSION = "0.2.9"` and updated `getAppVersionString("mobile")` for platform-specific versioning without disturbing web or extension manifests.
+  - `mobile/src/screens/SettingsScreen.tsx`: Wired `VAULTR_MOBILE_VERSION` into the settings version row and diagnostics bundle.
+
+#### 2. Login Preview Card Favicon Enhancement & Alignment (`mobile/src/components/ItemPreviewCard.tsx`)
 - **Enlarged Favicon Container & Icon**:
   - Increased `faviconBox` dimensions from 40×40 to 48×48 (`borderRadius: 13`) to achieve parity with web's 48px `SiteIcon` standard.
   - Increased `faviconImg` size from 26×26 to 32×32 with `borderRadius: 6` for smooth corner clipping.
