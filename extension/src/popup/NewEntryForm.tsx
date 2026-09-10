@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import {
   Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, KeyRound, Star
 } from "lucide-react";
-import { VaultItem } from "@vaultr/core";
+import { VaultItem, detectCardBrand } from "@vaultr/core";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
@@ -20,11 +20,15 @@ export interface DecryptedPayload {
   password?: string;
   url?: string;
   urls?: string[];
+  passwordHistory?: string[];
   // card
   cardName?: string;
+  cardholderName?: string;
   cardNumber?: string;
   cardBrand?: string;
   expiry?: string;
+  expMonth?: string;
+  expYear?: string;
   cvv?: string;
   pin?: string;
   // address
@@ -187,11 +191,22 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
   const [showTotpField, setShowTotpField] = useState(!!initialData?.payload?.totpSecret);
 
   // Card
-  const [cardName, setCardName] = useState(initialData?.payload?.cardName || "");
+  const [cardName, setCardName] = useState(initialData?.payload?.cardName || initialData?.payload?.cardholderName || "");
   const [cardNumber, setCardNumber] = useState(initialData?.payload?.cardNumber || "");
-  const [expiry, setExpiry] = useState(initialData?.payload?.expiry || "");
+  const [expiry, setExpiry] = useState(() => {
+    if (initialData?.payload?.expiry) return initialData.payload.expiry;
+    if (initialData?.payload?.expMonth && initialData?.payload?.expYear) {
+      return `${initialData.payload.expMonth} / ${initialData.payload.expYear}`;
+    }
+    return "";
+  });
+  const [cardBrand, setCardBrand] = useState(initialData?.payload?.cardBrand || "");
   const [cvv, setCvv] = useState(initialData?.payload?.cvv || "");
   const [pin, setPin] = useState(initialData?.payload?.pin || "");
+
+  const detectedBrand = useMemo(() => {
+    return (cardBrand && cardBrand.toLowerCase() !== "auto-detect" ? cardBrand : "") || detectCardBrand(cardNumber);
+  }, [cardBrand, cardNumber]);
 
   // Address
   const [line1, setLine1] = useState(initialData?.payload?.line1 || "");
@@ -235,20 +250,53 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
     const payload: DecryptedPayload = {
       _template: template,
       _folder: activeFolder || undefined,
-      customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key, value: f.value })),
+      customFields: customFields.filter(f => f.key.trim() || f.value.trim()).map(f => ({ key: f.key, name: f.key, value: f.value })),
       entryNotes: entryNotes.trim() ? entryNotes.trim() : undefined,
     };
     if (template === "login") {
       const validUrls = urls.map(u => u.trim()).filter(Boolean);
+      let history: string[] = Array.isArray(initialData?.payload?.passwordHistory)
+        ? [...initialData.payload.passwordHistory]
+        : [];
+      if (initialData?.payload?.password && initialData.payload.password !== password.trim()) {
+        history = [...history, initialData.payload.password].slice(-5);
+      }
       Object.assign(payload, {
         username,
         password,
         url: validUrls[0] || "",
         urls: validUrls,
-        totpSecret: totpSecret.trim()
+        totpSecret: totpSecret.trim(),
+        passwordHistory: history.length > 0 ? history : undefined,
       });
     }
-    if (template === "card") Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
+    if (template === "card") {
+      let expMonth = "";
+      let expYear = "";
+      if (expiry.trim()) {
+        const parts = expiry.split(/\s*[\/\-]\s*/);
+        if (parts[0]) expMonth = parts[0].trim().padStart(2, "0");
+        if (parts[1]) {
+          let y = parts[1].trim();
+          if (y.length === 2) {
+            const yNum = parseInt(y, 10);
+            y = String(yNum < 50 ? 2000 + yNum : 1900 + yNum);
+          }
+          expYear = y;
+        }
+      }
+      Object.assign(payload, {
+        cardName: cardName.trim() || undefined,
+        cardholderName: cardName.trim() || undefined,
+        cardNumber: cardNumber.trim() || undefined,
+        cardBrand: detectedBrand || undefined,
+        expiry: expiry.trim() || undefined,
+        expMonth: expMonth || undefined,
+        expYear: expYear || undefined,
+        cvv: cvv.trim() || undefined,
+        pin: pin.trim() || undefined,
+      });
+    }
     if (template === "address") Object.assign(payload, { line1, line2, city, state: stateVal, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note") Object.assign(payload, { note });
@@ -457,7 +505,14 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
         {template === "card" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="form-group">
-              <span className="form-label">Card Details</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span className="form-label" style={{ margin: 0 }}>Card Details</span>
+                {detectedBrand ? (
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#a1a1aa", background: "var(--neutral-900)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 6px" }}>
+                    {detectedBrand}
+                  </span>
+                ) : null}
+              </div>
               <input
                 type="text"
                 className="form-input"
@@ -474,7 +529,7 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
                 style={{ fontFamily: "monospace", marginTop: 6 }}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 6 }}>
-                <input type="text" className="form-input" value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM/YY" />
+                <input type="text" className="form-input" value={expiry} onChange={e => setExpiry(e.target.value)} placeholder="MM / YY" />
                 <input type="password" className="form-input" value={cvv} onChange={e => setCvv(e.target.value)} placeholder="CVV" />
                 <input type="password" className="form-input" value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN" />
               </div>

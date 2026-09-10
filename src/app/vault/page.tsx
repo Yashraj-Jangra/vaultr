@@ -429,8 +429,21 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
         const y = parseInt(saveYear, 10);
         saveYear = String(y < 50 ? 2000 + y : 1900 + y);
       }
-      const expiry = (expiryMonth.trim() || saveYear) ? `${expiryMonth.padStart(2, '0')} / ${saveYear}` : "";
-      Object.assign(payload, { cardName, cardNumber, expiry, cvv, pin });
+      const expMonth = expiryMonth.trim() ? expiryMonth.trim().padStart(2, "0") : "";
+      const expYear = saveYear || "";
+      const expiry = (expMonth || expYear) ? `${expMonth || "MM"} / ${expYear || "YY"}` : "";
+      const effectiveBrand = detectCardBrand(cardNumber) || undefined;
+      Object.assign(payload, {
+        cardName,
+        cardholderName: cardName.trim() || undefined,
+        cardNumber,
+        cardBrand: effectiveBrand,
+        expiry,
+        expMonth: expMonth || undefined,
+        expYear: expYear || undefined,
+        cvv,
+        pin,
+      });
     }
     if (template === "address") Object.assign(payload, { line1, line2, city, state: state, zip, country });
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });

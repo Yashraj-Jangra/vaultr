@@ -166,3 +166,14 @@ export function normalizeProfilePayload(p: any): DecryptedProfilePayload {
     phone: p.phone || "",
   };
 }
+
+/** Universal card brand detector for client card inputs across Web, Mobile, and Extension. */
+export function detectCardBrand(cardNumber: string): string {
+  const clean = (cardNumber || "").replace(/\D/g, "");
+  if (/^4/.test(clean)) return "Visa";
+  if (/^(5[1-5]|2[2-7])/.test(clean)) return "Mastercard";
+  if (/^3[47]/.test(clean)) return "AMEX";
+  if (/^(6011|65|64[4-9]|622)/.test(clean)) return "Discover";
+  if (/^(60|6521|6522)/.test(clean)) return "RuPay";
+  return "";
+}
