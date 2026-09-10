@@ -83,6 +83,8 @@ export interface ParsedImportItem {
     fullName?: string;
     firstName?: string;
     lastName?: string;
+    dob?: string;
+    idNumber?: string;
     email?: string;
     phone?: string;
     isPasskey?: boolean;
@@ -256,6 +258,13 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
       state: (row.state || "").trim(),
       zip: (row.zip || "").trim(),
       country: (row.country || "").trim(),
+      fullName: (row.full_name || row.fullName || "").trim() || undefined,
+      firstName: (row.first_name || row.firstName || "").trim() || undefined,
+      lastName: (row.last_name || row.lastName || "").trim() || undefined,
+      email: (row.email || row.email_address || "").trim() || undefined,
+      phone: (row.phone || row.telephone || row.phone_number || "").trim() || undefined,
+      dob: (row.dob || row.date_of_birth || "").trim() || undefined,
+      idNumber: (row.id_number || row.idNumber || row.ssn || row.passport || "").trim() || undefined,
       isPasskey,
       passkeyRpId: row.rp_id || "",
       passkeyCredentialId: row.passkey_id || row.credential_id || "",
@@ -404,6 +413,8 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
         lastName: identityData.lastName || "",
         email: (identityData.email || "").trim(),
         phone: (identityData.phone || "").trim(),
+        dob: (identityData.dob || identityData.dateOfBirth || "").trim() || undefined,
+        idNumber: (identityData.idNumber || identityData.ssn || identityData.passportNumber || identityData.licenseNumber || "").trim() || undefined,
         line1: (identityData.address1 || "").trim(),
         street: (identityData.address1 || "").trim(),
         line2: (identityData.address2 || "").trim(),

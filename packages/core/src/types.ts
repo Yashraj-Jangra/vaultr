@@ -31,21 +31,53 @@ export interface VaultSession {
 
 export type BatchAction = "trash" | "restore" | "favorite" | "unfavorite" | "move" | "purge";
 
+export interface CustomFieldEntry {
+  id?: string;
+  name?: string;
+  key: string;
+  value: string;
+  type?: "text" | "hidden" | string;
+}
+
+export interface AttachmentMetadata {
+  id: string;
+  filename: string;
+  size: number;
+  contentType: string;
+  encryptedBlob?: string;
+  iv?: string;
+  [key: string]: any;
+}
+
 export interface DecryptedLoginPayload {
   username?: string;
   password?: string;
+  url?: string;
   urls?: string[];
   notes?: string;
+  entryNotes?: string;
   totpSecret?: string;
+  passwordHistory?: string[];
+  customFields?: CustomFieldEntry[];
+  fields?: CustomFieldEntry[];
+  attachments?: AttachmentMetadata[];
 }
 
 export interface DecryptedCardPayload {
   cardholderName?: string;
+  cardName?: string;
   cardNumber?: string;
+  cardBrand?: string;
+  expiry?: string;
   expMonth?: string;
   expYear?: string;
   cvv?: string;
+  pin?: string;
   notes?: string;
+  entryNotes?: string;
+  customFields?: CustomFieldEntry[];
+  fields?: CustomFieldEntry[];
+  attachments?: AttachmentMetadata[];
 }
 
 export interface DecryptedAddressPayload {
@@ -58,6 +90,9 @@ export interface DecryptedAddressPayload {
   country?: string;
   notes?: string;
   entryNotes?: string;
+  customFields?: CustomFieldEntry[];
+  fields?: CustomFieldEntry[];
+  attachments?: AttachmentMetadata[];
 }
 
 export interface DecryptedProfilePayload {
@@ -70,12 +105,18 @@ export interface DecryptedProfilePayload {
   phone?: string;
   notes?: string;
   entryNotes?: string;
+  customFields?: CustomFieldEntry[];
+  fields?: CustomFieldEntry[];
+  attachments?: AttachmentMetadata[];
 }
 
 export interface DecryptedNotePayload {
   note?: string;
   notes?: string;
   entryNotes?: string;
+  customFields?: CustomFieldEntry[];
+  fields?: CustomFieldEntry[];
+  attachments?: AttachmentMetadata[];
 }
 
 export type DecryptedItemPayload =
@@ -84,6 +125,12 @@ export type DecryptedItemPayload =
   | DecryptedAddressPayload
   | DecryptedProfilePayload
   | DecryptedNotePayload;
+
+export type DecryptedPayload = DecryptedItemPayload & {
+  _template?: Template;
+  _folder?: string;
+  [key: string]: any;
+};
 
 /** Normalizes address fields so line1/line2 and street formats work seamlessly across Web and Mobile. */
 export function normalizeAddressPayload(p: any): DecryptedAddressPayload {
