@@ -19,6 +19,7 @@ import { useVault } from "@/context/VaultContext";
 import { DynamicPreviewCanvas, detectCardBrand } from "./DialogPreviews";
 import { FolderSelect } from "./FolderSelect";
 import { CipherScrambleText } from "@/components/ui/CipherScrambleText";
+import { DEFAULT_CARD_EASTER_EGGS, getRandomEggIndex } from "@vaultr/core";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ export interface DecryptedPayload {
   _template?: Template;
   _folder?: string;
   username?: string; password?: string; url?: string; urls?: string[];
-  cardName?: string; cardholderName?: string; cardNumber?: string; expiry?: string; expMonth?: string; expYear?: string; cvv?: string; pin?: string; cardBrand?: string; brand?: string; code?: string;
+  cardName?: string; cardholderName?: string; cardNumber?: string; expiry?: string; expMonth?: string; expYear?: string; cvv?: string; pin?: string; cardBrand?: string; brand?: string; code?: string; fallbackBrand?: string;
   line1?: string; line2?: string; street?: string; city?: string; state?: string; zip?: string; country?: string;
   fullName?: string; dob?: string; idNumber?: string; email?: string; phone?: string;
   note?: string;
@@ -792,6 +793,10 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const addCustomField = () => setCustomFields(p => [...p, { id: crypto.randomUUID(), key: "", value: "", type: "text" }]);
 
   const { config } = useSiteConfig();
+  const eggs = useMemo(() => {
+    const configured = config?.cardEasterEggs || [];
+    return configured.length > 0 ? configured : DEFAULT_CARD_EASTER_EGGS;
+  }, [config?.cardEasterEggs]);
 
   // Auto-detect brand from card number BINs
   useEffect(() => {
@@ -833,6 +838,15 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
       setCardNumber(p.cardNumber ?? (p as any)?.card?.number ?? (p as any)?.number ?? "");
       setCardBrand(p.cardBrand || (p as any)?.brand || (p as any)?.card?.brand || "");
       setIsManualBrand(!!(p.cardBrand || (p as any)?.brand || (p as any)?.card?.brand));
+      const existingFallback = p.fallbackBrand || (p as any)?.card?.fallbackBrand;
+      if (existingFallback) {
+        const idx = eggs.indexOf(existingFallback);
+        setFallbackIndex(idx >= 0 ? idx : 0);
+      } else if (p.cardBrand === "Other" || (p as any)?.brand === "Other") {
+        setFallbackIndex((prev) => getRandomEggIndex(prev, eggs.length));
+      } else {
+        setFallbackIndex(null);
+      }
       const { month, year } = extractExpiryParts(p);
       setExpiryMonth(month);
       setExpiryYear(year);
@@ -866,8 +880,9 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     } else {
       setFolder(defaultFolder || currentNavFolder || "");
       setTemplate(defaultTemplate || "login");
+      setFallbackIndex(null);
     }
-  }, [open, initialData, defaultTemplate, defaultFolder, currentNavFolder]);
+  }, [open, initialData, defaultTemplate, defaultFolder, currentNavFolder, eggs]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -927,6 +942,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
         cardholderName: cardName.trim() || undefined,
         cardNumber: cardNumber.trim() || undefined,
         cardBrand: effectiveBrand,
+        fallbackBrand: (effectiveBrand === "Other" && fallbackBrand) ? fallbackBrand : undefined,
         expiry: exp,
         expMonth: saveMonth || undefined,
         expYear: saveYear || undefined,
@@ -1046,11 +1062,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     ? `${expiryMonth.padStart(2, '0')} / ${expiryYear}`
     : "";
 
-  const fallbackBrand = (() => {
-    const configuredEggs = config?.cardEasterEggs || [];
-    const eggs = configuredEggs.length > 0 ? configuredEggs : ["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD"];
-    return eggs.length > 0 && fallbackIndex !== null ? eggs[fallbackIndex % eggs.length] : undefined;
-  })();
+  const fallbackBrand = eggs.length > 0 && fallbackIndex !== null ? eggs[fallbackIndex % eggs.length] : undefined;
 
   const activeLayout = config?.vaultDialogLayout || "split";
 
@@ -1184,8 +1196,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                 onChange={(v) => {
                   setCardBrand(v);
                   setIsManualBrand(!!v);
-                  if (v === "Other" && fallbackIndex === null) {
-                    setFallbackIndex(Math.floor(Math.random() * 1000));
+                  if (v === "Other") {
+                    setFallbackIndex((prev) => getRandomEggIndex(prev, eggs.length));
                   }
                 }}
                 options={networkOptions}
@@ -1508,8 +1520,8 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                 onChange={(v) => {
                   setCardBrand(v);
                   setIsManualBrand(!!v);
-                  if (v === "Other" && fallbackIndex === null) {
-                    setFallbackIndex(Math.floor(Math.random() * 1000));
+                  if (v === "Other") {
+                    setFallbackIndex((prev) => getRandomEggIndex(prev, eggs.length));
                   }
                 }}
                 options={networkOptions}

@@ -17,7 +17,7 @@ import { FolderSelectModal } from "../components/FolderSelectModal";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
-import { Template } from "@vaultr/core";
+import { Template, DEFAULT_CARD_EASTER_EGGS, getRandomEggIndex } from "@vaultr/core";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard, detectCardBrand } from "../components/ItemPreviewCard";
 import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
@@ -58,7 +58,13 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const { item, initialFolder, initialTemplate, initialTotpSecret, initialName } = route.params || {};
   const isEdit = !!item;
 
-  const { isOnline, createItem, updateItem, uploadAttachment, fetchAttachments, cryptoKey, decryptItemBlob, items, customFolders } = useVaultStore();
+  const { isOnline, createItem, updateItem, uploadAttachment, fetchAttachments, cryptoKey, decryptItemBlob, items, customFolders, cardEasterEggs, fetchSiteConfig } = useVaultStore();
+
+  useEffect(() => {
+    if (fetchSiteConfig) {
+      fetchSiteConfig().catch(() => {});
+    }
+  }, [fetchSiteConfig]);
 
   const [template, setTemplate] = useState<Template>(item?.template || initialTemplate || "login");
   const [name, setName] = useState(item?.name || initialName || "");
@@ -88,10 +94,13 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [fallbackIndex, setFallbackIndex] = useState<number | null>(null);
   const [showNetworkPicker, setShowNetworkPicker] = useState(false);
 
+  const eggs = useMemo(() => {
+    return (cardEasterEggs && cardEasterEggs.length > 0) ? cardEasterEggs : DEFAULT_CARD_EASTER_EGGS;
+  }, [cardEasterEggs]);
+
   const fallbackBrand = useMemo(() => {
-    const eggs = ["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD"];
-    return fallbackIndex !== null ? eggs[fallbackIndex % eggs.length] : undefined;
-  }, [fallbackIndex]);
+    return fallbackIndex !== null && eggs.length > 0 ? eggs[fallbackIndex % eggs.length] : undefined;
+  }, [fallbackIndex, eggs]);
 
   // Reactive card brand auto-detect from number
   useEffect(() => {
@@ -243,7 +252,13 @@ export function ItemFormScreen({ route, navigation }: Props) {
             setCardBrand(b);
             setIsManualBrand(true);
             if (b === "Other") {
-              setFallbackIndex(Math.floor(Math.random() * 1000));
+              const existingFallback = p.fallbackBrand;
+              if (existingFallback) {
+                const idx = eggs.indexOf(existingFallback);
+                setFallbackIndex(idx >= 0 ? idx : getRandomEggIndex(null, eggs.length));
+              } else {
+                setFallbackIndex(getRandomEggIndex(null, eggs.length));
+              }
             }
           }
 
@@ -388,6 +403,9 @@ export function ItemFormScreen({ route, navigation }: Props) {
         if (pin.trim()) unencryptedPayload.pin = pin.trim();
         const effectiveBrand = (cardBrand && cardBrand.toLowerCase() !== "auto-detect" ? cardBrand.trim() : "") || detectCardBrand(cardNumber) || "";
         if (effectiveBrand) unencryptedPayload.cardBrand = effectiveBrand;
+        if (effectiveBrand === "Other" && fallbackBrand) {
+          unencryptedPayload.fallbackBrand = fallbackBrand;
+        }
       } else if (template === "address") {
         unencryptedPayload.street = street.trim();
         unencryptedPayload.line1 = street.trim();
@@ -790,9 +808,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
                         setCardBrand(n.value);
                         setIsManualBrand(n.value !== "");
                         if (n.value === "Other") {
-                          setFallbackIndex(Math.floor(Math.random() * 1000));
-                        } else {
-                          setFallbackIndex(null);
+                          setFallbackIndex((prev) => getRandomEggIndex(prev, eggs.length));
                         }
                         setShowNetworkPicker(false);
                       }}
