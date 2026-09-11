@@ -36,7 +36,6 @@ import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
 import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
-import { detectCardBrand } from "@vaultr/core";
 import { useResponsive } from "../utils/responsive";
 import {
   ArrowLeft,
@@ -402,7 +401,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     value={payload.cardholderName || payload.cardName}
                     onCopy={() => copyToClipboard("cardholderName", payload.cardholderName || payload.cardName)}
                     isCopied={copiedField === "cardholderName"}
-                    hasDivider={!!(payload.cardNumber || payload.cardBrand || detectCardBrand(payload.cardNumber || ""))}
+                    hasDivider={!!payload.cardNumber}
                   />
                 ) : null}
 
@@ -434,16 +433,6 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     onToggleShow={() => setShowPassword(!showPassword)}
                     isPassword
                     showPassword={showPassword}
-                    hasDivider={!!((payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || ""))}
-                  />
-                ) : null}
-
-                {((payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || "")) ? (
-                  <FieldRow
-                    label="Card Network"
-                    value={(payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || "")}
-                    onCopy={() => copyToClipboard("cardBrand", (payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || ""))}
-                    isCopied={copiedField === "cardBrand"}
                     hasDivider={false}
                   />
                 ) : null}
