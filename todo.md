@@ -1,3 +1,207 @@
+## Current Session: Apple-Grade 3D Animations, Folder Dynamics & Motion Suite (2026-09-11) · Branch: `feature/fluid-item-transitions`
+
+### ✅ What Was Done
+
+#### 1. Interactive 3D Vault Card with Holographic Glare & 3D Flip (`mobile/src/components/Interactive3DCard.tsx`, `ItemPreviewCard.tsx`)
+- Created `Interactive3DCard.tsx` with Reanimated gesture-driven 3D physics:
+  - **3D Touch Parallax Tilt**: Tracks user finger touch across the card surface (`perspective: 1200, rotateX, rotateY, scale: 1.025`). Card tilts smoothly toward touch and springs back to neutral with damped spring on release.
+  - **Dynamic Specular Glare (Holographic Sheen)**: Sweeping diagonal translucent light beam whose translation and opacity move proportionally with the tilt angle.
+  - **True 3D 180° Card Flip**: Flips between Front and Back using Reanimated `rotateY` (`0deg -> 180deg`) and synchronized opacity handoff at $90^\circ$ for zero glitch across all Android versions.
+- Added **Realistic Payment Card Back Visual** (`CreditCardBackVisual`):
+  - Matte black magnetic stripe across top with gloss reflection.
+  - White signature panel with cardholder script signature and dynamic CVV security code.
+  - Holographic security seal, Zero-Knowledge AES-256-GCM watermark, and client-side encryption notice.
+  - Interactive "Flip Card" pill button.
+
+#### 2. Apple-Style Folder Dynamics & Accordion (`mobile/src/components/AnimatedFolderRow.tsx`, `VaultListScreen.tsx`)
+- Replaced static icon swap in `VaultListScreen.tsx` with dedicated `AnimatedFolderRow.tsx`:
+  - **Spring Chevron Rotation**: Smooth rotation from $0^\circ$ (collapsed) to $90^\circ$ (expanded) with damped spring physics, exactly like macOS Finder / iOS Files.
+  - **3D Folder Flap Tilt**: Folder icon tilts open in 3D perspective (`rotateX: -18deg, scale: 1.05`) when opened.
+  - **Accordion Subtree**: Subfolder child rows animate in and out with Reanimated `FadeInUp.duration(160)` / `FadeOut.duration(120)` to eliminate layout snapping.
+  - **Tactile Row Press**: Spring depression on touch (`scale: 0.985`).
+
+#### 3. Fluid Staggered List Loading & Shimmer Skeleton (`mobile/src/components/AnimatedListItem.tsx`, `VaultSkeletonLoader.tsx`)
+- Created `AnimatedListItem.tsx`:
+  - Staggered cascade entrance: `entering={FadeInDown.delay(Math.min(index, 12) * 35).springify().damping(16).mass(0.6)}`.
+  - Items slide up smoothly from $+18\text{px}$ with opacity $0 \to 1$.
+  - Integrated into `VaultFilteredScreen.tsx` FlatList and `VaultListScreen.tsx` favorites grid / recent items.
+- Created `VaultSkeletonLoader.tsx`:
+  - Shimmering placeholder cards with animated opacity wave loop during vault fetch/decryption.
+
+#### 4. Expanded Screen Navigation Transitions & Background Deck Recess (`itemTransitions.ts`, `MainTabs.tsx`, `TransitionSelectModal.tsx`)
+- Added **Apple-Style Background Deck Recess** in `MainTabs.tsx`:
+  - Wrapped `MainTabs` in an `Animated.View` powered by `useCardAnimation()` from `@react-navigation/stack`.
+  - When an item screen (`ItemDetail`, `ItemForm`) is pushed, `MainTabs` smoothly scales down to $0.93$, translates up by $-10\text{px}$, rounds top corners to $22\text{px}$, and dims to $0.65$ opacity over a black backdrop.
+- Added 3 new high-impact transitions in `itemTransitions.ts` (now 9 total options):
+  1. **Apple Fold Deck (`appleFoldDeck`)**: Signature Apple modal sheet with 3D bottom perspective fold and settle.
+  2. **3D Cube Turn (`cubeTurn`)**: Perspective 3D cube turn with edge-anchored rotation and dynamic scale.
+  3. **Elastic Spring Pop (`elasticPop`)**: High-tension center spring pop with playful overshoot.
+- Updated `TransitionSelectModal.tsx` and `mobile/src/lucide.d.ts` with icons (`Folder`, `Box`, `Zap`), tags, and instant testing.
+
+#### 5. Tactile 3D Micro-Interactions (`VaultListScreen.tsx`, `ItemDetailScreen.tsx`, `UnlockScreen.tsx`)
+- **Interactive 3D FAB (`Interactive3DFab`)**:
+  - The `+` FAB on `VaultListScreen` rotates $0^\circ \to 45^\circ$ on press with spring physics, paired with tactile scale ($1.0 \to 0.9 \to 1.0$) and elevated shadow glow.
+- **Favorite Star Spring Burst (`AnimatedFavoriteButton`)**:
+  - In `ItemDetailScreen.tsx`, tapping favorite triggers a high-velocity spring sequence (`scale: 1.0 -> 1.45 -> 0.9 -> 1.0`, rotation $-18^\circ \to 10^\circ \to 0^\circ$).
+- **Animated Copy Button & Floating Toast (`AnimatedCopyButton`, `floatingCopiedPill`)**:
+  - Tapping copy bounces the copy icon and displays a sleek animated floating pill ("Copied to clipboard") with `FadeInUp`/`FadeOut`.
+- **Biometric Lock 3D Breathing Pulse (`UnlockScreen.tsx`)**:
+  - In `UnlockScreen.tsx`, the lock logo box has continuous 3D breathing pulse (`scale: 1.0 -> 1.05 -> 1.0`, perspective tilt $\pm 5^\circ$).
+
+#### 6. Android Reanimated Crash Fix (`AnimatedFolderRow.tsx`, `Interactive3DCard.tsx`)
+- **Resolved Fatal `stod: no conversion` Crash**:
+  - Identified crash cause: `withSpring(...)` was invoked directly inside a template string (`${withSpring(...)}deg`) inside `useAnimatedStyle` in `AnimatedFolderRow.tsx`.
+  - Reanimated's native C++ core failed when parsing `"[object Object]deg"` with `std::stod`.
+  - Replaced with Reanimated `interpolate(flapTilt.value, [0, 1], [0, -18])` and `interpolate(flapTilt.value, [0, 1], [1, 1.05])`.
+- **Hardened 3D Card Interactivity & Touch Resilience (`Interactive3DCard.tsx`)**:
+  - Added an auto-reset safety timeout (700ms) to ensure the card always resets to flat orientation if a gesture or vertical scroll cancels touch events mid-gesture.
+  - Added `onResponderRelease` and `onResponderTerminate` handlers to prevent tilt sticking when scrolling parent views.
+- **Verification on Physical Device**:
+  - Cleared ADB logcat and verified zero runtime exceptions across screen navigations, folder expansions, card 3D tilts, card flips, and star burst animations.
+
+#### 7. Premium Motion & Realistic Micro-Interaction Overhaul (Completed)
+- **Favourite Star Magnetic Click (`ItemDetailScreen.tsx`)**:
+  - Removed artificial rotation and exaggerated multi-bounce sequence.
+  - Replaced with tactile physical "Magnetic Click": fast squeeze to $0.84 \to$ crisp micro-pop to $1.15 \to$ settles precisely at default scale $1.0$ with high damping.
+  - Integrated parallel subtle amber ambient bloom halo ($22\%$ opacity) behind the star.
+- **Physical Ink Stamp Copy Button (`ItemDetailScreen.tsx`)**:
+  - Replaced lingering bounce with physical "Ink Stamp": quick compress to $0.82 \to$ immediate high-damped return directly to $1.0$ with zero overshoot.
+- **Realistic Ambient Depth Shadow & Rim Light for 3D Card (`Interactive3DCard.tsx`)**:
+  - Completely stripped out synthetic holographic glare beam stripes and glare overlays.
+  - Added natural ambient cast shadow layer beneath the card that shifts dynamically opposite to tilt angle (mimicking physical directional light).
+  - Added dynamic $1\text{px}$ rim light border that brightens from $0.06 \to 0.16$ opacity on touch/tilt.
+  - Reduced max tilt angles from $12^\circ / 10^\circ$ to natural $8^\circ / 6^\circ$ with heavier mass spring physics.
+- **Folder Lift & Smooth Icon Cross-Dissolve (`AnimatedFolderRow.tsx`)**:
+  - Reined in over-dramatic $-18^\circ$ flap tilt to a subtle, natural $-8^\circ$ lift.
+  - Replaced abrupt icon snap with a smooth Reanimated opacity cross-dissolve between `Folder` and `FolderOpen`.
+- **Sleek Minimal Fade-In & Non-Bouncy Layout Transition (`AnimatedListItem.tsx`, `VaultSkeletonLoader.tsx`)**:
+  - Replaced bouncy vertical `FadeInUp` spring with pure, sleek `FadeIn.duration(140)` and non-bouncy linear layout transition (`LinearTransition.duration(150)`).
+  - Capped micro-stagger strictly to the first 5 visible items (`index < 5 ? index * 14 : 0`), eliminating scroll-induced pop-in latency in FlatLists.
+  - Upgraded `VaultSkeletonLoader` with silky SVG linear gradient shimmer wave sweeps across skeleton bones.
+- **Dignified Unlock Screen Security Halo (`UnlockScreen.tsx`)**:
+#### 8. App-Wide Premium Refinements & Micro-Interactions (Completed)
+- **Apple-Grade Haptic Reanimated Switch (`CustomSwitch.tsx`)**:
+  - Replaced legacy React Native `Animated` with Reanimated 3 UI-thread springs.
+  - Added authentic Apple thumb squish and stretch (`scaleX: 1.14, scaleY: 0.94` while pressed/traveling), snapping cleanly into resting position (`scaleX: 1.0`) with calibrated spring (`damping: 18, stiffness: 260`).
+  - Added smooth interpolated track background and border color transitions.
+- **Progressive Spring Liquid Filling for Password Strength (`PasswordStrengthBar.tsx`)**:
+  - Replaced abrupt segment color cuts with progressive spring width fills using staggered delay (`index * 35ms`).
+  - Smooth label and color transitions as entropy increases or decreases when typing passwords.
+- **Mechanical Tactile Generator Screen (`GeneratorScreen.tsx`)**:
+  - Created `AnimatedRegenerateButton` with $360^\circ$ spring spin and tactile press depression on the `RefreshCw` icon.
+  - Replaced awkward `FadeInUp` falling text with `CipherScrambleOutput`: on regeneration or seed change, characters rapidly scramble through randomized cipher characters and lock in sequentially from left to right over ~260ms.
+  - Balanced scramble across 25% symbols, 25% digits, 25% uppercase, and 25% lowercase, dynamically styled in their respective syntax colors (rose pink for symbols, gold amber for digits, cyan blue for uppercase, and silver white for lowercase) during the scramble animation.
+  - Upgraded mode tabs, copy button, length presets, and step counters (`-`/`+`) with `PressableScale` tactile touch.
+- **TOTP Continuous Countdown Ring & Digit Refresh (`TotpCode.tsx`, `AuthenticatorScreen.tsx`)**:
+  - Replaced 1-second stepped jumps with continuous, liquid smooth countdown ring draining via Reanimated animated props.
+  - Added soft heartbeat pulse when $\le 5$ seconds remain to alert the user naturally without alarmist flashing.
+  - Added digit refresh cascade (`FadeInUp.duration(160)`) on token cycle and wrapped cards in `PressableScale`.
+  - Added `AnimatedListItem` staggered entrance to Authenticator screen tokens.
+- **Item Detail Screen & Clean Password Reveal (`ItemDetailScreen.tsx`)**:
+  - Removed artificial animated eye button and vertical sliding text on password reveal, restoring original clean, direct, instant toggle.
+  - Added animated accordion roll-down (`FadeInUp.duration(160)` / `FadeOut.duration(120)`) for password history.
+- **Tactile FAB Button & Trash Spring Transitions (`VaultListScreen.tsx`, `VaultFilteredScreen.tsx`, `TrashScreen.tsx`)**:
+  - Replaced awkward $45^\circ$ "X" rotation on the `+` FAB with authentic button depression (`scale: 0.92, translateY: 2`).
+  - Added `PressableScale` to `VaultFilteredScreen.tsx` FAB.
+  - Wrapped Trash items in `AnimatedListItem` for fluid delete, restore, and list reflow transitions.
+- **Android 14/15 Native Predictive Back System Gesture Bridge (`PredictiveBackModule.kt`, `predictiveBack.ts`, `PredictiveBackWrapper.tsx`, `ItemDetailScreen.tsx`, `ItemFormScreen.tsx`)**:
+  - Enabled `android:enableOnBackInvokedCallback="true"` in `AndroidManifest.xml`.
+  - Implemented custom Kotlin module `PredictiveBackModule.kt` and `PredictiveBackPackage.kt` registered in `MainApplication.kt`, hooking Android 14+ (`API 34+`) `OnBackAnimationCallback` to intercept hardware edge bezel back swipes (`onBackStarted`, `onBackProgressed`, `onBackInvoked`, `onBackCancelled`).
+  - Bridged progress ($0.0 \to 1.0$), touch coordinates, and swipe edge direction directly into React Native via `RCTDeviceEventEmitter`.
+  - Created `usePredictiveBack` hook in `predictiveBack.ts` with navigation `focus` and `blur` lifecycle guards: automatically enables the native interceptor only when child screens are active, and disables on blur/unmount so the root screen (`MainTabs`) leaves predictive back unintercepted, allowing the Android OS to display the native exit-to-launcher preview.
+  - Created Reanimated `PredictiveBackWrapper.tsx` driving GPU scale down ($1.0 \to 0.88$), corner rounding ($0 \to 26\text{px}$), edge translation, and fade out on swipe with finger tracking.
+  - Wrapped `ItemDetailScreen` and `ItemFormScreen` in `PredictiveBackWrapper`, preserving unsaved note alerts and safe navigation.
+
+#### 9. Transition Alignment & Folder Predictive Back Navigation (`RootNavigator.tsx`, `itemTransitions.ts`, `predictiveBack.ts`, `PredictiveBackWrapper.tsx`, `VaultFilteredScreen.tsx`, `FolderManagerScreen.tsx`)
+- **Eliminated Transition Conflicts & Double-Animation**:
+  - Diagnosed root conflict: React Navigation's JS pan gesture handler (`gestureEnabled: true`) was fighting Android's native `OnBackAnimationCallback` on bezel swipes, and stack close interpolators were running on top of already completed Reanimated gestures.
+  - Set `gestureEnabled: false` on `ItemDetail`, `ItemForm`, `VaultFiltered`, and `FolderManager` in `RootNavigator.tsx`, ensuring the native OS gesture exclusively drives the back motion.
+  - In `predictiveBack.ts`, sequenced `progress.value = withTiming(1, { duration: 80 })` to complete the visual preview first before calling `runOnJS(doExit)()`, eliminating exit jitter.
+  - In `itemTransitions.ts`, set fast $80\text{ms}$ timing close spec and `gestureEnabled: false` on `predictiveBack`, while preserving unique entry styles on push.
+- **Extended Predictive Back to Folder Navigation**:
+  - Wrapped `VaultFilteredScreen.tsx` in `<PredictiveBackWrapper navigation={navigation}>`: navigating into custom folders or nested subfolders now supports real-time bezel swipe preview returning to parent views.
+  - Wrapped `FolderManagerScreen.tsx` in `PredictiveBackWrapper` with a modal-aware `onBack` handler (dismissing creation, rename, or deletion dialogs before screen exit).
+- **Transparent Floating Wrapper Surface (`PredictiveBackWrapper.tsx`)**:
+  - Replaced solid `#000000` wrapper container background with `transparent`, and assigned `colors.bg` with rounded corner clipping to the inner card. When swiping from the bezel, the underlying vault screen is cleanly visible beneath the floating card.
+- **Removed Debug Logs (`PredictiveBackModule.kt`)**:
+  - Stripped all debug `Log.d` statements per repository hygiene rules.
+
+#### 10. Predictive Back System Priority + Transition Simplification (`PredictiveBackModule.kt`, `itemTransitions.ts`, `RootNavigator.tsx`, `vaultStore.ts`, `SettingsScreen.tsx`)
+- **Root Fix — `PRIORITY_OVERLAY`**:
+  - Identified the real root cause: `OnBackInvokedDispatcher.PRIORITY_DEFAULT` (value 0) allows Android to show its own window-scale preview animation alongside our custom Reanimated one — causing the "system animation first, then app animation" double-play.
+  - Changed to `OnBackInvokedDispatcher.PRIORITY_OVERLAY` (value 1,000,000): our callback now exclusively owns the back gesture. Android's built-in scale-down window preview is fully suppressed.
+- **Single Hardwired Transition — Vault Depth Lift**:
+  - Stripped `itemTransitions.ts` from 949 lines (10 transition variants + metadata) down to 112 lines: single `depthLift` spec and interpolator only.
+  - Removed `ItemTransitionType` union, `ITEM_TRANSITIONS_METADATA` array, and `getItemTransitionConfig(type)` parameter — function is now `getItemTransitionConfig()` with no args.
+  - Hardwired `gestureEnabled: false` in the config itself so no screen-level override is needed.
+- **Store Cleanup (`vaultStore.ts`)**:
+  - Removed `itemTransition` state field, `setItemTransition` action, `ItemTransitionType` import, and the `AsyncStorage.getItem("@vaultr/item_transition")` read from `initSession`.
+- **Settings Cleanup (`SettingsScreen.tsx`)**:
+  - Removed the "EXPERIENCE & MOTION" settings section (transition picker row + `TransitionSelectModal` reference).
+  - Removed all related imports (`ITEM_TRANSITIONS_METADATA`, `TransitionSelectModal`), state (`transitionModalVisible`), and memos (`currentTransitionMeta`).
+- **Deleted `TransitionSelectModal.tsx`** — entire file removed.
+- **0 TypeScript errors** confirmed after all changes.
+
+#### 11. Native Release APK Build & Device Installation (`vaultr-v0.2.9-release.apk`)
+- **Compiled Native Android Release Bundle**:
+  - Ran `.\gradlew.bat assembleRelease` to compile Kotlin changes (`PredictiveBackModule.kt` `PRIORITY_OVERLAY`) into native binaries.
+  - Successfully produced `vaultr-v0.2.9-release.apk` (146MB) with all bundled assets and JS offline bundle.
+- **Installed onto Physical Device (`RZCY40QN1EW`)**:
+  - Streamed installation via `adb -s RZCY40QN1EW install -r`.
+  - Launched app activity `com.vaultr.mobile/.MainActivity` (PID active and verified).
+
+#### 12. Direct Vault Depth Lift Alignment & Shrink Elimination (`PredictiveBackWrapper.tsx`, `MainTabs.tsx`, `predictiveBack.ts`)
+- **Eliminated Active Screen Horizontal Shrink (`PredictiveBackWrapper.tsx`)**:
+  - Replaced the hardcoded Android-style window shrink (`scale: [1, 0.88]`, `translateX: [0, 34]`, `borderRadius: [0, 26]`) with the authentic **Vault Depth Lift** transition curve:
+    - Vertical depth slide: `translateY: [0, height * 0.22]`
+    - Receding scale: `scale: [1, 0.76]`
+    - Smooth opacity fade: `opacity: [1, 0]`
+    - Zero horizontal shift (`translateX: 0`), zero corner morphing (`borderRadius: 0`).
+- **Eliminated Background Screen Deck Shrink (`MainTabs.tsx`)**:
+  - Removed `animatedContainerStyle` deck recess from `MainTabs` (`scale: [1, 0.93]`, `borderTopLeftRadius: 22`), eliminating the frozen shrunken background card during native back gestures.
+- **Fixed Snap-Back Glitch Before Screen Exit (`predictiveBack.ts`)**:
+  - Prevented premature resetting of `progress.value = 0` inside `onPredictiveBackInvoked`, ensuring the screen stays completely faded out while `navigation.goBack()` cleanly unmounts it with zero flicker or second animation.
+- **Rebuilt & Installed Release APK on Device (`RZCY40QN1EW`)**:
+  - Compiled release bundle with `./gradlew.bat assembleRelease` (3m 36s).
+  - Streamed install via ADB and started app activity (PID `13698`).
+
+#### 13. Distinct Folder vs Item Transitions & Transparent Stack Hierarchy (`itemTransitions.ts`, `RootNavigator.tsx`, `PredictiveBackWrapper.tsx`, `predictiveBack.ts`, `VaultFilteredScreen.tsx`, `FolderManagerScreen.tsx`)
+- **Previous Screen Visibility During Back Gesture**:
+  - Identified why the previous page didn't show during back gestures: `Stack.Navigator` and `CardContainer` had opaque `cardStyle: { backgroundColor: colors.bg }`, blocking the underlying screen from view until the card was fully unmounted.
+  - Configured `cardStyle: { backgroundColor: "transparent" }` across the Stack and transition resolvers with `detachPreviousScreen: false`. As either item cards or folder screens translate during back gestures, the previous page is rendered and visible directly underneath.
+- **Differentiated Folder vs Item Transitions**:
+  - **Folders (`VaultFilteredScreen`, `FolderManagerScreen`)**: Differentiated to pure **Horizontal Slide (Drill-Down)**. Swiping from the left bezel slides the folder horizontally off-screen to the right (`translateX: 0 -> screenWidth`) at 100% scale with a subtle left-edge divider line, smoothly revealing the parent folder or vault list underneath in real time.
+  - **Items (`ItemDetailScreen`, `ItemFormScreen`)**: Dedicated to **Vault Depth Lift**. Slides down vertically (`translateY: 0 -> height * 0.22`) and recedes into depth (`scale: 1.0 -> 0.76`) with dim overlay fade, revealing the vault list directly beneath the receding card.
+- **Eliminated End-of-Animation Lag**:
+  - In `predictiveBack.ts`, `onPredictiveBackInvoked` immediately invokes `runOnJS(doExit)()` in the same frame as `progress.value = withTiming(1, { duration: 160 })`, running the navigation pop and completion curve concurrently.
+  - Switched `close` transition spec in `itemTransitions.ts` from a lagging 250ms spring to a 160ms cubic timing curve, eliminating the post-gesture stutter/pause.
+- **Rebuilt & Deployed Release APK on Device (`RZCY40QN1EW`)**:
+  - Compiled release bundle with `.\gradlew.bat assembleRelease` (2m 52s).
+  - Streamed install via ADB and started app activity (PID `23908`).
+
+#### 14. Predictive Back Focus Scoping & Event Isolation (`predictiveBack.ts`)
+- **Resolved Multi-Screen Pop Bug (Item Back Hitting Folder)**:
+  - Root Cause: `DeviceEventEmitter` broadcasts globally across the app. When an item was opened inside a folder, both `VaultFilteredScreen` (parent) and `ItemDetailScreen` (child) were mounted and listening for `onPredictiveBackInvoked`. Swiping back on the item triggered `navigation.goBack()` in both listeners simultaneously, popping both the item and the folder.
+  - Fix: Scoped `usePredictiveBack` directly to `useIsFocused()`. The moment an item opens over a folder, the folder's `useEffect` cleanup immediately removes its `DeviceEventEmitter` listeners.
+  - Added defensive guards: `doExit()` verifies `navigation.isFocused()` and `isActive.value` before triggering any navigation pop.
+- **Rebuilt & Deployed Release APK on Device (`RZCY40QN1EW`)**:
+  - Compiled release bundle with `.\gradlew.bat assembleRelease` (4m 44s).
+  - Streamed install via ADB and started app activity (PID `28538`).
+
+### 📋 Planned Next Steps
+1. **User Testing on Device** (`RZCY40QN1EW`):
+   - **Test Item Inside Folder Back**:
+     - Navigate into any folder (e.g. Work/Finance) -> tap an item to open `ItemDetailScreen`.
+     - Bezel swipe back from the item: verify ONLY the item closes (Vault Depth Lift), leaving you cleanly inside the folder screen.
+     - Bezel swipe back from the folder: verify the folder slides horizontally to the right, returning you to the main vault list.
+   - **Test Direct Item Back**:
+     - Open an item from the main vault list -> bezel swipe back: verify clean single-step exit.
+2. **Merge Branch & Version Bump**:
+   - Once user confirms smooth experience, merge `feature/fluid-item-transitions` into `dev`.
+   - Suggest version bump (e.g. `0.3.0` milestone).
+
+---
+
 ## Current Session: Cross-System Parity & Ecosystem Alignment Overhaul (2026-09-11)
 
 ### ✅ What Was Done
