@@ -1,10 +1,51 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withDelay,
+} from "react-native-reanimated";
 import { scorePassword } from "@vaultr/core";
 import { colors } from "../theme/colors";
 
 interface Props {
   password?: string;
+}
+
+function StrengthSegment({
+  index,
+  score,
+  targetColor,
+}: {
+  index: number;
+  score: number;
+  targetColor: string;
+}) {
+  const active = index < score;
+  const fill = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    fill.value = withDelay(
+      index * 35,
+      withSpring(active ? 1 : 0, {
+        damping: 18,
+        stiffness: 280,
+        mass: 0.5,
+      })
+    );
+  }, [active, index]);
+
+  const fillAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${fill.value * 100}%`,
+    backgroundColor: targetColor,
+  }));
+
+  return (
+    <View style={styles.segmentTrack}>
+      <Animated.View style={[styles.segmentFill, fillAnimatedStyle]} />
+    </View>
+  );
 }
 
 export function PasswordStrengthBar({ password = "" }: Props) {
@@ -20,30 +61,26 @@ export function PasswordStrengthBar({ password = "" }: Props) {
     colors.success,
   ];
 
+  const currentColor = barColors[score];
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.label}>Strength</Text>
-        <Text style={[styles.statusText, { color: barColors[score] }]}>
+        <Text style={[styles.statusText, { color: currentColor }]}>
           {labels[score]} ({result.entropy} bits)
         </Text>
       </View>
 
       <View style={styles.barsRow}>
-        {[0, 1, 2, 3].map((idx) => {
-          const active = idx < score;
-          return (
-            <View
-              key={idx}
-              style={[
-                styles.segment,
-                {
-                  backgroundColor: active ? barColors[score] : colors.surface3,
-                },
-              ]}
-            />
-          );
-        })}
+        {[0, 1, 2, 3].map((idx) => (
+          <StrengthSegment
+            key={idx}
+            index={idx}
+            score={score}
+            targetColor={currentColor}
+          />
+        ))}
       </View>
     </View>
   );
@@ -71,11 +108,18 @@ const styles = StyleSheet.create({
   },
   barsRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: 5,
     height: 4,
   },
-  segment: {
+  segmentTrack: {
     flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.surface3,
+    overflow: "hidden",
+  },
+  segmentFill: {
+    height: "100%",
     borderRadius: 2,
   },
 });

@@ -1,5 +1,12 @@
-import React, { useEffect, useRef } from "react";
-import { TouchableOpacity, Animated, StyleSheet, View } from "react-native";
+import React, { useEffect } from "react";
+import { Pressable, StyleSheet } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+  interpolateColor,
+} from "react-native-reanimated";
 
 interface CustomSwitchProps {
   value: boolean;
@@ -20,63 +27,84 @@ export function CustomSwitch({
   activeThumbColor = "#09090b",
   inactiveThumbColor = "#71717a",
 }: CustomSwitchProps) {
-  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
+  // 0 = off, 1 = on
+  const switchProgress = useSharedValue(value ? 1 : 0);
+  const isPressed = useSharedValue(0);
 
   useEffect(() => {
-    Animated.timing(anim, {
-      toValue: value ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
+    switchProgress.value = withSpring(value ? 1 : 0, {
+      damping: 18,
+      stiffness: 260,
+      mass: 0.5,
+    });
   }, [value]);
 
-  const translateX = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [2, 20],
+  const handlePressIn = () => {
+    if (disabled) return;
+    isPressed.value = withSpring(1, { damping: 16, stiffness: 350 });
+  };
+
+  const handlePressOut = () => {
+    if (disabled) return;
+    isPressed.value = withSpring(0, { damping: 16, stiffness: 300 });
+  };
+
+  const handlePress = () => {
+    if (disabled) return;
+    onValueChange(!value);
+  };
+
+  const trackAnimatedStyle = useAnimatedStyle(() => {
+    const backgroundColor = interpolateColor(
+      switchProgress.value,
+      [0, 1],
+      [inactiveColor, activeColor]
+    );
+    const borderColor = interpolateColor(
+      switchProgress.value,
+      [0, 1],
+      ["#3f3f46", "#ffffff"]
+    );
+    return {
+      backgroundColor,
+      borderColor,
+    };
   });
 
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [inactiveColor, activeColor],
-  });
+  const thumbAnimatedStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(switchProgress.value, [0, 1], [2, 20]);
+    // Authentic Apple thumb stretch: horizontally elongates slightly during touch/travel
+    const stretch = interpolate(isPressed.value, [0, 1], [1, 1.14]);
+    const thumbColor = interpolateColor(
+      switchProgress.value,
+      [0, 1],
+      [inactiveThumbColor, activeThumbColor]
+    );
 
-  const borderColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["#3f3f46", "#ffffff"],
-  });
-
-  const thumbColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [inactiveThumbColor, activeThumbColor],
+    return {
+      transform: [
+        { translateX },
+        { scaleX: stretch },
+        { scaleY: interpolate(isPressed.value, [0, 1], [1, 0.94]) },
+      ],
+      backgroundColor: thumbColor,
+    };
   });
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Pressable
       disabled={disabled}
-      onPress={() => onValueChange(!value)}
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Animated.View
-        style={[
-          styles.track,
-          {
-            backgroundColor,
-            borderColor,
-          },
-          disabled && { opacity: 0.5 },
-        ]}
+        style={[styles.track, trackAnimatedStyle, disabled && { opacity: 0.5 }]}
       >
-        <Animated.View
-          style={[
-            styles.thumb,
-            {
-              transform: [{ translateX }],
-              backgroundColor: thumbColor,
-            },
-          ]}
-        />
+        <Animated.View style={[styles.thumb, thumbAnimatedStyle]} />
       </Animated.View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -94,8 +122,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });
