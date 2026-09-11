@@ -1780,6 +1780,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                   expiry={displayExpiry}
                   cardBrand={cardBrand}
                   fallbackBrand={fallbackBrand}
+                  cvv={cvv}
                 />
               </div>
 
@@ -1919,6 +1920,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     expiry={displayExpiry}
                     cardBrand={cardBrand}
                     fallbackBrand={fallbackBrand}
+                    cvv={cvv}
                   />
                 </div>
               </div>

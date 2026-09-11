@@ -33,6 +33,8 @@ try {
   console.log("[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async.");
 }
 
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 export default function App() {
   useEffect(() => {
     initAutoLockService();
@@ -55,10 +57,12 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider style={{ flex: 1, backgroundColor: "#09090b" }}>
-      <RootNavigator />
-      <CustomAlertOverlay />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: "#09090b" }}>
+        <RootNavigator />
+        <CustomAlertOverlay />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

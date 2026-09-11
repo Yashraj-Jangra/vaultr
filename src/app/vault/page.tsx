@@ -1075,6 +1075,7 @@ function CreditCardGraphic({ data, showCard }: { data: DecryptedPayload; showCar
         cardNumber={data.cardNumber || ""}
         cardName={cardName}
         expiry={expiry}
+        cvv={data.cvv}
         cardBrand={cardBrand}
         fallbackBrand={data.fallbackBrand}
         isNumberVisible={showCard}
