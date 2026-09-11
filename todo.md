@@ -26,8 +26,17 @@
   - Tap-to-flip and flip button pill below card.
 - Wired `cvv` and `isNumberVisible` props through `CreditCardGraphic` in `src/app/vault/page.tsx` and `DynamicPreviewCanvas` in `src/components/vault/NewEntryDialog.tsx`.
 
+#### 3. Native Android Release Build (`vaultr-v0.2.9-release.apk`)
+- **Compilation & Packaging**:
+  - Ran `npx tsc --noEmit` on both root and mobile workspaces (0 TypeScript errors).
+  - Executed `./gradlew.bat assembleRelease` in `mobile/android` (Build completed successfully in 5m 49s).
+  - Bundled 3,220 modules into offline Hermes JavaScript bundle (`index.android.bundle`).
+  - Successfully produced standalone signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk` (146,274,268 bytes).
+  - Packed latest interactive 3D swipe-to-flip credit card physics, gesture handlers, and predictive back navigation.
+
 ### 📋 What's Planned Next
-- Verify UI behavior across Web and Mobile.
+- Connect physical Android device or start emulator to test/stream APK install (`adb install -r`).
+- Verify UI and swipe-to-flip gesture behavior directly on device.
 - Prepare version bump if ready.
 
 ---
