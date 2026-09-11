@@ -1,4 +1,37 @@
-## Current Session: Apple-Grade 3D Animations, Folder Dynamics & Motion Suite (2026-09-11) · Branch: `feature/fluid-item-transitions`
+## Current Session: Animated Cipher Scramble Text Cascade on Web (Issue #6) (2026-09-11) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Reusable Animated Cipher Scramble Text Component (`src/components/ui/CipherScrambleText.tsx`)
+- Created `CipherScrambleText.tsx` matching the mobile app's mechanical cipher cascade (`mobile/src/screens/GeneratorScreen.tsx`):
+  - **Balanced Character Pools**: Scramble draws uniformly from 4 distinct pools (lowercase, uppercase, digits, symbols) at 25% distribution.
+  - **Progressive Left-to-Right Locking**: Resolves over 14 frames at 22ms intervals (~308ms total animation).
+  - **Dynamic Syntax Color Highlighting**: Letters, digits, and symbols carry syntax colors during both the scramble phase and final locked state (rose for symbols, amber for digits, sky for uppercase, neutral for lowercase).
+  - **Mode-Specific Variations**: Supports `pin` (digit-only scramble with amber tracking) and `passphrase` (lowercase word scramble with amber separator preservation).
+  - **Separator Preservation**: Word separators (`-`, `_`, `.`, ` `) are locked immediately to preserve readable structure during generation.
+  - **Static Context Resilience**: Provided `animate?: boolean` prop (used in history drawers/rows) to prevent unwanted scrambles on initial drawer render.
+  - **Accessibility**: Preserves `aria-label={value}` for screen reader compatibility.
+
+#### 2. Site-Wide Generator Integration
+- **Vault Generator Page (`src/app/vault/generator/page.tsx`)**:
+  - Replaced static character loop with `CipherScrambleText`.
+  - Added 360° spring-like cubic bezier rotation to `RefreshCw` icon on regeneration.
+  - Added global `Cmd+G` / `Ctrl+G` keyboard shortcut for rapid password regeneration (ignored when focused in inputs/textareas).
+  - Disabled animations on past history rows (`animate={false}`).
+- **Standalone Public Generator Page (`src/app/generator/page.tsx`)**:
+  - Integrated `CipherScrambleText` and `triggerKey` increment on regeneration.
+  - Added 360° rotation on `RefreshCw` icon and `Cmd+G` / `Ctrl+G` shortcut.
+- **In-Vault Quick Generator Drawer (`src/app/vault/page.tsx`)**:
+  - Replaced inline character colorizer in `PasswordGen` with `CipherScrambleText` and spinning refresh button.
+- **New Entry Creation Dialog (`src/components/vault/NewEntryDialog.tsx`)**:
+  - Replaced inline character colorizer in `PasswordGenerator` with `CipherScrambleText` and spinning refresh button.
+
+### 📋 What's Planned Next
+- Work on next issues (e.g. Issue #1 card network cleanup, Issue #2 card flip, Issue #4 others category plan).
+
+---
+
+## Previous Session: Apple-Grade 3D Animations, Folder Dynamics & Motion Suite (2026-09-11) · Branch: `feature/fluid-item-transitions`
 
 ### ✅ What Was Done
 

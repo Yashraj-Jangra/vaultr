@@ -30,54 +30,20 @@ const CHAR_STYLE: Record<CharClass, { text: string }> = {
   symbol: { text: "text-rose-400 font-bold" },
 };
 
-function ColorizedOutput({ value, mode }: { value: string; mode: GeneratorMode }) {
-  if (!value) return <span className="text-neutral-700 font-mono">—</span>;
+import { CipherScrambleText } from "@/components/ui/CipherScrambleText";
 
-  if (mode === "pin") {
-    return (
-      <span className="font-mono font-bold tracking-[0.22em] text-amber-400 select-all text-xl sm:text-2xl">
-        {value}
-      </span>
-    );
-  }
-
-  if (mode === "passphrase") {
-    const words = value.split(/([\-\._\s])/);
-    return (
-      <span className="font-mono break-all select-all leading-relaxed text-base sm:text-lg">
-        {words.map((chunk, i) => {
-          const isSep = /^[\-\._\s]$/.test(chunk);
-          if (isSep) {
-            return (
-              <span key={i} className="text-amber-400 font-bold px-0.5 select-none">
-                {chunk === " " ? "␣" : chunk}
-              </span>
-            );
-          }
-          return (
-            <span key={i} className="text-neutral-100 font-medium">
-              {chunk}
-            </span>
-          );
-        })}
-      </span>
-    );
-  }
-
-  // Random & Pattern
-  return (
-    <span className="font-mono break-all select-all leading-relaxed tracking-wider text-base sm:text-lg">
-      {value.split("").map((c, i) => {
-        const cls = classifyChar(c);
-        const style = CHAR_STYLE[cls];
-        return (
-          <span key={i} className={style.text}>
-            {c}
-          </span>
-        );
-      })}
-    </span>
-  );
+function ColorizedOutput({
+  value,
+  mode,
+  triggerKey,
+  animate = true,
+}: {
+  value: string;
+  mode: GeneratorMode;
+  triggerKey?: string | number;
+  animate?: boolean;
+}) {
+  return <CipherScrambleText value={value} mode={mode} triggerKey={triggerKey} animate={animate} />;
 }
 
 function CharBreakdown({ value }: { value: string }) {
@@ -239,8 +205,14 @@ export default function StandaloneGeneratorPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [triggerKey, setTriggerKey] = useState(0);
+  const [isSpinning, setIsSpinning] = useState(false);
 
   const generate = useCallback(() => {
+    setTriggerKey((k) => k + 1);
+    setIsSpinning(true);
+    setTimeout(() => setIsSpinning(false), 500);
+
     let pw = "";
     switch (mode) {
       case "random":     pw = generateRandom(randOpts); break;
@@ -253,6 +225,22 @@ export default function StandaloneGeneratorPage() {
     setStrength(str);
     setHistory(prev => [{ value: pw, mode, ts: Date.now() }, ...prev.slice(0, 9)]);
   }, [mode, randOpts, ppOpts, pinOpts, patOpts]);
+
+  // Keyboard shortcut: Cmd+G or Ctrl+G to regenerate
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "g") {
+        const target = e.target as HTMLElement | null;
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+          return;
+        }
+        e.preventDefault();
+        generate();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [generate]);
 
   useEffect(() => {
     generate();
@@ -340,7 +328,7 @@ export default function StandaloneGeneratorPage() {
         <div className="rounded-2xl border border-[var(--border)] bg-neutral-950 p-5 space-y-3 shadow-xl">
           <div className="flex items-start gap-3 min-h-[44px]">
             <div className="flex-1 min-w-0 select-all cursor-text">
-              <ColorizedOutput value={password} mode={mode} />
+              <ColorizedOutput value={password} mode={mode} triggerKey={triggerKey} />
             </div>
             <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
               <button
@@ -364,10 +352,16 @@ export default function StandaloneGeneratorPage() {
               <button
                 type="button"
                 onClick={generate}
-                title="Regenerate"
-                className="p-2 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg transition-colors cursor-pointer"
+                title="Generate new password (Cmd+G)"
+                className="p-2 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg transition-colors cursor-pointer active:scale-95"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw
+                  className="w-4 h-4 text-emerald-400"
+                  style={{
+                    transform: isSpinning ? "rotate(360deg)" : "rotate(0deg)",
+                    transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                  }}
+                />
               </button>
             </div>
           </div>

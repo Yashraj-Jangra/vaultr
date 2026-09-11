@@ -27,6 +27,7 @@ import { FolderSelect } from "@/components/vault/FolderSelect";
 import { DetailedCardVisual, detectCardBrand } from "@/components/vault/DialogPreviews";
 import { ConfirmDeleteModal } from "@/components/vault/ConfirmDeleteModal";
 import { EmptyTrashModal, PurgeTarget } from "@/components/vault/EmptyTrashModal";
+import { CipherScrambleText } from "@/components/ui/CipherScrambleText";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -220,22 +221,6 @@ function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }
   );
 }
 
-type CharClass = "lower" | "upper" | "digit" | "symbol";
-
-function classifyChar(c: string): CharClass {
-  if (/[a-z]/.test(c)) return "lower";
-  if (/[A-Z]/.test(c)) return "upper";
-  if (/[0-9]/.test(c)) return "digit";
-  return "symbol";
-}
-
-const CHAR_STYLE: Record<CharClass, string> = {
-  lower:  "text-neutral-300",
-  upper:  "text-sky-400 font-semibold",
-  digit:  "text-amber-400 font-bold",
-  symbol: "text-rose-400 font-bold",
-};
-
 function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void; compact?: boolean }) {
   const [len, setLen] = useState(20);
   const [upper, setUpper] = useState(true);
@@ -244,6 +229,7 @@ function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void;
   const [syms, setSyms] = useState(true);
   const [seed, setSeed] = useState(0); // increment to trigger regen
   const [copied, setCopied] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
 
   // Derive password purely — regenerates whenever any config or seed changes
   const pw = useMemo(
@@ -252,25 +238,38 @@ function PasswordGen({ onUse, compact = false }: { onUse?: (pw: string) => void;
     [len, upper, lower, nums, syms, seed]
   );
 
-  const regen = () => setSeed(s => s + 1);
+  const regen = () => {
+    setSeed(s => s + 1);
+    setIsSpinning(true);
+    setTimeout(() => setIsSpinning(false), 500);
+  };
   const copy = () => { navigator.clipboard.writeText(pw); setCopied(true); setTimeout(() => setCopied(false), 1500); };
 
   return (
     <div className={`space-y-2.5 text-left ${compact ? "" : "p-3 border border-neutral-800 rounded-xl bg-neutral-950/80 shadow-lg"}`}>
       {/* Output row */}
       <div className="flex items-center justify-between gap-2 bg-neutral-900/60 border border-neutral-800/80 rounded-lg px-3 py-2">
-        <div className="flex-1 font-mono text-[12px] break-all select-all tracking-wider">
-          {pw ? (
-            pw.split("").map((c, i) => (
-              <span key={i} className={CHAR_STYLE[classifyChar(c)]}>{c}</span>
-            ))
-          ) : (
-            <span className="text-neutral-600">—</span>
-          )}
+        <div className="flex-1 min-w-0">
+          <CipherScrambleText
+            value={pw}
+            mode="random"
+            size="sm"
+            triggerKey={seed}
+          />
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={regen} className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80" title="Regenerate">
-            <RefreshCw className="w-3 h-3" />
+          <button
+            onClick={regen}
+            className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80 active:scale-95"
+            title="Regenerate"
+          >
+            <RefreshCw
+              className="w-3 h-3 text-emerald-400"
+              style={{
+                transform: isSpinning ? "rotate(360deg)" : "rotate(0deg)",
+                transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            />
           </button>
           <button onClick={copy} className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80" title="Copy">
             {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}

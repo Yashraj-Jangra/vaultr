@@ -18,6 +18,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useVault } from "@/context/VaultContext";
 import { DynamicPreviewCanvas, detectCardBrand } from "./DialogPreviews";
 import { FolderSelect } from "./FolderSelect";
+import { CipherScrambleText } from "@/components/ui/CipherScrambleText";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -505,22 +506,6 @@ function LiveTotpPreview({ secret }: { secret: string }) {
   );
 }
 
-type CharClass = "lower" | "upper" | "digit" | "symbol";
-
-function classifyChar(c: string): CharClass {
-  if (/[a-z]/.test(c)) return "lower";
-  if (/[A-Z]/.test(c)) return "upper";
-  if (/[0-9]/.test(c)) return "digit";
-  return "symbol";
-}
-
-const CHAR_STYLE: Record<CharClass, string> = {
-  lower:  "text-neutral-300",
-  upper:  "text-sky-400 font-semibold",
-  digit:  "text-amber-400 font-bold",
-  symbol: "text-rose-400 font-bold",
-};
-
 function PasswordGenerator({ onUse }: { onUse: (pw: string) => void }) {
   const [len, setLen] = useState(16);
   const [upper, setUpper] = useState(true);
@@ -529,6 +514,7 @@ function PasswordGenerator({ onUse }: { onUse: (pw: string) => void }) {
   const [syms,  setSyms]  = useState(true);
   const [seed,  setSeed]  = useState(0);
   const [copied, setCopied] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
 
   const pw = useMemo(() => generatePassword(len, upper, lower, nums, syms),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -548,24 +534,33 @@ function PasswordGenerator({ onUse }: { onUse: (pw: string) => void }) {
     <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/80 p-3 space-y-2.5 shadow-lg text-left backdrop-blur-sm">
       {/* Output Row with Inline Actions */}
       <div className="flex items-center justify-between gap-2 bg-neutral-900/60 border border-neutral-800/80 rounded-lg px-3 py-2">
-        <div className="flex-1 font-mono text-[12px] break-all select-all tracking-wider">
-          {pw ? (
-            pw.split("").map((c, i) => (
-              <span key={i} className={CHAR_STYLE[classifyChar(c)]}>{c}</span>
-            ))
-          ) : (
-            <span className="text-neutral-600">—</span>
-          )}
+        <div className="flex-1 min-w-0">
+          <CipherScrambleText
+            value={pw}
+            mode="random"
+            size="sm"
+            triggerKey={seed}
+          />
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            onClick={() => setSeed(s => s + 1)}
-            className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80"
+            onClick={() => {
+              setSeed(s => s + 1);
+              setIsSpinning(true);
+              setTimeout(() => setIsSpinning(false), 500);
+            }}
+            className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer rounded-md hover:bg-neutral-800/80 active:scale-95"
             title="Regenerate"
           >
-            <RefreshCw className="w-3 h-3" />
+            <RefreshCw
+              className="w-3 h-3 text-emerald-400"
+              style={{
+                transform: isSpinning ? "rotate(360deg)" : "rotate(0deg)",
+                transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            />
           </button>
           <button
             type="button"
