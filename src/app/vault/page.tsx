@@ -926,27 +926,23 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
         </>
       )}
 
-      {t === "card" && (() => {
-        const resolvedBrand = (data.cardBrand && data.cardBrand.toLowerCase() !== "auto-detect" ? data.cardBrand : "") || detectCardBrand(data.cardNumber || "");
-        return (
-          <>
-            <CreditCardGraphic data={data} showCard={showCard} />
-            <SectionGroup title="CARD DETAILS">
-              {resolvedBrand ? <DetailRow label="Network" value={resolvedBrand} /> : null}
-              <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
-              <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
-            </SectionGroup>
+      {t === "card" && (
+        <>
+          <CreditCardGraphic data={data} showCard={showCard} />
+          <SectionGroup title="CARD DETAILS">
+            <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
+            <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
+          </SectionGroup>
 
-            {(data.expiry || data.expMonth || data.expYear || data.cvv || data.pin) && (
-              <SectionGroup title="SECURITY & VALIDITY">
-                <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "")} />
-                <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
-                {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
-              </SectionGroup>
-            )}
-          </>
-        );
-      })()}
+          {(data.expiry || data.expMonth || data.expYear || data.cvv || data.pin) && (
+            <SectionGroup title="SECURITY & VALIDITY">
+              <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "")} />
+              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
+              {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
+            </SectionGroup>
+          )}
+        </>
+      )}
 
       {t === "address" && (
         <>

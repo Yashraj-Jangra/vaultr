@@ -475,9 +475,6 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                         <DetailRow label="Cardholder" value={decrypted.cardholderName || decrypted.cardName} />
                       )}
                       {decrypted.cardNumber && <DetailRow label="Number" value={decrypted.cardNumber} masked />}
-                      {((decrypted.cardBrand && decrypted.cardBrand.toLowerCase() !== "auto-detect" ? decrypted.cardBrand : "") || detectCardBrand(decrypted.cardNumber || "")) && (
-                        <DetailRow label="Network" value={(decrypted.cardBrand && decrypted.cardBrand.toLowerCase() !== "auto-detect" ? decrypted.cardBrand : "") || detectCardBrand(decrypted.cardNumber || "")} />
-                      )}
                     </div>
                   </div>
 

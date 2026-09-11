@@ -1,4 +1,27 @@
-## Current Session: Animated Cipher Scramble Text Cascade on Web (Issue #6) (2026-09-11) · Branch: `dev`
+## Current Session: Remove Redundant Card Network from Detail Views (Issue #4) (2026-09-11) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Removed Redundant Card Network Row Across All Detail Views
+- **Rationale**: The visual card preview (`Interactive3DCard` / `DetailedCardVisual`) already dynamically detects and displays the card network logo/insignia (Visa, Mastercard, Amex, Discover, RuPay). A separate text row with copy button in item detail views was redundant and added clutter.
+- **Mobile Detail View (`mobile/src/screens/ItemDetailScreen.tsx`)**:
+  - Removed `Card Network` `FieldRow` from the `CARD DETAILS` group.
+  - Adjusted `hasDivider` on `Cardholder Name` and `Card Number` to maintain clean borders.
+  - Cleaned up unused `detectCardBrand` import.
+- **Web Detail View (`src/app/vault/page.tsx`)**:
+  - Removed `Network` `DetailRow` from the `CARD DETAILS` group.
+- **Extension Detail View (`extension/src/popup/VaultScreen.tsx`)**:
+  - Removed `Network` `DetailRow` from the `CARD DETAILS` group.
+- **Preserved in Edit Forms**:
+  - Maintained card brand selection and auto-detection in edit forms (`ItemFormScreen.tsx`, `NewEntryDialog.tsx`, `NewEntryForm.tsx`) per user specifications.
+
+### 📋 What's Planned Next
+- Work on Issue #5: Swipe gesture to flip credit cards.
+- Work on Issue #7: Dynamic 'Other' category with rotating archetype names.
+
+---
+
+## Previous Session: Animated Cipher Scramble Text Cascade on Web (Issue #6) (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 
