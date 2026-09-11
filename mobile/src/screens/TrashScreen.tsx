@@ -15,6 +15,7 @@ import { colors } from "../theme/colors";
 import { Trash2, RotateCcw, ArrowLeft, ShieldAlert } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 import { PurgeConfirmModal, PurgeTarget } from "../components/PurgeConfirmModal";
+import { AnimatedListItem } from "../components/AnimatedListItem";
 
 export function TrashScreen({ navigation }: any) {
   const { items, restoreItem, deleteItem, batchAction, isOnline } = useVaultStore();
@@ -161,34 +162,36 @@ export function TrashScreen({ navigation }: any) {
         data={trashedItems}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.deletedDate}>
-                Deleted {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : ""}
-              </Text>
+        renderItem={({ item, index }) => (
+          <AnimatedListItem index={index}>
+            <View style={styles.card}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.deletedDate}>
+                  Deleted {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : ""}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => handleRestore(item.id, item.name)}
+                disabled={restoringId === item.id || restoringAll}
+              >
+                {restoringId === item.id ? (
+                  <ActivityIndicator size="small" color={colors.success} />
+                ) : (
+                  <RotateCcw size={16} color={colors.success} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => handlePermanentDelete(item.id, item.name)}
+              >
+                <Trash2 size={16} color={colors.danger} />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => handleRestore(item.id, item.name)}
-              disabled={restoringId === item.id || restoringAll}
-            >
-              {restoringId === item.id ? (
-                <ActivityIndicator size="small" color={colors.success} />
-              ) : (
-                <RotateCcw size={16} color={colors.success} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => handlePermanentDelete(item.id, item.name)}
-            >
-              <Trash2 size={16} color={colors.danger} />
-            </TouchableOpacity>
-          </View>
+          </AnimatedListItem>
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>

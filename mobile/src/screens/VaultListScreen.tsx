@@ -35,6 +35,13 @@ import {
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
 import { PressableScale } from "../components/PressableScale";
+import { AnimatedFolderRow } from "../components/AnimatedFolderRow";
+import { AnimatedListItem } from "../components/AnimatedListItem";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { vaultAlert } from "../store/alertStore";
 import { useResponsive } from "../utils/responsive";
 
@@ -202,7 +209,7 @@ export function VaultListScreen({ navigation }: Props) {
               template === "address" ? "Saved address" : "";
             const isLast = idx === arr.length - 1 && favoriteItems.length <= 5;
             return (
-              <React.Fragment key={item.id}>
+              <AnimatedListItem key={item.id} index={idx}>
                 <PressableScale
                   style={styles.listRow}
                   onPress={() => navigation.navigate("ItemDetail", { item })}
@@ -217,7 +224,7 @@ export function VaultListScreen({ navigation }: Props) {
                   <ChevronRight size={15} color="#3f3f46" style={{ marginLeft: 6 }} />
                 </PressableScale>
                 {!isLast && <View style={styles.rowDivider} />}
-              </React.Fragment>
+              </AnimatedListItem>
             );
           })}
 
@@ -283,7 +290,6 @@ export function VaultListScreen({ navigation }: Props) {
 
             const hasChildren = folderNames.some((other) => other !== f && other.startsWith(`${f}/`));
             const isCollapsed = !!collapsedMap[f];
-            const isOpened = hasChildren ? !isCollapsed : true;
 
             let count = 0;
             activeItems.forEach((i) => {
@@ -293,78 +299,35 @@ export function VaultListScreen({ navigation }: Props) {
             });
 
             return (
-              <React.Fragment key={f}>
-                <TouchableOpacity
-                  style={[
-                    styles.listRow,
-                    depth > 0 && { paddingLeft: 12 + depth * 14 },
-                  ]}
-                  onPress={() => navigateFiltered(displayName, undefined, f)}
-                  activeOpacity={0.7}
-                >
-                  {depth > 0 && (
-                    <CornerDownRight size={14} color="#71717a" style={{ marginRight: 4 }} />
-                  )}
-
-                  <View style={styles.listRowIcon}>
-                    {isOpened ? (
-                      <FolderOpen size={24} color="#fafafa" />
-                    ) : (
-                      <Folder size={24} color="#fafafa" />
-                    )}
-                  </View>
-
-                  <View style={{ flex: 1, justifyContent: "center" }}>
-                    <Text style={styles.listRowTitle}>{displayName}</Text>
-                  </View>
-
-                  <Text style={styles.listRowCount}>{count}</Text>
-
-                  {hasChildren ? (
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        toggleCollapse(f);
-                      }}
-                      style={{ padding: 6, marginLeft: 4, width: 28, alignItems: "center" }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight size={16} color="#a1a1aa" />
-                      ) : (
-                        <ChevronDown size={16} color="#fafafa" />
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={{ padding: 6, marginLeft: 4, width: 28, alignItems: "center" }}>
-                      <ChevronRight size={16} color="#3f3f46" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-                {!isLast && <View style={styles.rowDivider} />}
-              </React.Fragment>
+              <AnimatedFolderRow
+                key={f}
+                folderPath={f}
+                displayName={displayName}
+                depth={depth}
+                count={count}
+                hasChildren={hasChildren}
+                isCollapsed={isCollapsed}
+                isLast={isLast}
+                onPress={() => navigateFiltered(displayName, undefined, f)}
+                onToggleCollapse={() => toggleCollapse(f)}
+              />
             );
           })}
 
           {uncategorizedCount > 0 && (
-            <>
-              {visibleFolders.length > 0 && <View style={styles.rowDivider} />}
-              <TouchableOpacity
-                style={styles.listRow}
-                onPress={() => navigateFiltered("No folder", undefined, "UNCATEGORIZED")}
-                activeOpacity={0.7}
-              >
-                <View style={styles.listRowIcon}>
-                  <Folder size={24} color="#52525b" />
-                </View>
-                <Text style={[styles.listRowTitle, { color: "#a1a1aa" }]}>No folder</Text>
-                <View style={{ flex: 1 }} />
-                <Text style={styles.listRowCount}>{uncategorizedCount}</Text>
-                <View style={{ padding: 6, marginLeft: 4, width: 28, alignItems: "center" }}>
-                  <ChevronRight size={16} color="#3f3f46" />
-                </View>
-              </TouchableOpacity>
-            </>
+            <AnimatedFolderRow
+              key="__NONE__"
+              folderPath="UNCATEGORIZED"
+              displayName="No folder"
+              depth={0}
+              count={uncategorizedCount}
+              hasChildren={false}
+              isCollapsed={false}
+              isLast={true}
+              onPress={() => navigateFiltered("No folder", undefined, "UNCATEGORIZED")}
+              onToggleCollapse={() => {}}
+              isUncategorized={true}
+            />
           )}
         </View>
       </View>
@@ -550,7 +513,7 @@ export function VaultListScreen({ navigation }: Props) {
                   )}
                 </View>
                 <View style={styles.favGrid}>
-                  {favoriteItems.slice(0, 6).map((item) => {
+                  {favoriteItems.slice(0, 6).map((item, idx) => {
                     const template = item.template || "login";
                     const subLine =
                       template === "login" ? (item.domain || "Login") :
@@ -559,20 +522,21 @@ export function VaultListScreen({ navigation }: Props) {
                       template === "profile" ? "Identity profile" :
                       template === "address" ? "Saved address" : "";
                     return (
-                      <PressableScale
-                        key={item.id}
-                        style={styles.favGridCard}
-                        onPress={() => navigation.navigate("ItemDetail", { item })}
-                      >
-                        <View style={styles.favGridCardTop}>
-                          <SmallIconBadge item={item} />
-                          <Star size={16} color={colors.warning} fill={colors.warning} />
-                        </View>
-                        <Text style={styles.favGridCardTitle} numberOfLines={1}>{item.name}</Text>
-                        {subLine ? (
-                          <Text style={styles.favGridCardSub} numberOfLines={1}>{subLine}</Text>
-                        ) : null}
-                      </PressableScale>
+                      <AnimatedListItem key={item.id} index={idx} style={{ flex: 1, minWidth: "45%" }}>
+                        <PressableScale
+                          style={styles.favGridCard}
+                          onPress={() => navigation.navigate("ItemDetail", { item })}
+                        >
+                          <View style={styles.favGridCardTop}>
+                            <SmallIconBadge item={item} />
+                            <Star size={16} color={colors.warning} fill={colors.warning} />
+                          </View>
+                          <Text style={styles.favGridCardTitle} numberOfLines={1}>{item.name}</Text>
+                          {subLine ? (
+                            <Text style={styles.favGridCardSub} numberOfLines={1}>{subLine}</Text>
+                          ) : null}
+                        </PressableScale>
+                      </AnimatedListItem>
                     );
                   })}
                 </View>
@@ -650,9 +614,9 @@ export function VaultListScreen({ navigation }: Props) {
         </ScrollView>
       )}
 
-      {/* ── FAB ── */}
-      <TouchableOpacity
-        style={[styles.fab, !isOnline && styles.fabDisabled]}
+      {/* ── Interactive 3D FAB ── */}
+      <Interactive3DFab
+        isOnline={isOnline}
         onPress={() => {
           if (!isOnline) {
             vaultAlert.alert(
@@ -665,11 +629,50 @@ export function VaultListScreen({ navigation }: Props) {
           }
           navigation.navigate("ItemForm", {});
         }}
-        activeOpacity={0.85}
+      />
+    </SafeAreaView>
+  );
+}
+
+function Interactive3DFab({
+  isOnline,
+  onPress,
+}: {
+  isOnline: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const translateY = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.92, { damping: 16, stiffness: 400 });
+    translateY.value = withSpring(2, { damping: 16, stiffness: 400 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1.0, { damping: 18, stiffness: 300 });
+    translateY.value = withSpring(0, { damping: 18, stiffness: 300 });
+  };
+
+  return (
+    <Animated.View style={[styles.fab, !isOnline && styles.fabDisabled, animatedStyle]}>
+      <TouchableOpacity
+        style={styles.fabTouch}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
       >
         <Plus size={24} color={isOnline ? "#09090b" : "#71717a"} strokeWidth={2.4} />
       </TouchableOpacity>
-    </SafeAreaView>
+    </Animated.View>
   );
 }
 
@@ -997,7 +1000,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // ── FAB (Circular) ──
   fab: {
     position: "absolute",
     right: 20,
@@ -1006,13 +1008,18 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     backgroundColor: "#fafafa",
-    alignItems: "center",
-    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 8,
+  },
+  fabTouch: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 27,
+    alignItems: "center",
+    justifyContent: "center",
   },
   fabDisabled: {
     backgroundColor: "#27272a",

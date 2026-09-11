@@ -169,11 +169,11 @@ export function UnlockScreen() {
       }
     })();
 
-    // Pulsing halo animation using Reanimated thread loop
+    // Calm, dignified ambient security halo pulse (2800ms period)
     haloAnim.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2800, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       true
@@ -236,6 +236,25 @@ export function UnlockScreen() {
     opacity: 0.2 + haloAnim.value * 0.4,
   }));
 
+  const breathingScale = useSharedValue(1);
+
+  useEffect(() => {
+    breathingScale.value = withRepeat(
+      withSequence(
+        withTiming(1.03, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.0, { duration: 2800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedLockBoxStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: breathingScale.value },
+    ],
+  }));
+
   // ── Main unlock view ──────────────────────────────────────────────────────────
   const renderMain = () => (
     <Animated.View style={animatedMainStyle}>
@@ -243,13 +262,13 @@ export function UnlockScreen() {
       <View style={[styles.iconWrap, shouldCompactForKeyboard && styles.iconWrapKeyboard]}>
         <Animated.View style={[styles.halo, animatedHaloStyle]} />
         <Animated.View style={[styles.haloInner, animatedHaloInnerStyle]} />
-        <View style={[styles.lockBox, shouldCompactForKeyboard && styles.lockBoxKeyboard]}>
+        <Animated.View style={[styles.lockBox, shouldCompactForKeyboard && styles.lockBoxKeyboard, animatedLockBoxStyle]}>
           <Image
             source={require("../../assets/vaultr-lock-dark-transparent.png")}
             style={[styles.lockBrand, shouldCompactForKeyboard && styles.lockBrandKeyboard]}
             resizeMode="contain"
           />
-        </View>
+        </Animated.View>
       </View>
 
       {/* Brand + headings */}
