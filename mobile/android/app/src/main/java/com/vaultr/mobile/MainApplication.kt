@@ -22,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
       packageList =
         PackageList(this).packages.apply {
           add(com.vaultr.mobile.autofill.VaultrAutofillPackage())
+          add(com.vaultr.mobile.predictiveback.PredictiveBackPackage())
         }
     )
   }
