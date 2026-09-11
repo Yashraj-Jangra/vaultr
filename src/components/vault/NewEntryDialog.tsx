@@ -902,12 +902,19 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     // Strict template-specific payload construction (ignores inputs from other template types)
     if (template === "login") {
       const v = urls.map(u => u.trim()).filter(Boolean);
+      let history: string[] = Array.isArray(initialData?.payload?.passwordHistory)
+        ? [...initialData.payload.passwordHistory]
+        : [];
+      if (initialData?.payload?.password && initialData.payload.password !== password) {
+        history = [...history, initialData.payload.password].slice(-5);
+      }
       Object.assign(payload, {
         username: username.trim() || undefined,
         password: password || undefined,
         url: v[0] ?? "",
         urls: v.length > 0 ? v : undefined,
-        totpSecret: totpSecret.trim() || undefined
+        totpSecret: totpSecret.trim() || undefined,
+        passwordHistory: history.length > 0 ? history : undefined,
       });
     } else if (template === "card") {
       // Normalize 2-digit year to 4-digit on save

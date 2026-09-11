@@ -33,11 +33,29 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.9",
+    codename: "Fluid Motion & Native Predictive Back",
+    date: "September 11, 2026",
+    tagline: "Android 14+ System Predictive Back, 3D Card Physics, Folder Dynamics & Micro-Interactions",
+    isLatest: true,
+    changes: [
+      { type: "mobile", text: "Native Android 14+ Predictive Back: Built-in Kotlin OnBackAnimationCallback bridge with smooth real-time touch tracking." },
+      { type: "mobile", text: "Vault Depth Lift: Custom 3D perspective scale-down and opacity decay dismiss transition for item details and edit forms." },
+      { type: "mobile", text: "Folder Drill-Down Slide: Seamless 1:1 horizontal slide reveals parent lists cleanly without background parallax jumps." },
+      { type: "feature", text: "Interactive 3D Card Dynamics: Physical touch-following card tilt, holographic glare refraction, and 180° front-to-back flip." },
+      { type: "feature", text: "Apple-Style Folder Dynamics: Smooth accordion expansion with 3D flap rotation on sub-folder navigation." },
+      { type: "performance", text: "Shimmering Skeleton Loader: Low-latency placeholder skeleton animation during vault item decryption and loading." },
+      { type: "feature", text: "2FA Ring Countdown: Continuous circular SVG timer with heartbeat warning pulse on expiring codes." },
+      { type: "feature", text: "Password Generator Scramble: Dynamic cipher text scramble cascade and 360° spin refresh control." },
+      { type: "feature", text: "Physics Form Controls: Reanimated 3 spring toggle with thumb-stretch dynamics and progressive liquid password strength bar." },
+      { type: "fix", text: "Screen Navigation Isolation: Focus-scoped gesture listeners preventing multi-screen back pops and double-transition glitches." },
+    ],
+  },
+  {
     version: "v0.2.8",
     codename: "Architecture Hardening & Security Best Practices",
     date: "September 8, 2026",
     tagline: "API Rate Limiting, Distributed OTP Persistence, S3 Upload Rollback & Optimistic State Sync",
-    isLatest: true,
     changes: [
       { type: "security", text: "Zero-dependency API rate limiting: Sliding-window rate limiter protecting OTP distribution, verification, and scheduled deletion endpoints." },
       { type: "security", text: "Distributed OTP persistence: Migrated one-time codes from transient memory to PostgreSQL verification storage, ensuring resilience across serverless cold starts." },

@@ -20,6 +20,7 @@ import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard, detectCardBrand } from "../components/ItemPreviewCard";
+import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
 import { useResponsive } from "../utils/responsive";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -121,6 +122,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
   // Address fields
   const [street, setStreet] = useState("");
+  const [line2, setLine2] = useState("");
   const [city, setCity] = useState("");
   const [stateStr, setStateStr] = useState("");
   const [zip, setZip] = useState("");
@@ -131,6 +133,12 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [dob, setDob] = useState("");
+  const [idNumber, setIdNumber] = useState("");
+
+  // Password history tracking
+  const [initialPassword, setInitialPassword] = useState("");
+  const [initialPasswordHistory, setInitialPasswordHistory] = useState<string[]>([]);
 
   // Note fields
   const [note, setNote] = useState("");
@@ -177,7 +185,13 @@ export function ItemFormScreen({ route, navigation }: Props) {
           const raw = await decryptItemBlob(item.encryptedBlob);
           const p = JSON.parse(raw);
           if (p.username) setUsername(p.username);
-          if (p.password) setPassword(p.password);
+          if (p.password) {
+            setPassword(p.password);
+            setInitialPassword(p.password);
+          }
+          if (p.passwordHistory && Array.isArray(p.passwordHistory)) {
+            setInitialPasswordHistory(p.passwordHistory);
+          }
           if (p.url) setUrl(p.url);
           if (p.urls && Array.isArray(p.urls) && p.urls.length > 1) {
             setAdditionalUrls(p.urls.slice(1));
@@ -234,6 +248,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
           }
 
           if (p.street || p.line1) setStreet(p.street || p.line1 || "");
+          if (p.line2) setLine2(p.line2);
           if (p.city) setCity(p.city);
           if (p.state) setStateStr(p.state);
           if (p.zip) setZip(p.zip);
@@ -248,6 +263,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
           }
           if (p.email) setEmail(p.email);
           if (p.phone) setPhone(p.phone);
+          if (p.dob) setDob(p.dob);
+          if (p.idNumber) setIdNumber(p.idNumber);
 
           if (p.note) setNote(p.note);
           if (p.entryNotes) setEntryNotes(p.entryNotes);
@@ -329,6 +346,11 @@ export function ItemFormScreen({ route, navigation }: Props) {
         const allUrls = [url.trim(), ...additionalUrls.map((u) => u.trim())].filter(Boolean);
         unencryptedPayload.urls = allUrls;
         if (totpSecret.trim()) unencryptedPayload.totpSecret = totpSecret.trim();
+        if (isEdit && initialPassword && initialPassword !== password) {
+          unencryptedPayload.passwordHistory = [...(initialPasswordHistory || []), initialPassword].slice(-5);
+        } else if (initialPasswordHistory.length > 0) {
+          unencryptedPayload.passwordHistory = initialPasswordHistory;
+        }
       } else if (template === "card") {
         let normMonth = expMonth.trim();
         if (normMonth) {
@@ -369,7 +391,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
       } else if (template === "address") {
         unencryptedPayload.street = street.trim();
         unencryptedPayload.line1 = street.trim();
-        unencryptedPayload.line2 = "";
+        unencryptedPayload.line2 = line2.trim();
         unencryptedPayload.city = city.trim();
         unencryptedPayload.state = stateStr.trim();
         unencryptedPayload.zip = zip.trim();
@@ -380,6 +402,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
         unencryptedPayload.email = email.trim();
         unencryptedPayload.phone = phone.trim();
+        if (dob.trim()) unencryptedPayload.dob = dob.trim();
+        if (idNumber.trim()) unencryptedPayload.idNumber = idNumber.trim();
       } else if (template === "note") {
         unencryptedPayload.note = note;
       }
@@ -394,7 +418,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
       if (validCustomFields.length > 0) {
         unencryptedPayload.fields = validCustomFields;
-        unencryptedPayload.customFields = validCustomFields.map((f) => ({ key: f.name, value: f.value, type: f.type }));
+        unencryptedPayload.customFields = validCustomFields.map((f) => ({ key: f.name, name: f.name, value: f.value, type: f.type }));
       }
 
       const tagsList = tagsStr
@@ -487,6 +511,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
             cardBrand={cardBrand}
             fallbackBrand={fallbackBrand}
             street={street}
+            line2={line2}
             city={city}
             state={stateStr}
             zip={zip}
@@ -494,6 +519,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
             fullName={firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
             email={email}
             phone={phone}
+            dob={dob}
+            idNumber={idNumber}
             note={note}
           />
         </View>
@@ -920,7 +947,18 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 style={styles.input}
                 value={street}
                 onChangeText={setStreet}
-                placeholder="123 Main St, Apt 4B"
+                placeholder="123 Main St"
+                placeholderTextColor={colors.textDim}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Apartment, Suite, Unit</Text>
+              <TextInput
+                style={styles.input}
+                value={line2}
+                onChangeText={setLine2}
+                placeholder="Apt 4B (optional)"
                 placeholderTextColor={colors.textDim}
               />
             </View>
@@ -1022,6 +1060,29 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 placeholderTextColor={colors.textDim}
                 keyboardType="phone-pad"
               />
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Date of Birth</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dob}
+                  onChangeText={setDob}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1 }]}>
+                <Text style={styles.label}>ID / Passport No.</Text>
+                <TextInput
+                  style={styles.input}
+                  value={idNumber}
+                  onChangeText={setIdNumber}
+                  placeholder="e.g. DL-12345678"
+                  placeholderTextColor={colors.textDim}
+                />
+              </View>
             </View>
           </>
         )}
@@ -1227,62 +1288,64 @@ export function ItemFormScreen({ route, navigation }: Props) {
     );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <PredictiveBackWrapper navigation={navigation}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => navigation.goBack()}
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => navigation.goBack()}
+          >
+            <X size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {isEdit ? "Edit Entry" : "New Entry"}
+          </Text>
+          <TouchableOpacity
+            style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={!name.trim() || saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#09090b" />
+            ) : (
+              <Save size={18} color="#09090b" />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <X size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isEdit ? "Edit Entry" : "New Entry"}
-        </Text>
-        <TouchableOpacity
-          style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={!name.trim() || saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#09090b" />
+          {isSplitView ? (
+            <ScrollView
+              contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.splitLeftCol}>
+                {renderLeftPane()}
+              </View>
+              <View style={styles.splitRightCol}>
+                {renderFormFields()}
+              </View>
+            </ScrollView>
           ) : (
-            <Save size={18} color="#09090b" />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        {isSplitView ? (
-          <ScrollView
-            contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.splitLeftCol}>
+            <ScrollView
+              contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               {renderLeftPane()}
-            </View>
-            <View style={styles.splitRightCol}>
               {renderFormFields()}
-            </View>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {renderLeftPane()}
-            {renderFormFields()}
-          </ScrollView>
-        )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </PredictiveBackWrapper>
   );
 }
 

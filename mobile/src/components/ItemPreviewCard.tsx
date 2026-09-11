@@ -7,17 +7,18 @@ import React, { useMemo } from "react";
 import { StyleSheet, Text, View, Image } from "react-native";
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, Polygon } from "react-native-svg";
 import { Template } from "@vaultr/core";
-import { Globe, User, FileText, MapPin } from "lucide-react-native";
+import { Globe, User, FileText, MapPin, Shield, Sparkles } from "lucide-react-native";
 import { resolveDomain } from "@vaultr/core";
+import { Interactive3DCard } from "./Interactive3DCard";
 
 // ── Brand detection (fallback when no explicit cardBrand) ────────────────────
 export function detectCardBrand(cardNumber: string): string {
-  const clean = cardNumber.replace(/\D/g, "");
+  const clean = (cardNumber || "").replace(/\D/g, "");
   if (/^4/.test(clean)) return "Visa";
   if (/^(5[1-5]|2[2-7])/.test(clean)) return "Mastercard";
   if (/^3[47]/.test(clean)) return "AMEX";
+  if (/^(652[12]|508|60[6-8]|8[12])/.test(clean)) return "RuPay";
   if (/^(6011|65|64[4-9]|622)/.test(clean)) return "Discover";
-  if (/^(60|6521|6522)/.test(clean)) return "RuPay";
   return "";
 }
 
@@ -60,18 +61,31 @@ export function ItemPreviewCard(props: ItemPreviewCardProps) {
   const { template } = props;
 
   let content: React.ReactNode = null;
-  if (template === "card") content = <CreditCardVisual {...props} />;
-  else if (template === "login") content = <LoginKeycardVisual {...props} />;
-  else if (template === "note") content = <NotePaperVisual {...props} />;
-  else if (template === "address") content = <AddressLabelVisual {...props} />;
-  else if (template === "profile") content = <ProfileBadgeVisual {...props} />;
+  let backContent: React.ReactNode = null;
+
+  if (template === "card") {
+    content = <CreditCardVisual {...props} />;
+    backContent = <CreditCardBackVisual {...props} />;
+  } else if (template === "login") {
+    content = <LoginKeycardVisual {...props} />;
+  } else if (template === "note") {
+    content = <NotePaperVisual {...props} />;
+  } else if (template === "address") {
+    content = <AddressLabelVisual {...props} />;
+  } else if (template === "profile") {
+    content = <ProfileBadgeVisual {...props} />;
+  }
 
   if (!content) return null;
 
   return (
-    <View style={previewStyles.wrapper}>
+    <Interactive3DCard
+      canFlip={template === "card"}
+      backContent={backContent}
+      style={previewStyles.wrapper}
+    >
       {content}
-    </View>
+    </Interactive3DCard>
   );
 }
 
@@ -742,4 +756,215 @@ const prof = StyleSheet.create({
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#1f1f25", paddingTop: 8 },
   footerLeft: { fontSize: 8, fontFamily: "monospace", color: "#525252" },
   footerRight: { fontSize: 10, fontWeight: "700", color: "#ffffff", letterSpacing: 0.8 },
+});
+
+// ── Realistic Payment Card Back Visual ───────────────────────────────────────
+
+function CreditCardBackVisual({
+  cardholderName = "",
+  cardName = "",
+  cvv = "",
+  cardBrand = "",
+  cardNumber = "",
+  fallbackBrand = "",
+  isNumberVisible = false,
+}: ItemPreviewCardProps) {
+  const effectiveBrand = useMemo(() => {
+    if (cardBrand && cardBrand.toLowerCase() !== "auto-detect") return cardBrand;
+    return detectCardBrand(cardNumber) || fallbackBrand || "";
+  }, [cardBrand, cardNumber, fallbackBrand]);
+
+  const isVisa = effectiveBrand?.toLowerCase() === "visa";
+  const isMC = effectiveBrand?.toLowerCase() === "mastercard";
+  const isAmex = effectiveBrand?.toLowerCase() === "amex";
+  const isDiscover = effectiveBrand?.toLowerCase() === "discover";
+  const isRuPay = effectiveBrand?.toLowerCase() === "rupay";
+
+  const theme = useMemo(() => {
+    if (isVisa) return { bg: "#151233", border: "#2B1B54" };
+    if (isMC) return { bg: "#141415", border: "#26262a" };
+    if (isAmex) return { bg: "#090909", border: "rgba(245,158,11,0.3)" };
+    if (isDiscover) return { bg: "#0C0603", border: "#2A1409" };
+    if (isRuPay) return { bg: "#02080D", border: "#004e92" };
+    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#0f1d1a", border: "#1a3330" };
+    return { bg: "#121215", border: "#242429" };
+  }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand]);
+
+  const displayName = cardholderName || cardName || "CARDHOLDER NAME";
+  const displayCvv = cvv ? (isNumberVisible ? cvv : "•••") : "•••";
+
+  return (
+    <View style={[card.container, { backgroundColor: theme.bg, borderColor: theme.border, padding: 0 }]}>
+      {/* 1. Magnetic Stripe */}
+      <View style={cardBack.magStripe}>
+        <View style={cardBack.magStripeGloss} />
+      </View>
+
+      <View style={cardBack.contentWrap}>
+        {/* 2. Signature & CVV Panel */}
+        <View style={cardBack.sigRow}>
+          <View style={cardBack.signaturePanel}>
+            <Text style={cardBack.signatureText} numberOfLines={1}>
+              {displayName}
+            </Text>
+          </View>
+          <View style={cardBack.cvvBox}>
+            <Text style={cardBack.cvvLabel}>CVV / CVC</Text>
+            <Text style={cardBack.cvvValue}>{displayCvv}</Text>
+          </View>
+        </View>
+
+        {/* 3. Security Seal & Information */}
+        <View style={cardBack.infoRow}>
+          <View style={cardBack.sealBadge}>
+            <Shield size={12} color="#34d399" />
+            <Text style={cardBack.sealText}>256-BIT AES-GCM</Text>
+          </View>
+
+          <Text style={cardBack.legalText} numberOfLines={2}>
+            Protected by VaultR zero-knowledge client-side encryption. Authorized cardholder only.
+          </Text>
+        </View>
+
+        {/* 4. Bottom Brand & Hologram Indicator */}
+        <View style={cardBack.bottomRow}>
+          <Text style={cardBack.watermark}>VAULTR ZERO-KNOWLEDGE</Text>
+          <View style={cardBack.hologramMini}>
+            <Sparkles size={10} color="#fbbf24" />
+            <Text style={cardBack.hologramText}>SECURITY SEAL</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const cardBack = StyleSheet.create({
+  magStripe: {
+    width: "100%",
+    height: 42,
+    backgroundColor: "#070709",
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#18181b",
+    position: "relative",
+    overflow: "hidden",
+  },
+  magStripeGloss: {
+    position: "absolute",
+    top: 5,
+    left: 0,
+    right: 0,
+    height: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+  contentWrap: {
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 14,
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  sigRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  signaturePanel: {
+    flex: 1,
+    height: 32,
+    backgroundColor: "#f4f4f5",
+    borderRadius: 4,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  signatureText: {
+    fontSize: 12,
+    fontStyle: "italic",
+    fontFamily: "monospace",
+    color: "#18181b",
+    fontWeight: "700",
+  },
+  cvvBox: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    alignItems: "center",
+  },
+  cvvLabel: {
+    fontSize: 7.5,
+    fontWeight: "700",
+    color: "#71717a",
+    textTransform: "uppercase",
+  },
+  cvvValue: {
+    fontSize: 12,
+    fontFamily: "monospace",
+    fontWeight: "800",
+    color: "#fafafa",
+    letterSpacing: 2,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sealBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.25)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  sealText: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "#34d399",
+    letterSpacing: 0.5,
+  },
+  legalText: {
+    flex: 1,
+    fontSize: 8,
+    color: "#71717a",
+    lineHeight: 11,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    paddingTop: 6,
+  },
+  watermark: {
+    fontSize: 7.5,
+    fontWeight: "800",
+    color: "#52525b",
+    letterSpacing: 1.1,
+  },
+  hologramMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(251, 191, 36, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.2)",
+  },
+  hologramText: {
+    fontSize: 7.5,
+    fontWeight: "800",
+    color: "#fbbf24",
+    letterSpacing: 0.8,
+  },
 });

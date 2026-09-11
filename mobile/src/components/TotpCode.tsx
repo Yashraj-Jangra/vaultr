@@ -2,11 +2,24 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { generateTOTP, getTotpCountdown } from "@vaultr/core";
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+  FadeInUp,
+} from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { colors } from "../theme/colors";
 import { Copy, Check, ShieldCheck } from "lucide-react-native";
 import { SiteIcon } from "./SiteIcon";
+import { PressableScale } from "./PressableScale";
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface Props {
   secret: string;
@@ -19,6 +32,14 @@ export function TotpCode({ secret, name, domain }: Props) {
   const [secondsLeft, setSecondsLeft] = useState<number>(30);
   const [copied, setCopied] = useState(false);
 
+  const radius = 22;
+  const strokeWidth = 3;
+  const circumference = 2 * Math.PI * radius;
+
+  // Continuous smooth countdown ring progress
+  const progressAnim = useSharedValue(30);
+  const pulseAnim = useSharedValue(1);
+
   useEffect(() => {
     let mounted = true;
     const updateCode = async () => {
@@ -28,6 +49,11 @@ export function TotpCode({ secret, name, domain }: Props) {
         if (mounted) {
           setCode(totp);
           setSecondsLeft(countdown);
+          // Smooth continuous transition to the target countdown second
+          progressAnim.value = withTiming(countdown, {
+            duration: 980,
+            easing: Easing.linear,
+          });
         }
       } catch {
         if (mounted) setCode("ERROR");
@@ -42,6 +68,24 @@ export function TotpCode({ secret, name, domain }: Props) {
     };
   }, [secret]);
 
+  const isExpiring = secondsLeft <= 5;
+
+  // Gentle heartbeat pulse when token is about to expire (<= 5s)
+  useEffect(() => {
+    if (isExpiring) {
+      pulseAnim.value = withRepeat(
+        withSequence(
+          withTiming(1.03, { duration: 400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.0, { duration: 400, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    } else {
+      pulseAnim.value = withTiming(1, { duration: 200 });
+    }
+  }, [isExpiring]);
+
   const handleCopy = async () => {
     if (!code || code === "ERROR" || code === "------") return;
     await copyToClipboardWithAutoClear(code);
@@ -49,17 +93,21 @@ export function TotpCode({ secret, name, domain }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const progressPercent = Math.max(0, Math.min(100, (secondsLeft / 30) * 100));
-  const radius = 22;
-  const strokeWidth = 3;
-  const circumference = 2 * Math.PI * radius;
-  // Negative offset for COUNTER-CLOCKWISE ring draining
-  const strokeDashoffset = -circumference * (1 - progressPercent / 100);
-  const isExpiring = secondsLeft <= 5;
+  const animatedCircleProps = useAnimatedProps(() => {
+    const frac = Math.max(0, Math.min(1, progressAnim.value / 30));
+    const offset = -circumference * (1 - frac);
+    return {
+      strokeDashoffset: offset,
+    };
+  });
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+  }));
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
+    <PressableScale
+      scaleTo={0.985}
       onPress={handleCopy}
       style={styles.card}
     >
@@ -76,8 +124,8 @@ export function TotpCode({ secret, name, domain }: Props) {
               strokeWidth={strokeWidth}
               fill="none"
             />
-            {/* Animated Progress Circle (Counterclockwise) */}
-            <Circle
+            {/* Animated Smooth Progress Circle (Counterclockwise) */}
+            <AnimatedCircle
               cx="26"
               cy="26"
               r={radius}
@@ -85,12 +133,12 @@ export function TotpCode({ secret, name, domain }: Props) {
               strokeWidth={strokeWidth}
               fill="none"
               strokeDasharray={`${circumference}`}
-              strokeDashoffset={strokeDashoffset}
+              animatedProps={animatedCircleProps}
               strokeLinecap="round"
               transform="rotate(-90 26 26)"
             />
           </Svg>
-          {/* Favicon or Fallback Icon centered in ring — scaled to fit inside countdown ring */}
+          {/* Favicon or Fallback Icon centered in ring */}
           <View style={styles.iconInsideRing}>
             <SiteIcon domain={domain} name={name || ""} size={38} fill={true} borderless={true} />
           </View>
@@ -108,7 +156,7 @@ export function TotpCode({ secret, name, domain }: Props) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
+        <TouchableOpacity style={styles.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
           {copied ? (
             <Check size={18} color="#34d399" />
           ) : (
@@ -117,25 +165,43 @@ export function TotpCode({ secret, name, domain }: Props) {
         </TouchableOpacity>
       </View>
 
-      {/* Code Display: Split Monospace Segments */}
+      {/* Code Display: Split Monospace Segments with Digit Refresh Cascade */}
       <View style={styles.codeContainer}>
         {code === "ERROR" || code === "------" ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>Invalid TOTP Secret</Text>
           </View>
         ) : (
-          <View style={styles.segmentedRow}>
-            <View style={[styles.segmentPill, isExpiring && { borderColor: "rgba(248, 113, 113, 0.4)", backgroundColor: "rgba(248, 113, 113, 0.08)" }]}>
-              <Text style={[styles.codeSegment, isExpiring && { color: "#f87171" }]}>{code.slice(0, 3)}</Text>
+          <Animated.View
+            key={code}
+            entering={FadeInUp.duration(160)}
+            style={[styles.segmentedRow, isExpiring && pulseAnimatedStyle]}
+          >
+            <View
+              style={[
+                styles.segmentPill,
+                isExpiring && styles.segmentPillExpiring,
+              ]}
+            >
+              <Text style={[styles.codeSegment, isExpiring && { color: "#f87171" }]}>
+                {code.slice(0, 3)}
+              </Text>
             </View>
             <Text style={[styles.dashDivider, isExpiring && { color: "#f87171" }]}>-</Text>
-            <View style={[styles.segmentPill, isExpiring && { borderColor: "rgba(248, 113, 113, 0.4)", backgroundColor: "rgba(248, 113, 113, 0.08)" }]}>
-              <Text style={[styles.codeSegment, isExpiring && { color: "#f87171" }]}>{code.slice(3, 6)}</Text>
+            <View
+              style={[
+                styles.segmentPill,
+                isExpiring && styles.segmentPillExpiring,
+              ]}
+            >
+              <Text style={[styles.codeSegment, isExpiring && { color: "#f87171" }]}>
+                {code.slice(3, 6)}
+              </Text>
             </View>
-          </View>
+          </Animated.View>
         )}
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
@@ -173,27 +239,26 @@ const styles = StyleSheet.create({
   },
   infoCol: {
     flex: 1,
+    gap: 3,
   },
   itemName: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#f4f4f5",
-    letterSpacing: -0.2,
+    color: "#fafafa",
   },
   timerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 2,
   },
   timerText: {
-    fontSize: 11.5,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
     color: "#71717a",
-    fontFamily: "monospace",
   },
   timerExpiring: {
     color: "#f87171",
+    fontWeight: "600",
   },
   copiedBadge: {
     fontSize: 10,
@@ -204,17 +269,24 @@ const styles = StyleSheet.create({
   copyBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: "#18181b",
-    borderWidth: 1,
-    borderColor: "#27272a",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // Code layout
   codeContainer: {
-    paddingTop: 2,
+    width: "100%",
+  },
+  errorBox: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#f87171",
+    fontSize: 13,
+    fontWeight: "600",
   },
   segmentedRow: {
     flexDirection: "row",
@@ -223,38 +295,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   segmentPill: {
-    backgroundColor: "#18181b",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
-    borderColor: "#27272a",
-    borderRadius: 10,
-    paddingHorizontal: 16,
+    borderColor: "rgba(255, 255, 255, 0.08)",
     paddingVertical: 8,
-    minWidth: 110,
-    alignItems: "center",
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  segmentPillExpiring: {
+    borderColor: "rgba(248, 113, 113, 0.35)",
+    backgroundColor: "rgba(248, 113, 113, 0.08)",
   },
   codeSegment: {
     fontFamily: "monospace",
     fontSize: 22,
-    fontWeight: "800",
-    color: "#f4f4f5",
-    letterSpacing: 4,
+    fontWeight: "700",
+    color: "#38bdf8",
+    letterSpacing: 3,
   },
   dashDivider: {
     fontSize: 20,
-    fontWeight: "700",
-    color: "#3f3f46",
-  },
-  errorBox: {
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.25)",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  errorText: {
-    fontSize: 13,
     fontWeight: "600",
-    color: "#f87171",
+    color: "#3f3f46",
   },
 });

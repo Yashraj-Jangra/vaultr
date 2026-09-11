@@ -18,6 +18,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+  FadeInUp,
+  FadeOut,
+} from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -25,6 +35,8 @@ import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
+import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
+import { detectCardBrand } from "@vaultr/core";
 import { useResponsive } from "../utils/responsive";
 import {
   ArrowLeft,
@@ -349,16 +361,16 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* URLs Section */}
-          {item.template !== "card" && (payload?.url || (item.domain && !item.domain.includes("••••"))) ? (
+          {item.template !== "card" && (payload?.url || payload?.urls?.[0] || (item.domain && !item.domain.includes("••••"))) ? (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>AUTOFILL / WEBSITE OPTIONS</Text>
               <View style={styles.sectionGroup}>
                 <FieldRow
                   label="Website (URI)"
-                  value={payload?.url || item.domain}
-                  onCopy={() => copyToClipboard("url", payload?.url || item.domain)}
+                  value={payload?.url || payload?.urls?.[0] || item.domain}
+                  onCopy={() => copyToClipboard("url", payload?.url || payload?.urls?.[0] || item.domain)}
                   isCopied={copiedField === "url"}
-                  onLaunch={() => handleLaunchUrl(payload?.url || item.domain)}
+                  onLaunch={() => handleLaunchUrl(payload?.url || payload?.urls?.[0] || item.domain)}
                   hasDivider={payload?.urls && Array.isArray(payload.urls) && payload.urls.length > 1}
                 />
 
@@ -380,17 +392,17 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           ) : null}
 
           {/* Card Details Section */}
-          {(payload.cardholderName || payload.cardNumber) && (
+          {(payload.cardholderName || payload.cardName || payload.cardNumber || payload.cardBrand) && (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>CARD DETAILS</Text>
               <View style={styles.sectionGroup}>
-                {payload.cardholderName ? (
+                {(payload.cardholderName || payload.cardName) ? (
                   <FieldRow
                     label="Cardholder Name"
-                    value={payload.cardholderName}
-                    onCopy={() => copyToClipboard("cardholderName", payload.cardholderName)}
+                    value={payload.cardholderName || payload.cardName}
+                    onCopy={() => copyToClipboard("cardholderName", payload.cardholderName || payload.cardName)}
                     isCopied={copiedField === "cardholderName"}
-                    hasDivider={!!payload.cardNumber}
+                    hasDivider={!!(payload.cardNumber || payload.cardBrand || detectCardBrand(payload.cardNumber || ""))}
                   />
                 ) : null}
 
@@ -422,6 +434,16 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     onToggleShow={() => setShowPassword(!showPassword)}
                     isPassword
                     showPassword={showPassword}
+                    hasDivider={!!((payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || ""))}
+                  />
+                ) : null}
+
+                {((payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || "")) ? (
+                  <FieldRow
+                    label="Card Network"
+                    value={(payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || "")}
+                    onCopy={() => copyToClipboard("cardBrand", (payload.cardBrand && payload.cardBrand.toLowerCase() !== "auto-detect" ? payload.cardBrand : "") || detectCardBrand(payload.cardNumber || ""))}
+                    isCopied={copiedField === "cardBrand"}
                     hasDivider={false}
                   />
                 ) : null}
@@ -474,16 +496,26 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* Address Section */}
-          {(payload.street || payload.city || payload.state || payload.zip || payload.country) && (
+          {(payload.street || payload.line1 || payload.line2 || payload.city || payload.state || payload.zip || payload.country) && (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>ADDRESS DETAILS</Text>
               <View style={styles.sectionGroup}>
-                {payload.street ? (
+                {payload.street || payload.line1 ? (
                   <FieldRow
                     label="Street Address"
-                    value={payload.street}
-                    onCopy={() => copyToClipboard("street", payload.street)}
+                    value={payload.street || payload.line1}
+                    onCopy={() => copyToClipboard("street", payload.street || payload.line1)}
                     isCopied={copiedField === "street"}
+                    hasDivider={!!(payload.line2 || payload.city || payload.state || payload.zip || payload.country)}
+                  />
+                ) : null}
+
+                {payload.line2 ? (
+                  <FieldRow
+                    label="Apartment / Suite"
+                    value={payload.line2}
+                    onCopy={() => copyToClipboard("line2", payload.line2)}
+                    isCopied={copiedField === "line2"}
                     hasDivider={!!(payload.city || payload.state || payload.zip || payload.country)}
                   />
                 ) : null}
@@ -512,47 +544,75 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* Profile Identity Section */}
-          {(payload.firstName || payload.lastName || payload.email || payload.phone) && (
-            <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
-              <View style={styles.sectionGroup}>
-                {payload.firstName || payload.lastName ? (
-                  <FieldRow
-                    label="Full Name"
-                    value={`${payload.firstName || ""} ${payload.lastName || ""}`.trim()}
-                    onCopy={() => copyToClipboard("fullName", `${payload.firstName || ""} ${payload.lastName || ""}`.trim())}
-                    isCopied={copiedField === "fullName"}
-                    hasDivider={!!(payload.email || payload.phone)}
-                  />
-                ) : null}
+          {(() => {
+            const profileName = payload.fullName || `${payload.firstName || ""} ${payload.lastName || ""}`.trim();
+            const hasProfile = !!(profileName || payload.email || payload.phone || payload.dob || payload.idNumber);
+            if (!hasProfile) return null;
+            return (
+              <View style={{ gap: 6 }}>
+                <Text style={styles.sectionHeaderLabel}>PERSONAL IDENTITY</Text>
+                <View style={styles.sectionGroup}>
+                  {profileName ? (
+                    <FieldRow
+                      label="Full Name"
+                      value={profileName}
+                      onCopy={() => copyToClipboard("fullName", profileName)}
+                      isCopied={copiedField === "fullName"}
+                      hasDivider={!!(payload.email || payload.phone || payload.dob || payload.idNumber)}
+                    />
+                  ) : null}
 
-                {payload.email ? (
-                  <FieldRow
-                    label="Email Address"
-                    value={payload.email}
-                    onCopy={() => copyToClipboard("email", payload.email)}
-                    isCopied={copiedField === "email"}
-                    hasDivider={!!payload.phone}
-                  />
-                ) : null}
+                  {payload.email ? (
+                    <FieldRow
+                      label="Email Address"
+                      value={payload.email}
+                      onCopy={() => copyToClipboard("email", payload.email)}
+                      isCopied={copiedField === "email"}
+                      hasDivider={!!(payload.phone || payload.dob || payload.idNumber)}
+                    />
+                  ) : null}
 
-                {payload.phone ? (
-                  <FieldRow
-                    label="Phone Number"
-                    value={payload.phone}
-                    onCopy={() => copyToClipboard("phone", payload.phone)}
-                    isCopied={copiedField === "phone"}
-                    hasDivider={false}
-                  />
-                ) : null}
+                  {payload.phone ? (
+                    <FieldRow
+                      label="Phone Number"
+                      value={payload.phone}
+                      onCopy={() => copyToClipboard("phone", payload.phone)}
+                      isCopied={copiedField === "phone"}
+                      hasDivider={!!(payload.dob || payload.idNumber)}
+                    />
+                  ) : null}
+
+                  {payload.dob ? (
+                    <FieldRow
+                      label="Date of Birth"
+                      value={payload.dob}
+                      onCopy={() => copyToClipboard("dob", payload.dob)}
+                      isCopied={copiedField === "dob"}
+                      hasDivider={!!payload.idNumber}
+                    />
+                  ) : null}
+
+                  {payload.idNumber ? (
+                    <FieldRow
+                      label="ID / Passport No."
+                      value={showPassword ? payload.idNumber : "••••••••"}
+                      onCopy={() => copyToClipboard("idNumber", payload.idNumber)}
+                      isCopied={copiedField === "idNumber"}
+                      onToggleShow={() => setShowPassword(!showPassword)}
+                      isPassword
+                      showPassword={showPassword}
+                      hasDivider={false}
+                    />
+                  ) : null}
+                </View>
               </View>
-            </View>
-          )}
+            );
+          })()}
 
           {/* Note Content / Living Plain-Text Canvas */}
           {isNoteTemplate ? (
             <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>SECURE NOTE</Text>
+              <Text style={styles.sectionHeaderLabel}>NOTE CONTENT</Text>
               <View style={styles.livingNoteCanvas}>
                 <View style={styles.noteCardHeader}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -814,97 +874,223 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <PredictiveBackWrapper
+      navigation={navigation}
+      onBack={() => {
+        if (isDirty) {
+          // Return true = intercepted: show alert, the wrapper springs card back to identity.
+          vaultAlert.alert(
+            "Unsaved Changes",
+            "You have unsaved edits on this note. Are you sure you want to discard them?",
+            [
+              { text: "Keep Editing", style: "cancel" },
+              { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+            ],
+            { illustration: "throw-away_k2t5" }
+          );
+          return true;
+        }
+        // Return false/undefined: let the wrapper do the non-animated pop.
+      }}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
-      {/* Nav Header */}
-      <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (isDirty) {
-              vaultAlert.alert(
-                "Unsaved Changes",
-                "You have unsaved edits on this note. Are you sure you want to discard them?",
-                [
-                  { text: "Keep Editing", style: "cancel" },
-                  { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
-                ],
-                { illustration: "throw-away_k2t5" }
-              );
-            } else {
-              navigation.goBack();
-            }
-          }}
-        >
-          <ArrowLeft size={20} color={colors.text} />
-        </TouchableOpacity>
-
-        <Text style={styles.navTitle} numberOfLines={1}>
-          {item.name}
-        </Text>
-
-        <View style={styles.navRight}>
-          {isDirty ? (
-            <TouchableOpacity
-              style={[styles.saveNavBtn, isSavingNote && { opacity: 0.7 }]}
-              onPress={handleSaveNote}
-              disabled={isSavingNote}
-              activeOpacity={0.8}
-            >
-              {isSavingNote ? (
-                <ActivityIndicator size="small" color="#09090b" />
-              ) : (
-                <Text style={styles.saveNavBtnText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.navActionBtn}
-              onPress={handleEdit}
-            >
-              <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
-            </TouchableOpacity>
-          )}
-
+        {/* Nav Header */}
+        <View style={styles.navBar}>
           <TouchableOpacity
-            style={styles.navActionBtn}
-            onPress={handleToggleFavorite}
+            style={styles.backBtn}
+            onPress={() => {
+              if (isDirty) {
+                vaultAlert.alert(
+                  "Unsaved Changes",
+                  "You have unsaved edits on this note. Are you sure you want to discard them?",
+                  [
+                    { text: "Keep Editing", style: "cancel" },
+                    { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+                  ],
+                  { illustration: "throw-away_k2t5" }
+                );
+              } else {
+                navigation.goBack();
+              }
+            }}
           >
-            <Star
-              size={20}
-              color={item.favorite ? colors.warning : colors.textMuted}
-              fill={item.favorite ? colors.warning : "transparent"}
+            <ArrowLeft size={20} color={colors.text} />
+          </TouchableOpacity>
+
+          <Text style={styles.navTitle} numberOfLines={1}>
+            {item.name}
+          </Text>
+
+          <View style={styles.navRight}>
+            {isDirty ? (
+              <TouchableOpacity
+                style={[styles.saveNavBtn, isSavingNote && { opacity: 0.7 }]}
+                onPress={handleSaveNote}
+                disabled={isSavingNote}
+                activeOpacity={0.8}
+              >
+                {isSavingNote ? (
+                  <ActivityIndicator size="small" color="#09090b" />
+                ) : (
+                  <Text style={styles.saveNavBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.navActionBtn}
+                onPress={handleEdit}
+              >
+                <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            <AnimatedFavoriteButton
+              isFavorite={!!item.favorite}
+              onPress={handleToggleFavorite}
             />
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
-            <Trash2 size={20} color={isOnline ? colors.danger : colors.textMuted} />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
+              <Trash2 size={20} color={isOnline ? colors.danger : colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator color={colors.accent} size="large" />
-          <Text style={styles.loadingText}>Decrypting payload...</Text>
-        </View>
-      ) : isSplitView && !isNoteTemplate ? (
-        <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={styles.splitLeftCol}>
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.loadingText}>Decrypting payload...</Text>
+          </View>
+        ) : isSplitView && !isNoteTemplate ? (
+          <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={styles.splitLeftCol}>
+              {renderVisualPreviewAndHeader()}
+            </View>
+            <View style={styles.splitRightCol}>
+              {renderDetailSections()}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {renderVisualPreviewAndHeader()}
-          </View>
-          <View style={styles.splitRightCol}>
             {renderDetailSections()}
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {renderVisualPreviewAndHeader()}
-          {renderDetailSections()}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+          </ScrollView>
+        )}
+
+        {/* Floating Copied Pill */}
+        {copiedField ? (
+          <Animated.View
+            entering={FadeInUp.duration(180)}
+            exiting={FadeOut.duration(140)}
+            style={styles.floatingCopiedPill}
+          >
+            <Check size={13} color="#10b981" strokeWidth={2.5} />
+            <Text style={styles.floatingCopiedText}>Copied to clipboard</Text>
+          </Animated.View>
+        ) : null}
+      </SafeAreaView>
+    </PredictiveBackWrapper>
+  );
+}
+
+function AnimatedFavoriteButton({
+  isFavorite,
+  onPress,
+}: {
+  isFavorite: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const glowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  const handlePress = () => {
+    // Magnetic click: tactile compression -> crisp micro-pop overshoot -> settles precisely at 1.0
+    scale.value = withSequence(
+      withTiming(0.84, { duration: 70, easing: Easing.out(Easing.quad) }),
+      withSpring(1.15, { damping: 20, stiffness: 420 }),
+      withSpring(1.0, { damping: 18, stiffness: 320 })
+    );
+    // Subtle amber ambient bloom behind icon
+    glowOpacity.value = withSequence(
+      withTiming(0.65, { duration: 60 }),
+      withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) })
+    );
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.navActionBtn}
+      onPress={handlePress}
+      activeOpacity={0.85}
+    >
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: "rgba(234, 179, 8, 0.22)",
+            },
+            glowAnimatedStyle,
+          ]}
+          pointerEvents="none"
+        />
+        <Animated.View style={animatedStyle}>
+          <Star
+            size={20}
+            color={isFavorite ? colors.warning : colors.textMuted}
+            fill={isFavorite ? colors.warning : "transparent"}
+          />
+        </Animated.View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function AnimatedCopyButton({
+  isCopied,
+  onPress,
+}: {
+  isCopied: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    // Physical ink stamp: quick press-in, then instant damped return to exactly 1.0 (no bounce/float)
+    scale.value = withSequence(
+      withTiming(0.82, { duration: 65, easing: Easing.out(Easing.quad) }),
+      withSpring(1.0, { damping: 22, stiffness: 380 })
+    );
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity style={styles.actionBtn} onPress={handlePress} activeOpacity={0.85}>
+      <Animated.View style={animatedStyle}>
+        {isCopied ? (
+          <Check size={18} color={colors.success} />
+        ) : (
+          <Copy size={18} color={colors.textMuted} />
+        )}
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -952,13 +1138,7 @@ function FieldRow({
             )}
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.actionBtn} onPress={onCopy}>
-          {isCopied ? (
-            <Check size={18} color={colors.success} />
-          ) : (
-            <Copy size={18} color={colors.textMuted} />
-          )}
-        </TouchableOpacity>
+        <AnimatedCopyButton isCopied={isCopied} onPress={onCopy} />
       </View>
     </View>
   );
@@ -981,7 +1161,11 @@ function PasswordHistoryButton({ history, onCopy, copiedField }: { history: stri
       </TouchableOpacity>
 
       {expanded && (
-        <View style={styles.historyBox}>
+        <Animated.View
+          entering={FadeInUp.duration(160)}
+          exiting={FadeOut.duration(120)}
+          style={styles.historyBox}
+        >
           {history.map((prevPw, idx) => {
             const isRevealed = revealedIdx === idx;
             return (
@@ -1014,7 +1198,7 @@ function PasswordHistoryButton({ history, onCopy, copiedField }: { history: stri
               </View>
             );
           })}
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -1375,6 +1559,31 @@ const styles = StyleSheet.create({
   footerNoteText: {
     fontSize: 11,
     color: colors.textDim,
+  },
+  floatingCopiedPill: {
+    position: "absolute",
+    bottom: 28,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 999,
+  },
+  floatingCopiedText: {
+    color: "#fafafa",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 

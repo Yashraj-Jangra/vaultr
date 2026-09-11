@@ -57,6 +57,7 @@ export interface ParsedImportItem {
   name: string;
   folder: string;
   template: Template;
+  favorite?: boolean;
   payload: {
     _template: Template;
     _folder?: string;
@@ -83,6 +84,8 @@ export interface ParsedImportItem {
     fullName?: string;
     firstName?: string;
     lastName?: string;
+    dob?: string;
+    idNumber?: string;
     email?: string;
     phone?: string;
     isPasskey?: boolean;
@@ -182,14 +185,18 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
 
   const rawNote = (row.note || row.notes || row.login_notes || row.comments || "").trim();
   const rawType = String(row.type || "").toLowerCase().trim();
+  const rawFav = String(row.favorite || row.fav || row.favourite || "").toLowerCase().trim();
+  const isFavorite = rawFav === "1" || rawFav === "true" || rawFav === "yes";
   const isSecureNoteType = rawType === "note" || rawType === "securenote" || rawType === "2";
 
   // Auto-detect template
   let template: Template = "login";
-  if (row.card_number || row.cc_number) {
+  if (rawType === "card" || row.card_number || row.cc_number) {
     template = "card";
-  } else if (row.address || row.street || (row.city && !primaryUrl && !row.password)) {
+  } else if (rawType === "address" || row.address || row.street || (row.city && !primaryUrl && !row.password)) {
     template = "address";
+  } else if (rawType === "profile" || rawType === "identity" || row.dob || row.id_number || (row.full_name && !primaryUrl && !row.password)) {
+    template = "profile";
   } else if (isSecureNoteType || (!primaryUrl && !row.password && !row.login_password && rawNote)) {
     template = "note";
   }
@@ -256,6 +263,13 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
       state: (row.state || "").trim(),
       zip: (row.zip || "").trim(),
       country: (row.country || "").trim(),
+      fullName: (row.full_name || row.fullName || "").trim() || undefined,
+      firstName: (row.first_name || row.firstName || "").trim() || undefined,
+      lastName: (row.last_name || row.lastName || "").trim() || undefined,
+      email: (row.email || row.email_address || "").trim() || undefined,
+      phone: (row.phone || row.telephone || row.phone_number || "").trim() || undefined,
+      dob: (row.dob || row.date_of_birth || "").trim() || undefined,
+      idNumber: (row.id_number || row.idNumber || row.ssn || row.passport || "").trim() || undefined,
       isPasskey,
       passkeyRpId: row.rp_id || "",
       passkeyCredentialId: row.passkey_id || row.credential_id || "",
@@ -267,6 +281,7 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
       name,
       folder: rawFolder,
       template,
+      favorite: isFavorite ? true : undefined,
       payload,
     };
   }
@@ -404,6 +419,8 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
         lastName: identityData.lastName || "",
         email: (identityData.email || "").trim(),
         phone: (identityData.phone || "").trim(),
+        dob: (identityData.dob || identityData.dateOfBirth || (Array.isArray(item.fields) ? item.fields.find((f: any) => /^(dateofbirth|dob|date of birth|birth date)$/i.test((f.name || "").trim()))?.value : "") || "").trim() || undefined,
+        idNumber: (identityData.idNumber || identityData.ssn || identityData.passportNumber || identityData.licenseNumber || (Array.isArray(item.fields) ? item.fields.find((f: any) => /^(idnumber|id_number|id number|national id)$/i.test((f.name || "").trim()))?.value : "") || "").trim() || undefined,
         line1: (identityData.address1 || "").trim(),
         street: (identityData.address1 || "").trim(),
         line2: (identityData.address2 || "").trim(),
@@ -423,10 +440,11 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
         id: `bw-${idx}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name,
         folder,
-      template,
-      payload,
+        template,
+        favorite: item.favorite ? true : undefined,
+        payload,
+      });
     });
-  });
 
   return result;
 }

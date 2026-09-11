@@ -4,7 +4,7 @@ import {
   Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User, MapPin,
   Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
 } from "lucide-react";
-import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
+import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost, detectCardBrand } from "@vaultr/core";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
@@ -471,16 +471,26 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                   <div className="detail-section-group">
                     <div className="detail-section-title">CARD DETAILS</div>
                     <div className="detail-section-box">
-                      {decrypted.cardName && <DetailRow label="Cardholder" value={decrypted.cardName} />}
+                      {(decrypted.cardholderName || decrypted.cardName) && (
+                        <DetailRow label="Cardholder" value={decrypted.cardholderName || decrypted.cardName} />
+                      )}
                       {decrypted.cardNumber && <DetailRow label="Number" value={decrypted.cardNumber} masked />}
+                      {((decrypted.cardBrand && decrypted.cardBrand.toLowerCase() !== "auto-detect" ? decrypted.cardBrand : "") || detectCardBrand(decrypted.cardNumber || "")) && (
+                        <DetailRow label="Network" value={(decrypted.cardBrand && decrypted.cardBrand.toLowerCase() !== "auto-detect" ? decrypted.cardBrand : "") || detectCardBrand(decrypted.cardNumber || "")} />
+                      )}
                     </div>
                   </div>
 
-                  {(decrypted.expiry || decrypted.cvv || decrypted.pin) && (
+                  {(decrypted.expiry || decrypted.expMonth || decrypted.expYear || decrypted.cvv || decrypted.pin) && (
                     <div className="detail-section-group">
                       <div className="detail-section-title">SECURITY & VALIDITY</div>
                       <div className="detail-section-box">
-                        {decrypted.expiry && <DetailRow label="Expires" value={decrypted.expiry} />}
+                        {(decrypted.expiry || (decrypted.expMonth && decrypted.expYear)) && (
+                          <DetailRow
+                            label="Expires"
+                            value={decrypted.expiry || `${decrypted.expMonth} / ${decrypted.expYear}`}
+                          />
+                        )}
                         {decrypted.cvv && <DetailRow label="CVV" value={decrypted.cvv} masked dots={3} />}
                         {decrypted.pin && <DetailRow label="PIN" value={decrypted.pin} masked dots={3} />}
                       </div>
@@ -492,11 +502,13 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
               {/* Address Template */}
               {item.template === "address" && (
                 <>
-                  {(decrypted.line1 || decrypted.line2) && (
+                  {(decrypted.line1 || decrypted.street || decrypted.line2) && (
                     <div className="detail-section-group">
                       <div className="detail-section-title">STREET ADDRESS</div>
                       <div className="detail-section-box">
-                        {decrypted.line1 && <DetailRow label="Line 1" value={decrypted.line1} />}
+                        {(decrypted.line1 || decrypted.street) && (
+                          <DetailRow label="Line 1" value={decrypted.line1 || decrypted.street} />
+                        )}
                         {decrypted.line2 && <DetailRow label="Line 2" value={decrypted.line2} />}
                       </div>
                     </div>
@@ -520,7 +532,15 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                 <div className="detail-section-group">
                   <div className="detail-section-title">PERSONAL IDENTITY</div>
                   <div className="detail-section-box">
-                    {decrypted.fullName && <DetailRow label="Full Name" value={decrypted.fullName} />}
+                    {(decrypted.fullName || decrypted.firstName || decrypted.lastName) && (
+                      <DetailRow
+                        label="Full Name"
+                        value={
+                          decrypted.fullName ||
+                          [decrypted.firstName, decrypted.lastName].filter(Boolean).join(" ")
+                        }
+                      />
+                    )}
                     {decrypted.email && <DetailRow label="Email" value={decrypted.email} />}
                     {decrypted.phone && <DetailRow label="Phone" value={decrypted.phone} />}
                     {decrypted.dob && <DetailRow label="DOB" value={decrypted.dob} />}
@@ -530,18 +550,42 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
               )}
 
               {/* Note Template */}
-              {item.template === "note" && decrypted.note && (
+              {item.template === "note" && (decrypted.note || decrypted.entryNotes) && (
                 <div className="detail-section-group">
-                  <div className="detail-section-title">SECURE NOTE</div>
+                  <div className="detail-section-title">NOTE</div>
                   <div className="detail-section-box" style={{ padding: "8px 10px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>CONTENT</span>
-                      <CopyBtn value={decrypted.note} />
+                      <CopyBtn value={decrypted.note || decrypted.entryNotes || ""} />
                     </div>
-                    <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note}</pre>
+                    <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 11, color: "var(--neutral-300)" }}>{decrypted.note || decrypted.entryNotes}</pre>
                   </div>
                 </div>
               )}
+
+              {/* Custom Fields */}
+              {(() => {
+                const cFields = (decrypted.customFields || decrypted.fields || []) as Array<{ id?: string; name?: string; key?: string; value: string; type?: string }>;
+                if (!Array.isArray(cFields) || cFields.length === 0) return null;
+                const valid = cFields.filter(f => (f.name || f.key) && f.value);
+                if (valid.length === 0) return null;
+                return (
+                  <div className="detail-section-group">
+                    <div className="detail-section-title">CUSTOM FIELDS</div>
+                    <div className="detail-section-box">
+                      {valid.map((f, i) => (
+                        <DetailRow
+                          key={f.id || i}
+                          label={f.name || f.key || `Field ${i + 1}`}
+                          value={f.value}
+                          masked={f.type === "hidden"}
+                          dots={8}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Entry Notes (Shared) */}
               {decrypted.entryNotes && (

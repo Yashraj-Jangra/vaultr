@@ -18,6 +18,7 @@ import { AutofillSettingsScreen } from "../screens/settings/AutofillSettingsScre
 import { TrashScreen } from "../screens/TrashScreen";
 import { VaultFilteredScreen } from "../screens/VaultFilteredScreen";
 import { colors } from "../theme/colors";
+import { getItemTransitionConfig, getFolderTransitionConfig } from "./itemTransitions";
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -39,12 +40,20 @@ export function RootNavigator() {
     initSession();
   }, []);
 
+  const itemTransitionOptions = getItemTransitionConfig();
+  const folderTransitionOptions = getFolderTransitionConfig();
+
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          cardStyle: { backgroundColor: colors.bg },
+          cardStyle: { backgroundColor: "transparent" },
+          gestureEnabled: true,
+          gestureDirection: "horizontal",
+          gestureResponseDistance: 135,
+          gestureVelocityImpact: 0.35,
+          detachPreviousScreen: false,
         }}
       >
         {!isAuthenticated ? (
@@ -53,17 +62,37 @@ export function RootNavigator() {
           <Stack.Screen name="Unlock" component={UnlockScreen} />
         ) : (
           <>
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
-            <Stack.Screen name="ItemForm" component={ItemFormScreen} />
+            {/* MainTabs is the background (previous) screen — no custom interpolator */}
+            <Stack.Screen
+              name="MainTabs"
+              component={MainTabs}
+            />
+            <Stack.Screen
+              name="ItemDetail"
+              component={ItemDetailScreen}
+              options={{ ...itemTransitionOptions, gestureEnabled: false }}
+            />
+            <Stack.Screen
+              name="ItemForm"
+              component={ItemFormScreen}
+              options={{ ...itemTransitionOptions, gestureEnabled: false }}
+            />
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
             <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <Stack.Screen name="Sessions" component={SessionsScreen} />
             <Stack.Screen name="DataSettings" component={DataScreen} />
-            <Stack.Screen name="FolderManager" component={FolderManagerScreen} />
+            <Stack.Screen
+              name="FolderManager"
+              component={FolderManagerScreen}
+              options={{ ...folderTransitionOptions, gestureEnabled: false }}
+            />
             <Stack.Screen name="AutofillSettings" component={AutofillSettingsScreen} />
             <Stack.Screen name="Trash" component={TrashScreen} />
-            <Stack.Screen name="VaultFiltered" component={VaultFilteredScreen} />
+            <Stack.Screen
+              name="VaultFiltered"
+              component={VaultFilteredScreen}
+              options={{ ...folderTransitionOptions, gestureEnabled: false }}
+            />
           </>
         )}
       </Stack.Navigator>

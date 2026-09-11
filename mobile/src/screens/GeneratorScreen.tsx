@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -23,6 +23,14 @@ import * as Clipboard from "expo-clipboard";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { colors } from "../theme/colors";
 import { CustomSwitch } from "../components/CustomSwitch";
+import { PressableScale } from "../components/PressableScale";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { Wand2, Copy, Check, RefreshCw, History } from "lucide-react-native";
 import { useResponsive } from "../utils/responsive";
 
@@ -52,13 +60,105 @@ const CHAR_COLOR: Record<CharClass, string> = {
   symbol: "#fb7185",
 };
 
-function ColorizedOutput({ value, mode }: { value: string; mode: Mode }) {
+const CIPHER_LOWER = "abcdefghijklmnopqrstuvwxyz";
+const CIPHER_UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const CIPHER_DIGITS = "0123456789";
+const CIPHER_SYMBOLS = "!@#$%^&*()_+-=[]{}|:<>?~";
+
+const ALL_CHAR_POOLS = [CIPHER_LOWER, CIPHER_UPPER, CIPHER_DIGITS, CIPHER_SYMBOLS];
+
+function getRandomScrambleChar(mode: Mode): string {
+  if (mode === "pin") {
+    return CIPHER_DIGITS[Math.floor(Math.random() * CIPHER_DIGITS.length)];
+  }
+  if (mode === "passphrase") {
+    return CIPHER_LOWER[Math.floor(Math.random() * CIPHER_LOWER.length)];
+  }
+  // Even distribution: 25% lowercase, 25% uppercase, 25% digits, 25% symbols
+  const pool = ALL_CHAR_POOLS[Math.floor(Math.random() * ALL_CHAR_POOLS.length)];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+interface CipherChar {
+  char: string;
+  isLocked: boolean;
+}
+
+function CipherScrambleOutput({
+  value,
+  mode,
+  triggerKey,
+}: {
+  value: string;
+  mode: Mode;
+  triggerKey?: string | number;
+}) {
+  const [displayChars, setDisplayChars] = useState<CipherChar[]>(() =>
+    value ? value.split("").map((c) => ({ char: c, isLocked: true })) : []
+  );
+
+  useEffect(() => {
+    if (!value) {
+      setDisplayChars([]);
+      return;
+    }
+
+    const targetLen = value.length;
+    const totalFrames = Math.min(Math.max(targetLen, 10), 14);
+    let frame = 0;
+
+    // Immediately start with scrambled characters across all categories
+    const initialScramble: CipherChar[] = [];
+    for (let i = 0; i < targetLen; i++) {
+      if (value[i] === "-" || value[i] === " ") {
+        initialScramble.push({ char: value[i], isLocked: true });
+      } else {
+        initialScramble.push({ char: getRandomScrambleChar(mode), isLocked: false });
+      }
+    }
+    setDisplayChars(initialScramble);
+
+    const interval = setInterval(() => {
+      frame++;
+      const lockedCount = Math.floor((frame / totalFrames) * targetLen);
+
+      if (frame >= totalFrames) {
+        clearInterval(interval);
+        setDisplayChars(value.split("").map((c) => ({ char: c, isLocked: true })));
+      } else {
+        const nextChars: CipherChar[] = [];
+        for (let i = 0; i < targetLen; i++) {
+          if (i < lockedCount) {
+            nextChars.push({ char: value[i], isLocked: true });
+          } else if (value[i] === "-" || value[i] === " ") {
+            nextChars.push({ char: value[i], isLocked: true });
+          } else {
+            nextChars.push({ char: getRandomScrambleChar(mode), isLocked: false });
+          }
+        }
+        setDisplayChars(nextChars);
+      }
+    }, 22);
+
+    return () => clearInterval(interval);
+  }, [value, triggerKey, mode]);
+
   if (!value) return <Text style={{ color: "#525252" }}>—</Text>;
 
   if (mode === "pin") {
     return (
       <Text style={[styles.outputText, { color: "#fbbf24", letterSpacing: 4 }]}>
-        {value}
+        {displayChars.map((item, i) => (
+          <Text
+            key={i}
+            style={{
+              color: "#fbbf24",
+              opacity: item.isLocked ? 1 : 0.75,
+            }}
+          >
+            {item.char}
+          </Text>
+        ))}
       </Text>
     );
   }
@@ -66,19 +166,76 @@ function ColorizedOutput({ value, mode }: { value: string; mode: Mode }) {
   if (mode === "passphrase") {
     return (
       <Text style={[styles.outputText, { color: "#7dd3fc" }]}>
-        {value}
+        {displayChars.map((item, i) => (
+          <Text
+            key={i}
+            style={{
+              color: "#7dd3fc",
+              opacity: item.isLocked ? 1 : 0.75,
+            }}
+          >
+            {item.char}
+          </Text>
+        ))}
       </Text>
     );
   }
 
   return (
     <Text style={styles.outputText}>
-      {value.split("").map((c, i) => (
-        <Text key={i} style={{ color: CHAR_COLOR[classifyChar(c)] }}>
-          {c}
-        </Text>
-      ))}
+      {displayChars.map((item, i) => {
+        const cls = classifyChar(item.char);
+        const color = CHAR_COLOR[cls];
+        return (
+          <Text
+            key={i}
+            style={{
+              color,
+              opacity: item.isLocked ? 1 : 0.88,
+            }}
+          >
+            {item.char}
+          </Text>
+        );
+      })}
     </Text>
+  );
+}
+
+function AnimatedRegenerateButton({ onPress }: { onPress: () => void }) {
+  const spin = useSharedValue(0);
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { rotate: `${spin.value}deg` },
+    ],
+  }));
+
+  const handlePress = () => {
+    scale.value = withSequence(
+      withTiming(0.85, { duration: 60 }),
+      withSpring(1.0, { damping: 18, stiffness: 340 })
+    );
+    spin.value = withSpring(spin.value + 360, {
+      damping: 16,
+      stiffness: 220,
+      mass: 0.6,
+    });
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.iconBtn}
+      onPress={handlePress}
+      activeOpacity={0.85}
+    >
+      <Animated.View style={animatedStyle}>
+        <RefreshCw size={18} color="#a1a1aa" />
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -186,15 +343,16 @@ export function GeneratorScreen() {
       {/* Mode Selector Tabs */}
       <View style={styles.modeTabs}>
         {(["random", "passphrase", "pin", "pattern"] as Mode[]).map((m) => (
-          <TouchableOpacity
+          <PressableScale
             key={m}
+            scaleTo={0.96}
             style={[styles.modeTab, mode === m && styles.modeTabActive]}
             onPress={() => setMode(m)}
           >
             <Text style={[styles.modeTabText, mode === m && styles.modeTabTextActive]}>
               {m === "random" ? "Password" : m === "passphrase" ? "Passphrase" : m === "pin" ? "PIN" : "Pattern"}
             </Text>
-          </TouchableOpacity>
+          </PressableScale>
         ))}
       </View>
 
@@ -202,15 +360,21 @@ export function GeneratorScreen() {
       <View style={styles.outputCard}>
         <View style={styles.outputBox}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <ColorizedOutput value={currentPassword} mode={mode} />
+            <CipherScrambleOutput
+              value={currentPassword}
+              mode={mode}
+              triggerKey={seed}
+            />
           </ScrollView>
 
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.iconBtn} onPress={handleRegenerate}>
-              <RefreshCw size={18} color="#a1a1aa" />
-            </TouchableOpacity>
+            <AnimatedRegenerateButton onPress={handleRegenerate} />
 
-            <TouchableOpacity style={styles.copyMainBtn} onPress={() => handleCopy()}>
+            <PressableScale
+              style={styles.copyMainBtn}
+              onPress={() => handleCopy()}
+              scaleTo={0.96}
+            >
               {copied ? (
                 <>
                   <Check size={16} color="#34d399" />
@@ -222,7 +386,7 @@ export function GeneratorScreen() {
                   <Text style={styles.copyBtnText}>Copy Password</Text>
                 </>
               )}
-            </TouchableOpacity>
+            </PressableScale>
           </View>
         </View>
 
@@ -301,34 +465,37 @@ export function GeneratorScreen() {
           <View style={styles.controlHeader}>
             <Text style={styles.controlTitle}>Length: {length}</Text>
             <View style={styles.counterGroup}>
-              <TouchableOpacity
+              <PressableScale
                 style={styles.counterBtn}
                 onPress={() => setLength((l) => Math.max(8, l - 1))}
+                scaleTo={0.92}
               >
                 <Text style={styles.counterBtnText}>-</Text>
-              </TouchableOpacity>
+              </PressableScale>
               <Text style={styles.counterValue}>{length}</Text>
-              <TouchableOpacity
+              <PressableScale
                 style={styles.counterBtn}
                 onPress={() => setLength((l) => Math.min(64, l + 1))}
+                scaleTo={0.92}
               >
                 <Text style={styles.counterBtnText}>+</Text>
-              </TouchableOpacity>
+              </PressableScale>
             </View>
           </View>
 
           {/* Quick length presets */}
           <View style={styles.presetRow}>
             {[12, 16, 24, 32, 64].map((l) => (
-              <TouchableOpacity
+              <PressableScale
                 key={l}
                 style={[styles.presetPill, length === l && styles.presetPillActive]}
                 onPress={() => setLength(l)}
+                scaleTo={0.94}
               >
                 <Text style={[styles.presetText, length === l && styles.presetTextActive]}>
                   {l}
                 </Text>
-              </TouchableOpacity>
+              </PressableScale>
             ))}
           </View>
 
