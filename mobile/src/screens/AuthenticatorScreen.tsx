@@ -18,6 +18,7 @@ import { useVaultStore } from "../store/vaultStore";
 import { vaultAlert } from "../store/alertStore";
 import { TotpCode } from "../components/TotpCode";
 import { SiteIcon } from "../components/SiteIcon";
+import { AnimatedListItem } from "../components/AnimatedListItem";
 import { colors } from "../theme/colors";
 import {
   KeyRound,
@@ -315,9 +316,11 @@ export function AuthenticatorScreen() {
           numColumns > 1 && { paddingHorizontal: 20 },
         ]}
         columnWrapperStyle={numColumns > 1 ? { gap: 16 } : undefined}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <View style={numColumns > 1 ? { flex: 1, minWidth: 0 } : undefined}>
-            <AuthenticatorItemRow item={item} />
+            <AnimatedListItem index={index}>
+              <AuthenticatorItemRow item={item} />
+            </AnimatedListItem>
           </View>
         )}
         ListEmptyComponent={
