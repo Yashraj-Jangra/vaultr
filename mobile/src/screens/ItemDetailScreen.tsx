@@ -392,7 +392,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
           ) : null}
 
           {/* Card Details Section */}
-          {(payload.cardholderName || payload.cardName || payload.cardNumber || payload.cardBrand) && (
+          {(payload.cardholderName || payload.cardName || payload.cardNumber || payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
             <View style={{ gap: 6 }}>
               <Text style={styles.sectionHeaderLabel}>CARD DETAILS</Text>
               <View style={styles.sectionGroup}>
@@ -402,7 +402,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     value={payload.cardholderName || payload.cardName}
                     onCopy={() => copyToClipboard("cardholderName", payload.cardholderName || payload.cardName)}
                     isCopied={copiedField === "cardholderName"}
-                    hasDivider={!!payload.cardNumber}
+                    hasDivider={!!(payload.cardNumber || payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin)}
                   />
                 ) : null}
 
@@ -434,18 +434,10 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     onToggleShow={() => setShowPassword(!showPassword)}
                     isPassword
                     showPassword={showPassword}
-                    hasDivider={false}
+                    hasDivider={!!(payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin)}
                   />
                 ) : null}
-              </View>
-            </View>
-          )}
 
-          {/* Card Validity Section */}
-          {(payload.expiry || payload.expMonth || payload.expYear || payload.cvv || payload.pin) && (
-            <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>SECURITY & VALIDITY</Text>
-              <View style={styles.sectionGroup}>
                 {(payload.expiry || payload.expMonth || payload.expYear) ? (
                   <FieldRow
                     label="Expiry Date"

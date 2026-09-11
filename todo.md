@@ -1,4 +1,26 @@
-## Current Session: Dynamic Rotating "Other" Card Network Names (Issue #7) (2026-09-11) · Branch: `dev`
+## Current Session: Unify Card Fields Into Single Division (2026-09-11) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Unified All Card Information Fields into Single Division
+- **Rationale**: Previously, card fields were split across two separate divisions: `CARD DETAILS` (Name, Number) and `SECURITY & VALIDITY` (Expiry, CVV, PIN). All card info fields are now unified into a single clean `CARD DETAILS` group, keeping `PRIVATE NOTES` and `CUSTOM FIELDS` in their own separate sections.
+- **Mobile (`mobile/src/screens/ItemDetailScreen.tsx`)**:
+  - Unified Cardholder Name, Card Number, Expiry Date, CVV, and PIN into a single `CARD DETAILS` section group.
+  - Dynamically adjusted divider flags across all card rows.
+- **Website (`src/app/vault/page.tsx`)**:
+  - Unified Name, Number, Expiry, CVV, and PIN under a single `<SectionGroup title="CARD DETAILS">`.
+  - Maintained `CUSTOM FIELDS` and `PRIVATE NOTES` as separate sections below.
+- **Extension (`extension/src/popup/VaultScreen.tsx`)**:
+  - Combined Cardholder, Number, Expires, CVV, and PIN into a single `<div className="detail-section-group">` with `CARD DETAILS`.
+  - Retained separate custom fields and notes divisions.
+
+### 📋 What's Planned Next
+- Work on Issue #5: Swipe gesture to flip credit cards.
+- Test and verify across platforms.
+
+---
+
+## Previous Session: Dynamic Rotating "Other" Card Network Names (Issue #7) (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 

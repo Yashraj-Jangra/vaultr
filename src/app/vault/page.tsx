@@ -931,17 +931,20 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
         <>
           <CreditCardGraphic data={data} showCard={showCard} />
           <SectionGroup title="CARD DETAILS">
-            <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
-            <DetailRow label="Number" value={data.cardNumber || ""} masked isCard onToggle={setShowCard} />
-          </SectionGroup>
-
-          {(data.expiry || data.expMonth || data.expYear || data.cvv || data.pin) && (
-            <SectionGroup title="SECURITY & VALIDITY">
+            {(data.cardName || data.cardholderName) ? (
+              <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
+            ) : null}
+            {data.cardNumber ? (
+              <DetailRow label="Number" value={data.cardNumber} masked isCard onToggle={setShowCard} />
+            ) : null}
+            {(data.expiry || data.expMonth || data.expYear) ? (
               <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "")} />
+            ) : null}
+            {data.cvv ? (
               <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
-              {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
-            </SectionGroup>
-          )}
+            ) : null}
+            {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
+          </SectionGroup>
         </>
       )}
 
