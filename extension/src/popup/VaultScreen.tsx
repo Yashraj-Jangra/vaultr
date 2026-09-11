@@ -467,33 +467,23 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
               {/* Card Template */}
               {item.template === "card" && (
-                <>
-                  <div className="detail-section-group">
-                    <div className="detail-section-title">CARD DETAILS</div>
-                    <div className="detail-section-box">
-                      {(decrypted.cardholderName || decrypted.cardName) && (
-                        <DetailRow label="Cardholder" value={decrypted.cardholderName || decrypted.cardName} />
-                      )}
-                      {decrypted.cardNumber && <DetailRow label="Number" value={decrypted.cardNumber} masked />}
-                    </div>
+                <div className="detail-section-group">
+                  <div className="detail-section-title">CARD DETAILS</div>
+                  <div className="detail-section-box">
+                    {(decrypted.cardholderName || decrypted.cardName) && (
+                      <DetailRow label="Cardholder" value={decrypted.cardholderName || decrypted.cardName} />
+                    )}
+                    {decrypted.cardNumber && <DetailRow label="Number" value={decrypted.cardNumber} masked />}
+                    {(decrypted.expiry || (decrypted.expMonth && decrypted.expYear)) && (
+                      <DetailRow
+                        label="Expires"
+                        value={decrypted.expiry || `${decrypted.expMonth} / ${decrypted.expYear}`}
+                      />
+                    )}
+                    {decrypted.cvv && <DetailRow label="CVV" value={decrypted.cvv} masked dots={3} />}
+                    {decrypted.pin && <DetailRow label="PIN" value={decrypted.pin} masked dots={3} />}
                   </div>
-
-                  {(decrypted.expiry || decrypted.expMonth || decrypted.expYear || decrypted.cvv || decrypted.pin) && (
-                    <div className="detail-section-group">
-                      <div className="detail-section-title">SECURITY & VALIDITY</div>
-                      <div className="detail-section-box">
-                        {(decrypted.expiry || (decrypted.expMonth && decrypted.expYear)) && (
-                          <DetailRow
-                            label="Expires"
-                            value={decrypted.expiry || `${decrypted.expMonth} / ${decrypted.expYear}`}
-                          />
-                        )}
-                        {decrypted.cvv && <DetailRow label="CVV" value={decrypted.cvv} masked dots={3} />}
-                        {decrypted.pin && <DetailRow label="PIN" value={decrypted.pin} masked dots={3} />}
-                      </div>
-                    </div>
-                  )}
-                </>
+                </div>
               )}
 
               {/* Address Template */}
