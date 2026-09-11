@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -8,14 +8,16 @@ import {
   LayoutChangeEvent,
   StyleProp,
   ViewStyle,
+  Vibration,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
-  interpolate,
+  runOnJS,
 } from "react-native-reanimated";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { RefreshCw } from "lucide-react-native";
 
 interface Interactive3DCardProps {
@@ -45,8 +47,10 @@ export function Interactive3DCard({
   const shadowOpacity = useSharedValue(0.35);
   const rimOpacity = useSharedValue(0.06);
 
-  // 3D Flip Value: 0 = front, 1 = back
-  const flipProgress = useSharedValue(0);
+  // 3D Flip Rotation Value in degrees: 0 = front, 180 = back
+  const flipRotation = useSharedValue(0);
+  const startRotation = useSharedValue(0);
+  const isFlippedShared = useSharedValue(false);
 
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,6 +67,14 @@ export function Interactive3DCard({
     }
   };
 
+  const triggerHapticAndSync = (nextFlipped: boolean) => {
+    try {
+      Vibration.vibrate(12);
+    } catch {}
+    setFlipped(nextFlipped);
+  };
+
+  // Fallback touch events when flipping is disabled
   const handleTouchStart = (e: GestureResponderEvent) => {
     scale.value = withSpring(1.02, { damping: 20, stiffness: 220, mass: 0.6 });
     rimOpacity.value = withTiming(0.16, { duration: 150 });
@@ -85,15 +97,12 @@ export function Interactive3DCard({
     const halfW = dimensions.width / 2;
     const halfH = dimensions.height / 2;
 
-    // Normalized touch offset [-1, 1]
     const normX = Math.max(-1, Math.min(1, (touchX - halfW) / halfW));
     const normY = Math.max(-1, Math.min(1, (touchY - halfH) / halfH));
 
-    // Realistic restrained tilt angles (max 6deg X, 8deg Y)
     rotateX.value = withSpring(-normY * 6, { damping: 20, stiffness: 200, mass: 0.6 });
     rotateY.value = withSpring(normX * 8, { damping: 20, stiffness: 200, mass: 0.6 });
 
-    // Dynamic light-source cast shadow: shifts opposite to tilt
     shadowOffsetX.value = withSpring(-normX * 12, { damping: 20, stiffness: 200 });
     shadowOffsetY.value = withSpring(-normY * 10, { damping: 20, stiffness: 200 });
 
@@ -117,15 +126,141 @@ export function Interactive3DCard({
     shadowOpacity.value = withTiming(0.35, { duration: 240 });
   };
 
+  // Button-triggered flip
   const toggleFlip = () => {
     const nextFlipped = !flipped;
     setFlipped(nextFlipped);
-    flipProgress.value = withSpring(nextFlipped ? 1 : 0, {
+    isFlippedShared.value = nextFlipped;
+    flipRotation.value = withSpring(nextFlipped ? 180 : 0, {
       damping: 18,
       stiffness: 140,
       mass: 0.8,
     });
+    try {
+      Vibration.vibrate(12);
+    } catch {}
   };
+
+  // Pan gesture handler for interactive 3D swipe to flip
+  const panGesture = useMemo(() => {
+    return Gesture.Pan()
+      .enabled(canFlip && !!backContent)
+      .activeOffsetX([-10, 10])
+      .failOffsetY([-16, 16])
+      .onBegin((e) => {
+        "worklet";
+        startRotation.value = flipRotation.value;
+        scale.value = withSpring(1.03, { damping: 20, stiffness: 240, mass: 0.5 });
+        shadowOpacity.value = withTiming(0.65, { duration: 120 });
+        rimOpacity.value = withTiming(0.18, { duration: 120 });
+
+        const halfW = dimensions.width / 2;
+        const halfH = dimensions.height / 2;
+        const normX = Math.max(-1, Math.min(1, (e.x - halfW) / halfW));
+        const normY = Math.max(-1, Math.min(1, (e.y - halfH) / halfH));
+        rotateX.value = withSpring(-normY * 6, { damping: 20, stiffness: 200, mass: 0.6 });
+        rotateY.value = withSpring(normX * 8, { damping: 20, stiffness: 200, mass: 0.6 });
+        shadowOffsetX.value = withSpring(-normX * 12, { damping: 20, stiffness: 200 });
+        shadowOffsetY.value = withSpring(-normY * 10, { damping: 20, stiffness: 200 });
+      })
+      .onUpdate((e) => {
+        "worklet";
+        const halfW = dimensions.width / 2;
+        const halfH = dimensions.height / 2;
+        const normX = Math.max(-1, Math.min(1, (e.x - halfW) / halfW));
+        const normY = Math.max(-1, Math.min(1, (e.y - halfH) / halfH));
+
+        rotateX.value = withSpring(-normY * 6, { damping: 20, stiffness: 200, mass: 0.6 });
+        rotateY.value = withSpring(normX * 8, { damping: 20, stiffness: 200, mass: 0.6 });
+        shadowOffsetX.value = withSpring(-normX * 12, { damping: 20, stiffness: 200 });
+        shadowOffsetY.value = withSpring(-normY * 10, { damping: 20, stiffness: 200 });
+
+        // Map horizontal translation to 3D rotation angle
+        const dragFraction = e.translationX / (dimensions.width * 0.75);
+        flipRotation.value = startRotation.value - dragFraction * 180;
+      })
+      .onEnd((e) => {
+        "worklet";
+        const wasTap = Math.abs(e.translationX) < 8 && Math.abs(e.translationY) < 8;
+
+        if (wasTap) {
+          const nextState = !isFlippedShared.value;
+          isFlippedShared.value = nextState;
+          const target = nextState ? 180 : 0;
+          flipRotation.value = withSpring(target, {
+            damping: 18,
+            stiffness: 140,
+            mass: 0.8,
+          });
+          runOnJS(triggerHapticAndSync)(nextState);
+          return;
+        }
+
+        const delta = flipRotation.value - startRotation.value;
+        const isFlick = Math.abs(e.velocityX) > 350;
+        const passedThreshold = Math.abs(delta) > 35;
+
+        const willFlip = isFlick || passedThreshold;
+
+        let targetAngle: number;
+        let nextState: boolean;
+
+        if (!isFlippedShared.value) {
+          // Front face resting (0°)
+          if (willFlip) {
+            const goPositive = delta > 0 || e.velocityX < -350;
+            targetAngle = goPositive ? 180 : -180;
+            nextState = true;
+          } else {
+            targetAngle = 0;
+            nextState = false;
+          }
+        } else {
+          // Back face resting (~180° or ~-180°)
+          if (willFlip) {
+            const goPositive = delta > 0 || e.velocityX < -350;
+            targetAngle = goPositive ? 360 : 0;
+            nextState = false;
+          } else {
+            targetAngle = startRotation.value;
+            nextState = true;
+          }
+        }
+
+        isFlippedShared.value = nextState;
+
+        const initialVelocity = Math.max(-25, Math.min(25, -e.velocityX / 35));
+        flipRotation.value = withSpring(
+          targetAngle,
+          {
+            damping: 18,
+            stiffness: 150,
+            mass: 0.7,
+            velocity: initialVelocity,
+          },
+          (finished) => {
+            if (finished) {
+              flipRotation.value = nextState ? 180 : 0;
+            }
+          }
+        );
+
+        const previousState = startRotation.value === 180 || startRotation.value === -180;
+        if (nextState !== previousState) {
+          runOnJS(triggerHapticAndSync)(nextState);
+        }
+      })
+      .onFinalize(() => {
+        "worklet";
+        scale.value = withSpring(1, { damping: 22, stiffness: 180, mass: 0.6 });
+        rotateX.value = withSpring(0, { damping: 22, stiffness: 180, mass: 0.6 });
+        rotateY.value = withSpring(0, { damping: 22, stiffness: 180, mass: 0.6 });
+        shadowOffsetX.value = withSpring(0, { damping: 22, stiffness: 180 });
+        shadowOffsetY.value = withSpring(0, { damping: 22, stiffness: 180 });
+        rimOpacity.value = withTiming(0.06, { duration: 240 });
+        shadowOpacity.value = withTiming(0.35, { duration: 240 });
+      });
+  }, [canFlip, backContent, dimensions.width]);
 
   // Ambient cast shadow under card scene
   const shadowAnimatedStyle = useAnimatedStyle(() => ({
@@ -144,13 +279,14 @@ export function Interactive3DCard({
 
   // Front face animation style
   const frontAnimatedStyle = useAnimatedStyle(() => {
-    const spin = interpolate(flipProgress.value, [0, 1], [0, 180]);
-    const isBack = flipProgress.value > 0.5;
+    const rot = flipRotation.value;
+    const normalizedAngle = ((rot % 360) + 360) % 360;
+    const isBack = normalizedAngle > 90 && normalizedAngle < 270;
     return {
       transform: [
         { perspective: 1200 },
         { rotateX: `${rotateX.value}deg` },
-        { rotateY: `${spin + rotateY.value}deg` },
+        { rotateY: `${rot + rotateY.value}deg` },
         { scale: scale.value },
       ],
       backfaceVisibility: "hidden",
@@ -161,13 +297,14 @@ export function Interactive3DCard({
 
   // Back face animation style
   const backAnimatedStyle = useAnimatedStyle(() => {
-    const spin = interpolate(flipProgress.value, [0, 1], [180, 360]);
-    const isBack = flipProgress.value > 0.5;
+    const rot = flipRotation.value;
+    const normalizedAngle = ((rot % 360) + 360) % 360;
+    const isBack = normalizedAngle > 90 && normalizedAngle < 270;
     return {
       transform: [
         { perspective: 1200 },
         { rotateX: `${rotateX.value}deg` },
-        { rotateY: `${spin + rotateY.value}deg` },
+        { rotateY: `${rot + 180 + rotateY.value}deg` },
         { scale: scale.value },
       ],
       backfaceVisibility: "hidden",
@@ -181,36 +318,46 @@ export function Interactive3DCard({
     };
   });
 
+  const renderCardContent = () => (
+    <View style={styles.cardScene} onLayout={handleLayout}>
+      {/* Front Face */}
+      <Animated.View style={[styles.faceWrapper, frontAnimatedStyle]}>
+        {children}
+        {/* Dynamic Subtle Rim Border */}
+        <Animated.View style={[styles.rimHighlight, rimAnimatedStyle]} pointerEvents="none" />
+      </Animated.View>
+
+      {/* Back Face (if supported) */}
+      {backContent ? (
+        <Animated.View style={[styles.faceWrapper, backAnimatedStyle]}>
+          {backContent}
+          <Animated.View style={[styles.rimHighlight, rimAnimatedStyle]} pointerEvents="none" />
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+
   return (
     <View style={[styles.outerContainer, style]}>
       {/* Dynamic Ambient Depth Shadow Layer */}
       <Animated.View style={[styles.ambientShadow, shadowAnimatedStyle]} pointerEvents="none" />
 
-      <View
-        onLayout={handleLayout}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        onResponderRelease={handleTouchEnd}
-        onResponderTerminate={handleTouchEnd}
-        style={styles.cardScene}
-      >
-        {/* Front Face */}
-        <Animated.View style={[styles.faceWrapper, frontAnimatedStyle]}>
-          {children}
-          {/* Dynamic Subtle Rim Border */}
-          <Animated.View style={[styles.rimHighlight, rimAnimatedStyle]} pointerEvents="none" />
-        </Animated.View>
-
-        {/* Back Face (if supported) */}
-        {backContent ? (
-          <Animated.View style={[styles.faceWrapper, backAnimatedStyle]}>
-            {backContent}
-            <Animated.View style={[styles.rimHighlight, rimAnimatedStyle]} pointerEvents="none" />
-          </Animated.View>
-        ) : null}
-      </View>
+      {canFlip && backContent ? (
+        <GestureDetector gesture={panGesture}>
+          {renderCardContent()}
+        </GestureDetector>
+      ) : (
+        <View
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          onResponderRelease={handleTouchEnd}
+          onResponderTerminate={handleTouchEnd}
+        >
+          {renderCardContent()}
+        </View>
+      )}
 
       {/* 3D Flip & Interactive Controls Pill */}
       {canFlip && backContent ? (

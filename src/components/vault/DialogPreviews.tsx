@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Lock, Globe, User } from "lucide-react";
+import React, { useMemo, useState, useRef } from "react";
+import { Lock, Globe, User, Shield, Sparkles, RefreshCw } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 
 // ── Standard Card Network / Brand Detection ──────────────────────────────────
@@ -22,8 +22,22 @@ export function detectCardBrand(cardNumber: string, customBins?: { prefix: strin
   return "";
 }
 
-// ── Credit Card Visual (Untouched & Preserved, with subtle watermark) ──────────
-export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fallbackBrand, isNumberVisible }: { cardNumber: string; cardName: string; expiry: string; cardBrand?: string; fallbackBrand?: string; isNumberVisible?: boolean }) {
+// ── Credit Card Front Face ───────────────────────────────────────────────────
+export function DetailedCardFrontFace({
+  cardNumber,
+  cardName,
+  expiry,
+  cardBrand,
+  fallbackBrand,
+  isNumberVisible
+}: {
+  cardNumber: string;
+  cardName: string;
+  expiry: string;
+  cardBrand?: string;
+  fallbackBrand?: string;
+  isNumberVisible?: boolean;
+}) {
   const resolvedBrand = useMemo(() => {
     if (cardBrand && cardBrand.toLowerCase() !== "auto-detect") return cardBrand;
     return detectCardBrand(cardNumber) || fallbackBrand || "";
@@ -155,55 +169,363 @@ export function DetailedCardVisual({ cardNumber, cardName, expiry, cardBrand, fa
   }
 
   return (
-    <div className="@container relative w-full max-w-[440px] mx-auto aspect-[1.586/1] select-none">
-      <div className={`absolute inset-0 rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between ${textColor} p-[6cqw] transition-colors duration-500`}>
-        {graphics}
+    <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between ${textColor} p-[6cqw] transition-colors duration-500 relative select-none`}>
+      {graphics}
 
-        {/* Subtle security watermark illustration inside card */}
-        <img src="/illustrations/fingerprint_kdwq.svg" className="absolute right-4 bottom-4 w-28 h-28 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
+      {/* Subtle security watermark illustration inside card */}
+      <img src="/illustrations/fingerprint_kdwq.svg" className="absolute right-4 bottom-4 w-28 h-28 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
 
-        {/* Top Row: Bank Logo left, Network right */}
-        <div className="relative z-10 flex justify-between items-start h-[8cqw]">
-          <div className="flex items-center h-full">
-            {bankLogo || <div className="w-[10cqw] h-[7cqw] rounded-[1cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[1.5cqw] py-[1cqw]"><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /><div className="w-full h-[0.5cqw] bg-black/10 rounded-full" /></div>}
-          </div>
-
-          <div className="flex items-center justify-end max-w-[50%]">
-            {logoImg || (
-              <>
-                {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
-                {isMC && <div className="flex relative items-center"><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} /><div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} /></div>}
-                {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
-                {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
-                {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
-                {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
-                {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
-              </>
-            )}
-          </div>
+      {/* Top Row: Bank Logo left, Network right */}
+      <div className="relative z-10 flex justify-between items-start h-[8cqw]">
+        <div className="flex items-center h-full">
+          {bankLogo || (
+            <div className="w-[10cqw] h-[7cqw] rounded-[1cqw] bg-[#F5D77D] opacity-90 flex flex-col justify-evenly px-[1.5cqw] py-[1cqw]">
+              <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
+              <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
+              <div className="w-full h-[0.5cqw] bg-black/10 rounded-full" />
+            </div>
+          )}
         </div>
 
-        {/* Middle: Card Number Animated */}
-        <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap">
-          {digitGroups}
+        <div className="flex items-center justify-end max-w-[50%]">
+          {logoImg || (
+            <>
+              {isVisa && <span className={`text-[7cqw] font-bold italic tracking-tighter ${textColor}`}>VISA</span>}
+              {isMC && (
+                <div className="flex relative items-center">
+                  <div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black/80' : 'bg-white'} opacity-90`} />
+                  <div className={`w-[6cqw] h-[6cqw] rounded-full ${isLight ? 'bg-black' : 'bg-white'} opacity-50 absolute right-[3.5cqw]`} />
+                </div>
+              )}
+              {isAmex && <span className={`text-[4cqw] font-bold uppercase tracking-widest ${textColor}`}>AMEX</span>}
+              {isDiscover && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>DISCOVER</span>}
+              {isRuPay && <span className={`text-[4cqw] font-bold tracking-wider ${textColor}`}>RuPay</span>}
+              {isOther && fallbackBrand && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{fallbackBrand}</span>}
+              {(!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && !isOther && cardBrand) && <span className={`text-[4cqw] font-bold tracking-wide truncate ${textColor}`}>{cardBrand}</span>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Middle: Card Number Animated */}
+      <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap">
+        {digitGroups}
+      </div>
+
+      {/* Bottom Row */}
+      <div className="relative z-10 flex justify-between items-end">
+        <div className="flex flex-col min-w-0 pr-[4cqw]">
+          <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Cardholder Name</span>
+          <span className="text-[4cqw] font-semibold tracking-wide uppercase truncate">
+            {cardName || "Name"}
+          </span>
         </div>
 
-        {/* Bottom Row */}
-        <div className="relative z-10 flex justify-between items-end">
-          <div className="flex flex-col min-w-0 pr-[4cqw]">
-            <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Cardholder Name</span>
-            <span className="text-[4cqw] font-semibold tracking-wide uppercase truncate">
-              {cardName || "Name"}
-            </span>
+        <div className="flex flex-col shrink-0 text-right">
+          <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Expiry Date</span>
+          <span className="text-[4cqw] font-medium font-mono">
+            {expiry || "00/00"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Credit Card Back Face ────────────────────────────────────────────────────
+export function DetailedCardBackVisual({
+  cardNumber,
+  cardName,
+  cvv,
+  cardBrand,
+  fallbackBrand,
+  isNumberVisible
+}: {
+  cardNumber: string;
+  cardName: string;
+  cvv?: string;
+  cardBrand?: string;
+  fallbackBrand?: string;
+  isNumberVisible?: boolean;
+}) {
+  const resolvedBrand = useMemo(() => {
+    if (cardBrand && cardBrand.toLowerCase() !== "auto-detect") return cardBrand;
+    return detectCardBrand(cardNumber) || fallbackBrand || "";
+  }, [cardBrand, cardNumber, fallbackBrand]);
+
+  const isVisa = resolvedBrand.toLowerCase() === "visa";
+  const isMC = resolvedBrand.toLowerCase() === "mastercard";
+  const isAmex = resolvedBrand.toLowerCase() === "amex";
+  const isDiscover = resolvedBrand.toLowerCase() === "discover";
+  const isRuPay = resolvedBrand.toLowerCase() === "rupay";
+  const isOther = resolvedBrand.toLowerCase() === "other";
+
+  let bgClass = "from-[#22252c] to-[#0f1013]";
+  if (isVisa) {
+    bgClass = "from-[#0A0D1A] via-[#151233] to-[#2B1B54]";
+  } else if (isMC) {
+    bgClass = "from-[#1a1a1c] via-[#141415] to-[#0a0a0b]";
+  } else if (isAmex) {
+    bgClass = "from-[#141414] via-[#090909] to-[#000000]";
+  } else if (isDiscover) {
+    bgClass = "from-[#1F0F07] via-[#0C0603] to-[#020101]";
+  } else if (isRuPay) {
+    bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
+  } else if (isOther) {
+    bgClass = "from-[#0f1d1a] via-[#08100e] to-[#030605]";
+  } else if (cardBrand) {
+    bgClass = "from-[#1f1a30] via-[#100d1a] to-[#05040d]";
+  }
+
+  const displayCvv = cvv ? (isNumberVisible ? cvv : "•••") : "•••";
+
+  return (
+    <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between text-white transition-colors duration-500 relative select-none`}>
+      {/* 1. Magnetic Stripe */}
+      <div className="w-full h-[15%] bg-[#08080a] border-y border-white/[0.08] relative overflow-hidden mt-[5cqw] shrink-0">
+        <div className="absolute top-1 left-0 right-0 h-1 bg-white/[0.04]" />
+      </div>
+
+      {/* 2. Signature Panel & CVV Box */}
+      <div className="px-[5cqw] flex items-center gap-[2cqw] mt-[2cqw]">
+        {/* Signature Panel */}
+        <div className="flex-1 h-[8.5cqw] bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 rounded-l-[1cqw] px-[3cqw] flex items-center justify-between border-y border-neutral-300 shadow-inner overflow-hidden">
+          <span className="font-serif italic text-neutral-800 text-[3.2cqw] tracking-wider truncate select-none">
+            {cardName || "Cardholder Name"}
+          </span>
+          <span className="text-[1.8cqw] font-mono font-bold text-neutral-400 uppercase tracking-widest shrink-0">
+            Signature
+          </span>
+        </div>
+
+        {/* CVV Box */}
+        <div className="h-[8.5cqw] px-[3cqw] bg-white rounded-r-[1cqw] border-y border-r border-neutral-300 flex flex-col justify-center items-center shrink-0 min-w-[14cqw] shadow-sm">
+          <span className="text-[1.8cqw] font-sans font-bold uppercase text-neutral-400 tracking-wider">
+            CVV / CVC
+          </span>
+          <span className="font-mono font-bold text-neutral-900 text-[3.4cqw] tracking-widest">
+            {displayCvv}
+          </span>
+        </div>
+      </div>
+
+      {/* 3. Security Info & 256-Bit Seal */}
+      <div className="px-[5cqw] flex items-center justify-between gap-[3cqw] mt-[1.5cqw]">
+        <div className="flex items-center gap-[1.2cqw] bg-emerald-500/10 border border-emerald-500/20 px-[2cqw] py-[0.8cqw] rounded-[1cqw] shrink-0">
+          <Shield className="w-[3cqw] h-[3cqw] text-emerald-400" />
+          <span className="text-[2cqw] font-mono font-bold text-emerald-400 tracking-wider">256-BIT AES-GCM</span>
+        </div>
+        <span className="text-[1.8cqw] text-white/45 leading-tight max-w-[65%] text-right font-sans">
+          Protected by VaultR zero-knowledge client-side encryption. Authorized cardholder only.
+        </span>
+      </div>
+
+      {/* 4. Bottom Brand & Hologram Seal */}
+      <div className="px-[5cqw] pb-[5cqw] mt-auto flex items-center justify-between text-white/35">
+        <span className="text-[2cqw] font-mono tracking-widest font-semibold text-white/40">
+          VAULTR ZERO-KNOWLEDGE
+        </span>
+        <div className="flex items-center gap-[1cqw] bg-amber-500/10 border border-amber-500/20 px-[2cqw] py-[0.6cqw] rounded-[1cqw]">
+          <Sparkles className="w-[2.5cqw] h-[2.5cqw] text-amber-400" />
+          <span className="text-[1.8cqw] font-mono font-bold text-amber-400/90 tracking-wider">SECURITY SEAL</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Credit Card Visual with 3D Swipe to Flip Gesture ──────────────────────────
+export function DetailedCardVisual({
+  cardNumber,
+  cardName,
+  expiry,
+  cvv,
+  cardBrand,
+  fallbackBrand,
+  isNumberVisible
+}: {
+  cardNumber: string;
+  cardName: string;
+  expiry: string;
+  cvv?: string;
+  cardBrand?: string;
+  fallbackBrand?: string;
+  isNumberVisible?: boolean;
+}) {
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [dragDelta, setDragDelta] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const isPointerDownRef = useRef(false);
+  const hasMovedHorizontallyRef = useRef(false);
+  const startAngleRef = useRef(0);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    startXRef.current = e.clientX;
+    startYRef.current = e.clientY;
+    startTimeRef.current = Date.now();
+    startAngleRef.current = rotationAngle;
+    isPointerDownRef.current = true;
+    hasMovedHorizontallyRef.current = false;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDownRef.current) return;
+    const dx = e.clientX - startXRef.current;
+    const dy = e.clientY - startYRef.current;
+
+    if (!hasMovedHorizontallyRef.current) {
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+        // Vertical page scroll detected: release drag
+        isPointerDownRef.current = false;
+        setIsDragging(false);
+        setDragDelta(0);
+        return;
+      }
+      if (Math.abs(dx) > 6) {
+        hasMovedHorizontallyRef.current = true;
+        setIsDragging(true);
+        try {
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } catch {}
+      }
+    }
+
+    if (hasMovedHorizontallyRef.current) {
+      setDragDelta(dx);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDownRef.current) return;
+    isPointerDownRef.current = false;
+    const dx = e.clientX - startXRef.current;
+    const dt = Math.max(1, Date.now() - startTimeRef.current);
+    const velocity = dx / dt;
+
+    try {
+      if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+
+    const norm = Math.abs(rotationAngle % 360);
+    const currentlyFlipped = norm > 90 && norm < 270;
+
+    // Tap detected -> toggle flip
+    if (Math.abs(dx) < 6 && dt < 300) {
+      setRotationAngle((prev) => (currentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180));
+    } else if (Math.abs(velocity) > 0.35 || Math.abs(dx) > 40) {
+      // Swiping momentum: left rotates forward (+180), right rotates backward (-180)
+      if (dx < 0) {
+        setRotationAngle(startAngleRef.current + 180);
+      } else {
+        setRotationAngle(startAngleRef.current - 180);
+      }
+    } else {
+      // Snap back to starting angle
+      setRotationAngle(startAngleRef.current);
+    }
+
+    setIsDragging(false);
+    setDragDelta(0);
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    isPointerDownRef.current = false;
+    setIsDragging(false);
+    setDragDelta(0);
+    try {
+      if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+  };
+
+  const liveAngle = isDragging ? startAngleRef.current - (dragDelta / 220) * 180 : rotationAngle;
+  const tiltX = isDragging ? Math.max(-8, Math.min(8, (dragDelta / 220) * 4)) : 0;
+  const norm = Math.abs(rotationAngle % 360);
+  const isFlipped = norm > 90 && norm < 270;
+
+  return (
+    <div className="w-full flex flex-col items-center">
+      <div
+        className="@container relative w-full max-w-[440px] mx-auto aspect-[1.586/1] select-none cursor-grab active:cursor-grabbing touch-pan-y"
+        style={{ perspective: "1000px" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      >
+        <div
+          className="w-full h-full relative"
+          style={{
+            transform: `rotateY(${liveAngle}deg) rotateX(${tiltX}deg) scale(${isDragging ? 1.02 : 1})`,
+            transformStyle: "preserve-3d",
+            WebkitTransformStyle: "preserve-3d",
+            transition: isDragging ? "none" : "transform 600ms cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+        >
+          {/* Front Face */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+            }}
+          >
+            <DetailedCardFrontFace
+              cardNumber={cardNumber}
+              cardName={cardName}
+              expiry={expiry}
+              cardBrand={cardBrand}
+              fallbackBrand={fallbackBrand}
+              isNumberVisible={isNumberVisible}
+            />
           </div>
 
-          <div className="flex flex-col shrink-0 text-right">
-            <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Expiry Date</span>
-            <span className="text-[4cqw] font-medium font-mono">
-              {expiry || "00/00"}
-            </span>
+          {/* Back Face */}
+          <div
+            className="absolute inset-0"
+            style={{
+              transform: "rotateY(180deg)",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+            }}
+          >
+            <DetailedCardBackVisual
+              cardNumber={cardNumber}
+              cardName={cardName}
+              cvv={cvv}
+              cardBrand={cardBrand}
+              fallbackBrand={fallbackBrand}
+              isNumberVisible={isNumberVisible}
+            />
           </div>
         </div>
+      </div>
+
+      {/* Accessible Flip Button Pill */}
+      <div className="flex justify-center mt-2.5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setRotationAngle((prev) => {
+              const n = Math.abs(prev % 360);
+              const isCurrentlyFlipped = n > 90 && n < 270;
+              return isCurrentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180;
+            });
+          }}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors shadow-sm cursor-pointer"
+        >
+          <RefreshCw className="w-3 h-3 text-neutral-400" />
+          <span>{isFlipped ? "Show Front (EMV Chip)" : "Flip Card (CVV & Magnetic Stripe)"}</span>
+        </button>
       </div>
     </div>
   );
@@ -347,12 +669,12 @@ function NotePaperPreview({ name, note }: { name: string; note: string }) {
   );
 }
 
-export function DynamicPreviewCanvas({ template, name, username, url, line1, line2, city, state, zip, country, fullName, email, phone, dob, idNumber, note, cardName, cardNumber, expiry, cardBrand, fallbackBrand }: any) {
+export function DynamicPreviewCanvas({ template, name, username, url, line1, line2, city, state, zip, country, fullName, email, phone, dob, idNumber, note, cardName, cardNumber, expiry, cvv, cardBrand, fallbackBrand, isNumberVisible }: any) {
   if (template === "login") {
     return <LoginKeycardPreview name={name} username={username} url={url} />;
   }
   if (template === "card") {
-    return <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} cardBrand={cardBrand} fallbackBrand={fallbackBrand} />;
+    return <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} cvv={cvv} cardBrand={cardBrand} fallbackBrand={fallbackBrand} isNumberVisible={isNumberVisible} />;
   }
   if (template === "address") {
     return <AddressLabelPreview name={name} line1={line1} line2={line2} city={city} state={state} zip={zip} country={country} />;

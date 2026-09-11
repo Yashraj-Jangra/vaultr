@@ -1,4 +1,37 @@
-## Current Session: Custom Field Type Toggle for All Templates (2026-09-11) · Branch: `dev`
+## Current Session: Swipe Gesture to Flip Credit Cards (Issue #5) (2026-09-11) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Mobile 3D Swipe to Flip Gesture (`mobile/src/components/Interactive3DCard.tsx`, `mobile/src/App.tsx`)
+- Wrapped root in `<GestureHandlerRootView>` in `mobile/src/App.tsx` for gesture lifecycle support.
+- Implemented `Gesture.Pan()` in `Interactive3DCard` with continuous horizontal translation-to-degree mapping:
+  - Configured `activeOffsetX([-10, 10])` and `failOffsetY([-16, 16])` so vertical scroll in `ItemDetailScreen` is completely unimpeded.
+  - Added real-time 3D perspective tilt (`rotateX`, `rotateY`), dynamic elevation (`scale: 1.03`), dynamic shadow casting, and dynamic rim highlights.
+  - Bidirectional flip mechanics: flick velocity (`|vx| > 350`) or midpoint angle (`|delta| > 35°`) triggers physics spring settling (`withSpring`).
+  - Added native haptic feedback (`Vibration.vibrate(12)`) on snap.
+  - Maintained accessible tap-to-flip fallback (<8px movement) and flip button pill below card.
+  - Normalized backface visibility and z-index switching to eliminate mirror rendering flicker.
+
+#### 2. Web 3D Swipe & Drag to Flip Gesture (`src/components/vault/DialogPreviews.tsx`, `src/app/vault/page.tsx`, `src/components/vault/NewEntryDialog.tsx`)
+- Extracted `DetailedCardFrontFace` and built `DetailedCardBackVisual` for Web with 100% design parity:
+  - Realistic magnetic stripe across top with gloss reflection bar.
+  - Signature strip with cardholder name and signature label.
+  - CVV box showing real CVV when revealed (`isNumberVisible ? cvv : "•••"`).
+  - 256-Bit AES-GCM security badge and zero-knowledge legal disclaimer.
+  - Bottom row with "VAULTR ZERO-KNOWLEDGE" watermark and "SECURITY SEAL" hologram.
+- Implemented Pointer Events gesture tracker in `DetailedCardVisual`:
+  - 1:1 real-time drag tracking with `touch-pan-y` allowing smooth modal scrolling while capturing horizontal swipes.
+  - Directional continuous rotation with Apple-like spring cubic-bezier transition (`cubic-bezier(0.16, 1, 0.3, 1)`).
+  - Tap-to-flip and flip button pill below card.
+- Wired `cvv` and `isNumberVisible` props through `CreditCardGraphic` in `src/app/vault/page.tsx` and `DynamicPreviewCanvas` in `src/components/vault/NewEntryDialog.tsx`.
+
+### 📋 What's Planned Next
+- Verify UI behavior across Web and Mobile.
+- Prepare version bump if ready.
+
+---
+
+## Previous Session: Custom Field Type Toggle for All Templates (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 
