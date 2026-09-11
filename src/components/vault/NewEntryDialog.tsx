@@ -645,6 +645,112 @@ function SecretInput({ value, onChange, placeholder, className = "" }: { value: 
   );
 }
 
+function CustomFieldsSection({
+  customFields,
+  setCustomFields,
+  onAdd,
+  scrollable = false,
+  showEmptyState = false,
+}: {
+  customFields: CustomField[];
+  setCustomFields: React.Dispatch<React.SetStateAction<CustomField[]>>;
+  onAdd: () => void;
+  scrollable?: boolean;
+  showEmptyState?: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <FieldLabel>Custom Fields</FieldLabel>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] hover:underline cursor-pointer"
+        >
+          <Plus className="w-3 h-3" /> Add field
+        </button>
+      </div>
+      {customFields.length > 0 ? (
+        <div className={`space-y-2 ${scrollable ? "max-h-40 overflow-y-auto pr-1 custom-scrollbar" : ""}`}>
+          {customFields.map((f) => (
+            <div key={f.id} className="flex gap-2 items-center">
+              <Input
+                value={f.key}
+                onChange={(e) =>
+                  setCustomFields((p) =>
+                    p.map((x) => (x.id === f.id ? { ...x, key: e.target.value } : x))
+                  )
+                }
+                placeholder="Field Label"
+                className="flex-1 min-w-0"
+              />
+              {f.type === "hidden" ? (
+                <SecretInput
+                  value={f.value}
+                  onChange={(e) =>
+                    setCustomFields((p) =>
+                      p.map((x) => (x.id === f.id ? { ...x, value: e.target.value } : x))
+                    )
+                  }
+                  placeholder="Value"
+                  className="flex-1 min-w-0"
+                />
+              ) : (
+                <Input
+                  value={f.value}
+                  onChange={(e) =>
+                    setCustomFields((p) =>
+                      p.map((x) => (x.id === f.id ? { ...x, value: e.target.value } : x))
+                    )
+                  }
+                  placeholder="Value"
+                  className="flex-1 min-w-0"
+                />
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  setCustomFields((p) =>
+                    p.map((x) =>
+                      x.id === f.id
+                        ? { ...x, type: x.type === "hidden" ? "text" : "hidden" }
+                        : x
+                    )
+                  )
+                }
+                className={`shrink-0 h-9 px-2.5 flex items-center gap-1.5 rounded-xl border text-[11px] font-medium transition-all cursor-pointer ${
+                  f.type === "hidden"
+                    ? "bg-[var(--accent)] text-[#09090b] border-[var(--accent)] font-semibold shadow-sm"
+                    : "bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--border)] hover:text-[var(--fg)]"
+                }`}
+                title={f.type === "hidden" ? "Secret field" : "Text field"}
+              >
+                {f.type === "hidden" ? (
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span>{f.type === "hidden" ? "Secret" : "Text"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomFields((p) => p.filter((x) => x.id !== f.id))}
+                className="shrink-0 w-8 h-9 flex items-center justify-center rounded-xl text-[var(--fg-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : showEmptyState ? (
+        <div className="p-3 text-center rounded-lg border border-dashed border-[var(--border)] text-[11px] text-[var(--fg-muted)]">
+          No custom fields configured.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function cleanExpiryMonth(mVal: any): string {
   if (!mVal) return "";
   const str = String(mVal).trim();
@@ -1147,33 +1253,11 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder="Optional private notes…" rows={2} className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-[var(--fg)] placeholder-[var(--fg-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none" />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <FieldLabel>Custom Fields</FieldLabel>
-                <button type="button" onClick={addCustomField} className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] hover:underline cursor-pointer">
-                  <Plus className="w-3 h-3" /> Add field
-                </button>
-              </div>
-              {customFields.length > 0 && (
-                <div className="space-y-2">
-                  {customFields.map(f => (
-                    <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Field Label" className="flex-1 min-w-0" />
-                      {f.type === "hidden" ? (
-                        <SecretInput value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" className="flex-1 min-w-0" />
-                      ) : (
-                        <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" className="flex-1 min-w-0" />
-                      )}
-                      <button type="button" onClick={() => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, type: x.type === "hidden" ? "text" : "hidden" } : x))} className={`shrink-0 h-9 px-2.5 flex items-center gap-1.5 rounded-xl border text-[11px] font-medium transition-all cursor-pointer ${f.type === "hidden" ? "bg-[var(--accent)] text-[#09090b] border-[var(--accent)] font-semibold shadow-sm" : "bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--border)] hover:text-[var(--fg)]"}`} title={f.type === "hidden" ? "Secret field" : "Text field"}>
-                        {f.type === "hidden" ? <Lock className="w-3.5 h-3.5 shrink-0" /> : <FileText className="w-3.5 h-3.5 shrink-0" />}
-                        <span>{f.type === "hidden" ? "Secret" : "Text"}</span>
-                      </button>
-                      <button type="button" onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-8 h-9 flex items-center justify-center rounded-xl text-[var(--fg-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CustomFieldsSection
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+              onAdd={addCustomField}
+            />
           </div>
         </div>
       );
@@ -1272,25 +1356,11 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder="Optional private notes…" rows={2} className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-[var(--fg)] placeholder-[var(--fg-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none" />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <FieldLabel>Custom Fields</FieldLabel>
-                <button type="button" onClick={addCustomField} className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] hover:underline cursor-pointer">
-                  <Plus className="w-3 h-3" /> Add field
-                </button>
-              </div>
-              {customFields.length > 0 && (
-                <div className="space-y-2">
-                  {customFields.map(f => (
-                    <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" style={{ width: "30%", minWidth: "90px" }} className="shrink-0" />
-                      <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" className="flex-1 min-w-0" />
-                      <button type="button" onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CustomFieldsSection
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+              onAdd={addCustomField}
+            />
           </div>
         </div>
       );
@@ -1316,25 +1386,11 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder="Optional private notes…" rows={2} className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-[var(--fg)] placeholder-[var(--fg-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none" />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <FieldLabel>Custom Fields</FieldLabel>
-                <button type="button" onClick={addCustomField} className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] hover:underline cursor-pointer">
-                  <Plus className="w-3 h-3" /> Add field
-                </button>
-              </div>
-              {customFields.length > 0 && (
-                <div className="space-y-2">
-                  {customFields.map(f => (
-                    <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" style={{ width: "30%", minWidth: "90px" }} className="shrink-0" />
-                      <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" className="flex-1 min-w-0" />
-                      <button type="button" onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CustomFieldsSection
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+              onAdd={addCustomField}
+            />
           </div>
         </div>
       );
@@ -1359,25 +1415,11 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder="Optional private notes…" rows={2} className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-[var(--fg)] placeholder-[var(--fg-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none" />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <FieldLabel>Custom Fields</FieldLabel>
-                <button type="button" onClick={addCustomField} className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] hover:underline cursor-pointer">
-                  <Plus className="w-3 h-3" /> Add field
-                </button>
-              </div>
-              {customFields.length > 0 && (
-                <div className="space-y-2">
-                  {customFields.map(f => (
-                    <div key={f.id} className="flex gap-2 items-center">
-                      <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" style={{ width: "30%", minWidth: "90px" }} className="shrink-0" />
-                      <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" className="flex-1 min-w-0" />
-                      <button type="button" onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CustomFieldsSection
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+              onAdd={addCustomField}
+            />
           </div>
         </div>
       );
@@ -1389,6 +1431,14 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
           <div>
             <div className="flex items-center justify-between mb-1.5"><FieldLabel>Secure Note</FieldLabel><span className="text-[10px] text-[var(--fg-muted)] tabular-nums">{note.length} chars</span></div>
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Secure note…" rows={12} className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-[13px] text-[var(--fg)] placeholder-[var(--fg-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none font-mono" />
+          </div>
+
+          <div className="pt-4 border-t border-[var(--border)] space-y-4">
+            <CustomFieldsSection
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+              onAdd={addCustomField}
+            />
           </div>
         </div>
       );
@@ -1956,30 +2006,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                   )}
 
                   {/* Custom Fields */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <FieldLabel>Custom Fields</FieldLabel>
-                      <button onClick={addCustomField} className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] hover:underline cursor-pointer">
-                        <Plus className="w-3 h-3" /> Add field
-                      </button>
-                    </div>
-                    
-                    {customFields.length > 0 ? (
-                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                        {customFields.map(f => (
-                          <div key={f.id} className="flex gap-2 items-center">
-                            <Input value={f.key} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, key: e.target.value } : x))} placeholder="Label" style={{ width: "30%", minWidth: "90px" }} className="shrink-0" />
-                            <Input value={f.value} onChange={e => setCustomFields(p => p.map(x => x.id === f.id ? { ...x, value: e.target.value } : x))} placeholder="Value" type="password" className="flex-1 min-w-0" />
-                            <button onClick={() => setCustomFields(p => p.filter(x => x.id !== f.id))} className="shrink-0 w-7 h-8 flex items-center justify-center text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-3 text-center rounded-lg border border-dashed border-[var(--border)] text-[11px] text-[var(--fg-muted)]">
-                        No custom fields configured.
-                      </div>
-                    )}
-                  </div>
+                  <CustomFieldsSection
+                    customFields={customFields}
+                    setCustomFields={setCustomFields}
+                    onAdd={addCustomField}
+                    scrollable
+                    showEmptyState
+                  />
 
                   {/* Metadata (Folder / Tags) */}
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--border)]">
