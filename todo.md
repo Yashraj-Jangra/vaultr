@@ -22,6 +22,7 @@
 - Implemented Pointer Events gesture tracker in `DetailedCardVisual`:
   - 1:1 real-time drag tracking with `touch-pan-y` allowing smooth modal scrolling while capturing horizontal swipes.
   - Directional continuous rotation with Apple-like spring cubic-bezier transition (`cubic-bezier(0.16, 1, 0.3, 1)`).
+  - Aligned animation directions so swiping left flips left and swiping right flips right across both Mobile and Web.
   - Tap-to-flip and flip button pill below card.
 - Wired `cvv` and `isNumberVisible` props through `CreditCardGraphic` in `src/app/vault/page.tsx` and `DynamicPreviewCanvas` in `src/components/vault/NewEntryDialog.tsx`.
 

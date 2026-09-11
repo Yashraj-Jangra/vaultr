@@ -420,11 +420,11 @@ export function DetailedCardVisual({
     if (Math.abs(dx) < 6 && dt < 300) {
       setRotationAngle((prev) => (currentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180));
     } else if (Math.abs(velocity) > 0.35 || Math.abs(dx) > 40) {
-      // Swiping momentum: left rotates forward (+180), right rotates backward (-180)
+      // Swiping momentum: left rotates left (-180), right rotates right (+180)
       if (dx < 0) {
-        setRotationAngle(startAngleRef.current + 180);
-      } else {
         setRotationAngle(startAngleRef.current - 180);
+      } else {
+        setRotationAngle(startAngleRef.current + 180);
       }
     } else {
       // Snap back to starting angle
@@ -446,7 +446,7 @@ export function DetailedCardVisual({
     } catch {}
   };
 
-  const liveAngle = isDragging ? startAngleRef.current - (dragDelta / 220) * 180 : rotationAngle;
+  const liveAngle = isDragging ? startAngleRef.current + (dragDelta / 220) * 180 : rotationAngle;
   const tiltX = isDragging ? Math.max(-8, Math.min(8, (dragDelta / 220) * 4)) : 0;
   const norm = Math.abs(rotationAngle % 360);
   const isFlipped = norm > 90 && norm < 270;

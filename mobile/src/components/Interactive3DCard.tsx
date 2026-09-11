@@ -177,7 +177,7 @@ export function Interactive3DCard({
 
         // Map horizontal translation to 3D rotation angle
         const dragFraction = e.translationX / (dimensions.width * 0.75);
-        flipRotation.value = startRotation.value - dragFraction * 180;
+        flipRotation.value = startRotation.value + dragFraction * 180;
       })
       .onEnd((e) => {
         "worklet";
@@ -205,11 +205,14 @@ export function Interactive3DCard({
         let targetAngle: number;
         let nextState: boolean;
 
+        // Swiping right: e.translationX > 0 or e.velocityX > 350 -> delta > 0 (turns right)
+        // Swiping left: e.translationX < 0 or e.velocityX < -350 -> delta < 0 (turns left)
+        const isTurningRight = delta > 0 || e.velocityX > 350;
+
         if (!isFlippedShared.value) {
           // Front face resting (0°)
           if (willFlip) {
-            const goPositive = delta > 0 || e.velocityX < -350;
-            targetAngle = goPositive ? 180 : -180;
+            targetAngle = isTurningRight ? 180 : -180;
             nextState = true;
           } else {
             targetAngle = 0;
@@ -218,8 +221,11 @@ export function Interactive3DCard({
         } else {
           // Back face resting (~180° or ~-180°)
           if (willFlip) {
-            const goPositive = delta > 0 || e.velocityX < -350;
-            targetAngle = goPositive ? 360 : 0;
+            if (startRotation.value >= 0) {
+              targetAngle = isTurningRight ? 360 : 0;
+            } else {
+              targetAngle = isTurningRight ? 0 : -360;
+            }
             nextState = false;
           } else {
             targetAngle = startRotation.value;
@@ -229,7 +235,7 @@ export function Interactive3DCard({
 
         isFlippedShared.value = nextState;
 
-        const initialVelocity = Math.max(-25, Math.min(25, -e.velocityX / 35));
+        const initialVelocity = Math.max(-25, Math.min(25, e.velocityX / 35));
         flipRotation.value = withSpring(
           targetAngle,
           {
