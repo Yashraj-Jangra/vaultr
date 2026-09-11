@@ -76,75 +76,31 @@ function useClipboard(): { copied: boolean; copy: (v: string) => void } {
   return { copied, copy };
 }
 
-// ── Rich Colorized Character Display ──────────────────────────────────────────
+import { CipherScrambleText } from "@/components/ui/CipherScrambleText";
+
+// ── Rich Colorized Character Display with Cipher Scramble ─────────────────────
 
 function ColorizedOutput({
   value,
   mode,
   size,
+  animate = true,
+  triggerKey,
 }: {
   value: string;
   mode: GeneratorMode;
   size?: "sm" | "md" | "lg";
+  animate?: boolean;
+  triggerKey?: string | number;
 }) {
-  if (!value) return <span className="text-neutral-700 font-mono">—</span>;
-
-  if (mode === "pin") {
-    return (
-      <span
-        className={`font-mono font-bold tracking-[0.22em] text-amber-400 select-all ${
-          size === "sm" ? "text-xs" : "text-xl sm:text-2xl"
-        }`}
-      >
-        {value}
-      </span>
-    );
-  }
-
-  if (mode === "passphrase") {
-    const words = value.split(/([\-\._\s])/);
-    return (
-      <span
-        className={`font-mono break-all select-all leading-relaxed ${
-          size === "sm" ? "text-xs" : "text-base sm:text-lg"
-        }`}
-      >
-        {words.map((chunk, i) => {
-          const isSep = /^[\-\._\s]$/.test(chunk);
-          if (isSep) {
-            return (
-              <span key={i} className="text-amber-400 font-bold px-0.5 select-none">
-                {chunk === " " ? "␣" : chunk}
-              </span>
-            );
-          }
-          return (
-            <span key={i} className="text-neutral-100 font-medium">
-              {chunk}
-            </span>
-          );
-        })}
-      </span>
-    );
-  }
-
-  // Random & Pattern
   return (
-    <span
-      className={`font-mono break-all select-all leading-relaxed tracking-wider ${
-        size === "sm" ? "text-xs" : "text-base sm:text-lg"
-      }`}
-    >
-      {value.split("").map((c, i) => {
-        const cls = classifyChar(c);
-        const style = CHAR_STYLE[cls];
-        return (
-          <span key={i} className={style.text}>
-            {c}
-          </span>
-        );
-      })}
-    </span>
+    <CipherScrambleText
+      value={value}
+      mode={mode}
+      size={size}
+      animate={animate}
+      triggerKey={triggerKey}
+    />
   );
 }
 
@@ -326,7 +282,7 @@ function HistoryRow({
         title={entry.strength.label}
       />
       <div className="flex-1 min-w-0">
-        <ColorizedOutput value={entry.value} mode={entry.mode as GeneratorMode} size="sm" />
+        <ColorizedOutput value={entry.value} mode={entry.mode as GeneratorMode} size="sm" animate={false} />
         <div className="flex items-center gap-2 mt-1">
           <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-mono">
             {entry.mode}
@@ -423,6 +379,8 @@ export default function GeneratorPage() {
   const [output,   setOutput]   = useState("");
   const [strength, setStrength] = useState<StrengthResult>({ score: 0, label: "", color: "", crackTime: "", entropy: 0 });
   const [history,  setHistory]  = useState<HistoryEntry[]>([]);
+  const [triggerKey, setTriggerKey] = useState(0);
+  const [isSpinning, setIsSpinning] = useState(false);
   const uidRef = useRef(0);
 
   // Vault Integration Dialog State
@@ -430,6 +388,10 @@ export default function GeneratorPage() {
   const [targetPassword, setTargetPassword] = useState("");
 
   const generate = useCallback(() => {
+    setTriggerKey((k) => k + 1);
+    setIsSpinning(true);
+    setTimeout(() => setIsSpinning(false), 500);
+
     let pw = "";
     switch (mode) {
       case "random":     pw = generateRandom(randOpts);   break;
@@ -446,6 +408,22 @@ export default function GeneratorPage() {
       ...prev.slice(0, 19),
     ]);
   }, [mode, randOpts, ppOpts, pinOpts, patOpts]);
+
+  // Keyboard shortcut: Cmd+G or Ctrl+G to regenerate
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "g") {
+        const target = e.target as HTMLElement | null;
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+          return;
+        }
+        e.preventDefault();
+        generate();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [generate]);
 
   // Re-generate on options change
   useEffect(() => {
@@ -536,7 +514,7 @@ export default function GeneratorPage() {
               <div className="p-4 sm:p-5 space-y-3">
                 <div className="flex items-start gap-3 min-h-[52px]">
                   <div className="flex-1 min-w-0 select-all cursor-text">
-                    <ColorizedOutput value={output} mode={mode} size="md" />
+                    <ColorizedOutput value={output} mode={mode} size="md" triggerKey={triggerKey} />
                   </div>
                   
                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
@@ -563,10 +541,16 @@ export default function GeneratorPage() {
                     <button
                       type="button"
                       onClick={generate}
-                      title="Generate new password"
-                      className="p-2 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg transition-colors cursor-pointer"
+                      title="Generate new password (Cmd+G)"
+                      className="p-2 text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg transition-colors cursor-pointer active:scale-95"
                     >
-                      <RefreshCw className="w-4 h-4" />
+                      <RefreshCw
+                        className="w-4 h-4 text-emerald-400"
+                        style={{
+                          transform: isSpinning ? "rotate(360deg)" : "rotate(0deg)",
+                          transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                        }}
+                      />
                     </button>
                   </div>
                 </div>
