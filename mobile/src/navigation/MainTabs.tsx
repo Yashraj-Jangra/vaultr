@@ -176,49 +176,55 @@ export function MainTabs() {
   const { isTablet } = useResponsive();
 
   return (
-    <Tab.Navigator
-      tabBar={(props) => (isTablet ? <TabletTabBar {...props} /> : <MobileTabBar {...props} />)}
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: {
-          backgroundColor: colors.bg,
-          marginLeft: isTablet ? TABLET_RAIL_WIDTH : 0,
-        },
-      }}
-    >
-      <Tab.Screen
-        name="VaultTab"
-        component={VaultListScreen}
-        options={{
-          tabBarLabel: "Vault",
+    <View style={styles.rootDeckContainer}>
+      <Tab.Navigator
+        tabBar={(props) => (isTablet ? <TabletTabBar {...props} /> : <MobileTabBar {...props} />)}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: {
+            backgroundColor: colors.bg,
+            marginLeft: isTablet ? TABLET_RAIL_WIDTH : 0,
+          },
         }}
-      />
-      <Tab.Screen
-        name="GeneratorTab"
-        component={GeneratorScreen}
-        options={{
-          tabBarLabel: "Generator",
-        }}
-      />
-      <Tab.Screen
-        name="AuthenticatorTab"
-        component={AuthenticatorScreen}
-        options={{
-          tabBarLabel: "2FA",
-        }}
-      />
-      <Tab.Screen
-        name="SettingsTab"
-        component={SettingsScreen}
-        options={{
-          tabBarLabel: "Settings",
-        }}
-      />
-    </Tab.Navigator>
+      >
+          <Tab.Screen
+            name="VaultTab"
+            component={VaultListScreen}
+            options={{
+              tabBarLabel: "Vault",
+            }}
+          />
+          <Tab.Screen
+            name="GeneratorTab"
+            component={GeneratorScreen}
+            options={{
+              tabBarLabel: "Generator",
+            }}
+          />
+          <Tab.Screen
+            name="AuthenticatorTab"
+            component={AuthenticatorScreen}
+            options={{
+              tabBarLabel: "2FA",
+            }}
+          />
+          <Tab.Screen
+            name="SettingsTab"
+            component={SettingsScreen}
+            options={{
+              tabBarLabel: "Settings",
+            }}
+          />
+        </Tab.Navigator>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rootDeckContainer: {
+    flex: 1,
+    backgroundColor: "#000000",
+  },
   // Tablet Left Navigation Rail
   tabletRail: {
     position: "absolute",

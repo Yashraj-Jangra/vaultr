@@ -18,6 +18,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+  FadeInUp,
+  FadeOut,
+} from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -25,6 +35,7 @@ import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { TotpCode } from "../components/TotpCode";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard } from "../components/ItemPreviewCard";
+import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
 import { detectCardBrand } from "@vaultr/core";
 import { useResponsive } from "../utils/responsive";
 import {
@@ -863,97 +874,223 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <PredictiveBackWrapper
+      navigation={navigation}
+      onBack={() => {
+        if (isDirty) {
+          // Return true = intercepted: show alert, the wrapper springs card back to identity.
+          vaultAlert.alert(
+            "Unsaved Changes",
+            "You have unsaved edits on this note. Are you sure you want to discard them?",
+            [
+              { text: "Keep Editing", style: "cancel" },
+              { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+            ],
+            { illustration: "throw-away_k2t5" }
+          );
+          return true;
+        }
+        // Return false/undefined: let the wrapper do the non-animated pop.
+      }}
+    >
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
-      {/* Nav Header */}
-      <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (isDirty) {
-              vaultAlert.alert(
-                "Unsaved Changes",
-                "You have unsaved edits on this note. Are you sure you want to discard them?",
-                [
-                  { text: "Keep Editing", style: "cancel" },
-                  { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
-                ],
-                { illustration: "throw-away_k2t5" }
-              );
-            } else {
-              navigation.goBack();
-            }
-          }}
-        >
-          <ArrowLeft size={20} color={colors.text} />
-        </TouchableOpacity>
-
-        <Text style={styles.navTitle} numberOfLines={1}>
-          {item.name}
-        </Text>
-
-        <View style={styles.navRight}>
-          {isDirty ? (
-            <TouchableOpacity
-              style={[styles.saveNavBtn, isSavingNote && { opacity: 0.7 }]}
-              onPress={handleSaveNote}
-              disabled={isSavingNote}
-              activeOpacity={0.8}
-            >
-              {isSavingNote ? (
-                <ActivityIndicator size="small" color="#09090b" />
-              ) : (
-                <Text style={styles.saveNavBtnText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.navActionBtn}
-              onPress={handleEdit}
-            >
-              <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
-            </TouchableOpacity>
-          )}
-
+        {/* Nav Header */}
+        <View style={styles.navBar}>
           <TouchableOpacity
-            style={styles.navActionBtn}
-            onPress={handleToggleFavorite}
+            style={styles.backBtn}
+            onPress={() => {
+              if (isDirty) {
+                vaultAlert.alert(
+                  "Unsaved Changes",
+                  "You have unsaved edits on this note. Are you sure you want to discard them?",
+                  [
+                    { text: "Keep Editing", style: "cancel" },
+                    { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+                  ],
+                  { illustration: "throw-away_k2t5" }
+                );
+              } else {
+                navigation.goBack();
+              }
+            }}
           >
-            <Star
-              size={20}
-              color={item.favorite ? colors.warning : colors.textMuted}
-              fill={item.favorite ? colors.warning : "transparent"}
+            <ArrowLeft size={20} color={colors.text} />
+          </TouchableOpacity>
+
+          <Text style={styles.navTitle} numberOfLines={1}>
+            {item.name}
+          </Text>
+
+          <View style={styles.navRight}>
+            {isDirty ? (
+              <TouchableOpacity
+                style={[styles.saveNavBtn, isSavingNote && { opacity: 0.7 }]}
+                onPress={handleSaveNote}
+                disabled={isSavingNote}
+                activeOpacity={0.8}
+              >
+                {isSavingNote ? (
+                  <ActivityIndicator size="small" color="#09090b" />
+                ) : (
+                  <Text style={styles.saveNavBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.navActionBtn}
+                onPress={handleEdit}
+              >
+                <Edit2 size={20} color={isOnline ? colors.accent : colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            <AnimatedFavoriteButton
+              isFavorite={!!item.favorite}
+              onPress={handleToggleFavorite}
             />
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
-            <Trash2 size={20} color={isOnline ? colors.danger : colors.textMuted} />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.trashNavBtn} onPress={handleMoveToTrash}>
+              <Trash2 size={20} color={isOnline ? colors.danger : colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator color={colors.accent} size="large" />
-          <Text style={styles.loadingText}>Decrypting payload...</Text>
-        </View>
-      ) : isSplitView && !isNoteTemplate ? (
-        <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={styles.splitLeftCol}>
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.loadingText}>Decrypting payload...</Text>
+          </View>
+        ) : isSplitView && !isNoteTemplate ? (
+          <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={styles.splitLeftCol}>
+              {renderVisualPreviewAndHeader()}
+            </View>
+            <View style={styles.splitRightCol}>
+              {renderDetailSections()}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {renderVisualPreviewAndHeader()}
-          </View>
-          <View style={styles.splitRightCol}>
             {renderDetailSections()}
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {renderVisualPreviewAndHeader()}
-          {renderDetailSections()}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+          </ScrollView>
+        )}
+
+        {/* Floating Copied Pill */}
+        {copiedField ? (
+          <Animated.View
+            entering={FadeInUp.duration(180)}
+            exiting={FadeOut.duration(140)}
+            style={styles.floatingCopiedPill}
+          >
+            <Check size={13} color="#10b981" strokeWidth={2.5} />
+            <Text style={styles.floatingCopiedText}>Copied to clipboard</Text>
+          </Animated.View>
+        ) : null}
+      </SafeAreaView>
+    </PredictiveBackWrapper>
+  );
+}
+
+function AnimatedFavoriteButton({
+  isFavorite,
+  onPress,
+}: {
+  isFavorite: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const glowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  const handlePress = () => {
+    // Magnetic click: tactile compression -> crisp micro-pop overshoot -> settles precisely at 1.0
+    scale.value = withSequence(
+      withTiming(0.84, { duration: 70, easing: Easing.out(Easing.quad) }),
+      withSpring(1.15, { damping: 20, stiffness: 420 }),
+      withSpring(1.0, { damping: 18, stiffness: 320 })
+    );
+    // Subtle amber ambient bloom behind icon
+    glowOpacity.value = withSequence(
+      withTiming(0.65, { duration: 60 }),
+      withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) })
+    );
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.navActionBtn}
+      onPress={handlePress}
+      activeOpacity={0.85}
+    >
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: "rgba(234, 179, 8, 0.22)",
+            },
+            glowAnimatedStyle,
+          ]}
+          pointerEvents="none"
+        />
+        <Animated.View style={animatedStyle}>
+          <Star
+            size={20}
+            color={isFavorite ? colors.warning : colors.textMuted}
+            fill={isFavorite ? colors.warning : "transparent"}
+          />
+        </Animated.View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function AnimatedCopyButton({
+  isCopied,
+  onPress,
+}: {
+  isCopied: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    // Physical ink stamp: quick press-in, then instant damped return to exactly 1.0 (no bounce/float)
+    scale.value = withSequence(
+      withTiming(0.82, { duration: 65, easing: Easing.out(Easing.quad) }),
+      withSpring(1.0, { damping: 22, stiffness: 380 })
+    );
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity style={styles.actionBtn} onPress={handlePress} activeOpacity={0.85}>
+      <Animated.View style={animatedStyle}>
+        {isCopied ? (
+          <Check size={18} color={colors.success} />
+        ) : (
+          <Copy size={18} color={colors.textMuted} />
+        )}
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -1001,13 +1138,7 @@ function FieldRow({
             )}
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.actionBtn} onPress={onCopy}>
-          {isCopied ? (
-            <Check size={18} color={colors.success} />
-          ) : (
-            <Copy size={18} color={colors.textMuted} />
-          )}
-        </TouchableOpacity>
+        <AnimatedCopyButton isCopied={isCopied} onPress={onCopy} />
       </View>
     </View>
   );
@@ -1030,7 +1161,11 @@ function PasswordHistoryButton({ history, onCopy, copiedField }: { history: stri
       </TouchableOpacity>
 
       {expanded && (
-        <View style={styles.historyBox}>
+        <Animated.View
+          entering={FadeInUp.duration(160)}
+          exiting={FadeOut.duration(120)}
+          style={styles.historyBox}
+        >
           {history.map((prevPw, idx) => {
             const isRevealed = revealedIdx === idx;
             return (
@@ -1063,7 +1198,7 @@ function PasswordHistoryButton({ history, onCopy, copiedField }: { history: stri
               </View>
             );
           })}
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -1424,6 +1559,31 @@ const styles = StyleSheet.create({
   footerNoteText: {
     fontSize: 11,
     color: colors.textDim,
+  },
+  floatingCopiedPill: {
+    position: "absolute",
+    bottom: 28,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 999,
+  },
+  floatingCopiedText: {
+    color: "#fafafa",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 

@@ -20,6 +20,7 @@ import { useVaultStore } from "../store/vaultStore";
 import { Template } from "@vaultr/core";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard, detectCardBrand } from "../components/ItemPreviewCard";
+import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
 import { useResponsive } from "../utils/responsive";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -1287,62 +1288,64 @@ export function ItemFormScreen({ route, navigation }: Props) {
     );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <PredictiveBackWrapper navigation={navigation}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => navigation.goBack()}
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => navigation.goBack()}
+          >
+            <X size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {isEdit ? "Edit Entry" : "New Entry"}
+          </Text>
+          <TouchableOpacity
+            style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={!name.trim() || saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#09090b" />
+            ) : (
+              <Save size={18} color="#09090b" />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <X size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isEdit ? "Edit Entry" : "New Entry"}
-        </Text>
-        <TouchableOpacity
-          style={[styles.saveBtn, (!name.trim() || saving) && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={!name.trim() || saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#09090b" />
+          {isSplitView ? (
+            <ScrollView
+              contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.splitLeftCol}>
+                {renderLeftPane()}
+              </View>
+              <View style={styles.splitRightCol}>
+                {renderFormFields()}
+              </View>
+            </ScrollView>
           ) : (
-            <Save size={18} color="#09090b" />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        {isSplitView ? (
-          <ScrollView
-            contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.splitLeftCol}>
+            <ScrollView
+              contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               {renderLeftPane()}
-            </View>
-            <View style={styles.splitRightCol}>
               {renderFormFields()}
-            </View>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {renderLeftPane()}
-            {renderFormFields()}
-          </ScrollView>
-        )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </PredictiveBackWrapper>
   );
 }
 

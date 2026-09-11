@@ -29,6 +29,9 @@ import {
   Plus,
 } from "lucide-react-native";
 import { Illustration } from "../components/Illustration";
+import { AnimatedListItem } from "../components/AnimatedListItem";
+import { PressableScale } from "../components/PressableScale";
+import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
 
 type Props = {
   navigation: any;
@@ -157,7 +160,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
     });
   }, [activeItems, searchQuery, filterType, filterFolder, filterFavorite]);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item, index }: { item: any; index: number }) => {
     const template = item.template || "login";
     const subLine =
       template === "login" ? (item.domain || "Login credential") :
@@ -169,61 +172,64 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
     const folderName = item.folder ? item.folder.split("/").pop() : null;
 
     return (
-      <TouchableOpacity
-        style={styles.itemCard}
-        onPress={() => navigation.navigate("ItemDetail", { item })}
-        activeOpacity={0.7}
-      >
-        <View style={styles.itemIconWrap}>
-          <ItemIconBadge item={item} />
-        </View>
-
-        <View style={styles.itemContent}>
-          <View style={styles.itemTopRow}>
-            <Text style={styles.itemName} numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.hasTotp && (
-              <View style={styles.totpBadge}>
-                <KeyRound size={9} color="#a78bfa" />
-                <Text style={styles.totpBadgeText}>2FA</Text>
-              </View>
-            )}
+      <AnimatedListItem index={index}>
+        <TouchableOpacity
+          style={styles.itemCard}
+          onPress={() => navigation.navigate("ItemDetail", { item })}
+          activeOpacity={0.7}
+        >
+          <View style={styles.itemIconWrap}>
+            <ItemIconBadge item={item} />
           </View>
 
-          <View style={styles.itemSubRow}>
-            <Text style={styles.itemSubLine} numberOfLines={1}>
-              {subLine}
-            </Text>
-            {folderName && !filterFolder ? (
-              <View style={styles.folderTag}>
-                <Folder size={9} color="#71717a" style={{ marginRight: 3 }} />
-                <Text style={styles.folderTagText}>{folderName}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
+          <View style={styles.itemContent}>
+            <View style={styles.itemTopRow}>
+              <Text style={styles.itemName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              {item.hasTotp && (
+                <View style={styles.totpBadge}>
+                  <KeyRound size={9} color="#a78bfa" />
+                  <Text style={styles.totpBadgeText}>2FA</Text>
+                </View>
+              )}
+            </View>
 
-        <View style={styles.itemRightWrap}>
-          <TouchableOpacity
-            onPress={() => toggleFavorite(item.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Star
-              size={14}
-              color={item.favorite ? "#fbbf24" : "#3f3f46"}
-              fill={item.favorite ? "#fbbf24" : "none"}
-            />
-          </TouchableOpacity>
-          <ChevronRight size={14} color="#3f3f46" />
-        </View>
-      </TouchableOpacity>
+            <View style={styles.itemSubRow}>
+              <Text style={styles.itemSubLine} numberOfLines={1}>
+                {subLine}
+              </Text>
+              {folderName && !filterFolder ? (
+                <View style={styles.folderTag}>
+                  <Folder size={9} color="#71717a" style={{ marginRight: 3 }} />
+                  <Text style={styles.folderTagText}>{folderName}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.itemRightWrap}>
+            <TouchableOpacity
+              onPress={() => toggleFavorite(item.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Star
+                size={14}
+                color={item.favorite ? "#fbbf24" : "#3f3f46"}
+                fill={item.favorite ? "#fbbf24" : "none"}
+              />
+            </TouchableOpacity>
+            <ChevronRight size={14} color="#3f3f46" />
+          </View>
+        </TouchableOpacity>
+      </AnimatedListItem>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#09090b" />
+    <PredictiveBackWrapper navigation={navigation} mode="folder">
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -355,14 +361,15 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
       />
 
       {/* Floating Add Button */}
-      <TouchableOpacity
+      <PressableScale
         style={styles.fab}
         onPress={handleAddItem}
-        activeOpacity={0.85}
+        scaleTo={0.92}
       >
         <Plus size={24} color="#09090b" strokeWidth={2.4} />
-      </TouchableOpacity>
-    </SafeAreaView>
+      </PressableScale>
+      </SafeAreaView>
+    </PredictiveBackWrapper>
   );
 }
 

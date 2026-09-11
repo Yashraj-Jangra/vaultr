@@ -22,6 +22,7 @@ import { useVaultStore } from "../../store/vaultStore";
 import { vaultAlert } from "../../store/alertStore";
 import { Illustration } from "../../components/Illustration";
 import { colors } from "../../theme/colors";
+import { PredictiveBackWrapper } from "../../components/PredictiveBackWrapper";
 import {
   Folder,
   ArrowLeft,
@@ -209,9 +210,27 @@ export function FolderManagerScreen({ navigation }: any) {
     }
   };
 
+  const handleBack = () => {
+    if (showCreateModal) {
+      setShowCreateModal(false);
+      return true; // intercepted
+    }
+    if (renameTarget) {
+      setRenameTarget(null);
+      return true; // intercepted
+    }
+    if (deleteTarget) {
+      setDeleteTarget(null);
+      return true; // intercepted
+    }
+    // No modal open — let the wrapper handle the non-animated pop
+    return false;
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <PredictiveBackWrapper navigation={navigation} onBack={handleBack} mode="folder">
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       {/* Nav Bar */}
       <View style={styles.navBar}>
@@ -541,7 +560,8 @@ export function FolderManagerScreen({ navigation }: any) {
         </View>
       </ReanimatedModal>
     </SafeAreaView>
-  );
+  </PredictiveBackWrapper>
+);
 }
 
 function ReanimatedModal({
