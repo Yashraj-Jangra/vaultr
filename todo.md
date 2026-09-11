@@ -1,4 +1,34 @@
-## Current Session: Remove Redundant Card Network from Detail Views (Issue #4) (2026-09-11) · Branch: `dev`
+## Current Session: Dynamic Rotating "Other" Card Network Names (Issue #7) (2026-09-11) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Dynamic Rotating Random Names for "Other" Card Network (Web & Mobile)
+- **Core Package (`packages/core/src/types.ts`)**:
+  - Exported canonical `DEFAULT_CARD_EASTER_EGGS` matching the site's default list:
+    `["NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD", "UH-OH", "MYSTERYCARD", "GUESSWORK", "WHATEVERCARD", "ANXIETY EXPRESS", "ALIEN EXPRESS"]`.
+  - Added `fallbackBrand?: string;` to `DecryptedCardPayload`.
+  - Implemented `getRandomEggIndex(currentIndex: number | null, count: number): number` helper guaranteeing that whenever "Other" is re-selected from the dropdown, it selects a different random egg without colliding with the current egg name.
+- **Site Configuration (`src/lib/site-config.ts`)**:
+  - Replaced hardcoded array with `DEFAULT_CARD_EASTER_EGGS` from `@vaultr/core`.
+- **Web App (`src/components/vault/NewEntryDialog.tsx`, `src/app/vault/page.tsx`)**:
+  - Updated both Split and Bento layout `Select` network controls to call `getRandomEggIndex(prev, eggs.length)` on "Other" selection.
+  - Initialized `fallbackIndex` from `initialData?.payload?.fallbackBrand` on edit load.
+  - Persisted `fallbackBrand` in decrypted payload on save when `effectiveBrand === "Other"`.
+  - Passed `fallbackBrand` to `DetailedCardVisual` in `src/app/vault/page.tsx` for saved cards in vault view.
+- **Mobile App (`mobile/src/store/vaultStore.ts`, `mobile/src/screens/ItemFormScreen.tsx`, `mobile/src/screens/ItemDetailScreen.tsx`)**:
+  - Added `fetchSiteConfig` and `cardEasterEggs` to `useVaultStore`, dynamically fetching `/api/config/site` from the connected server (with `DEFAULT_CARD_EASTER_EGGS` fallback).
+  - Wired `ItemFormScreen` to use fetched `cardEasterEggs` and `getRandomEggIndex` whenever "Other" is selected in the network picker.
+  - Initialized `fallbackIndex` from `payload.fallbackBrand` when editing existing cards.
+  - Persisted `fallbackBrand` in `unencryptedPayload` when saving "Other" cards.
+  - Passed `fallbackBrand` to `ItemPreviewCard` in `ItemDetailScreen.tsx`.
+
+### 📋 What's Planned Next
+- Work on Issue #5: Swipe gesture to flip credit cards.
+- Test and verify across platforms.
+
+---
+
+## Previous Session: Remove Redundant Card Network from Detail Views (Issue #4) (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 

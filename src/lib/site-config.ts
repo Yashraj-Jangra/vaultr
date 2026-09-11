@@ -1,6 +1,8 @@
 // Site configuration stored in PostgreSQL under config_site
 // Admin can update these values from the admin panel
 
+import { DEFAULT_CARD_EASTER_EGGS } from "@vaultr/core";
+
 export interface SiteConfig {
   name: string;          // "_vaultr"
   tagline: string;       // "Zero-knowledge password manager"
@@ -36,8 +38,5 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     { prefix: "6521", brand: "RuPay" },
     { prefix: "81", brand: "RuPay" }
   ],
-  cardEasterEggs: [
-    "NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD", "UH-OH",
-    "MYSTERYCARD", "GUESSWORK", "WHATEVERCARD", "ANXIETY EXPRESS", "ALIEN EXPRESS"
-  ],
+  cardEasterEggs: DEFAULT_CARD_EASTER_EGGS,
 };

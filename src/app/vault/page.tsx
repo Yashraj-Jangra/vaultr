@@ -51,6 +51,7 @@ export interface DecryptedPayload {
   cvv?: string;
   pin?: string;
   cardBrand?: string;
+  fallbackBrand?: string;
   line1?: string;
   street?: string;
   line2?: string;
@@ -1072,6 +1073,7 @@ function CreditCardGraphic({ data, showCard }: { data: DecryptedPayload; showCar
         cardName={cardName}
         expiry={expiry}
         cardBrand={cardBrand}
+        fallbackBrand={data.fallbackBrand}
         isNumberVisible={showCard}
       />
     </div>

@@ -68,6 +68,7 @@ export interface DecryptedCardPayload {
   cardName?: string;
   cardNumber?: string;
   cardBrand?: string;
+  fallbackBrand?: string;
   expiry?: string;
   expMonth?: string;
   expYear?: string;
@@ -177,3 +178,25 @@ export function detectCardBrand(cardNumber: string): string {
   if (/^(6011|65|64[4-9]|622)/.test(clean)) return "Discover";
   return "";
 }
+
+/** Canonical default easter egg card names for "Other" network across Web and Mobile */
+export const DEFAULT_CARD_EASTER_EGGS: string[] = [
+  "NOPE", "BRUH", "OOPS", "VOID", "LMAO", "FAKECARD", "UH-OH",
+  "MYSTERYCARD", "GUESSWORK", "WHATEVERCARD", "ANXIETY EXPRESS", "ALIEN EXPRESS"
+];
+
+/**
+ * Returns a random easter egg index from the list, guaranteeing that if multiple
+ * eggs exist and a current index is provided, the returned random index is different
+ * from the previous one (i.e. changes to "some other random" on reselection).
+ */
+export function getRandomEggIndex(currentIndex: number | null, count: number): number {
+  if (count <= 1) return 0;
+  const safeCurrent = (currentIndex !== null && currentIndex >= 0) ? (currentIndex % count) : null;
+  if (safeCurrent === null) {
+    return Math.floor(Math.random() * count);
+  }
+  const offset = 1 + Math.floor(Math.random() * (count - 1));
+  return (safeCurrent + offset) % count;
+}
+

@@ -293,6 +293,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             expiry={payload?.expiry}
             cvv={payload?.cvv}
             cardBrand={payload?.cardBrand}
+            fallbackBrand={payload?.fallbackBrand}
             street={payload?.street || payload?.line1}
             line2={payload?.line2}
             city={payload?.city}

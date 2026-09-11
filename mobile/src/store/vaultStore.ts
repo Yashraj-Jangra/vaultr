@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, encryptBinary, decryptBinary, NewVaultItemPayload, Template } from "@vaultr/core";
+import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, encryptBinary, decryptBinary, NewVaultItemPayload, Template, DEFAULT_CARD_EASTER_EGGS } from "@vaultr/core";
 import { cacheVaultItems, getCachedVaultItems, clearCachedVaultItems } from "../services/sync";
 import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
@@ -32,9 +32,11 @@ interface VaultState {
   selectedFolder: string; // 'ALL', folder name
   selectedTemplate: string; // 'ALL', 'login', 'card', etc.
   customFolders: string[];
+  cardEasterEggs: string[];
 
   // Connectivity
   checkConnection: () => Promise<boolean>;
+  fetchSiteConfig: () => Promise<void>;
 
   // Attachments
   fetchAttachments: (vaultItemId: string) => Promise<Array<{ id: string; name: string; sizeBytes: number; mimeType: string; createdAt: string }>>;
@@ -166,13 +168,33 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   selectedFolder: "ALL",
   selectedTemplate: "ALL",
   customFolders: [],
+  cardEasterEggs: DEFAULT_CARD_EASTER_EGGS,
+
+  fetchSiteConfig: async () => {
+    try {
+      const { serverUrl } = get();
+      if (!serverUrl) return;
+      const cleanUrl = serverUrl.replace(/\/+$/, "");
+      const res = await fetch(`${cleanUrl}/api/config/site`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.config?.cardEasterEggs && Array.isArray(data.config.cardEasterEggs) && data.config.cardEasterEggs.length > 0) {
+        set({ cardEasterEggs: data.config.cardEasterEggs });
+      }
+    } catch {
+      // Keep defaults on network error
+    }
+  },
 
   checkConnection: async () => {
     const { serverUrl } = get();
     const online = await probeServerConnection(serverUrl);
     set({ isOnline: online });
-    if (online && get().isUnlocked) {
-      await get().fetchItems().catch(() => {});
+    if (online) {
+      get().fetchSiteConfig().catch(() => {});
+      if (get().isUnlocked) {
+        await get().fetchItems().catch(() => {});
+      }
     }
     return online;
   },
@@ -180,6 +202,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   initSession: async () => {
     const { token, user, serverUrl } = await getSavedAccountSession();
     if (serverUrl) set({ serverUrl });
+    get().fetchSiteConfig().catch(() => {});
     if (token && user) {
       let customFolders: string[] = [];
       try {
@@ -455,7 +478,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     });
   },
 
-  setServerUrl: async (serverUrl: string) => { set({ serverUrl }); },
+  setServerUrl: async (serverUrl: string) => {
+    set({ serverUrl });
+    get().fetchSiteConfig().catch(() => {});
+  },
   setSearchQuery: (searchQuery: string) => { set({ searchQuery }); },
   setSelectedFolder: (selectedFolder: string) => { set({ selectedFolder }); },
   setSelectedTemplate: (selectedTemplate: string) => { set({ selectedTemplate }); },
