@@ -1,4 +1,29 @@
-## Current Session: Unify Card Fields Into Single Division (2026-09-11) · Branch: `dev`
+## Current Session: Custom Field Type Toggle for All Templates (2026-09-11) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Added Custom Field Type Toggle (Text or Secret) to All Templates on Web App
+- **Scope**: Site only (`src/components/vault/NewEntryDialog.tsx`), with no modifications to mobile app.
+- **Implementation**:
+  - Extracted a reusable, accessible `CustomFieldsSection` component supporting dynamic type switching between `"text"` and `"hidden"`.
+  - Added the toggle button (`Lock` / `Secret` vs `FileText` / `Text`) with interactive active/surface styling.
+  - Automatically rendered `SecretInput` (with eye show/hide mask toggle) when field type is `"hidden"`, and standard `Input` when `"text"`.
+  - Replaced hardcoded password inputs and missing toggle controls across all templates:
+    - `template === "login"`: Refactored to use `CustomFieldsSection`.
+    - `template === "card"`: Replaced hardcoded password input with `CustomFieldsSection`.
+    - `template === "address"`: Replaced hardcoded password input with `CustomFieldsSection`.
+    - `template === "profile"`: Replaced hardcoded password input with `CustomFieldsSection`.
+    - `template === "note"`: Added `CustomFieldsSection` below Secure Note textarea.
+    - Bento layout (`renderBentoFields`): Replaced hardcoded password input with `CustomFieldsSection` (with `scrollable` and `showEmptyState` options).
+  - Verified `handleSave` correctly persists `type: f.type || "text"` across all templates and `DetailRow` masks hidden custom fields in the vault view.
+
+### 📋 What's Planned Next
+- Work on Issue #5: Swipe gesture to flip credit cards.
+- Test and verify across platforms.
+
+---
+
+## Previous Session: Unify Card Fields Into Single Division (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 
