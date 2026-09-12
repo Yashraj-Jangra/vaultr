@@ -574,22 +574,29 @@ function ReanimatedModal({
   children: React.ReactNode;
 }) {
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.93);
+  const scale = useSharedValue(0.96);
+  const translateY = useSharedValue(10);
+
+  const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
+  const CLOSE_EASING = Easing.bezier(0.2, 0, 0, 1);
 
   useEffect(() => {
     if (visible) {
-      opacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
-      scale.value = withSpring(1, { damping: 22, stiffness: 220 });
+      opacity.value = withTiming(1, { duration: 240, easing: OPEN_EASING });
+      scale.value = withTiming(1, { duration: 240, easing: OPEN_EASING });
+      translateY.value = withTiming(0, { duration: 240, easing: OPEN_EASING });
     } else {
-      opacity.value = withTiming(0, { duration: 140 });
-      scale.value = withTiming(0.93, { duration: 140 });
+      opacity.value = withTiming(0, { duration: 160, easing: CLOSE_EASING });
+      scale.value = withTiming(0.96, { duration: 160, easing: CLOSE_EASING });
+      translateY.value = withTiming(6, { duration: 160, easing: CLOSE_EASING });
     }
   }, [visible]);
 
   const handleDismiss = () => {
-    opacity.value = withTiming(0, { duration: 140 });
-    scale.value = withTiming(0.93, { duration: 140 });
-    setTimeout(onClose, 140);
+    opacity.value = withTiming(0, { duration: 160, easing: CLOSE_EASING });
+    scale.value = withTiming(0.96, { duration: 160, easing: CLOSE_EASING });
+    translateY.value = withTiming(6, { duration: 160, easing: CLOSE_EASING });
+    setTimeout(onClose, 160);
   };
 
   const backdropStyle = useAnimatedStyle(() => ({
@@ -598,7 +605,10 @@ function ReanimatedModal({
 
   const surfaceStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ scale: scale.value }],
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value },
+    ],
   }));
 
   if (!visible) return null;

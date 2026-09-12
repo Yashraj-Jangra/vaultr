@@ -31,6 +31,12 @@
 - **`mobile/src/components/PurgeConfirmModal.tsx`**:
   - Aligned button heights (48px), radius (14px), and color tokens with `CustomAlertOverlay`.
 
+#### 3. Buttery-Smooth Premium Modal Transitions (`CustomAlertOverlay`, `PurgeConfirmModal`, `FolderManagerScreen`, `FolderSelectModal`)
+- **Eliminated Spring Wobble & Disjointed Timings**:
+  - Replaced abrupt 140ms/200ms springs and mismatched opacity timers with Apple/Linear-grade cubic bezier curves.
+  - **Open**: `Easing.bezier(0.16, 1, 0.3, 1)` over 240ms with synchronized `opacity` (0 -> 1), tight `scale` (0.96 -> 1.0), and micro-float `translateY` (10 -> 0) for an elegant glide onto glass with zero bounce.
+  - **Close**: `Easing.bezier(0.2, 0, 0, 1)` over 160ms with smooth fade (`opacity` 1 -> 0), subtle scale down (0.96), and descent (6px) with zero jank or lag.
+
 ---
 
 ## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
