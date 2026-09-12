@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from "react";
-import { Lock, Globe, User, Shield, Sparkles, RefreshCw } from "lucide-react";
+import { Lock, Globe, User, RefreshCw } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 
 // ── Standard Card Network / Brand Detection ──────────────────────────────────
@@ -120,7 +120,7 @@ export function DetailedCardFrontFace({
       </svg>
     );
   } else if (isOther) {
-    bgClass = "from-[#0f1d1a] via-[#08100e] to-[#030605]";
+    bgClass = "from-[#18181b] via-[#131316] to-[#0a0a0c]";
   } else if (cardBrand) {
     bgClass = "from-[#1f1a30] via-[#100d1a] to-[#05040d]";
   }
@@ -207,21 +207,39 @@ export function DetailedCardFrontFace({
         </div>
       </div>
 
-      {/* Middle: Card Number Animated */}
-      <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap">
+      {/* Middle: Card Number Animated with silent click-to-copy */}
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          if (num) navigator.clipboard.writeText(num);
+        }}
+        className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap cursor-default"
+      >
         {digitGroups}
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom Row with silent click-to-copy */}
       <div className="relative z-10 flex justify-between items-end">
-        <div className="flex flex-col min-w-0 pr-[4cqw]">
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (cardName) navigator.clipboard.writeText(cardName);
+          }}
+          className="flex flex-col min-w-0 pr-[4cqw] cursor-default"
+        >
           <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Cardholder Name</span>
           <span className="text-[4cqw] font-semibold tracking-wide uppercase truncate">
             {cardName || "Name"}
           </span>
         </div>
 
-        <div className="flex flex-col shrink-0 text-right">
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (expiry) navigator.clipboard.writeText(expiry);
+          }}
+          className="flex flex-col shrink-0 text-right cursor-default"
+        >
           <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Expiry Date</span>
           <span className="text-[4cqw] font-medium font-mono">
             {expiry || "00/00"}
@@ -234,6 +252,7 @@ export function DetailedCardFrontFace({
 
 // ── Credit Card Back Face ────────────────────────────────────────────────────
 export function DetailedCardBackVisual({
+  name,
   cardNumber,
   cardName,
   cvv,
@@ -241,6 +260,7 @@ export function DetailedCardBackVisual({
   fallbackBrand,
   isNumberVisible
 }: {
+  name?: string;
   cardNumber: string;
   cardName: string;
   cvv?: string;
@@ -272,7 +292,7 @@ export function DetailedCardBackVisual({
   } else if (isRuPay) {
     bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
   } else if (isOther) {
-    bgClass = "from-[#0f1d1a] via-[#08100e] to-[#030605]";
+    bgClass = "from-[#18181b] via-[#131316] to-[#0a0a0c]";
   } else if (cardBrand) {
     bgClass = "from-[#1f1a30] via-[#100d1a] to-[#05040d]";
   }
@@ -281,12 +301,19 @@ export function DetailedCardBackVisual({
 
   return (
     <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between text-white transition-colors duration-500 relative select-none`}>
-      {/* 1. Magnetic Stripe */}
-      <div className="w-full h-[15%] bg-[#08080a] border-y border-white/[0.08] relative overflow-hidden mt-[5cqw] shrink-0">
+      {/* 1. Item Name Header */}
+      <div className="px-[5cqw] pt-[3.5cqw] pb-[1cqw] flex justify-between items-center shrink-0">
+        <span className="text-[2.4cqw] font-mono uppercase tracking-widest text-white/40 truncate max-w-[85%] font-medium">
+          {name || cardName || "VAULT CARD"}
+        </span>
+      </div>
+
+      {/* 2. Magnetic Stripe */}
+      <div className="w-full h-[14%] bg-[#08080a] border-y border-white/[0.08] relative overflow-hidden shrink-0">
         <div className="absolute top-1 left-0 right-0 h-1 bg-white/[0.04]" />
       </div>
 
-      {/* 2. Signature Panel & CVV Box */}
+      {/* 3. Signature Panel & CVV Box */}
       <div className="px-[5cqw] flex items-center gap-[2cqw] mt-[2cqw]">
         {/* Signature Panel */}
         <div className="flex-1 h-[8.5cqw] bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 rounded-l-[1cqw] px-[3cqw] flex items-center justify-between border-y border-neutral-300 shadow-inner overflow-hidden">
@@ -298,8 +325,14 @@ export function DetailedCardBackVisual({
           </span>
         </div>
 
-        {/* CVV Box */}
-        <div className="h-[8.5cqw] px-[3cqw] bg-white rounded-r-[1cqw] border-y border-r border-neutral-300 flex flex-col justify-center items-center shrink-0 min-w-[14cqw] shadow-sm">
+        {/* CVV Box with silent click-to-copy */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (cvv) navigator.clipboard.writeText(cvv);
+          }}
+          className="h-[8.5cqw] px-[3cqw] bg-white rounded-r-[1cqw] border-y border-r border-neutral-300 flex flex-col justify-center items-center shrink-0 min-w-[14cqw] shadow-sm cursor-default"
+        >
           <span className="text-[1.8cqw] font-sans font-bold uppercase text-neutral-400 tracking-wider">
             CVV / CVC
           </span>
@@ -309,26 +342,22 @@ export function DetailedCardBackVisual({
         </div>
       </div>
 
-      {/* 3. Security Info & 256-Bit Seal */}
-      <div className="px-[5cqw] flex items-center justify-between gap-[3cqw] mt-[1.5cqw]">
-        <div className="flex items-center gap-[1.2cqw] bg-emerald-500/10 border border-emerald-500/20 px-[2cqw] py-[0.8cqw] rounded-[1cqw] shrink-0">
-          <Shield className="w-[3cqw] h-[3cqw] text-emerald-400" />
-          <span className="text-[2cqw] font-mono font-bold text-emerald-400 tracking-wider">256-BIT AES-GCM</span>
-        </div>
-        <span className="text-[1.8cqw] text-white/45 leading-tight max-w-[65%] text-right font-sans">
-          Protected by VaultR zero-knowledge client-side encryption. Authorized cardholder only.
+      {/* 4. Minimal Disclaimer Notice */}
+      <div className="px-[5cqw] mt-[1.5cqw]">
+        <span className="text-[1.8cqw] text-white/25 font-sans tracking-wide">
+          Reference card · Not for payment
         </span>
       </div>
 
-      {/* 4. Bottom Brand & Hologram Seal */}
-      <div className="px-[5cqw] pb-[5cqw] mt-auto flex items-center justify-between text-white/35">
-        <span className="text-[2cqw] font-mono tracking-widest font-semibold text-white/40">
+      {/* 5. Bottom Brand & VaultR Monogram */}
+      <div className="px-[5cqw] pb-[4.5cqw] mt-auto flex items-center justify-between">
+        <span className="text-[1.8cqw] font-mono tracking-widest font-semibold text-white/20 uppercase">
           VAULTR ZERO-KNOWLEDGE
         </span>
-        <div className="flex items-center gap-[1cqw] bg-amber-500/10 border border-amber-500/20 px-[2cqw] py-[0.6cqw] rounded-[1cqw]">
-          <Sparkles className="w-[2.5cqw] h-[2.5cqw] text-amber-400" />
-          <span className="text-[1.8cqw] font-mono font-bold text-amber-400/90 tracking-wider">SECURITY SEAL</span>
-        </div>
+        <svg viewBox="0 0 840 840" className="w-[3.5cqw] h-[3.5cqw] text-white opacity-20" fill="currentColor">
+          <path d="M 6 84 L 354 762 L 595 351 L 500 352 L 356 604 L 198 335 L 260 373 Z" />
+          <path fillRule="evenodd" clipRule="evenodd" d="M 235 209 L 617 208 C 657 208 691 222 717 250 C 735 269 745 292 745 320 L 745 354 C 745 389 730 419 704 441 C 687 455 668 464 645 469 L 827 756 L 541 493 L 591 416 L 617 416 C 635 416 650 409 661 397 C 670 387 675 373 675 356 L 675 344 C 675 326 668 310 656 299 C 645 288 631 283 613 283 L 292 283 Z" />
+        </svg>
       </div>
     </div>
   );
@@ -336,6 +365,7 @@ export function DetailedCardBackVisual({
 
 // ── Credit Card Visual with 3D Swipe to Flip Gesture ──────────────────────────
 export function DetailedCardVisual({
+  name,
   cardNumber,
   cardName,
   expiry,
@@ -344,6 +374,7 @@ export function DetailedCardVisual({
   fallbackBrand,
   isNumberVisible
 }: {
+  name?: string;
   cardNumber: string;
   cardName: string;
   expiry: string;
@@ -498,6 +529,7 @@ export function DetailedCardVisual({
             }}
           >
             <DetailedCardBackVisual
+              name={name}
               cardNumber={cardNumber}
               cardName={cardName}
               cvv={cvv}
@@ -670,7 +702,7 @@ export function DynamicPreviewCanvas({ template, name, username, url, line1, lin
     return <LoginKeycardPreview name={name} username={username} url={url} />;
   }
   if (template === "card") {
-    return <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} cvv={cvv} cardBrand={cardBrand} fallbackBrand={fallbackBrand} isNumberVisible={isNumberVisible} />;
+    return <DetailedCardVisual name={name} cardName={cardName} cardNumber={cardNumber} expiry={expiry} cvv={cvv} cardBrand={cardBrand} fallbackBrand={fallbackBrand} isNumberVisible={isNumberVisible} />;
   }
   if (template === "address") {
     return <AddressLabelPreview name={name} line1={line1} line2={line2} city={city} state={state} zip={zip} country={country} />;

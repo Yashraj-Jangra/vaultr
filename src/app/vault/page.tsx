@@ -880,7 +880,7 @@ function PasswordHistoryButton({ history }: { history: string[] }) {
   );
 }
 
-function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decryptItem, cryptoKey }: { itemId?: string; data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean, decryptItem: (blob: string) => Promise<string>, cryptoKey: CryptoKey | null }) {
+function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = false, decryptItem, cryptoKey }: { itemId?: string; itemName?: string; data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean, decryptItem: (blob: string) => Promise<string>, cryptoKey: CryptoKey | null }) {
   const [showCard, setShowCard] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
 
@@ -929,7 +929,7 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
 
       {t === "card" && (
         <>
-          <CreditCardGraphic data={data} showCard={showCard} />
+          <CreditCardGraphic data={data} showCard={showCard} itemName={itemName} />
           <SectionGroup title="CARD DETAILS">
             {(data.cardName || data.cardholderName) ? (
               <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
@@ -1065,13 +1065,14 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
 }
 
 
-function CreditCardGraphic({ data, showCard }: { data: DecryptedPayload; showCard?: boolean }) {
+function CreditCardGraphic({ data, showCard, itemName }: { data: DecryptedPayload; showCard?: boolean; itemName?: string }) {
   const cardName = data.cardName || data.cardholderName || "";
   const expiry = data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "");
   const cardBrand = (data.cardBrand && data.cardBrand.toLowerCase() !== "auto-detect" ? data.cardBrand : "") || detectCardBrand(data.cardNumber || "");
   return (
     <div className="w-full max-w-[280px] mx-auto mb-4 scale-95 origin-center">
       <DetailedCardVisual
+        name={itemName}
         cardNumber={data.cardNumber || ""}
         cardName={cardName}
         expiry={expiry}
@@ -1676,6 +1677,7 @@ export default function VaultPage() {
             <div className="border-t border-neutral-800/60 bg-neutral-950/50">
               <ExpandedDetails
                 itemId={item.id}
+                itemName={item.name}
                 decryptItem={decryptItem}
                 cryptoKey={cryptoKey}
                 data={revealedData}
@@ -1762,6 +1764,7 @@ export default function VaultPage() {
           <div className="mx-4 mb-3 rounded-xl border border-neutral-800/60 bg-neutral-950/60 overflow-hidden">
             <ExpandedDetails
               itemId={item.id}
+              itemName={item.name}
               decryptItem={decryptItem}
               cryptoKey={cryptoKey}
               data={revealedData}
