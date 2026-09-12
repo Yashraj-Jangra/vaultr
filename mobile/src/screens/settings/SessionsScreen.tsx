@@ -160,7 +160,6 @@ export function SessionsScreen({ navigation }: any) {
       "Revoke Session",
       `Are you sure you want to sign out ${deviceName}?`,
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Revoke",
           style: "destructive",
@@ -184,6 +183,7 @@ export function SessionsScreen({ navigation }: any) {
             }
           },
         },
+        { text: "Cancel", style: "cancel" },
       ],
       { illustration: "device-sync_d9ei", glowColor: "rgba(245, 158, 11, 0.12)" }
     );
@@ -197,7 +197,6 @@ export function SessionsScreen({ navigation }: any) {
       "Sign Out All Other Devices",
       `Are you sure you want to sign out ${otherCount} other active device session${otherCount > 1 ? "s" : ""}?`,
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Sign Out All",
           style: "destructive",
@@ -222,6 +221,7 @@ export function SessionsScreen({ navigation }: any) {
             }
           },
         },
+        { text: "Cancel", style: "cancel" },
       ],
       { illustration: "device-sync_d9ei", glowColor: "rgba(245, 158, 11, 0.12)" }
     );

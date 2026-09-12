@@ -1,4 +1,39 @@
-## Current Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
+## Current Session: Mobile Dialog Buttons Redesign & Confirmation Audit (2026-09-12) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Core Alert Dialog Button Redesign (`mobile/src/components/CustomAlertOverlay.tsx`)
+- **Action Hierarchy Prioritization**:
+  - Automatically partitioned buttons into `actionButtons` (`b.style !== "cancel"`) and `cancelButtons` (`b.style === "cancel"`).
+  - Ordered actions so the primary/destructive action is positioned on **TOP**, and the secondary/cancel action is positioned at the **BOTTOM**.
+- **Tactile Button Containers ("Divs") & Visual Styling**:
+  - **Destructive Button** (`style === "destructive"`): Solid red button container (`#dc2626`, 14px border radius, 48px min-height, border `rgba(239, 68, 68, 0.4)`, red elevation/shadow, bold white text `#ffffff`, activeOpacity 0.8).
+  - **Primary Button** (`style === "default"` or standard): Solid high-contrast light button (`#f4f4f5`, 14px radius, 48px min-height, dark text `#09090b`, activeOpacity 0.8).
+  - **Cancel Button** (`style === "cancel"`): Sleek dark surface container (`#18181b`, border `rgba(255, 255, 255, 0.08)`, 14px radius, 48px min-height, text `#d4d4d8`, activeOpacity 0.7) for clear tactile geometry while subordinating to the top action.
+
+#### 2. Screen-Level Button Audit & Explicit Ordering
+- **`mobile/src/screens/settings/SessionsScreen.tsx`**:
+  - Updated `handleRevokeSession` to explicitly order `[Revoke (destructive), Cancel (cancel)]`.
+  - Updated `handleRevokeAllOther` to explicitly order `[Sign Out All (destructive), Cancel (cancel)]`.
+- **`mobile/src/screens/TrashScreen.tsx`**:
+  - Updated `handleRestoreItem` to explicitly order `[Restore (default), Cancel (cancel)]`.
+  - Updated `handleRestoreAll` to explicitly order `[Restore All (default), Cancel (cancel)]`.
+- **`mobile/src/screens/settings/DataScreen.tsx`**:
+  - Updated `handleExportCsv` to explicitly order `[Export Plain Text CSV (destructive), Cancel (cancel)]`.
+  - Updated `handleRevertImport` to explicitly order `[Revert Import (destructive), Cancel (cancel)]`.
+- **`mobile/src/screens/ItemDetailScreen.tsx`**:
+  - **Added confirmation guard** to header trash button (`Move to Trash?` confirmation dialog before moving items to trash).
+  - Updated unsaved edits back alerts (hardware back, predictive back, nav back) to order `[Discard (destructive), Keep Editing (cancel)]`.
+- **`mobile/src/screens/SettingsScreen.tsx`**:
+  - **Added confirmation guard** to `Sign Out Account` button to prevent accidental logouts.
+- **`mobile/src/screens/ItemFormScreen.tsx`**:
+  - **Added unsaved changes confirmation** (`isFormDirty` check) on close button (`X`), predictive back swipe, and Android hardware back button.
+- **`mobile/src/components/PurgeConfirmModal.tsx`**:
+  - Aligned button heights (48px), radius (14px), and color tokens with `CustomAlertOverlay`.
+
+---
+
+## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
 
 ### ✅ What Was Done
 

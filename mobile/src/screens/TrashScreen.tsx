@@ -34,7 +34,6 @@ export function TrashScreen({ navigation }: any) {
       `Restore "${name}"?`,
       `This item will be moved back to your active vault.`,
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Restore",
           style: "default",
@@ -52,6 +51,7 @@ export function TrashScreen({ navigation }: any) {
             }
           },
         },
+        { text: "Cancel", style: "cancel" },
       ],
       { illustration: "clean-up_af4s", glowColor: "rgba(52, 211, 153, 0.12)" }
     );
@@ -67,7 +67,6 @@ export function TrashScreen({ navigation }: any) {
       `Restore All (${trashedItems.length}) Items?`,
       `All ${trashedItems.length} item${trashedItems.length === 1 ? "" : "s"} in Trash will be moved back to your active vault.`,
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Restore All",
           style: "default",
@@ -86,6 +85,7 @@ export function TrashScreen({ navigation }: any) {
             }
           },
         },
+        { text: "Cancel", style: "cancel" },
       ],
       { illustration: "clean-up_af4s", glowColor: "rgba(52, 211, 153, 0.12)" }
     );

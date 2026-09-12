@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -331,6 +332,54 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const handleRemoveAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
+
+  const isFormDirty = () => {
+    if (!isEdit) {
+      return !!(
+        name.trim() ||
+        username.trim() ||
+        password.trim() ||
+        note.trim() ||
+        cardNumber.trim() ||
+        email.trim() ||
+        entryNotes.trim()
+      );
+    }
+    return (
+      name !== (item?.name || "") ||
+      (!!initialPassword && password !== initialPassword) ||
+      note.trim() !== ""
+    );
+  };
+
+  const handleCancel = () => {
+    if (isFormDirty()) {
+      vaultAlert.alert(
+        "Discard Changes?",
+        "You have unsaved changes. Are you sure you want to discard them?",
+        [
+          { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+          { text: "Keep Editing", style: "cancel" },
+        ],
+        { illustration: "throw-away_k2t5", glowColor: "rgba(239, 68, 68, 0.12)" }
+      );
+      return true;
+    }
+    navigation.goBack();
+    return false;
+  };
+
+  useEffect(() => {
+    const backAction = () => {
+      if (isFormDirty()) {
+        handleCancel();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => sub.remove();
+  }, [isEdit, item, name, username, password, note, cardNumber, email, entryNotes, initialPassword]);
 
   const handleSave = async () => {
     if (!isOnline) {
@@ -1305,7 +1354,15 @@ export function ItemFormScreen({ route, navigation }: Props) {
     );
 
   return (
-    <PredictiveBackWrapper navigation={navigation}>
+    <PredictiveBackWrapper
+      navigation={navigation}
+      onBack={() => {
+        if (isFormDirty()) {
+          handleCancel();
+          return true;
+        }
+      }}
+    >
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
@@ -1313,7 +1370,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={() => navigation.goBack()}
+            onPress={handleCancel}
           >
             <X size={20} color={colors.textMuted} />
           </TouchableOpacity>

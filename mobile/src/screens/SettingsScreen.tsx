@@ -125,6 +125,22 @@ export function SettingsScreen({ navigation }: any) {
     );
   };
 
+  const handleSignOut = () => {
+    vaultAlert.alert(
+      "Sign Out Account",
+      "Are you sure you want to sign out of your Vaultr account on this device?",
+      [
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: signOutAccount,
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { illustration: "goodbye_mkv7", glowColor: "rgba(245, 158, 11, 0.12)" }
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
@@ -320,7 +336,7 @@ export function SettingsScreen({ navigation }: any) {
           <Text style={styles.lockBtnText}>Lock Vault Session</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.signOutBtn} onPress={signOutAccount} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.7}>
           <LogOut size={13} color="#525252" />
           <Text style={styles.signOutText}>Sign Out Account</Text>
         </TouchableOpacity>
