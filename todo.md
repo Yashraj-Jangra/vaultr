@@ -16,6 +16,10 @@
   - Wrapped each field in `e.stopPropagation()` with `cursor-default` so clicking a field never triggers the card flip gesture or creates visual disruption.
 - **Wire & Prop Synchronization**:
   - Passed `name` through `DetailedCardVisual`, `DetailedCardBackVisual`, `DynamicPreviewCanvas`, `CreditCardGraphic`, and `ExpandedDetails`.
+- **Card Number Alignment & Smooth Show/Hide Animation**:
+  - Replaced `mt-auto mb-[5cqw]` with `my-auto pt-[2cqw]` to position the card number slightly below center.
+  - Eliminated show/hide vertical layout jump by standardizing invariant character slots (`w-[3.8cqw] h-[6cqw]`).
+  - Added smooth sequential cascade cross-fade animation with subtle scale and fade transitions between masked circular dots and unmasked digits.
 
 #### 2. Mobile Credit Card Back Face Redesign & Silent Copy (`mobile/src/components/ItemPreviewCard.tsx`)
 - **Aesthetic Redesign (Real Card Feel)**:

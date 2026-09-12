@@ -149,23 +149,55 @@ export function DetailedCardFrontFace({
       const isEntered = idx < num.length;
       const isVisibleBlock = g === groups.length - 1;
 
-      let char = "-";
       let op = isLight ? "opacity-20" : "opacity-30";
       let scale = "scale-90";
 
       if (isEntered) {
-        char = (isVisibleBlock || isNumberVisible) ? num[idx] : "•";
         op = "opacity-100";
         scale = "scale-100";
       }
 
+      const isRevealed = isVisibleBlock || isNumberVisible;
+      const delay = !isVisibleBlock && isEntered ? `${idx * 14}ms` : "0ms";
+
       groupSpan.push(
-        <span key={idx} className={`inline-block transition-all duration-300 transform ${op} ${scale} ${char === '•' ? 'translate-y-[-2px] text-[1.2em]' : ''} w-[4cqw] text-center`}>
-          {char}
+        <span
+          key={idx}
+          className={`relative inline-flex items-center justify-center w-[3.8cqw] h-[6cqw] text-center select-none ${op} ${scale}`}
+        >
+          {isEntered ? (
+            <>
+              {/* Masked Dot */}
+              <span
+                style={{ transitionDelay: delay }}
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${
+                  isRevealed ? "opacity-0 scale-50 pointer-events-none" : "opacity-100 scale-100"
+                }`}
+              >
+                <span className="w-[1.4cqw] h-[1.4cqw] rounded-full bg-current" />
+              </span>
+
+              {/* Unmasked Digit */}
+              <span
+                style={{ transitionDelay: delay }}
+                className={`absolute inset-0 flex items-center justify-center font-mono font-medium leading-none transition-all duration-200 ease-out ${
+                  isRevealed ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+                }`}
+              >
+                {num[idx]}
+              </span>
+            </>
+          ) : (
+            <span className="font-mono font-medium leading-none">-</span>
+          )}
         </span>
       );
     }
-    digitGroups.push(<div key={g} className="flex gap-[0.2cqw]">{groupSpan}</div>);
+    digitGroups.push(
+      <div key={g} className="flex items-center gap-[0.2cqw]">
+        {groupSpan}
+      </div>
+    );
   }
 
   return (
@@ -213,7 +245,7 @@ export function DetailedCardFrontFace({
           e.stopPropagation();
           if (num) navigator.clipboard.writeText(num);
         }}
-        className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap cursor-default"
+        className="relative z-10 w-full my-auto pt-[2cqw] flex justify-center items-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap cursor-default"
       >
         {digitGroups}
       </div>
