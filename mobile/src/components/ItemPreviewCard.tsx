@@ -5,7 +5,7 @@
 
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
-import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, Polygon } from "react-native-svg";
+import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, Polygon, Rect } from "react-native-svg";
 import { Template } from "@vaultr/core";
 import { Globe, User, FileText, MapPin } from "lucide-react-native";
 import { resolveDomain } from "@vaultr/core";
@@ -211,6 +211,204 @@ function RuPayLogo() {
 
 const logoStyles = StyleSheet.create({});
 
+// ── Card Background Surface (1:1 Web Parity) ─────────────────────────────────
+
+interface CardBackgroundSurfaceProps {
+  brand: string;
+  fallbackBrand?: string;
+  customBrand?: string;
+  isBackFace?: boolean;
+}
+
+function CardBackgroundSurface({
+  brand,
+  fallbackBrand,
+  customBrand,
+  isBackFace = false,
+}: CardBackgroundSurfaceProps) {
+  const b = (brand || "").toLowerCase();
+  const isVisa = b === "visa";
+  const isMC = b === "mastercard";
+  const isAmex = b === "amex";
+  const isDiscover = b === "discover";
+  const isRuPay = b === "rupay";
+  const isOther = b === "other";
+
+  // Gradient stops: exact 1:1 match to web Tailwind bgClass definitions
+  // (135° diagonal from top-left (0,0) to bottom-right (1,1))
+  const gradientStops = useMemo(() => {
+    if (isVisa) {
+      // from-[#0A0D1A] via-[#151233] to-[#2B1B54]
+      return [
+        { offset: "0%", color: "#0A0D1A" },
+        { offset: "50%", color: "#151233" },
+        { offset: "100%", color: "#2B1B54" },
+      ];
+    }
+    if (isMC) {
+      // from-[#1a1a1c] via-[#141415] to-[#0a0a0b]
+      return [
+        { offset: "0%", color: "#1a1a1c" },
+        { offset: "50%", color: "#141415" },
+        { offset: "100%", color: "#0a0a0b" },
+      ];
+    }
+    if (isAmex) {
+      // from-[#141414] via-[#090909] to-[#000000]
+      return [
+        { offset: "0%", color: "#141414" },
+        { offset: "50%", color: "#090909" },
+        { offset: "100%", color: "#000000" },
+      ];
+    }
+    if (isDiscover) {
+      // from-[#1F0F07] via-[#0C0603] to-[#020101]
+      return [
+        { offset: "0%", color: "#1F0F07" },
+        { offset: "50%", color: "#0C0603" },
+        { offset: "100%", color: "#020101" },
+      ];
+    }
+    if (isRuPay) {
+      // from-[#05111A] via-[#02080D] to-[#000000]
+      return [
+        { offset: "0%", color: "#05111A" },
+        { offset: "50%", color: "#02080D" },
+        { offset: "100%", color: "#000000" },
+      ];
+    }
+    if (isOther) {
+      // from-[#18181b] via-[#131316] to-[#0a0a0c]
+      return [
+        { offset: "0%", color: "#18181b" },
+        { offset: "50%", color: "#131316" },
+        { offset: "100%", color: "#0a0a0c" },
+      ];
+    }
+    if (customBrand) {
+      // from-[#1f1a30] via-[#100d1a] to-[#05040d]
+      return [
+        { offset: "0%", color: "#1f1a30" },
+        { offset: "50%", color: "#100d1a" },
+        { offset: "100%", color: "#05040d" },
+      ];
+    }
+    // Default / Unbranded: from-[#22252c] to-[#0f1013]
+    return [
+      { offset: "0%", color: "#22252c" },
+      { offset: "100%", color: "#0f1013" },
+    ];
+  }, [isVisa, isMC, isAmex, isDiscover, isRuPay, isOther, customBrand]);
+
+  const gradId = `cardGrad_${isBackFace ? "b" : "f"}_${b || "def"}`;
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* 1. Base Multi-stop Linear Gradient */}
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+            {gradientStops.map((s, idx) => (
+              <Stop key={idx} offset={s.offset} stopColor={s.color} />
+            ))}
+          </LinearGradient>
+          {isAmex && (
+            <LinearGradient id="amexSheen" x1="0%" y1="100%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor="rgba(255,255,255,0)" />
+              <Stop offset="50%" stopColor="rgba(255,255,255,0.025)" />
+              <Stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </LinearGradient>
+          )}
+          {isVisa && !isBackFace && (
+            <LinearGradient id="visaWaveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#8E2DE2" stopOpacity={0.4} />
+              <Stop offset="100%" stopColor="#4A00E0" stopOpacity={0} />
+            </LinearGradient>
+          )}
+          {isRuPay && !isBackFace && (
+            <LinearGradient id="rupayBusGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor="#004e92" stopOpacity={0.3} />
+              <Stop offset="100%" stopColor="#000428" stopOpacity={0} />
+            </LinearGradient>
+          )}
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${gradId})`} rx={CARD_RADIUS} ry={CARD_RADIUS} />
+
+        {isAmex && (
+          <Rect width="100%" height="100%" fill="url(#amexSheen)" rx={CARD_RADIUS} ry={CARD_RADIUS} />
+        )}
+      </Svg>
+
+      {/* 2. Brand-Specific Decorative Vector Layers (Front Face) */}
+      {!isBackFace && (
+        <>
+          {/* Visa: Dual sine wave paths + purple glow orb */}
+          {isVisa && (
+            <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
+              <Path d="M-20,100 C80,40 180,160 340,80 L340,200 L-20,200 Z" fill="url(#visaWaveGrad)" />
+              <Path d="M-20,130 C120,70 160,180 340,110 L340,200 L-20,200 Z" fill="url(#visaWaveGrad)" opacity={0.6} />
+              <Circle cx={280} cy={40} r={80} fill="#4A00E0" opacity={0.15} />
+            </Svg>
+          )}
+
+          {/* Mastercard: Top-right red and amber glow orbs */}
+          {isMC && (
+            <View style={[StyleSheet.absoluteFill, { overflow: "hidden", opacity: 0.3 }]}>
+              <View style={card.mcGlow1} />
+              <View style={card.mcGlow2} />
+            </View>
+          )}
+
+          {/* AMEX: Concentric inset borders */}
+          {isAmex && (
+            <View style={StyleSheet.absoluteFill}>
+              <View style={card.amexBorder1} />
+              <View style={card.amexBorder2} />
+            </View>
+          )}
+
+          {/* Discover: 3 concentric orange arcs + bottom-left glow */}
+          {isDiscover && (
+            <View style={[StyleSheet.absoluteFill, { overflow: "hidden" }]}>
+              <View style={card.discoverArc1} />
+              <View style={card.discoverArc2} />
+              <View style={card.discoverArc3} />
+              <View style={card.discoverBottomGlow} />
+            </View>
+          )}
+
+          {/* RuPay: Grid lines + bus trace circuit */}
+          {isRuPay && (
+            <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
+              <Path d="M0,40 L320,40 M0,80 L320,80 M0,120 L320,120 M0,160 L320,160" stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} />
+              <Path d="M60,0 L60,200 M120,0 L120,200 M180,0 L180,200 M240,0 L240,200" stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} />
+              <Path d="M0,100 L120,100 L140,120 L320,120" fill="none" stroke="url(#rupayBusGrad)" strokeWidth={2} opacity={0.5} />
+            </Svg>
+          )}
+
+          {/* Subtle Security Fingerprint Watermark at bottom-right (exact match to web's fingerprint_kdwq.svg) */}
+          <View style={card.watermarkWrap}>
+            <Svg width={110} height={65} viewBox="0 0 924.25571 530.59141">
+              <Path
+                d="M153.99839,343.96646a12.41567,12.41567,0,0,1-15.82023-14.58779c7.2237-30.05261,34.69161-103.54642,134.7581-134.45784,43.34522-13.38973,84.91357-13.6183,123.4999-.68442,31.74358,10.5963,52.81666,27.17817,62.8969,35.19276a12.31341,12.31341,0,0,1,2.01684,17.2966q-.03769.04756-.07578.09478a12.60339,12.60339,0,0,1-17.56068,1.99337c-18.26292-14.38965-73.68419-58.10507-163.507-30.358C192.50012,245.54917,168.67559,308.922,162.49613,334.8498a12.231,12.231,0,0,1-8.49772,9.11663Z"
+                fill="rgba(255,255,255,0.06)"
+              />
+              <Path
+                d="M426.73845,514.18533a12.34637,12.34637,0,0,1-3.06766.57666c-78.17506,4.21048-127.91326-60.73529-129.95531-63.443l-.37854-.625c-1.24641-1.9334-31.34184-47.72251-18.09281-84.08779,6.08557-16.62508,19.54445-28.29437,40.11648-34.64925,19.13286-5.91031,34.789-4.16228,48.11506,5.35352,10.92682,7.75306,17.92964,19.31492,24.71706,30.47965,14.11648,23.18223,22.76773,34.97678,49.59965,28.17194,11.7813-2.99018,17.28227-12.20122,19.79538-19.37637,6.76634-19.52475.76956-46.14261-15.09594-66.28064-20.49737-26.12617-77.85958-69.52025-148.63419-47.65734-30.22313,9.33619-54.95754,27.73438-71.52166,53.06787-13.7221,21.0243-21.69933,47.13651-21.87422,71.48765-.27535,45.34076,36.88411,104.99127,37.23649,105.53159a12.29021,12.29021,0,0,1-3.90573,16.9365q-.05694.03569-.11432.07064a12.58421,12.58421,0,0,1-17.235-3.857c-1.67723-2.72769-41.35566-66.32964-41.036-118.73213.445-56.79989,34.96136-124.58835,111.15411-148.125,35.218-10.87915,72.22851-9.05063,107.05754,5.2294,26.99516,11.13575,51.979,29.56992,68.49689,50.61924,21.09753,26.86815,28.53047,62.03785,18.92612,89.48734-6.40291,18.29963-19.65878,30.92632-37.27532,35.44085-45.91379,11.67926-63.90024-17.72645-77.01809-39.17694-13.47024-21.99081-20.92115-32.30138-44.20227-25.10964-12.78346,3.94893-20.6589,10.27669-23.97114,19.368-4.50722,12.428-.2356,28.3576,4.14148,39.525q.068.17513.13632.34941a100.94624,100.94624,0,0,0,25.61319,37.2525c18.01213,16.63359,51.45108,40.347,94.06986,38.06039a12.30862,12.30862,0,0,1,13.04809,11.52176q.00366.059.00676.11808a12.57887,12.57887,0,0,1-8.85231,12.472Z"
+                fill="rgba(255,255,255,0.06)"
+              />
+              <Path
+                d="M331.94027,537.53418a12.61554,12.61554,0,0,1-9.87051-1.03136c-38.55715-21.8457-65.6247-51.22826-85.116-92.41043l-.07845-.254c-12.28417-27.45774-19.679-69.409-3.36722-104.86565,12.04219-26.16234,34.6464-44.55164,67.07064-54.56777,38.35034-11.84676,74.05914-3.12453,103.36639,25.10254A153.17045,153.17045,0,0,1,435.92915,354.806a12.51646,12.51646,0,0,1-23.03067,9.80375,128.26069,128.26069,0,0,0-26.96612-37.76029c-22.58989-21.4921-48.85011-27.847-78.142-18.79853-25.31292,7.81938-42.74322,21.64284-51.66594,41.09183-12.86749,27.9938-6.24257,62.94941,3.3706,84.46244,17.18645,36.42267,41.02542,62.25848,74.9609,81.45139a12.25531,12.25531,0,0,1,4.65458,16.69492q-.047.08328-.09529.1659A12.56861,12.56861,0,0,1,331.94027,537.53418Z"
+                fill="rgba(255,255,255,0.06)"
+              />
+            </Svg>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 // ── 3. Credit Card Visual (1:1 Web Parity) ──────────────────────────────────
 
 function CreditCardVisual({
@@ -238,16 +436,17 @@ function CreditCardVisual({
   const isRuPay = effectiveBrand?.toLowerCase() === "rupay";
   const isOther = effectiveBrand?.toLowerCase() === "other";
 
-  // Background themes matching web exactly
+  // Border colors matching web exactly
   const theme = useMemo(() => {
-    if (isVisa) return { bg: "#151233", border: "#2B1B54" };
-    if (isMC) return { bg: "#141415", border: "#26262a" };
-    if (isAmex) return { bg: "#090909", border: "rgba(245,158,11,0.3)" };
-    if (isDiscover) return { bg: "#0C0603", border: "#2A1409" };
-    if (isRuPay) return { bg: "#02080D", border: "#004e92" };
-    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#131316", border: "#222228" };
-    return { bg: "#121215", border: "#242429" };
-  }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand]);
+    if (isVisa) return { border: "#2B1B54" };
+    if (isMC) return { border: "#26262a" };
+    if (isAmex) return { border: "rgba(245,158,11,0.3)" };
+    if (isDiscover) return { border: "#2A1409" };
+    if (isRuPay) return { border: "#004e92" };
+    if (effectiveBrand?.toLowerCase() === "other") return { border: "#222228" };
+    if (cardBrand) return { border: "#2A2240" };
+    return { border: "rgba(255,255,255,0.1)" };
+  }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand, cardBrand]);
 
   // Format card number: last group visible, rest bullet-masked
   const num = cardNumber.replace(/\D/g, "");
@@ -283,48 +482,13 @@ function CreditCardVisual({
   const displayName = cardholderName || cardName || "CARDHOLDER NAME";
 
   return (
-    <View style={[card.container, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-
-      {/* Background Graphics Layer */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {isVisa && (
-          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
-            <Defs>
-              <LinearGradient id="visaWave" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#8E2DE2" stopOpacity="0.4" />
-                <Stop offset="100%" stopColor="#4A00E0" stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Path d="M-20,100 C80,40 180,160 340,80 L340,200 L-20,200 Z" fill="url(#visaWave)" />
-            <Path d="M-20,130 C120,70 160,180 340,110 L340,200 L-20,200 Z" fill="url(#visaWave)" opacity="0.6" />
-          </Svg>
-        )}
-        {isMC && (
-          <>
-            <View style={card.mcGlow1} />
-            <View style={card.mcGlow2} />
-          </>
-        )}
-        {isAmex && (
-          <>
-            <View style={card.amexBorder1} />
-            <View style={card.amexBorder2} />
-          </>
-        )}
-        {isDiscover && (
-          <>
-            <View style={card.discoverArc1} />
-            <View style={card.discoverArc2} />
-            <View style={card.discoverArc3} />
-          </>
-        )}
-        {isRuPay && (
-          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
-            <Path d="M0,40 L320,40 M0,80 L320,80 M0,120 L320,120 M0,160 L320,160" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-            <Path d="M60,0 L60,200 M120,0 L120,200 M180,0 L180,200 M240,0 L240,200" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-          </Svg>
-        )}
-      </View>
+    <View style={[card.container, { borderColor: theme.border }]}>
+      {/* 1:1 Web Multi-Stop Gradient & Decorative Vector Graphics Layer */}
+      <CardBackgroundSurface
+        brand={effectiveBrand}
+        fallbackBrand={fallbackBrand}
+        customBrand={cardBrand}
+      />
 
       {/* Top Row: EMV Chip (left) + Brand Logo (right) */}
       <View style={card.topRow}>
@@ -425,6 +589,17 @@ function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProp
 
   return (
     <View style={[login.container]}>
+      {/* 1:1 Web gradient surface */}
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Defs>
+          <LinearGradient id="loginGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#1a1a20" />
+            <Stop offset="100%" stopColor="#0d0d10" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#loginGrad)" rx={CARD_RADIUS} ry={CARD_RADIUS} />
+      </Svg>
+
       {/* Ambient glow */}
       <View style={login.glow} pointerEvents="none" />
 
@@ -468,8 +643,17 @@ function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProp
 function NotePaperVisual({ name, note }: ItemPreviewCardProps) {
   return (
     <View style={note_.container}>
-      {/* Top amber gradient bar */}
-      <View style={note_.topBar} />
+      {/* Top amber multi-stop gradient bar (exact match to Web from-yellow-600 via-yellow-500 to-yellow-600) */}
+      <Svg width="100%" height={5} style={{ position: "absolute", top: 0, left: 0, right: 0 }} pointerEvents="none">
+        <Defs>
+          <LinearGradient id="noteGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor="#ca8a04" />
+            <Stop offset="50%" stopColor="#eab308" />
+            <Stop offset="100%" stopColor="#ca8a04" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height={5} fill="url(#noteGoldGrad)" />
+      </Svg>
 
       <View style={note_.bodyWrap}>
         <View style={note_.header}>
@@ -523,8 +707,21 @@ function AddressLabelVisual({
 function ProfileBadgeVisual({ name, fullName = "", email = "", phone = "", dob, idNumber = "" }: ItemPreviewCardProps) {
   return (
     <View style={prof.container}>
-      {/* Left white accent bar */}
-      <View style={prof.accentBar} />
+      {/* 1:1 Web gradient surface from-[#111115] to-[#070709] + Left accent gradient bar */}
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Defs>
+          <LinearGradient id="profileGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor="#111115" />
+            <Stop offset="100%" stopColor="#070709" />
+          </LinearGradient>
+          <LinearGradient id="accentBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor="#a78bfa" />
+            <Stop offset="100%" stopColor="#7c3aed" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#profileGrad)" rx={CARD_RADIUS} ry={CARD_RADIUS} />
+        <Rect x={0} y={0} width={4} height="100%" fill="url(#accentBarGrad)" />
+      </Svg>
 
       {/* Top: Title + Chip */}
       <View style={prof.topRow}>
@@ -629,6 +826,21 @@ const card = StyleSheet.create({
   discoverArc3: {
     position: "absolute", right: -20, top: 0, width: 130, height: 130,
     borderRadius: 65, borderWidth: 1, borderColor: "rgba(249,115,22,0.05)",
+  },
+  discoverBottomGlow: {
+    position: "absolute",
+    left: -30,
+    bottom: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(249, 115, 22, 0.04)",
+  },
+  watermarkWrap: {
+    position: "absolute",
+    right: 4,
+    bottom: 4,
+    opacity: 0.8,
   },
   numberWrap: {
     zIndex: 10,
@@ -817,20 +1029,29 @@ function CreditCardBackVisual({
   const isRuPay = effectiveBrand?.toLowerCase() === "rupay";
 
   const theme = useMemo(() => {
-    if (isVisa) return { bg: "#151233", border: "#2B1B54" };
-    if (isMC) return { bg: "#141415", border: "#26262a" };
-    if (isAmex) return { bg: "#090909", border: "rgba(245,158,11,0.3)" };
-    if (isDiscover) return { bg: "#0C0603", border: "#2A1409" };
-    if (isRuPay) return { bg: "#02080D", border: "#004e92" };
-    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#131316", border: "#222228" };
-    return { bg: "#121215", border: "#242429" };
-  }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand]);
+    if (isVisa) return { border: "#2B1B54" };
+    if (isMC) return { border: "#26262a" };
+    if (isAmex) return { border: "rgba(245,158,11,0.3)" };
+    if (isDiscover) return { border: "#2A1409" };
+    if (isRuPay) return { border: "#004e92" };
+    if (effectiveBrand?.toLowerCase() === "other") return { border: "#222228" };
+    if (cardBrand) return { border: "#2A2240" };
+    return { border: "rgba(255,255,255,0.1)" };
+  }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand, cardBrand]);
 
   const displayName = cardholderName || cardName || "CARDHOLDER NAME";
   const displayCvv = cvv ? (isNumberVisible ? cvv : "•••") : "•••";
 
   return (
-    <View style={[card.container, { backgroundColor: theme.bg, borderColor: theme.border, padding: 0 }]}>
+    <View style={[card.container, { borderColor: theme.border, padding: 0 }]}>
+      {/* 1:1 Web Multi-Stop Gradient on Back Face */}
+      <CardBackgroundSurface
+        brand={effectiveBrand}
+        fallbackBrand={fallbackBrand}
+        customBrand={cardBrand}
+        isBackFace
+      />
+
       {/* 1. Item Name Header & Card Type Tag */}
       <View style={cardBack.topHeader}>
         <Text style={cardBack.itemLabel} numberOfLines={1}>
