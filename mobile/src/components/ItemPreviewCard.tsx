@@ -819,10 +819,13 @@ function CreditCardBackVisual({
 
   return (
     <View style={[card.container, { backgroundColor: theme.bg, borderColor: theme.border, padding: 0 }]}>
-      {/* 1. Item Name Header */}
+      {/* 1. Item Name Header & Card Type Tag */}
       <View style={cardBack.topHeader}>
         <Text style={cardBack.itemLabel} numberOfLines={1}>
           {(name || cardName || "VAULT CARD").toUpperCase()}
+        </Text>
+        <Text style={cardBack.referenceLabel}>
+          REFERENCE CARD
         </Text>
       </View>
 
@@ -838,6 +841,9 @@ function CreditCardBackVisual({
             <Text style={cardBack.signatureText} numberOfLines={1}>
               {displayName}
             </Text>
+            <Text style={cardBack.authSigLabel}>
+              AUTHORIZED SIGNATURE
+            </Text>
           </View>
           <TouchableOpacity
             activeOpacity={1}
@@ -851,18 +857,34 @@ function CreditCardBackVisual({
           </TouchableOpacity>
         </View>
 
-        {/* 4. Minimal Disclaimer Notice */}
-        <Text style={cardBack.disclaimer}>
-          Reference card · Not for payment
-        </Text>
+        {/* 4. Security & Support Micro-Text with Contactless Symbol */}
+        <View style={cardBack.microTextWrap}>
+          <View style={cardBack.microHeaderRow}>
+            <Text style={cardBack.microEnclave} numberOfLines={1}>
+              ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM
+            </Text>
+            <View style={cardBack.contactlessBox}>
+              <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
+                <Path d="M8.5 16.5a5 5 0 0 1 0-9" stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round" />
+                <Path d="M12 19a8.5 8.5 0 0 0 0-14" stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round" />
+                <Path d="M15.5 21.5a12 12 0 0 0 0-19" stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round" />
+              </Svg>
+              <Text style={cardBack.cidText}>CID 8492</Text>
+            </View>
+          </View>
+          <Text style={cardBack.legalDisclaimer} numberOfLines={2}>
+            Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
+          </Text>
+        </View>
 
-        {/* 5. Bottom Brand & VaultR Monogram */}
+        {/* 5. Bottom Brand: Full VaultR Logo (Left) + Zero-Knowledge text (Right) */}
         <View style={cardBack.bottomRow}>
+          <Image
+            source={require("../../assets/vaultr-full-dark-transparent.png")}
+            style={cardBack.logoImg}
+            resizeMode="contain"
+          />
           <Text style={cardBack.watermark}>VAULTR ZERO-KNOWLEDGE</Text>
-          <Svg width={16} height={16} viewBox="0 0 840 840" style={{ opacity: 0.18 }}>
-            <Path fill="#ffffff" d="M 6 84 L 354 762 L 595 351 L 500 352 L 356 604 L 198 335 L 260 373 Z" />
-            <Path fill="#ffffff" fillRule="evenodd" clipRule="evenodd" d="M 235 209 L 617 208 C 657 208 691 222 717 250 C 735 269 745 292 745 320 L 745 354 C 745 389 730 419 704 441 C 687 455 668 464 645 469 L 827 756 L 541 493 L 591 416 L 617 416 C 635 416 650 409 661 397 C 670 387 675 373 675 356 L 675 344 C 675 326 668 310 656 299 C 645 288 631 283 613 283 L 292 283 Z" />
-          </Svg>
         </View>
       </View>
     </View>
@@ -871,20 +893,31 @@ function CreditCardBackVisual({
 
 const cardBack = StyleSheet.create({
   topHeader: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   itemLabel: {
-    fontSize: 8.5,
+    fontSize: 8,
     fontFamily: "monospace",
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.4)",
-    letterSpacing: 1.2,
+    color: "rgba(255, 255, 255, 0.45)",
+    letterSpacing: 1.1,
+    maxWidth: "68%",
+  },
+  referenceLabel: {
+    fontSize: 6.5,
+    fontFamily: "monospace",
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.28)",
+    letterSpacing: 0.9,
   },
   magStripe: {
     width: "100%",
-    height: 38,
+    height: 32,
     backgroundColor: "#070709",
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -894,65 +927,105 @@ const cardBack = StyleSheet.create({
   },
   magStripeGloss: {
     position: "absolute",
-    top: 5,
+    top: 4,
     left: 0,
     right: 0,
-    height: 5,
+    height: 4,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   contentWrap: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 8,
     flex: 1,
     justifyContent: "space-between",
   },
   sigRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   signaturePanel: {
     flex: 1,
-    height: 32,
+    height: 28,
     backgroundColor: "#f4f4f5",
-    borderRadius: 4,
-    justifyContent: "center",
-    paddingHorizontal: 10,
+    borderRadius: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
   },
   signatureText: {
-    fontSize: 12,
+    fontSize: 10.5,
     fontStyle: "italic",
     fontFamily: "monospace",
     color: "#18181b",
     fontWeight: "700",
+    maxWidth: "65%",
+  },
+  authSigLabel: {
+    fontSize: 5.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "#71717a",
+    letterSpacing: 0.8,
   },
   cvvBox: {
     backgroundColor: "#18181b",
     borderWidth: 1,
     borderColor: "#27272a",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     alignItems: "center",
+    minWidth: 44,
   },
   cvvLabel: {
-    fontSize: 7.5,
+    fontSize: 6.5,
     fontWeight: "700",
     color: "#71717a",
     textTransform: "uppercase",
   },
   cvvValue: {
-    fontSize: 12,
+    fontSize: 10.5,
     fontFamily: "monospace",
     fontWeight: "800",
     color: "#fafafa",
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
-  disclaimer: {
-    fontSize: 8,
-    color: "rgba(255, 255, 255, 0.25)",
-    letterSpacing: 0.3,
+  microTextWrap: {
+    gap: 2,
+  },
+  microHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  microEnclave: {
+    fontSize: 6.5,
+    fontFamily: "monospace",
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.35)",
+    letterSpacing: 0.5,
+    maxWidth: "70%",
+  },
+  contactlessBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  cidText: {
+    fontSize: 6,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.35)",
+    letterSpacing: 0.6,
+  },
+  legalDisclaimer: {
+    fontSize: 5.8,
+    color: "rgba(255, 255, 255, 0.22)",
+    lineHeight: 8,
+    letterSpacing: 0.2,
   },
   bottomRow: {
     flexDirection: "row",
@@ -960,12 +1033,18 @@ const cardBack = StyleSheet.create({
     justifyContent: "space-between",
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.06)",
-    paddingTop: 6,
+    paddingTop: 4,
+  },
+  logoImg: {
+    height: 11,
+    width: 58,
+    opacity: 0.55,
   },
   watermark: {
-    fontSize: 7.5,
+    fontSize: 6.5,
     fontWeight: "800",
-    color: "#3f3f46",
-    letterSpacing: 1.1,
+    fontFamily: "monospace",
+    color: "rgba(255, 255, 255, 0.28)",
+    letterSpacing: 0.9,
   },
 });

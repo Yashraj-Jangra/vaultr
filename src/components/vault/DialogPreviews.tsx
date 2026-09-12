@@ -333,10 +333,13 @@ export function DetailedCardBackVisual({
 
   return (
     <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between text-white transition-colors duration-500 relative select-none`}>
-      {/* 1. Item Name Header */}
+      {/* 1. Item Name Header & Card Type Tag */}
       <div className="px-[5cqw] pt-[3.5cqw] pb-[1cqw] flex justify-between items-center shrink-0">
-        <span className="text-[2.4cqw] font-mono uppercase tracking-widest text-white/40 truncate max-w-[85%] font-medium">
+        <span className="text-[2.3cqw] font-mono uppercase tracking-widest text-white/50 truncate max-w-[70%] font-medium">
           {name || cardName || "VAULT CARD"}
+        </span>
+        <span className="text-[1.8cqw] font-mono uppercase tracking-widest text-white/30 shrink-0">
+          REFERENCE CARD
         </span>
       </div>
 
@@ -352,8 +355,8 @@ export function DetailedCardBackVisual({
           <span className="font-serif italic text-neutral-800 text-[3.2cqw] tracking-wider truncate select-none">
             {cardName || "Cardholder Name"}
           </span>
-          <span className="text-[1.8cqw] font-mono font-bold text-neutral-400 uppercase tracking-widest shrink-0">
-            Signature
+          <span className="text-[1.7cqw] font-mono font-bold text-neutral-400 uppercase tracking-widest shrink-0">
+            Authorized Signature
           </span>
         </div>
 
@@ -374,22 +377,35 @@ export function DetailedCardBackVisual({
         </div>
       </div>
 
-      {/* 4. Minimal Disclaimer Notice */}
-      <div className="px-[5cqw] mt-[1.5cqw]">
-        <span className="text-[1.8cqw] text-white/25 font-sans tracking-wide">
-          Reference card · Not for payment
-        </span>
+      {/* 4. Security & Support Micro-Text with Contactless Symbol */}
+      <div className="px-[5cqw] mt-[1.5cqw] flex flex-col gap-[0.5cqw]">
+        <div className="flex items-center justify-between text-[1.7cqw] text-white/35 font-mono">
+          <span className="truncate">ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM</span>
+          {/* Contactless Wave Symbol */}
+          <span className="flex items-center gap-[0.6cqw] text-white/40 shrink-0 ml-2">
+            <svg className="w-[2.2cqw] h-[2.2cqw]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+              <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+              <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+            </svg>
+            <span className="text-[1.5cqw] font-semibold tracking-wider">CID 8492</span>
+          </span>
+        </div>
+        <p className="text-[1.6cqw] text-white/25 leading-tight font-sans">
+          Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
+        </p>
       </div>
 
-      {/* 5. Bottom Brand & VaultR Monogram */}
-      <div className="px-[5cqw] pb-[4.5cqw] mt-auto flex items-center justify-between">
-        <span className="text-[1.8cqw] font-mono tracking-widest font-semibold text-white/20 uppercase">
+      {/* 5. Bottom Brand: Full VaultR Logo (Left) + Zero-Knowledge text (Right) */}
+      <div className="px-[5cqw] pb-[3.5cqw] mt-auto flex items-center justify-between border-t border-white/[0.06] pt-[1.5cqw]">
+        <img
+          src="/brand/vaultr-full-dark-transparent.png"
+          className="h-[3cqw] w-auto object-contain opacity-55 select-none pointer-events-none"
+          alt="VaultR"
+        />
+        <span className="text-[1.8cqw] font-mono tracking-widest font-semibold text-white/30 uppercase">
           VAULTR ZERO-KNOWLEDGE
         </span>
-        <svg viewBox="0 0 840 840" className="w-[3.5cqw] h-[3.5cqw] text-white opacity-20" fill="currentColor">
-          <path d="M 6 84 L 354 762 L 595 351 L 500 352 L 356 604 L 198 335 L 260 373 Z" />
-          <path fillRule="evenodd" clipRule="evenodd" d="M 235 209 L 617 208 C 657 208 691 222 717 250 C 735 269 745 292 745 320 L 745 354 C 745 389 730 419 704 441 C 687 455 668 464 645 469 L 827 756 L 541 493 L 591 416 L 617 416 C 635 416 650 409 661 397 C 670 387 675 373 675 356 L 675 344 C 675 326 668 310 656 299 C 645 288 631 283 613 283 L 292 283 Z" />
-        </svg>
       </div>
     </div>
   );

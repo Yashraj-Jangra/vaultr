@@ -1,33 +1,41 @@
-## Current Session: Credit Card Back Face Redesign & Silent Field Copy (2026-09-12) · Branch: `dev`
+## Current Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
 
 ### ✅ What Was Done
 
-#### 1. Web Credit Card Back Face Redesign & Silent Copy (`src/components/vault/DialogPreviews.tsx`, `src/app/vault/page.tsx`)
-- **Aesthetic Redesign (Real Card Feel)**:
+#### 1. Web Credit Card Back Face Redesign & Full Logo Layout (`src/components/vault/DialogPreviews.tsx`, `src/app/vault/page.tsx`)
+- **Aesthetic Back Face Redesign (Real Card Feel)**:
   - Removed glowing green `256-BIT AES-GCM` badge and glowing amber `SECURITY SEAL` div.
-  - Added clean uppercase item name header (`name || cardName || "VAULT CARD"`) above the magnetic stripe.
-  - Added muted disclaimer text: `"Reference card · Not for payment"` with subtle 25% opacity.
-  - Rendered inline VaultR VR monogram geometric SVG mark in bottom-right corner at subtle 20% opacity.
-  - Dimmed `VAULTR ZERO-KNOWLEDGE` watermark text to subtle 20% opacity.
+  - Added top header with uppercase item name (`name || cardName || "VAULT CARD"`) on left and `"REFERENCE CARD"` on right.
+  - Added realistic signature panel with `"Authorized Signature"` and white CVV box.
+  - Enriched card back with authentic banking micro-text and security features:
+    - First micro-line: `ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM`.
+    - Contactless wave SVG symbol (`(((•)))`) + `CID 8492`.
+    - Legal recovery note: `"Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app."`
+  - Reorganized bottom brand row with border divider:
+    - **Left**: Full VaultR logo with text (`/brand/vaultr-full-dark-transparent.png`) at 55% opacity.
+    - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
   - Replaced "Other" network brand background with neutral dark charcoal (`#18181b` / `#131316` / `#0a0a0c`).
 - **Per-Field Silent Click-to-Copy**:
   - Implemented direct clipboard copy on individual front card fields: card number (digits only), cardholder name, and expiry date.
   - Implemented direct clipboard copy on CVV value box on back face.
   - Wrapped each field in `e.stopPropagation()` with `cursor-default` so clicking a field never triggers the card flip gesture or creates visual disruption.
-- **Wire & Prop Synchronization**:
-  - Passed `name` through `DetailedCardVisual`, `DetailedCardBackVisual`, `DynamicPreviewCanvas`, `CreditCardGraphic`, and `ExpandedDetails`.
 - **Card Number Alignment & Smooth Show/Hide Animation**:
   - Replaced `mt-auto mb-[5cqw]` with `my-auto pt-[2cqw]` to position the card number slightly below center.
   - Eliminated show/hide vertical layout jump by standardizing invariant character slots (`w-[3.8cqw] h-[6cqw]`).
   - Added smooth sequential cascade cross-fade animation with subtle scale and fade transitions between masked circular dots and unmasked digits.
 
-#### 2. Mobile Credit Card Back Face Redesign & Silent Copy (`mobile/src/components/ItemPreviewCard.tsx`)
-- **Aesthetic Redesign (Real Card Feel)**:
+#### 2. Mobile Credit Card Back Face Redesign & Full Logo Layout (`mobile/src/components/ItemPreviewCard.tsx`)
+- **Aesthetic Back Face Redesign (Real Card Parity)**:
   - Removed neon green `sealBadge` and amber `hologramMini` containers.
-  - Added `topHeader` with `itemLabel` above magnetic stripe displaying item name in clean uppercase monospace.
-  - Added muted `disclaimer` text: `"Reference card · Not for payment"`.
-  - Rendered inline VaultR VR monogram geometric SVG mark (`react-native-svg`) in bottom-right corner at 18% opacity.
-  - Dimmed `watermark` text color to `#3f3f46`.
+  - Added `topHeader` with `itemLabel` on left and `referenceLabel` (`"REFERENCE CARD"`) on right in clean uppercase monospace.
+  - Upgraded `signaturePanel` with `"AUTHORIZED SIGNATURE"` micro-label alongside cardholder signature text.
+  - Enriched back face with security microtext and contactless symbol:
+    - `microHeaderRow` with `ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM`.
+    - Inline contactless wave symbol SVG (`react-native-svg`) + `CID 8492`.
+    - 2-line legal disclaimer: `"Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app."`
+  - Upgraded `bottomRow`:
+    - **Left**: Full VaultR logo with text (`mobile/assets/vaultr-full-dark-transparent.png`) at 55% opacity.
+    - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
   - Replaced "Other" theme with neutral dark charcoal (`bg: "#131316", border: "#222228"`) and neutral fallback brand text (`#a1a1aa`).
 - **Per-Field Silent Tap-to-Copy**:
   - Wrapped number, cardholder name, and expiry date in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
