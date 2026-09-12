@@ -61,6 +61,21 @@
 - **Interactive Changelog**:
   - Added `v0.2.10` release entry (*"Card Back Realism, Tactile Dialogs & Brand Geometry"*) with categorized tags to `src/app/changelog/page.tsx`.
 
+#### 6. GitHub Pull Requests & Release v0.2.10 Deployment
+- **Pull Request #15 (Pre-Bump Refinements)**:
+  - Title: `🎨 Polish Mobile Dialog Actions, Fluid Transitions & App Icon Geometry`
+  - URL: `https://github.com/Yashraj-Jangra/vaultr/pull/15`
+  - Merged cleanly into `main` via merge commit `a1a4f9b`.
+- **Pull Request #16 (Version Bump to 0.2.10)**:
+  - Title: `📌 bump version to 0.2.10`
+  - URL: `https://github.com/Yashraj-Jangra/vaultr/pull/16`
+  - Merged cleanly into `main` via merge commit `557cd0a`.
+- **GitHub Release v0.2.10**:
+  - Tag: `v0.2.10` (pushed to `origin`).
+  - Title: `VaultR v0.2.10 — Card Back Realism, Smooth Dialogs & Icon Alignment`.
+  - Attached Asset: `vaultr-v0.2.10-release.apk` (139.5 MB standalone release APK).
+  - Release Notes: Written in clean, non-technical, human-understandable language for end users.
+
 ---
 
 ## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
