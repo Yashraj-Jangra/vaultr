@@ -13,6 +13,7 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withSpring,
   withTiming,
   runOnJS,
@@ -25,6 +26,13 @@ interface Interactive3DCardProps {
   backContent?: React.ReactNode;
   canFlip?: boolean;
   style?: StyleProp<ViewStyle>;
+}
+
+// Helper worklet: any rotation angle whose normalized [0, 360) value lies in (90, 270) faces the back
+function isBackAngle(angle: number): boolean {
+  "worklet";
+  const norm = ((Math.round(angle) % 360) + 360) % 360;
+  return norm > 90 && norm < 270;
 }
 
 export function Interactive3DCard({
@@ -47,7 +55,7 @@ export function Interactive3DCard({
   const shadowOpacity = useSharedValue(0.35);
   const rimOpacity = useSharedValue(0.06);
 
-  // 3D Flip Rotation Value in degrees: 0 = front, 180 = back
+  // 3D Flip Rotation Value in degrees: 0, 360, 720 = front; 180, 540, 900 = back
   const flipRotation = useSharedValue(0);
   const startRotation = useSharedValue(0);
   const isFlippedShared = useSharedValue(false);
@@ -59,6 +67,16 @@ export function Interactive3DCard({
       if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
     };
   }, []);
+
+  // Synchronize React `flipped` state directly with the card's visible face on the UI thread
+  useAnimatedReaction(
+    () => isBackAngle(flipRotation.value),
+    (isBack, prevIsBack) => {
+      if (prevIsBack !== null && isBack !== prevIsBack) {
+        runOnJS(setFlipped)(isBack);
+      }
+    }
+  );
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -126,12 +144,16 @@ export function Interactive3DCard({
     shadowOpacity.value = withTiming(0.35, { duration: 240 });
   };
 
-  // Button-triggered flip
+  // Button-triggered flip: always advances +180° in the right direction
   const toggleFlip = () => {
-    const nextFlipped = !flipped;
-    setFlipped(nextFlipped);
-    isFlippedShared.value = nextFlipped;
-    flipRotation.value = withSpring(nextFlipped ? 180 : 0, {
+    const currentBase = Math.round(flipRotation.value / 180) * 180;
+    const currentlyBack = isBackAngle(currentBase);
+    const nextBack = !currentlyBack;
+    const targetAngle = currentBase + 180;
+
+    setFlipped(nextBack);
+    isFlippedShared.value = nextBack;
+    flipRotation.value = withSpring(targetAngle, {
       damping: 18,
       stiffness: 140,
       mass: 0.8,
@@ -181,82 +203,54 @@ export function Interactive3DCard({
       })
       .onEnd((e) => {
         "worklet";
-        const wasTap = Math.abs(e.translationX) < 8 && Math.abs(e.translationY) < 8;
-
-        if (wasTap) {
-          const nextState = !isFlippedShared.value;
-          isFlippedShared.value = nextState;
-          const target = nextState ? 180 : 0;
-          flipRotation.value = withSpring(target, {
-            damping: 18,
-            stiffness: 140,
-            mass: 0.8,
-          });
-          runOnJS(triggerHapticAndSync)(nextState);
-          return;
-        }
-
-        const delta = flipRotation.value - startRotation.value;
+        const dragDelta = flipRotation.value - startRotation.value;
         const isFlick = Math.abs(e.velocityX) > 350;
-        const passedThreshold = Math.abs(delta) > 35;
-
+        const passedThreshold = Math.abs(dragDelta) > 35;
         const willFlip = isFlick || passedThreshold;
 
-        let targetAngle: number;
-        let nextState: boolean;
+        const startBase = Math.round(startRotation.value / 180) * 180;
+        const wasBack = isBackAngle(startBase);
 
-        // Swiping right: e.translationX > 0 or e.velocityX > 350 -> delta > 0 (turns right)
-        // Swiping left: e.translationX < 0 or e.velocityX < -350 -> delta < 0 (turns left)
-        const isTurningRight = delta > 0 || e.velocityX > 350;
-
-        if (!isFlippedShared.value) {
-          // Front face resting (0°)
-          if (willFlip) {
-            targetAngle = isTurningRight ? 180 : -180;
-            nextState = true;
-          } else {
-            targetAngle = 0;
-            nextState = false;
-          }
+        // Determine swipe direction:
+        // High-velocity flick takes precedence; otherwise check displacement delta.
+        let isTurningRight: boolean;
+        if (Math.abs(e.velocityX) > 350) {
+          isTurningRight = e.velocityX > 0;
         } else {
-          // Back face resting (~180° or ~-180°)
-          if (willFlip) {
-            if (startRotation.value >= 0) {
-              targetAngle = isTurningRight ? 360 : 0;
-            } else {
-              targetAngle = isTurningRight ? 0 : -360;
-            }
-            nextState = false;
-          } else {
-            targetAngle = startRotation.value;
-            nextState = true;
-          }
+          isTurningRight = dragDelta > 0;
         }
 
-        isFlippedShared.value = nextState;
+        let targetAngle: number;
+        let nextBack: boolean;
+
+        if (willFlip) {
+          // Continuous rotation in the swiped direction (unlimited times):
+          // Swiping right always adds +180°
+          // Swiping left always subtracts -180°
+          targetAngle = isTurningRight ? startBase + 180 : startBase - 180;
+          nextBack = !wasBack;
+        } else {
+          // Snap back to starting face
+          targetAngle = startBase;
+          nextBack = wasBack;
+        }
+
+        isFlippedShared.value = nextBack;
 
         const initialVelocity = Math.max(-25, Math.min(25, e.velocityX / 35));
-        flipRotation.value = withSpring(
-          targetAngle,
-          {
-            damping: 18,
-            stiffness: 150,
-            mass: 0.7,
-            velocity: initialVelocity,
-          },
-          (finished) => {
-            if (finished) {
-              flipRotation.value = nextState ? 180 : 0;
-            }
-          }
-        );
+        flipRotation.value = withSpring(targetAngle, {
+          damping: 18,
+          stiffness: 150,
+          mass: 0.7,
+          velocity: initialVelocity,
+        });
 
-        const previousState = startRotation.value === 180 || startRotation.value === -180;
-        if (nextState !== previousState) {
-          runOnJS(triggerHapticAndSync)(nextState);
+        // Only vibrate and sync if the card actually rotated to the other face
+        if (nextBack !== wasBack) {
+          runOnJS(triggerHapticAndSync)(nextBack);
         }
       })
-      .onFinalize(() => {
+      .onFinalize((_e, success) => {
         "worklet";
         scale.value = withSpring(1, { damping: 22, stiffness: 180, mass: 0.6 });
         rotateX.value = withSpring(0, { damping: 22, stiffness: 180, mass: 0.6 });
@@ -265,6 +259,18 @@ export function Interactive3DCard({
         shadowOffsetY.value = withSpring(0, { damping: 22, stiffness: 180 });
         rimOpacity.value = withTiming(0.06, { duration: 240 });
         shadowOpacity.value = withTiming(0.35, { duration: 240 });
+
+        // If gesture was cancelled mid-drag (e.g. vertical scroll takeover), snap to nearest resting face without vibrating
+        if (!success) {
+          const nearestBase = Math.round(flipRotation.value / 180) * 180;
+          flipRotation.value = withSpring(nearestBase, {
+            damping: 20,
+            stiffness: 180,
+          });
+          const nearestBack = isBackAngle(nearestBase);
+          isFlippedShared.value = nearestBack;
+          runOnJS(setFlipped)(nearestBack);
+        }
       });
   }, [canFlip, backContent, dimensions.width]);
 
@@ -421,8 +427,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#ffffff",
+    borderWidth: 0,
+    borderColor: "transparent",
   },
   controlsRow: {
     flexDirection: "row",

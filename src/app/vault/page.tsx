@@ -180,11 +180,14 @@ function CopyBtn({ value, size = "sm" }: { value: string; size?: "sm" | "xs" }) 
   );
 }
 
-function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }: { value: string; mono?: boolean; dots?: number; isCard?: boolean; onToggle?: (v: boolean) => void }) {
-  const [visible, setVisible] = useState(false);
+function MaskedValue({ value, mono = true, dots = 12, isCard = false, visible: controlledVisible, onToggle }: {
+  value: string; mono?: boolean; dots?: number; isCard?: boolean; visible?: boolean; onToggle?: (v: boolean) => void
+}) {
+  const [internalVisible, setInternalVisible] = useState(false);
+  const isVisible = controlledVisible !== undefined ? controlledVisible : internalVisible;
 
   const displayVal = useMemo(() => {
-    if (!visible) {
+    if (!isVisible) {
       if (isCard && value.replace(/\D/g, "").length >= 4) {
         return "•••• •••• •••• " + value.replace(/\D/g, "").slice(-4);
       }
@@ -205,16 +208,26 @@ function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }
       return parts.join(" ");
     }
     return value;
-  }, [visible, value, isCard, dots]);
+  }, [isVisible, value, isCard, dots]);
 
   return (
     <div className="flex items-center justify-end gap-1.5 min-w-0">
-      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!visible && !isCard ? "tracking-widest" : ""}`}>
+      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${isVisible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!isVisible && !isCard ? "tracking-widest" : ""}`}>
         {displayVal}
       </span>
       <div className="flex items-center shrink-0">
-        <button onClick={() => { setVisible(v => { const next = !v; onToggle?.(next); return next; }) }} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
-          {visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !isVisible;
+            if (controlledVisible === undefined) {
+              setInternalVisible(next);
+            }
+            onToggle?.(next);
+          }}
+          className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0"
+        >
+          {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
         </button>
         <CopyBtn value={value} />
       </div>
@@ -763,15 +776,15 @@ function SectionGroup({ title, children }: { title: string; children: React.Reac
   );
 }
 
-function DetailRow({ label, value, masked = false, isUrl = false, isCard = false, dots = 12, onToggle }: {
-  label: string; value: string; masked?: boolean; isUrl?: boolean; isCard?: boolean; dots?: number; onToggle?: (v: boolean) => void
+function DetailRow({ label, value, masked = false, isUrl = false, isCard = false, dots = 12, visible, onToggle }: {
+  label: string; value: string; masked?: boolean; isUrl?: boolean; isCard?: boolean; dots?: number; visible?: boolean; onToggle?: (v: boolean) => void
 }) {
   if (!value) return null;
   return (
     <div className="flex items-center justify-between px-3 py-2.5 min-w-0">
       <span className="text-[11px] text-neutral-400 font-medium shrink-0 pr-3">{label}</span>
       <div className="flex-1 min-w-0 text-right">
-        {masked ? <MaskedValue value={value} dots={dots} isCard={isCard} onToggle={onToggle} /> :
+        {masked ? <MaskedValue value={value} dots={dots} isCard={isCard} visible={visible} onToggle={onToggle} /> :
           isUrl ? (
             <div className="flex items-center justify-end gap-1.5 min-w-0">
               <a
@@ -880,7 +893,7 @@ function PasswordHistoryButton({ history }: { history: string[] }) {
   );
 }
 
-function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decryptItem, cryptoKey }: { itemId?: string; data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean, decryptItem: (blob: string) => Promise<string>, cryptoKey: CryptoKey | null }) {
+function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = false, decryptItem, cryptoKey }: { itemId?: string; itemName?: string; data: DecryptedPayload, readOnly?: boolean, onEdit?: () => void, inGrid?: boolean, decryptItem: (blob: string) => Promise<string>, cryptoKey: CryptoKey | null }) {
   const [showCard, setShowCard] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
 
@@ -892,6 +905,10 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
         if (d.attachments) setAttachments(d.attachments);
       })
       .catch(console.error);
+  }, [itemId]);
+
+  useEffect(() => {
+    setShowCard(false);
   }, [itemId]);
 
   const t = data._template ?? "login";
@@ -929,19 +946,19 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
 
       {t === "card" && (
         <>
-          <CreditCardGraphic data={data} showCard={showCard} />
+          <CreditCardGraphic data={data} showCard={showCard} itemName={itemName} />
           <SectionGroup title="CARD DETAILS">
             {(data.cardName || data.cardholderName) ? (
               <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
             ) : null}
             {data.cardNumber ? (
-              <DetailRow label="Number" value={data.cardNumber} masked isCard onToggle={setShowCard} />
+              <DetailRow label="Number" value={data.cardNumber} masked isCard visible={showCard} onToggle={setShowCard} />
             ) : null}
             {(data.expiry || data.expMonth || data.expYear) ? (
               <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "")} />
             ) : null}
             {data.cvv ? (
-              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
+              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} visible={showCard} onToggle={setShowCard} />
             ) : null}
             {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
           </SectionGroup>
@@ -1065,13 +1082,14 @@ function ExpandedDetails({ itemId, data, readOnly, onEdit, inGrid = false, decry
 }
 
 
-function CreditCardGraphic({ data, showCard }: { data: DecryptedPayload; showCard?: boolean }) {
+function CreditCardGraphic({ data, showCard, itemName }: { data: DecryptedPayload; showCard?: boolean; itemName?: string }) {
   const cardName = data.cardName || data.cardholderName || "";
   const expiry = data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "");
   const cardBrand = (data.cardBrand && data.cardBrand.toLowerCase() !== "auto-detect" ? data.cardBrand : "") || detectCardBrand(data.cardNumber || "");
   return (
     <div className="w-full max-w-[280px] mx-auto mb-4 scale-95 origin-center">
       <DetailedCardVisual
+        name={itemName}
         cardNumber={data.cardNumber || ""}
         cardName={cardName}
         expiry={expiry}
@@ -1676,6 +1694,7 @@ export default function VaultPage() {
             <div className="border-t border-neutral-800/60 bg-neutral-950/50">
               <ExpandedDetails
                 itemId={item.id}
+                itemName={item.name}
                 decryptItem={decryptItem}
                 cryptoKey={cryptoKey}
                 data={revealedData}
@@ -1762,6 +1781,7 @@ export default function VaultPage() {
           <div className="mx-4 mb-3 rounded-xl border border-neutral-800/60 bg-neutral-950/60 overflow-hidden">
             <ExpandedDetails
               itemId={item.id}
+              itemName={item.name}
               decryptItem={decryptItem}
               cryptoKey={cryptoKey}
               data={revealedData}

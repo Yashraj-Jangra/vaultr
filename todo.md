@@ -1,4 +1,105 @@
-## Current Session: Swipe Gesture to Flip Credit Cards (Issue #5) (2026-09-11) · Branch: `dev`
+## Current Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Web Credit Card Back Face Redesign & Full Logo Layout (`src/components/vault/DialogPreviews.tsx`, `src/app/vault/page.tsx`)
+- **Aesthetic Back Face Redesign (Real Card Feel)**:
+  - Removed glowing green `256-BIT AES-GCM` badge and glowing amber `SECURITY SEAL` div.
+  - Added top header with uppercase item name (`name || cardName || "VAULT CARD"`) on left and `"REFERENCE CARD"` on right.
+  - Added realistic signature panel with `"Authorized Signature"` and white CVV box.
+  - Enriched card back with authentic banking micro-text and security features:
+    - Easter egg header: `NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS`.
+    - Easter egg disclaimer: `"Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers."` (omits domains/URLs).
+    - Redesigned 4-arc EMVCo Contactless wave SVG and replaced `CID 8492` with `CONTACTLESS`, aligned to the right side below the disclaimer text.
+  - Reorganized bottom brand row with border divider:
+    - **Left**: Enlarged full VaultR logo with text (`/brand/vaultr-full-dark-transparent.png`, `h-[4.4cqw]`) at 70% opacity.
+    - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
+  - Replaced "Other" network brand background with neutral dark charcoal (`#18181b` / `#131316` / `#0a0a0c`).
+- **Per-Field Silent Click-to-Copy**:
+  - Implemented direct clipboard copy on individual front card fields: card number (digits only), cardholder name, and expiry date.
+  - Implemented direct clipboard copy on CVV value box on back face.
+  - Wrapped each field in `e.stopPropagation()` with `cursor-default` so clicking a field never triggers the card flip gesture or creates visual disruption.
+- **Card Number Alignment & Smooth Show/Hide Animation**:
+  - Replaced `mt-auto mb-[5cqw]` with `my-auto pt-[2cqw]` to position the card number slightly below center.
+  - Eliminated show/hide vertical layout jump by standardizing invariant character slots (`w-[3.8cqw] h-[6cqw]`).
+  - Added smooth sequential cascade cross-fade animation with subtle scale and fade transitions between masked circular dots and unmasked digits.
+
+#### 2. Mobile Credit Card Back Face Redesign & Full Logo Layout (`mobile/src/components/ItemPreviewCard.tsx`)
+- **Aesthetic Back Face Redesign (Real Card Parity)**:
+  - Removed neon green `sealBadge` and amber `hologramMini` containers.
+  - Added `topHeader` with `itemLabel` on left and `referenceLabel` (`"REFERENCE CARD"`) on right in clean uppercase monospace.
+  - Upgraded `signaturePanel` with `"AUTHORIZED SIGNATURE"` micro-label alongside cardholder signature text.
+  - Enriched back face with security microtext and contactless symbol:
+    - Easter egg header: `NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS`.
+    - Easter egg disclaimer: `"Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers."`
+    - Redesigned 4-arc EMVCo Contactless wave SVG and replaced `CID 8492` with `CONTACTLESS`, aligned to the right side below the legal disclaimer.
+  - Upgraded `bottomRow`:
+    - **Left**: Enlarged full VaultR logo with text (`mobile/assets/vaultr-full-dark-transparent.png`, 15x78) at 72% opacity.
+    - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
+  - Replaced "Other" theme with neutral dark charcoal (`bg: "#131316", border: "#222228"`) and neutral fallback brand text (`#a1a1aa`).
+- **Per-Field Silent Tap-to-Copy**:
+  - Wrapped number, cardholder name, and expiry date in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
+  - Wrapped CVV box on back face in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
+  - Zero opacity flash, preserving user's auto-clear clipboard timeout settings.
+  - **1:1 Web Background Gradient & Vector Overlay Replication**:
+    - Replaced flat solid hex colors on mobile cards with multi-stop SVG LinearGradients matching Web 1:1:
+      - **Visa**: `from-[#0A0D1A] via-[#151233] to-[#2B1B54]` + dual sine waves + ambient purple glow orb.
+      - **Mastercard**: `from-[#1a1a1c] via-[#141415] to-[#0a0a0b]` + red/amber glow orbs.
+      - **AMEX**: `from-[#141414] via-[#090909] to-[#000000]` + concentric amber borders + diagonal sheen.
+      - **Discover**: `from-[#1F0F07] via-[#0C0603] to-[#020101]` + 3 orange concentric rings (r=96, 80, 64) + bottom-left glow.
+      - **RuPay**: Deep tilted Indian flag tricolor gradient with obsidian black/grey in between (`#2e1406` dark saffron -> `#0b0b0e` dark charcoal black/grey -> `#021a12` dark emerald) + dual flowing saffron top waves + dual flowing emerald bottom waves + 30° tilted guilloche micro-lines (center circle completely removed).
+      - **Other / Default / Custom**: exact multi-stop charcoal and dark slate gradients.
+    - Removed fingerprint watermark SVG completely from both Web and Mobile card preview.
+    - Applied identical gradient background to both Front and Back card faces.
+    - Upgraded LoginKeycard (`#1a1a20` to `#0d0d10`), ProfileBadge (vertical `#111115` to `#070709` + accent gradient bar), and NotePaper (golden multi-stop top bar).
+
+#### 3. Edit & Preview Mode Visibility & Synchronization
+- **Edit / Create Mode Always Visible**:
+  - Web (`src/components/vault/NewEntryDialog.tsx`): Passed `isNumberVisible={true}` to both single-column and multi-column `DynamicPreviewCanvas` instances so the card preview always displays full unmasked digits in edit/create mode.
+  - Mobile (`mobile/src/screens/ItemFormScreen.tsx`): Passed `isNumberVisible={true}` to `ItemPreviewCard` so the card preview always displays full unmasked digits in edit/create mode.
+  - Input fields in both Web and Mobile already display unmasked editable characters.
+- **Preview Mode Show/Hide Synchronization**:
+  - Web (`src/app/vault/page.tsx`):
+    - Added controlled `visible?: boolean` prop support to `MaskedValue` and forwarded it from `DetailRow`.
+    - Bound both `Number` and `CVV` rows in `ExpandedDetails` to `showCard` state with `visible={showCard} onToggle={setShowCard}`.
+    - Synchronized `CreditCardGraphic` with `showCard`, ensuring toggling either field row or clicking the eye toggles both detail fields and the preview card simultaneously.
+    - Added `useEffect` on `itemId` change to reset `showCard` to `false` when switching items in the vault list.
+  - Mobile (`mobile/src/screens/ItemDetailScreen.tsx`):
+    - Verified that `showPassword` state controls both `cardNumber` and `cvv` in `FieldRow`, as well as `ItemPreviewCard` (`isNumberVisible={showPassword}`), maintaining 100% synchronized reveal and masking.
+
+#### 4. Card Vibration Isolation & Copy Toast Synchronization (`mobile/src/components/Interactive3DCard.tsx`, `mobile/src/components/ItemPreviewCard.tsx`, `mobile/src/screens/ItemDetailScreen.tsx`)
+- **Card Vibration Isolation**:
+  - Removed `wasTap` auto-flip logic from `panGesture.onEnd` in `Interactive3DCard.tsx` so a simple tap or click never flips the card or vibrates.
+  - Removed haptic vibration from `onFinalize` when `!success` (e.g. touch down and release without dragging), eliminating the vibration on every tap/click.
+  - Card rotation vibration (`Vibration.vibrate(12)`) now strictly fires only when the card is actually rotated (either through a completed horizontal swipe flip exceeding threshold/velocity or via the dedicated "Flip Card" button).
+- **Preview Card Copy Haptics & "Copied to clipboard" Popup**:
+  - Added `onCopy?: (label: string, value: string) => void` to `ItemPreviewCardProps` and forwarded it to `CreditCardVisual`, `CreditCardBackVisual`, and `LoginKeycardVisual`.
+  - Linked `onCopy={copyToClipboard}` in `ItemDetailScreen.tsx`, displaying the floating `"Copied to clipboard"` pill with green checkmark when tapping Card Number, Cardholder Name, Expiry Date, CVV, or Username on the preview card.
+  - Added local fallback animated pill inside `ItemPreviewCard` when rendered outside `ItemDetailScreen`.
+  - Added `Vibration.vibrate(12)` to `copyToClipboard` in `ItemDetailScreen.tsx` so all regular copy button fields also trigger tactile haptics.
+
+#### 5. Discover & AMEX Brand Logo Adjustments (`mobile/src/components/ItemPreviewCard.tsx`)
+- **Discover Logo Clipping Fix & Subtle Size Increase**:
+  - Replaced the unclipped bottom-truncated crescent path with the full official sunset gradient `<Ellipse cx={258.75} cy={250} rx={37.52} ry={37.65} fill="url(#discOrangeGrad)" />`.
+  - Expanded `viewBox` from `25 213 450 73` to `20 206 458 86`, providing comfortable margin around all letter strokes and the 'O' ellipse.
+  - Increased rendered dimensions on mobile from `78x16` to `88x18` (+13% size increase).
+- **AMEX Logo Size Increase & Border Padding**:
+  - Increased rendered dimensions on mobile from `50x32` to `58x34` (+16% size increase).
+  - Adjusted `viewBox` from `51 182 424 160` to `48 180 430 164` to provide full clearance for the 3px white stroke outline.
+  - Web preview canvas (`src/components/vault/DialogPreviews.tsx`) remains completely untouched.
+
+#### 6. Verification & Zero-Error Compilation
+- `npx tsc --noEmit` on root / web: 0 errors.
+- `npx tsc --noEmit` on mobile: 0 errors.
+
+### 📋 What's Planned Next
+- Sync all commits on `dev` to remote, prepare PR with human-readable release notes, and merge to `main`.
+- Verify continuous swipe gesture, flip button state, and card copying on device.
+- Proactively suggest version bump if milestone complete.
+
+---
+
+## Previous Session: Swipe Gesture to Flip Credit Cards (Issue #5) (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 
@@ -26,8 +127,28 @@
   - Tap-to-flip and flip button pill below card.
 - Wired `cvv` and `isNumberVisible` props through `CreditCardGraphic` in `src/app/vault/page.tsx` and `DynamicPreviewCanvas` in `src/components/vault/NewEntryDialog.tsx`.
 
+#### 3. Native Android Release Build (`vaultr-v0.2.9-release.apk`)
+- **Compilation & Packaging**:
+  - Ran `npx tsc --noEmit` on both root and mobile workspaces (0 TypeScript errors).
+  - Executed `./gradlew.bat assembleRelease` in `mobile/android` (Build completed successfully in 5m 49s).
+  - Bundled 3,220 modules into offline Hermes JavaScript bundle (`index.android.bundle`).
+  - Successfully produced standalone signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk` (146,274,268 bytes).
+  - Packed latest interactive 3D swipe-to-flip credit card physics, gesture handlers, and predictive back navigation.
+
+#### 4. Continuous Unlimited Directional Flip & State Synchronization (`Interactive3DCard.tsx`, `DialogPreviews.tsx`)
+- **Unlimited Directional Rotation**:
+  - Eliminated hardcoded angle clamping and resetting to 0°/180° upon spring completion, resolving the oscillation where repeated right swipes reversed to the left.
+  - Formulated continuous modular rotation: swiping right advances `+180°` unlimited times (0° → 180° → 360° → 540° → 720°...), and swiping left advances `-180°` unlimited times.
+  - Implemented `isBackAngle` helper worklet calculating face visibility from normalized angle `((rot % 360) + 360) % 360 in (90, 270)`.
+- **Flip Button & Gesture State Synchronization**:
+  - Integrated `useAnimatedReaction` observing `flipRotation.value` directly on the UI thread to keep React's `flipped` state 100% synchronized with the visible face across all gestures, flicks, and interruptions.
+  - Upgraded `toggleFlip()` to compute orientation from current rotation angle, advance `+180°` forward, and update button label immediately without desync.
+  - Added cancellation recovery in `onFinalize` to snap half-turned cards cleanly to the nearest 180° face if a gesture fails or is cancelled by parent scrolling.
+  - Aligned Web's `DetailedCardVisual` (`DialogPreviews.tsx`) tap and button handler to advance forward `prev + 180` for 100% cross-platform parity.
+
 ### 📋 What's Planned Next
-- Verify UI behavior across Web and Mobile.
+- Connect physical Android device or start emulator to test/stream APK install (`adb install -r`).
+- Verify continuous swipe gesture and flip button state synchronization directly on device.
 - Prepare version bump if ready.
 
 ---

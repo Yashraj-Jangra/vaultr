@@ -12,6 +12,7 @@ import {
   TextInput,
   Platform,
   BackHandler,
+  Vibration,
 } from "react-native";
 import { vaultAlert } from "../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -124,6 +125,9 @@ export function ItemDetailScreen({ route, navigation }: Props) {
 
   const copyToClipboard = async (label: string, value: string) => {
     if (!value) return;
+    try {
+      Vibration.vibrate(12);
+    } catch {}
     await copyToClipboardWithAutoClear(value);
     setCopiedField(label);
     setTimeout(() => setCopiedField(null), 2000);
@@ -309,6 +313,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             email={payload?.email}
             phone={payload?.phone}
             note={payload?.note}
+            onCopy={copyToClipboard}
           />
         </View>
 

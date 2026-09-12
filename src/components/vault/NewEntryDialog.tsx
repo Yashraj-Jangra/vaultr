@@ -1781,6 +1781,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                   cardBrand={cardBrand}
                   fallbackBrand={fallbackBrand}
                   cvv={cvv}
+                  isNumberVisible={true}
                 />
               </div>
 
@@ -1921,6 +1922,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     cardBrand={cardBrand}
                     fallbackBrand={fallbackBrand}
                     cvv={cvv}
+                    isNumberVisible={true}
                   />
                 </div>
               </div>

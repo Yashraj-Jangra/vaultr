@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from "react";
-import { Lock, Globe, User, Shield, Sparkles, RefreshCw } from "lucide-react";
+import { Lock, Globe, User, RefreshCw } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
 
 // ── Standard Card Network / Brand Detection ──────────────────────────────────
@@ -104,23 +104,70 @@ export function DetailedCardFrontFace({
       </div>
     );
   } else if (isRuPay) {
-    bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
+    bgClass = "from-[#2e1406] via-[#0b0b0e] to-[#021a12]";
     logoImg = <img src="/logos/Rupay.svg" className="h-[6.5cqw] w-auto object-contain" alt="RuPay" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
+      <svg className="absolute inset-0 w-full h-full object-cover pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="rupayGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#004e92" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#000428" stopOpacity="0" />
+          {/* Tilted Saffron Swirl Gradient */}
+          <linearGradient id="rupaySaffronWave" x1="0%" y1="0%" x2="80%" y2="80%">
+            <stop offset="0%" stopColor="#ea580c" stopOpacity="0.32" />
+            <stop offset="45%" stopColor="#c2410c" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#7c2d12" stopOpacity="0" />
+          </linearGradient>
+
+          {/* Tilted Emerald Swirl Gradient */}
+          <linearGradient id="rupayEmeraldWave" x1="20%" y1="20%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#047857" stopOpacity="0" />
+            <stop offset="55%" stopColor="#059669" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0.28" />
+          </linearGradient>
+
+          {/* Tilted Center Sheen */}
+          <linearGradient id="rupayTiltedSheen" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="25%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.03" />
+            <stop offset="75%" stopColor="#ffffff" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d="M0,40 L320,40 M0,80 L320,80 M0,120 L320,120 M0,160 L320,160" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <path d="M60,0 L60,200 M120,0 L120,200 M180,0 L180,200 M240,0 L240,200" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <path d="M0,100 L120,100 L140,120 L320,120" fill="none" stroke="url(#rupayGrad)" strokeWidth="2" opacity="0.5" />
+
+        {/* 1. Tilted Saffron Flow in Top-Left */}
+        <path
+          d="M-20,75 C50,25 150,55 340,-15 L340,-20 L-20,-20 Z"
+          fill="url(#rupaySaffronWave)"
+        />
+        <path
+          d="M-20,105 C70,55 170,80 340,15 L340,-20 L-20,-20 Z"
+          fill="url(#rupaySaffronWave)"
+          opacity="0.6"
+        />
+
+        {/* 2. Tilted Emerald Flow in Bottom-Right */}
+        <path
+          d="M-20,220 L340,220 L340,125 C230,175 130,145 -20,205 Z"
+          fill="url(#rupayEmeraldWave)"
+        />
+        <path
+          d="M-20,220 L340,220 L340,95 C250,145 150,120 -20,185 Z"
+          fill="url(#rupayEmeraldWave)"
+          opacity="0.5"
+        />
+
+        {/* 3. Tilted Diagonal Guilloche Security Lines (30 deg angle) */}
+        <g opacity="0.45">
+          <path
+            d="M-40,90 L180,-20 M-20,130 L240,0 M0,170 L300,20 M20,210 L360,40 M60,230 L380,70"
+            stroke="rgba(255,255,255,0.04)"
+            strokeWidth="0.6"
+          />
+        </g>
+
+        {/* 4. Subtle Tilted Card Sheen */}
+        <rect x="0" y="0" width="320" height="200" fill="url(#rupayTiltedSheen)" />
       </svg>
     );
   } else if (isOther) {
-    bgClass = "from-[#0f1d1a] via-[#08100e] to-[#030605]";
+    bgClass = "from-[#18181b] via-[#131316] to-[#0a0a0c]";
   } else if (cardBrand) {
     bgClass = "from-[#1f1a30] via-[#100d1a] to-[#05040d]";
   }
@@ -149,31 +196,60 @@ export function DetailedCardFrontFace({
       const isEntered = idx < num.length;
       const isVisibleBlock = g === groups.length - 1;
 
-      let char = "-";
       let op = isLight ? "opacity-20" : "opacity-30";
       let scale = "scale-90";
 
       if (isEntered) {
-        char = (isVisibleBlock || isNumberVisible) ? num[idx] : "•";
         op = "opacity-100";
         scale = "scale-100";
       }
 
+      const isRevealed = isVisibleBlock || isNumberVisible;
+      const delay = !isVisibleBlock && isEntered ? `${idx * 14}ms` : "0ms";
+
       groupSpan.push(
-        <span key={idx} className={`inline-block transition-all duration-300 transform ${op} ${scale} ${char === '•' ? 'translate-y-[-2px] text-[1.2em]' : ''} w-[4cqw] text-center`}>
-          {char}
+        <span
+          key={idx}
+          className={`relative inline-flex items-center justify-center w-[3.8cqw] h-[6cqw] text-center select-none ${op} ${scale}`}
+        >
+          {isEntered ? (
+            <>
+              {/* Masked Dot */}
+              <span
+                style={{ transitionDelay: delay }}
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${
+                  isRevealed ? "opacity-0 scale-50 pointer-events-none" : "opacity-100 scale-100"
+                }`}
+              >
+                <span className="w-[1.4cqw] h-[1.4cqw] rounded-full bg-current" />
+              </span>
+
+              {/* Unmasked Digit */}
+              <span
+                style={{ transitionDelay: delay }}
+                className={`absolute inset-0 flex items-center justify-center font-mono font-medium leading-none transition-all duration-200 ease-out ${
+                  isRevealed ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+                }`}
+              >
+                {num[idx]}
+              </span>
+            </>
+          ) : (
+            <span className="font-mono font-medium leading-none">-</span>
+          )}
         </span>
       );
     }
-    digitGroups.push(<div key={g} className="flex gap-[0.2cqw]">{groupSpan}</div>);
+    digitGroups.push(
+      <div key={g} className="flex items-center gap-[0.2cqw]">
+        {groupSpan}
+      </div>
+    );
   }
 
   return (
     <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between ${textColor} p-[6cqw] transition-colors duration-500 relative select-none`}>
       {graphics}
-
-      {/* Subtle security watermark illustration inside card */}
-      <img src="/illustrations/fingerprint_kdwq.svg" className="absolute right-4 bottom-4 w-28 h-28 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
 
       {/* Top Row: Bank Logo left, Network right */}
       <div className="relative z-10 flex justify-between items-start h-[8cqw]">
@@ -207,21 +283,39 @@ export function DetailedCardFrontFace({
         </div>
       </div>
 
-      {/* Middle: Card Number Animated */}
-      <div className="relative z-10 w-full mt-auto mb-[5cqw] flex justify-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap">
+      {/* Middle: Card Number Animated with silent click-to-copy */}
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          if (num) navigator.clipboard.writeText(num);
+        }}
+        className="relative z-10 w-full my-auto pt-[2cqw] flex justify-center items-center gap-[2.5cqw] text-[5.5cqw] font-mono font-medium leading-none whitespace-nowrap cursor-default"
+      >
         {digitGroups}
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom Row with silent click-to-copy */}
       <div className="relative z-10 flex justify-between items-end">
-        <div className="flex flex-col min-w-0 pr-[4cqw]">
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (cardName) navigator.clipboard.writeText(cardName);
+          }}
+          className="flex flex-col min-w-0 pr-[4cqw] cursor-default"
+        >
           <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Cardholder Name</span>
           <span className="text-[4cqw] font-semibold tracking-wide uppercase truncate">
             {cardName || "Name"}
           </span>
         </div>
 
-        <div className="flex flex-col shrink-0 text-right">
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (expiry) navigator.clipboard.writeText(expiry);
+          }}
+          className="flex flex-col shrink-0 text-right cursor-default"
+        >
           <span className={`text-[2.5cqw] uppercase tracking-wider ${mutedColor} mb-[0.5cqw]`}>Expiry Date</span>
           <span className="text-[4cqw] font-medium font-mono">
             {expiry || "00/00"}
@@ -234,6 +328,7 @@ export function DetailedCardFrontFace({
 
 // ── Credit Card Back Face ────────────────────────────────────────────────────
 export function DetailedCardBackVisual({
+  name,
   cardNumber,
   cardName,
   cvv,
@@ -241,6 +336,7 @@ export function DetailedCardBackVisual({
   fallbackBrand,
   isNumberVisible
 }: {
+  name?: string;
   cardNumber: string;
   cardName: string;
   cvv?: string;
@@ -270,9 +366,9 @@ export function DetailedCardBackVisual({
   } else if (isDiscover) {
     bgClass = "from-[#1F0F07] via-[#0C0603] to-[#020101]";
   } else if (isRuPay) {
-    bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
+    bgClass = "from-[#2e1406] via-[#0b0b0e] to-[#021a12]";
   } else if (isOther) {
-    bgClass = "from-[#0f1d1a] via-[#08100e] to-[#030605]";
+    bgClass = "from-[#18181b] via-[#131316] to-[#0a0a0c]";
   } else if (cardBrand) {
     bgClass = "from-[#1f1a30] via-[#100d1a] to-[#05040d]";
   }
@@ -281,25 +377,41 @@ export function DetailedCardBackVisual({
 
   return (
     <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between text-white transition-colors duration-500 relative select-none`}>
-      {/* 1. Magnetic Stripe */}
-      <div className="w-full h-[15%] bg-[#08080a] border-y border-white/[0.08] relative overflow-hidden mt-[5cqw] shrink-0">
+      {/* 1. Item Name Header & Card Type Tag */}
+      <div className="px-[5cqw] pt-[3.5cqw] pb-[1cqw] flex justify-between items-center shrink-0">
+        <span className="text-[2.3cqw] font-mono uppercase tracking-widest text-white/50 truncate max-w-[70%] font-medium">
+          {name || cardName || "VAULT CARD"}
+        </span>
+        <span className="text-[1.8cqw] font-mono uppercase tracking-widest text-white/30 shrink-0">
+          REFERENCE CARD
+        </span>
+      </div>
+
+      {/* 2. Magnetic Stripe */}
+      <div className="w-full h-[14%] bg-[#08080a] border-y border-white/[0.08] relative overflow-hidden shrink-0">
         <div className="absolute top-1 left-0 right-0 h-1 bg-white/[0.04]" />
       </div>
 
-      {/* 2. Signature Panel & CVV Box */}
+      {/* 3. Signature Panel & CVV Box */}
       <div className="px-[5cqw] flex items-center gap-[2cqw] mt-[2cqw]">
         {/* Signature Panel */}
         <div className="flex-1 h-[8.5cqw] bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 rounded-l-[1cqw] px-[3cqw] flex items-center justify-between border-y border-neutral-300 shadow-inner overflow-hidden">
           <span className="font-serif italic text-neutral-800 text-[3.2cqw] tracking-wider truncate select-none">
             {cardName || "Cardholder Name"}
           </span>
-          <span className="text-[1.8cqw] font-mono font-bold text-neutral-400 uppercase tracking-widest shrink-0">
-            Signature
+          <span className="text-[1.7cqw] font-mono font-bold text-neutral-400 uppercase tracking-widest shrink-0">
+            Authorized Signature
           </span>
         </div>
 
-        {/* CVV Box */}
-        <div className="h-[8.5cqw] px-[3cqw] bg-white rounded-r-[1cqw] border-y border-r border-neutral-300 flex flex-col justify-center items-center shrink-0 min-w-[14cqw] shadow-sm">
+        {/* CVV Box with silent click-to-copy */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (cvv) navigator.clipboard.writeText(cvv);
+          }}
+          className="h-[8.5cqw] px-[3cqw] bg-white rounded-r-[1cqw] border-y border-r border-neutral-300 flex flex-col justify-center items-center shrink-0 min-w-[14cqw] shadow-sm cursor-default"
+        >
           <span className="text-[1.8cqw] font-sans font-bold uppercase text-neutral-400 tracking-wider">
             CVV / CVC
           </span>
@@ -309,26 +421,38 @@ export function DetailedCardBackVisual({
         </div>
       </div>
 
-      {/* 3. Security Info & 256-Bit Seal */}
-      <div className="px-[5cqw] flex items-center justify-between gap-[3cqw] mt-[1.5cqw]">
-        <div className="flex items-center gap-[1.2cqw] bg-emerald-500/10 border border-emerald-500/20 px-[2cqw] py-[0.8cqw] rounded-[1cqw] shrink-0">
-          <Shield className="w-[3cqw] h-[3cqw] text-emerald-400" />
-          <span className="text-[2cqw] font-mono font-bold text-emerald-400 tracking-wider">256-BIT AES-GCM</span>
-        </div>
-        <span className="text-[1.8cqw] text-white/45 leading-tight max-w-[65%] text-right font-sans">
-          Protected by VaultR zero-knowledge client-side encryption. Authorized cardholder only.
+      {/* 4. Security & Support Micro-Text with Contactless Symbol in Empty Space Below */}
+      <div className="px-[5cqw] mt-[1.5cqw] flex flex-col gap-[0.7cqw]">
+        <span className="text-[2.1cqw] text-white/45 font-mono tracking-wider uppercase font-semibold">
+          NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS
         </span>
+        <p className="text-[1.9cqw] text-white/32 leading-snug font-sans">
+          Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers.
+        </p>
+        {/* Contactless Wave Symbol & Indicator moved to right side */}
+        <div className="flex items-center justify-end gap-[1.2cqw] text-white/50 mt-[1.2cqw] self-end">
+          <svg className="w-[4.5cqw] h-[4.5cqw]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M 5 9.5 A 4 4 0 0 1 5 14.5" />
+            <path d="M 7.5 7 A 7.5 7.5 0 0 1 7.5 17" />
+            <path d="M 10 4.5 A 11 11 0 0 1 10 19.5" />
+            <path d="M 12.5 2 A 14.5 14.5 0 0 1 12.5 22" />
+          </svg>
+          <span className="text-[2.1cqw] font-mono font-bold tracking-widest text-white/45 uppercase">
+            CONTACTLESS
+          </span>
+        </div>
       </div>
 
-      {/* 4. Bottom Brand & Hologram Seal */}
-      <div className="px-[5cqw] pb-[5cqw] mt-auto flex items-center justify-between text-white/35">
-        <span className="text-[2cqw] font-mono tracking-widest font-semibold text-white/40">
+      {/* 5. Bottom Brand: Larger Full VaultR Logo (Left) + Zero-Knowledge text (Right) */}
+      <div className="px-[5cqw] pb-[3.5cqw] mt-auto flex items-center justify-between border-t border-white/[0.08] pt-[1.8cqw]">
+        <img
+          src="/brand/vaultr-full-dark-transparent.png"
+          className="h-[4.4cqw] w-auto object-contain opacity-70 select-none pointer-events-none"
+          alt="VaultR"
+        />
+        <span className="text-[2cqw] font-mono tracking-widest font-semibold text-white/35 uppercase">
           VAULTR ZERO-KNOWLEDGE
         </span>
-        <div className="flex items-center gap-[1cqw] bg-amber-500/10 border border-amber-500/20 px-[2cqw] py-[0.6cqw] rounded-[1cqw]">
-          <Sparkles className="w-[2.5cqw] h-[2.5cqw] text-amber-400" />
-          <span className="text-[1.8cqw] font-mono font-bold text-amber-400/90 tracking-wider">SECURITY SEAL</span>
-        </div>
       </div>
     </div>
   );
@@ -336,6 +460,7 @@ export function DetailedCardBackVisual({
 
 // ── Credit Card Visual with 3D Swipe to Flip Gesture ──────────────────────────
 export function DetailedCardVisual({
+  name,
   cardNumber,
   cardName,
   expiry,
@@ -344,6 +469,7 @@ export function DetailedCardVisual({
   fallbackBrand,
   isNumberVisible
 }: {
+  name?: string;
   cardNumber: string;
   cardName: string;
   expiry: string;
@@ -416,9 +542,9 @@ export function DetailedCardVisual({
     const norm = Math.abs(rotationAngle % 360);
     const currentlyFlipped = norm > 90 && norm < 270;
 
-    // Tap detected -> toggle flip
+    // Tap detected -> advance flip in right direction
     if (Math.abs(dx) < 6 && dt < 300) {
-      setRotationAngle((prev) => (currentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180));
+      setRotationAngle((prev) => prev + 180);
     } else if (Math.abs(velocity) > 0.35 || Math.abs(dx) > 40) {
       // Swiping momentum: left rotates left (-180), right rotates right (+180)
       if (dx < 0) {
@@ -498,6 +624,7 @@ export function DetailedCardVisual({
             }}
           >
             <DetailedCardBackVisual
+              name={name}
               cardNumber={cardNumber}
               cardName={cardName}
               cvv={cvv}
@@ -515,11 +642,7 @@ export function DetailedCardVisual({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setRotationAngle((prev) => {
-              const n = Math.abs(prev % 360);
-              const isCurrentlyFlipped = n > 90 && n < 270;
-              return isCurrentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180;
-            });
+            setRotationAngle((prev) => prev + 180);
           }}
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors shadow-sm cursor-pointer"
         >
@@ -674,7 +797,7 @@ export function DynamicPreviewCanvas({ template, name, username, url, line1, lin
     return <LoginKeycardPreview name={name} username={username} url={url} />;
   }
   if (template === "card") {
-    return <DetailedCardVisual cardName={cardName} cardNumber={cardNumber} expiry={expiry} cvv={cvv} cardBrand={cardBrand} fallbackBrand={fallbackBrand} isNumberVisible={isNumberVisible} />;
+    return <DetailedCardVisual name={name} cardName={cardName} cardNumber={cardNumber} expiry={expiry} cvv={cvv} cardBrand={cardBrand} fallbackBrand={fallbackBrand} isNumberVisible={isNumberVisible} />;
   }
   if (template === "address") {
     return <AddressLabelPreview name={name} line1={line1} line2={line2} city={city} state={state} zip={zip} country={country} />;

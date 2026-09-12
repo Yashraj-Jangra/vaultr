@@ -523,6 +523,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
             url={url}
             cardholderName={cardholderName}
             cardNumber={cardNumber}
+            isNumberVisible={true}
             expMonth={expMonth}
             expYear={expYear}
             cvv={cvv}
