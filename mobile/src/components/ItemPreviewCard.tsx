@@ -262,13 +262,13 @@ function CreditCardVisual({
       if (idx < num.length) {
         group += (isLastGroup || isNumberVisible) ? num[idx] : "•";
       } else {
-        group += "-";
+        group += num.length > 0 ? "-" : "•";
       }
     }
     digitGroups.push(group);
   }
   const formattedNumber = digitGroups.length
-    ? digitGroups.join("  ")
+    ? digitGroups.join(" ")
     : "•••• •••• •••• ••••";
 
   // Expiry: combine from parts or use pre-combined web format
@@ -352,8 +352,14 @@ function CreditCardVisual({
           onPress={() => {
             if (num) copyToClipboardWithAutoClear(num);
           }}
+          style={card.digitGroupsRow}
+          accessibilityLabel={num.length > 0 ? formattedNumber : "Card number masked"}
         >
-          <Text style={card.numberText} numberOfLines={1}>{num.length > 0 ? formattedNumber : "•••• •••• •••• ••••"}</Text>
+          {digitGroups.map((grp, idx) => (
+            <Text key={idx} style={card.numberText} numberOfLines={1}>
+              {grp}
+            </Text>
+          ))}
         </TouchableOpacity>
       </View>
 
@@ -631,12 +637,18 @@ const card = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  digitGroupsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+  },
   numberText: {
     fontSize: 19,
     fontFamily: "monospace",
     fontWeight: "600",
     color: "#ffffff",
-    letterSpacing: 3,
+    letterSpacing: 2.2,
     textAlign: "center",
   },
   bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", zIndex: 10 },

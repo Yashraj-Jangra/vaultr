@@ -41,8 +41,7 @@
   - Wrapped number, cardholder name, and expiry date in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
   - Wrapped CVV box on back face in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
   - Zero opacity flash, preserving user's auto-clear clipboard timeout settings.
-- **Card Typography Sizing**:
-  - Enlarged card number text: `fontSize: 19`, `letterSpacing: 3`.
+  - Card number text: preserved `fontSize: 19`, refined `letterSpacing: 2.2`, and replaced wide double-space delimiters with `digitGroupsRow` (`gap: 9`) to eliminate last 2-digit truncation (`...`) on mobile.
   - Enlarged cardholder name text: `fontSize: 14`.
   - Enlarged expiry text: `fontSize: 14`.
   - Maintained 100% frozen brand logos (Visa, Mastercard, AMEX, Discover, RuPay).
