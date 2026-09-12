@@ -34,9 +34,20 @@
   - Successfully produced standalone signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk` (146,274,268 bytes).
   - Packed latest interactive 3D swipe-to-flip credit card physics, gesture handlers, and predictive back navigation.
 
+#### 4. Continuous Unlimited Directional Flip & State Synchronization (`Interactive3DCard.tsx`, `DialogPreviews.tsx`)
+- **Unlimited Directional Rotation**:
+  - Eliminated hardcoded angle clamping and resetting to 0°/180° upon spring completion, resolving the oscillation where repeated right swipes reversed to the left.
+  - Formulated continuous modular rotation: swiping right advances `+180°` unlimited times (0° → 180° → 360° → 540° → 720°...), and swiping left advances `-180°` unlimited times.
+  - Implemented `isBackAngle` helper worklet calculating face visibility from normalized angle `((rot % 360) + 360) % 360 in (90, 270)`.
+- **Flip Button & Gesture State Synchronization**:
+  - Integrated `useAnimatedReaction` observing `flipRotation.value` directly on the UI thread to keep React's `flipped` state 100% synchronized with the visible face across all gestures, flicks, and interruptions.
+  - Upgraded `toggleFlip()` to compute orientation from current rotation angle, advance `+180°` forward, and update button label immediately without desync.
+  - Added cancellation recovery in `onFinalize` to snap half-turned cards cleanly to the nearest 180° face if a gesture fails or is cancelled by parent scrolling.
+  - Aligned Web's `DetailedCardVisual` (`DialogPreviews.tsx`) tap and button handler to advance forward `prev + 180` for 100% cross-platform parity.
+
 ### 📋 What's Planned Next
-- Connect physical Android device or start emulator to test/stream APK install (`adb install -r`).
-- Verify UI and swipe-to-flip gesture behavior directly on device.
+- Compile updated Android release build with continuous flip mechanics.
+- Test swipe gesture and button state on connected Android device / emulator.
 - Prepare version bump if ready.
 
 ---

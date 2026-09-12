@@ -416,9 +416,9 @@ export function DetailedCardVisual({
     const norm = Math.abs(rotationAngle % 360);
     const currentlyFlipped = norm > 90 && norm < 270;
 
-    // Tap detected -> toggle flip
+    // Tap detected -> advance flip in right direction
     if (Math.abs(dx) < 6 && dt < 300) {
-      setRotationAngle((prev) => (currentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180));
+      setRotationAngle((prev) => prev + 180);
     } else if (Math.abs(velocity) > 0.35 || Math.abs(dx) > 40) {
       // Swiping momentum: left rotates left (-180), right rotates right (+180)
       if (dx < 0) {
@@ -515,11 +515,7 @@ export function DetailedCardVisual({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setRotationAngle((prev) => {
-              const n = Math.abs(prev % 360);
-              const isCurrentlyFlipped = n > 90 && n < 270;
-              return isCurrentlyFlipped ? (prev > 0 ? prev - 180 : prev + 180) : prev + 180;
-            });
+            setRotationAngle((prev) => prev + 180);
           }}
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors shadow-sm cursor-pointer"
         >
