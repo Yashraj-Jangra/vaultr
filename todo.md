@@ -44,6 +44,9 @@
 - **Launcher App Icon Safe-Zone Calibration**:
   - Calibrated adaptive icon foreground scale to `0.55` (and solid icon to `0.52`, round to `0.48`), providing an even ~72px vertical breathing margin that prevents the shackle and V-tip from clipping against squircle and circular launcher cutouts while maintaining horizontal visual centering.
   - Re-generated `adaptive-icon.png`, `splash.png`, `vaultr-lock-dark-solid.png`, and Android mipmap icon drawables (`ic_launcher.webp`, `ic_launcher_round.webp`, `ic_launcher_foreground.webp`).
+- **Compiled Android Production Release APK**:
+  - Executed `.\gradlew.bat assembleRelease` in `mobile/android` (Build completed successfully in 6m 49s).
+  - Output binary: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk` (139.5 MB).
 
 ---
 
