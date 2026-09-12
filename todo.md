@@ -37,11 +37,13 @@
   - **Open**: `Easing.bezier(0.16, 1, 0.3, 1)` over 240ms with synchronized `opacity` (0 -> 1), tight `scale` (0.96 -> 1.0), and micro-float `translateY` (10 -> 0) for an elegant glide onto glass with zero bounce.
   - **Close**: `Easing.bezier(0.2, 0, 0, 1)` over 160ms with smooth fade (`opacity` 1 -> 0), subtle scale down (0.96), and descent (6px) with zero jank or lag.
 
-#### 4. Centered Mobile Unlock Screen Lock Icon (`scripts/generate-app-icons.js`, `mobile/assets/vaultr-lock-dark-transparent.png`, `public/brand/`)
+#### 4. Centered Mobile Unlock Screen & Launcher App Icon (`scripts/generate-app-icons.js`, `mobile/assets/`)
 - **Visual Center Recalibration on V-Tip**:
   - Fixed SVG translation matrix across icon generation scripts from old asymmetric bounding box center (`-420.4, -498.8`) to the true visual center on the shield V-tip, keyhole, and shackle (`-500.5, -498.8`).
   - Regenerated `mobile/assets/vaultr-lock-dark-transparent.png` and `public/brand/vaultr-lock-dark-transparent.png`, eliminating the ~72px horizontal right-drift and centering the lock body dead-center inside the Unlock screen's `lockBox`.
-  - Re-synced solid icons, splash assets, and Android mipmaps with the centered coordinate baseline.
+- **Launcher App Icon Safe-Zone Calibration**:
+  - Calibrated adaptive icon foreground scale to `0.55` (and solid icon to `0.52`, round to `0.48`), providing an even ~72px vertical breathing margin that prevents the shackle and V-tip from clipping against squircle and circular launcher cutouts while maintaining horizontal visual centering.
+  - Re-generated `adaptive-icon.png`, `splash.png`, `vaultr-lock-dark-solid.png`, and Android mipmap icon drawables (`ic_launcher.webp`, `ic_launcher_round.webp`, `ic_launcher_foreground.webp`).
 
 ---
 

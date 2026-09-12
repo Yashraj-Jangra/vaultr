@@ -7,7 +7,7 @@ const path = require('path');
 // Y spans: 21 to 976.6 (Height: 955.6, Visual Center Y: 498.8)
 
 // 1. Generate Adaptive Foreground SVG (transparent background with scaled, perfectly centered logo in standard Android safe zone)
-function getAdaptiveSvg(scale = 0.657) {
+function getAdaptiveSvg(scale = 0.55) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none" shape-rendering="geometricPrecision">
   <defs>
     <mask id="shield">
@@ -45,7 +45,7 @@ function getInAppTransparentSvg(scale = 0.88) {
 }
 
 // 3. Generate Solid App Icon & Splash Logo SVG (with #09090b background and calibrated safe zone)
-function getSolidSvg(scale = 0.44) {
+function getSolidSvg(scale = 0.52) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none" shape-rendering="geometricPrecision">
   <rect width="1000" height="1000" fill="#09090b"/>
   <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
@@ -57,7 +57,7 @@ function getSolidSvg(scale = 0.44) {
 }
 
 // 4. Generate Round App Icon SVG (with circular mask for ic_launcher_round)
-function getRoundSvg(scale = 0.42) {
+function getRoundSvg(scale = 0.48) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none" shape-rendering="geometricPrecision">
   <circle cx="500" cy="500" r="500" fill="#09090b"/>
   <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
@@ -70,10 +70,10 @@ function getRoundSvg(scale = 0.42) {
 
 async function run() {
   const rootDir = path.join(__dirname, '..');
-  const adaptiveSvg = Buffer.from(getAdaptiveSvg(0.657));
+  const adaptiveSvg = Buffer.from(getAdaptiveSvg(0.55));
   const inAppSvg = Buffer.from(getInAppTransparentSvg(0.88));
-  const solidSvg = Buffer.from(getSolidSvg(0.44));
-  const roundSvg = Buffer.from(getRoundSvg(0.42));
+  const solidSvg = Buffer.from(getSolidSvg(0.52));
+  const roundSvg = Buffer.from(getRoundSvg(0.48));
 
   console.log('Generating Expo and app brand assets...');
   
