@@ -4,12 +4,13 @@
  */
 
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View, Image } from "react-native";
+import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, Polygon } from "react-native-svg";
 import { Template } from "@vaultr/core";
-import { Globe, User, FileText, MapPin, Shield, Sparkles } from "lucide-react-native";
+import { Globe, User, FileText, MapPin } from "lucide-react-native";
 import { resolveDomain } from "@vaultr/core";
 import { Interactive3DCard } from "./Interactive3DCard";
+import { copyToClipboardWithAutoClear } from "../services/clipboard";
 
 // ── Brand detection (fallback when no explicit cardBrand) ────────────────────
 export function detectCardBrand(cardNumber: string): string {
@@ -244,7 +245,7 @@ function CreditCardVisual({
     if (isAmex) return { bg: "#090909", border: "rgba(245,158,11,0.3)" };
     if (isDiscover) return { bg: "#0C0603", border: "#2A1409" };
     if (isRuPay) return { bg: "#02080D", border: "#004e92" };
-    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#0f1d1a", border: "#1a3330" };
+    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#131316", border: "#222228" };
     return { bg: "#121215", border: "#242429" };
   }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand]);
 
@@ -336,7 +337,7 @@ function CreditCardVisual({
           {isRuPay && <RuPayLogo />}
           {!isVisa && !isMC && !isAmex && !isDiscover && !isRuPay && (
             isOther && fallbackBrand ? (
-              <Text style={[card.fallbackBrandText, { color: "#34d399" }]}>{fallbackBrand.toUpperCase()}</Text>
+              <Text style={[card.fallbackBrandText, { color: "#a1a1aa" }]}>{fallbackBrand.toUpperCase()}</Text>
             ) : effectiveBrand ? (
               <Text style={card.fallbackBrandText}>{effectiveBrand.toUpperCase()}</Text>
             ) : null
@@ -344,20 +345,42 @@ function CreditCardVisual({
         </View>
       </View>
 
-      {/* Card Number */}
+      {/* Card Number with silent click-to-copy */}
       <View style={card.numberWrap}>
-        <Text style={card.numberText} numberOfLines={1}>{num.length > 0 ? formattedNumber : "•••• •••• •••• ••••"}</Text>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => {
+            if (num) copyToClipboardWithAutoClear(num);
+          }}
+        >
+          <Text style={card.numberText} numberOfLines={1}>{num.length > 0 ? formattedNumber : "•••• •••• •••• ••••"}</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Bottom Row: Name + Expiry */}
+      {/* Bottom Row: Name + Expiry with silent click-to-copy */}
       <View style={card.bottomRow}>
         <View style={card.colLeft}>
-          <Text style={card.metaLabel}>Cardholder Name</Text>
-          <Text style={card.nameText} numberOfLines={1}>{displayName}</Text>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {
+              if (displayName) copyToClipboardWithAutoClear(displayName);
+            }}
+          >
+            <Text style={card.metaLabel}>Cardholder Name</Text>
+            <Text style={card.nameText} numberOfLines={1}>{displayName}</Text>
+          </TouchableOpacity>
         </View>
         <View style={card.colRight}>
-          <Text style={card.metaLabel}>Expiry Date</Text>
-          <Text style={card.expiryText}>{expiryStr}</Text>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {
+              if (expiryStr) copyToClipboardWithAutoClear(expiryStr);
+            }}
+            style={{ alignItems: "flex-end" }}
+          >
+            <Text style={card.metaLabel}>Expiry Date</Text>
+            <Text style={card.expiryText}>{expiryStr}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -609,19 +632,19 @@ const card = StyleSheet.create({
     justifyContent: "center",
   },
   numberText: {
-    fontSize: 17,
+    fontSize: 19,
     fontFamily: "monospace",
     fontWeight: "600",
     color: "#ffffff",
-    letterSpacing: 2.5,
+    letterSpacing: 3,
     textAlign: "center",
   },
   bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", zIndex: 10 },
   colLeft: { flex: 1, marginRight: 12 },
   colRight: { alignItems: "flex-end" },
   metaLabel: { fontSize: 8.5, fontWeight: "700", color: "rgba(255,255,255,0.7)", letterSpacing: 0.8, marginBottom: 2, textTransform: "uppercase" },
-  nameText: { fontSize: 13, fontWeight: "700", color: "#ffffff", letterSpacing: 0.8, textTransform: "uppercase" },
-  expiryText: { fontSize: 13, fontFamily: "monospace", fontWeight: "600", color: "#e4e4e7" },
+  nameText: { fontSize: 14, fontWeight: "700", color: "#ffffff", letterSpacing: 0.8, textTransform: "uppercase" },
+  expiryText: { fontSize: 14, fontFamily: "monospace", fontWeight: "600", color: "#e4e4e7" },
 });
 
 const login = StyleSheet.create({
@@ -761,6 +784,7 @@ const prof = StyleSheet.create({
 // ── Realistic Payment Card Back Visual ───────────────────────────────────────
 
 function CreditCardBackVisual({
+  name = "",
   cardholderName = "",
   cardName = "",
   cvv = "",
@@ -786,7 +810,7 @@ function CreditCardBackVisual({
     if (isAmex) return { bg: "#090909", border: "rgba(245,158,11,0.3)" };
     if (isDiscover) return { bg: "#0C0603", border: "#2A1409" };
     if (isRuPay) return { bg: "#02080D", border: "#004e92" };
-    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#0f1d1a", border: "#1a3330" };
+    if (effectiveBrand?.toLowerCase() === "other") return { bg: "#131316", border: "#222228" };
     return { bg: "#121215", border: "#242429" };
   }, [isVisa, isMC, isAmex, isDiscover, isRuPay, effectiveBrand]);
 
@@ -795,44 +819,50 @@ function CreditCardBackVisual({
 
   return (
     <View style={[card.container, { backgroundColor: theme.bg, borderColor: theme.border, padding: 0 }]}>
-      {/* 1. Magnetic Stripe */}
+      {/* 1. Item Name Header */}
+      <View style={cardBack.topHeader}>
+        <Text style={cardBack.itemLabel} numberOfLines={1}>
+          {(name || cardName || "VAULT CARD").toUpperCase()}
+        </Text>
+      </View>
+
+      {/* 2. Magnetic Stripe */}
       <View style={cardBack.magStripe}>
         <View style={cardBack.magStripeGloss} />
       </View>
 
       <View style={cardBack.contentWrap}>
-        {/* 2. Signature & CVV Panel */}
+        {/* 3. Signature & CVV Panel */}
         <View style={cardBack.sigRow}>
           <View style={cardBack.signaturePanel}>
             <Text style={cardBack.signatureText} numberOfLines={1}>
               {displayName}
             </Text>
           </View>
-          <View style={cardBack.cvvBox}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {
+              if (cvv) copyToClipboardWithAutoClear(cvv);
+            }}
+            style={cardBack.cvvBox}
+          >
             <Text style={cardBack.cvvLabel}>CVV / CVC</Text>
             <Text style={cardBack.cvvValue}>{displayCvv}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* 3. Security Seal & Information */}
-        <View style={cardBack.infoRow}>
-          <View style={cardBack.sealBadge}>
-            <Shield size={12} color="#34d399" />
-            <Text style={cardBack.sealText}>256-BIT AES-GCM</Text>
-          </View>
+        {/* 4. Minimal Disclaimer Notice */}
+        <Text style={cardBack.disclaimer}>
+          Reference card · Not for payment
+        </Text>
 
-          <Text style={cardBack.legalText} numberOfLines={2}>
-            Protected by VaultR zero-knowledge client-side encryption. Authorized cardholder only.
-          </Text>
-        </View>
-
-        {/* 4. Bottom Brand & Hologram Indicator */}
+        {/* 5. Bottom Brand & VaultR Monogram */}
         <View style={cardBack.bottomRow}>
           <Text style={cardBack.watermark}>VAULTR ZERO-KNOWLEDGE</Text>
-          <View style={cardBack.hologramMini}>
-            <Sparkles size={10} color="#fbbf24" />
-            <Text style={cardBack.hologramText}>SECURITY SEAL</Text>
-          </View>
+          <Svg width={16} height={16} viewBox="0 0 840 840" style={{ opacity: 0.18 }}>
+            <Path fill="#ffffff" d="M 6 84 L 354 762 L 595 351 L 500 352 L 356 604 L 198 335 L 260 373 Z" />
+            <Path fill="#ffffff" fillRule="evenodd" clipRule="evenodd" d="M 235 209 L 617 208 C 657 208 691 222 717 250 C 735 269 745 292 745 320 L 745 354 C 745 389 730 419 704 441 C 687 455 668 464 645 469 L 827 756 L 541 493 L 591 416 L 617 416 C 635 416 650 409 661 397 C 670 387 675 373 675 356 L 675 344 C 675 326 668 310 656 299 C 645 288 631 283 613 283 L 292 283 Z" />
+          </Svg>
         </View>
       </View>
     </View>
@@ -840,11 +870,22 @@ function CreditCardBackVisual({
 }
 
 const cardBack = StyleSheet.create({
+  topHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  itemLabel: {
+    fontSize: 8.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.4)",
+    letterSpacing: 1.2,
+  },
   magStripe: {
     width: "100%",
-    height: 42,
+    height: 38,
     backgroundColor: "#070709",
-    marginTop: 20,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: "#18181b",
@@ -908,33 +949,10 @@ const cardBack = StyleSheet.create({
     color: "#fafafa",
     letterSpacing: 2,
   },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  sealBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.25)",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
-  sealText: {
+  disclaimer: {
     fontSize: 8,
-    fontWeight: "700",
-    color: "#34d399",
-    letterSpacing: 0.5,
-  },
-  legalText: {
-    flex: 1,
-    fontSize: 8,
-    color: "#71717a",
-    lineHeight: 11,
+    color: "rgba(255, 255, 255, 0.25)",
+    letterSpacing: 0.3,
   },
   bottomRow: {
     flexDirection: "row",
@@ -947,24 +965,7 @@ const cardBack = StyleSheet.create({
   watermark: {
     fontSize: 7.5,
     fontWeight: "800",
-    color: "#52525b",
+    color: "#3f3f46",
     letterSpacing: 1.1,
-  },
-  hologramMini: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: "rgba(251, 191, 36, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(251, 191, 36, 0.2)",
-  },
-  hologramText: {
-    fontSize: 7.5,
-    fontWeight: "800",
-    color: "#fbbf24",
-    letterSpacing: 0.8,
   },
 });
