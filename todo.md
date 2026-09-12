@@ -67,12 +67,23 @@
   - Mobile (`mobile/src/screens/ItemDetailScreen.tsx`):
     - Verified that `showPassword` state controls both `cardNumber` and `cvv` in `FieldRow`, as well as `ItemPreviewCard` (`isNumberVisible={showPassword}`), maintaining 100% synchronized reveal and masking.
 
-#### 4. Verification & Zero-Error Compilation
+#### 4. Card Vibration Isolation & Copy Toast Synchronization (`mobile/src/components/Interactive3DCard.tsx`, `mobile/src/components/ItemPreviewCard.tsx`, `mobile/src/screens/ItemDetailScreen.tsx`)
+- **Card Vibration Isolation**:
+  - Removed `wasTap` auto-flip logic from `panGesture.onEnd` in `Interactive3DCard.tsx` so a simple tap or click never flips the card or vibrates.
+  - Removed haptic vibration from `onFinalize` when `!success` (e.g. touch down and release without dragging), eliminating the vibration on every tap/click.
+  - Card rotation vibration (`Vibration.vibrate(12)`) now strictly fires only when the card is actually rotated (either through a completed horizontal swipe flip exceeding threshold/velocity or via the dedicated "Flip Card" button).
+- **Preview Card Copy Haptics & "Copied to clipboard" Popup**:
+  - Added `onCopy?: (label: string, value: string) => void` to `ItemPreviewCardProps` and forwarded it to `CreditCardVisual`, `CreditCardBackVisual`, and `LoginKeycardVisual`.
+  - Linked `onCopy={copyToClipboard}` in `ItemDetailScreen.tsx`, displaying the floating `"Copied to clipboard"` pill with green checkmark when tapping Card Number, Cardholder Name, Expiry Date, CVV, or Username on the preview card.
+  - Added local fallback animated pill inside `ItemPreviewCard` when rendered outside `ItemDetailScreen`.
+  - Added `Vibration.vibrate(12)` to `copyToClipboard` in `ItemDetailScreen.tsx` so all regular copy button fields also trigger tactile haptics.
+
+#### 5. Verification & Zero-Error Compilation
 - `npx tsc --noEmit` on root / web: 0 errors.
 - `npx tsc --noEmit` on mobile: 0 errors.
 
 ### 📋 What's Planned Next
-- Connect physical Android device or start emulator to test/stream APK install (`adb install -r`).
+- Sync all commits on `dev` to remote, prepare PR with human-readable release notes, and merge to `main`.
 - Verify continuous swipe gesture, flip button state, and card copying on device.
 - Proactively suggest version bump if milestone complete.
 
