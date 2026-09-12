@@ -860,7 +860,7 @@ function CreditCardBackVisual({
         {/* 4. Security & Legal Micro-Text with Contactless Symbol in Empty Space Below */}
         <View style={cardBack.microTextWrap}>
           <Text style={cardBack.microEnclave} numberOfLines={1}>
-            ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM
+            NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS
           </Text>
           <Text style={cardBack.legalDisclaimer} numberOfLines={2}>
             Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
@@ -868,7 +868,7 @@ function CreditCardBackVisual({
 
           {/* Contactless Wave Symbol & CID moved into empty space below text, larger in size */}
           <View style={cardBack.contactlessBox}>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
               <Path d="M8.5 16.5a5 5 0 0 1 0-9" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
               <Path d="M12 19a8.5 8.5 0 0 0 0-14" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
               <Path d="M15.5 21.5a12 12 0 0 0 0-19" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
@@ -997,16 +997,16 @@ const cardBack = StyleSheet.create({
     gap: 3,
   },
   microEnclave: {
-    fontSize: 6.8,
+    fontSize: 7.5,
     fontFamily: "monospace",
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.38)",
-    letterSpacing: 0.6,
+    color: "rgba(255, 255, 255, 0.45)",
+    letterSpacing: 0.5,
   },
   legalDisclaimer: {
-    fontSize: 6,
-    color: "rgba(255, 255, 255, 0.25)",
-    lineHeight: 8.5,
+    fontSize: 6.8,
+    color: "rgba(255, 255, 255, 0.3)",
+    lineHeight: 9.5,
     letterSpacing: 0.2,
   },
   contactlessBox: {
@@ -1016,10 +1016,10 @@ const cardBack = StyleSheet.create({
     marginTop: 4,
   },
   cidText: {
-    fontSize: 8,
+    fontSize: 8.5,
     fontFamily: "monospace",
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.4)",
+    color: "rgba(255, 255, 255, 0.45)",
     letterSpacing: 0.8,
   },
   bottomRow: {
