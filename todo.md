@@ -48,6 +48,19 @@
   - Executed `.\gradlew.bat assembleRelease` in `mobile/android` (Build completed successfully in 6m 49s).
   - Output binary: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk` (139.5 MB).
 
+#### 5. Universal Version Bump to v0.2.10 & Synchronized Release Manifests
+- **Synchronized Package Manifests**:
+  - `package.json`: Bumped to `0.2.10`.
+  - `packages/core/package.json`: Bumped to `0.2.10`.
+  - `packages/core/src/version.ts`: Updated `VAULTR_VERSION = "0.2.10"`, `VAULTR_MOBILE_VERSION = "0.2.10"`, `VAULTR_BUILD_NUMBER = "2026.09.12"`.
+  - `extension/package.json`: Bumped to `0.2.10`.
+  - `extension/manifest.json`: Bumped to `0.2.10`.
+  - `mobile/package.json`: Bumped to `0.2.10`.
+  - `mobile/app.json`: Bumped to `0.2.10`, incremented `versionCode` to `10`.
+  - `mobile/android/app/build.gradle`: Incremented `versionCode` to `10`, updated `versionName` to `"0.2.10"`.
+- **Interactive Changelog**:
+  - Added `v0.2.10` release entry (*"Card Back Realism, Tactile Dialogs & Brand Geometry"*) with categorized tags to `src/app/changelog/page.tsx`.
+
 ---
 
 ## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`

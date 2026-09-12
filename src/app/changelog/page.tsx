@@ -33,11 +33,26 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.10",
+    codename: "Card Back Realism, Tactile Dialogs & Brand Geometry",
+    date: "September 12, 2026",
+    tagline: "Realistic Physical Card Backs, Apple-Grade Modal Motion, Action-Prioritized Dialogs & Calibrated Launcher Assets",
+    isLatest: true,
+    changes: [
+      { type: "feature", text: "Authentic Credit Card Back Face: Lifelike signature strip, authorized signature label, CVV box, realistic contactless wave symbol, and easter-egg banking micro-text." },
+      { type: "feature", text: "Tactile Dialog Architecture: Re-engineered confirmation dialogs with clear action hierarchy (solid red top action container, subordinated dark cancel container)." },
+      { type: "mobile", text: "Apple-Grade Modal Motion: Buttery-smooth cubic-bezier transitions (0.16, 1, 0.3, 1) over 240ms with synchronized glide, eliminating spring oscillation." },
+      { type: "mobile", text: "Lock Icon Centering & Launcher Geometry: Recalibrated SVG translation matrices to center lock mark on V-tip and keyhole; tuned 55% safe-zone scale on squircle/circle launchers." },
+      { type: "feature", text: "Silent Field Click-to-Copy: 1-tap clipboard copy on preview card numbers, cardholder names, and expiry dates with instant micro-toast feedback." },
+      { type: "fix", text: "Mobile Dialog Guard Audit: Added confirmation guards to critical actions including item deletion, unsaved edits back-swipes, and account sign-out." },
+      { type: "performance", text: "Pre-Compiled Android Release Build: Standalone production APK with Hermes offline bundle and native C++ optimizations." },
+    ],
+  },
+  {
     version: "v0.2.9",
     codename: "Fluid Motion & Native Predictive Back",
     date: "September 11, 2026",
     tagline: "Android 14+ System Predictive Back, 3D Card Physics, Folder Dynamics & Micro-Interactions",
-    isLatest: true,
     changes: [
       { type: "mobile", text: "Native Android 14+ Predictive Back: Built-in Kotlin OnBackAnimationCallback bridge with smooth real-time touch tracking." },
       { type: "mobile", text: "Vault Depth Lift: Custom 3D perspective scale-down and opacity decay dismiss transition for item details and edit forms." },
