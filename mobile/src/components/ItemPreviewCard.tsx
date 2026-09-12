@@ -863,7 +863,7 @@ function CreditCardBackVisual({
             NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS
           </Text>
           <Text style={cardBack.legalDisclaimer} numberOfLines={2}>
-            Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
+            Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers.
           </Text>
 
           {/* Contactless Wave Symbol & CID moved into empty space below text, larger in size */}

@@ -9,7 +9,7 @@
   - Added realistic signature panel with `"Authorized Signature"` and white CVV box.
   - Enriched card back with authentic banking micro-text and security features:
     - Easter egg header: `NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS`.
-    - Increased text sizing on legal recovery note for enhanced legibility and space balance.
+    - Easter egg disclaimer: `"Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers."` (omits domains/URLs).
     - Repositioned larger Contactless wave SVG symbol (`(((•)))`) + `CID 8492` in the open space below the legal text.
   - Reorganized bottom brand row with border divider:
     - **Left**: Enlarged full VaultR logo with text (`/brand/vaultr-full-dark-transparent.png`, `h-[4.4cqw]`) at 70% opacity.
@@ -31,7 +31,7 @@
   - Upgraded `signaturePanel` with `"AUTHORIZED SIGNATURE"` micro-label alongside cardholder signature text.
   - Enriched back face with security microtext and contactless symbol:
     - Easter egg header: `NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS`.
-    - 2-line legal disclaimer with increased font size and line height.
+    - Easter egg disclaimer: `"Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers."`
     - Repositioned larger Contactless wave symbol SVG (`react-native-svg`, 15x15) + `CID 8492` in the open space below the legal disclaimer.
   - Upgraded `bottomRow`:
     - **Left**: Enlarged full VaultR logo with text (`mobile/assets/vaultr-full-dark-transparent.png`, 15x78) at 72% opacity.

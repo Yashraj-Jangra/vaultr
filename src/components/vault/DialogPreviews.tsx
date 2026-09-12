@@ -383,7 +383,7 @@ export function DetailedCardBackVisual({
           NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS
         </span>
         <p className="text-[1.9cqw] text-white/32 leading-snug font-sans">
-          Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
+          Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers.
         </p>
         {/* Contactless Wave Symbol & CID moved below text in the open area, larger in size */}
         <div className="flex items-center gap-[1.2cqw] text-white/50 mt-[1.2cqw]">
