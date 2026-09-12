@@ -385,15 +385,16 @@ export function DetailedCardBackVisual({
         <p className="text-[1.9cqw] text-white/32 leading-snug font-sans">
           Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers.
         </p>
-        {/* Contactless Wave Symbol & CID moved below text in the open area, larger in size */}
-        <div className="flex items-center gap-[1.2cqw] text-white/50 mt-[1.2cqw]">
-          <svg className="w-[5cqw] h-[5cqw]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-            <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-            <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+        {/* Contactless Wave Symbol & Indicator moved to right side */}
+        <div className="flex items-center justify-end gap-[1.2cqw] text-white/50 mt-[1.2cqw] self-end">
+          <svg className="w-[4.5cqw] h-[4.5cqw]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M 5 9.5 A 4 4 0 0 1 5 14.5" />
+            <path d="M 7.5 7 A 7.5 7.5 0 0 1 7.5 17" />
+            <path d="M 10 4.5 A 11 11 0 0 1 10 19.5" />
+            <path d="M 12.5 2 A 14.5 14.5 0 0 1 12.5 22" />
           </svg>
-          <span className="text-[2.4cqw] font-mono font-bold tracking-widest text-white/45">
-            CID 8492
+          <span className="text-[2.1cqw] font-mono font-bold tracking-widest text-white/45 uppercase">
+            CONTACTLESS
           </span>
         </div>
       </div>

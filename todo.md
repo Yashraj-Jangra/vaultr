@@ -10,7 +10,7 @@
   - Enriched card back with authentic banking micro-text and security features:
     - Easter egg header: `NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS`.
     - Easter egg disclaimer: `"Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers."` (omits domains/URLs).
-    - Repositioned larger Contactless wave SVG symbol (`(((•)))`) + `CID 8492` in the open space below the legal text.
+    - Redesigned 4-arc EMVCo Contactless wave SVG and replaced `CID 8492` with `CONTACTLESS`, aligned to the right side below the disclaimer text.
   - Reorganized bottom brand row with border divider:
     - **Left**: Enlarged full VaultR logo with text (`/brand/vaultr-full-dark-transparent.png`, `h-[4.4cqw]`) at 70% opacity.
     - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
@@ -32,7 +32,7 @@
   - Enriched back face with security microtext and contactless symbol:
     - Easter egg header: `NOT ISSUED BY US · WE DON'T EVEN HAVE YOUR KEYS`.
     - Easter egg disclaimer: `"Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers."`
-    - Repositioned larger Contactless wave symbol SVG (`react-native-svg`, 15x15) + `CID 8492` in the open space below the legal disclaimer.
+    - Redesigned 4-arc EMVCo Contactless wave SVG and replaced `CID 8492` with `CONTACTLESS`, aligned to the right side below the legal disclaimer.
   - Upgraded `bottomRow`:
     - **Left**: Enlarged full VaultR logo with text (`mobile/assets/vaultr-full-dark-transparent.png`, 15x78) at 72% opacity.
     - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.

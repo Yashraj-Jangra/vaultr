@@ -866,14 +866,15 @@ function CreditCardBackVisual({
             Digital reference card encrypted on-device with AES-256-GCM. Not valid for actual payments, cash advances, or bribing cashiers.
           </Text>
 
-          {/* Contactless Wave Symbol & CID moved into empty space below text, larger in size */}
+          {/* Contactless Wave Symbol & Indicator moved to right side */}
           <View style={cardBack.contactlessBox}>
-            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-              <Path d="M8.5 16.5a5 5 0 0 1 0-9" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
-              <Path d="M12 19a8.5 8.5 0 0 0 0-14" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
-              <Path d="M15.5 21.5a12 12 0 0 0 0-19" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path d="M 5 9.5 A 4 4 0 0 1 5 14.5" stroke="rgba(255,255,255,0.45)" strokeWidth={2} strokeLinecap="round" />
+              <Path d="M 7.5 7 A 7.5 7.5 0 0 1 7.5 17" stroke="rgba(255,255,255,0.45)" strokeWidth={2} strokeLinecap="round" />
+              <Path d="M 10 4.5 A 11 11 0 0 1 10 19.5" stroke="rgba(255,255,255,0.45)" strokeWidth={2} strokeLinecap="round" />
+              <Path d="M 12.5 2 A 14.5 14.5 0 0 1 12.5 22" stroke="rgba(255,255,255,0.45)" strokeWidth={2} strokeLinecap="round" />
             </Svg>
-            <Text style={cardBack.cidText}>CID 8492</Text>
+            <Text style={cardBack.cidText}>CONTACTLESS</Text>
           </View>
         </View>
 
@@ -1012,11 +1013,12 @@ const cardBack = StyleSheet.create({
   contactlessBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    alignSelf: "flex-end",
+    gap: 4.5,
     marginTop: 4,
   },
   cidText: {
-    fontSize: 8.5,
+    fontSize: 7.5,
     fontFamily: "monospace",
     fontWeight: "700",
     color: "rgba(255, 255, 255, 0.45)",
