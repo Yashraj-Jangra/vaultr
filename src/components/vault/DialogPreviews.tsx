@@ -104,7 +104,7 @@ export function DetailedCardFrontFace({
       </div>
     );
   } else if (isRuPay) {
-    bgClass = "from-[#2b1306] via-[#081324] to-[#021a12]";
+    bgClass = "from-[#2e1406] via-[#0b0b0e] to-[#021a12]";
     logoImg = <img src="/logos/Rupay.svg" className="h-[6.5cqw] w-auto object-contain" alt="RuPay" />;
     graphics = (
       <svg className="absolute inset-0 w-full h-full object-cover pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
@@ -122,13 +122,6 @@ export function DetailedCardFrontFace({
             <stop offset="55%" stopColor="#059669" stopOpacity="0.16" />
             <stop offset="100%" stopColor="#10b981" stopOpacity="0.28" />
           </linearGradient>
-
-          {/* Center Chakra Navy Glow */}
-          <radialGradient id="rupayChakraGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#1d4ed8" stopOpacity="0.28" />
-            <stop offset="50%" stopColor="#1e40af" stopOpacity="0.10" />
-            <stop offset="100%" stopColor="#1e3a8a" stopOpacity="0" />
-          </radialGradient>
 
           {/* Tilted Center Sheen */}
           <linearGradient id="rupayTiltedSheen" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -171,25 +164,6 @@ export function DetailedCardFrontFace({
 
         {/* 4. Subtle Tilted Card Sheen */}
         <rect x="0" y="0" width="320" height="200" fill="url(#rupayTiltedSheen)" />
-
-        {/* 5. Elegant Stylized 24-Spoke Chakra Motif (Center-Right) */}
-        <g transform="translate(225, 96)" opacity="0.65">
-          <circle cx="0" cy="0" r="50" fill="url(#rupayChakraGlow)" />
-          {/* Outer Ring */}
-          <circle cx="0" cy="0" r="34" stroke="rgba(147, 197, 253, 0.22)" strokeWidth="0.8" fill="none" />
-          {/* Middle Decorative Ring */}
-          <circle cx="0" cy="0" r="23" stroke="rgba(147, 197, 253, 0.12)" strokeWidth="0.6" fill="none" strokeDasharray="2 3" />
-          {/* Inner Hub Ring */}
-          <circle cx="0" cy="0" r="8" stroke="rgba(147, 197, 253, 0.28)" strokeWidth="0.8" fill="none" />
-          {/* Center Hub Dot */}
-          <circle cx="0" cy="0" r="3" fill="rgba(147, 197, 253, 0.45)" />
-          {/* 24 Radial Spokes (12 Diameters across 360 deg) */}
-          <path
-            d="M-34,0 L34,0 M-32.8,-8.8 L32.8,8.8 M-29.4,-17 L29.4,17 M-24,-24 L24,24 M-17,-29.4 L17,29.4 M-8.8,-32.8 L8.8,32.8 M0,-34 L0,34 M8.8,-32.8 L-8.8,32.8 M17,-29.4 L-17,29.4 M24,-24 L-24,24 M29.4,-17 L-29.4,17 M32.8,-8.8 L-32.8,8.8"
-            stroke="rgba(147, 197, 253, 0.18)"
-            strokeWidth="0.65"
-          />
-        </g>
       </svg>
     );
   } else if (isOther) {
@@ -392,7 +366,7 @@ export function DetailedCardBackVisual({
   } else if (isDiscover) {
     bgClass = "from-[#1F0F07] via-[#0C0603] to-[#020101]";
   } else if (isRuPay) {
-    bgClass = "from-[#2b1306] via-[#081324] to-[#021a12]";
+    bgClass = "from-[#2e1406] via-[#0b0b0e] to-[#021a12]";
   } else if (isOther) {
     bgClass = "from-[#18181b] via-[#131316] to-[#0a0a0c]";
   } else if (cardBrand) {

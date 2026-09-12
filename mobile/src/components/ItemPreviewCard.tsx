@@ -272,10 +272,10 @@ function CardBackgroundSurface({
       ];
     }
     if (isRuPay) {
-      // from-[#2b1306] via-[#081324] to-[#021a12]
+      // from-[#2e1406] via-[#0b0b0e] to-[#021a12]
       return [
-        { offset: "0%", color: "#2b1306" },
-        { offset: "50%", color: "#081324" },
+        { offset: "0%", color: "#2e1406" },
+        { offset: "50%", color: "#0b0b0e" },
         { offset: "100%", color: "#021a12" },
       ];
     }
@@ -386,13 +386,6 @@ function CardBackgroundSurface({
                 <Stop offset="100%" stopColor="#10b981" stopOpacity={0.28} />
               </LinearGradient>
 
-              {/* Center Chakra Navy Glow */}
-              <RadialGradient id="rupayChakraGlow" cx="50%" cy="50%" r="50%">
-                <Stop offset="0%" stopColor="#1d4ed8" stopOpacity={0.28} />
-                <Stop offset="50%" stopColor="#1e40af" stopOpacity={0.10} />
-                <Stop offset="100%" stopColor="#1e3a8a" stopOpacity={0} />
-              </RadialGradient>
-
               {/* Tilted Center Sheen */}
               <LinearGradient id="rupayTiltedSheen" x1="0%" y1="100%" x2="100%" y2="0%">
                 <Stop offset="25%" stopColor="#ffffff" stopOpacity={0} />
@@ -465,7 +458,7 @@ function CardBackgroundSurface({
               </>
             )}
 
-            {/* RuPay: Tilted Tricolor Aura Waves, Guilloche Security Lines, and 24-Spoke Chakra */}
+            {/* RuPay: Tilted Tricolor Aura Waves & Guilloche Security Lines */}
             {isRuPay && (
               <>
                 {/* 1. Tilted Saffron Flow in Top-Left */}
@@ -501,25 +494,6 @@ function CardBackgroundSurface({
 
                 {/* 4. Subtle Tilted Card Sheen */}
                 <Rect x={0} y={0} width={320} height={200} fill="url(#rupayTiltedSheen)" rx={16} ry={16} />
-
-                {/* 5. Elegant Stylized 24-Spoke Chakra Motif (Center-Right) */}
-                <G transform="translate(225, 96)" opacity={0.65}>
-                  <Circle cx={0} cy={0} r={50} fill="url(#rupayChakraGlow)" />
-                  {/* Outer Ring */}
-                  <Circle cx={0} cy={0} r={34} stroke="rgba(147, 197, 253, 0.22)" strokeWidth={0.8} fill="none" />
-                  {/* Middle Decorative Ring */}
-                  <Circle cx={0} cy={0} r={23} stroke="rgba(147, 197, 253, 0.12)" strokeWidth={0.6} fill="none" strokeDasharray="2 3" />
-                  {/* Inner Hub Ring */}
-                  <Circle cx={0} cy={0} r={8} stroke="rgba(147, 197, 253, 0.28)" strokeWidth={0.8} fill="none" />
-                  {/* Center Hub Dot */}
-                  <Circle cx={0} cy={0} r={3} fill="rgba(147, 197, 253, 0.45)" />
-                  {/* 24 Radial Spokes (12 Diameters across 360 deg) */}
-                  <Path
-                    d="M-34,0 L34,0 M-32.8,-8.8 L32.8,8.8 M-29.4,-17 L29.4,17 M-24,-24 L24,24 M-17,-29.4 L17,29.4 M-8.8,-32.8 L8.8,32.8 M0,-34 L0,34 M8.8,-32.8 L-8.8,32.8 M17,-29.4 L-17,29.4 M24,-24 L-24,24 M29.4,-17 L-29.4,17 M32.8,-8.8 L-32.8,8.8"
-                    stroke="rgba(147, 197, 253, 0.18)"
-                    strokeWidth={0.65}
-                  />
-                </G>
               </>
             )}
           </>
@@ -562,7 +536,7 @@ function CreditCardVisual({
     if (isMC) return "#1a1a1c";
     if (isAmex) return "#141414";
     if (isDiscover) return "#1F0F07";
-    if (isRuPay) return "#2b1306";
+    if (isRuPay) return "#2e1406";
     if (isOther) return "#18181b";
     if (cardBrand) return "#1f1a30";
     return "#22252c";
@@ -1111,7 +1085,7 @@ function CreditCardBackVisual({
     if (isMC) return "#1a1a1c";
     if (isAmex) return "#141414";
     if (isDiscover) return "#1F0F07";
-    if (isRuPay) return "#2b1306";
+    if (isRuPay) return "#2e1406";
     if (isOther) return "#18181b";
     if (cardBrand) return "#1f1a30";
     return "#22252c";
