@@ -47,7 +47,7 @@
       - **Mastercard**: `from-[#1a1a1c] via-[#141415] to-[#0a0a0b]` + red/amber glow orbs.
       - **AMEX**: `from-[#141414] via-[#090909] to-[#000000]` + concentric amber borders + diagonal sheen.
       - **Discover**: `from-[#1F0F07] via-[#0C0603] to-[#020101]` + 3 orange concentric rings (r=96, 80, 64) + bottom-left glow.
-      - **RuPay**: `from-[#05111A] via-[#02080D] to-[#000000]` + subtle 0.5px grid lines + `#004e92` circuit trace.
+      - **RuPay**: Deep tilted Indian flag tricolor gradient (`#2b1306` dark saffron -> `#081324` starlight midnight navy -> `#021a12` dark emerald) + dual flowing saffron top waves + dual flowing emerald bottom waves + 30° tilted guilloche micro-lines + laser-etched 24-spoke Chakra rosette with royal navy radial glow.
       - **Other / Default / Custom**: exact multi-stop charcoal and dark slate gradients.
     - Removed fingerprint watermark SVG completely from both Web and Mobile card preview.
     - Applied identical gradient background to both Front and Back card faces.

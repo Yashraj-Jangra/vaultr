@@ -104,19 +104,92 @@ export function DetailedCardFrontFace({
       </div>
     );
   } else if (isRuPay) {
-    bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
+    bgClass = "from-[#2b1306] via-[#081324] to-[#021a12]";
     logoImg = <img src="/logos/Rupay.svg" className="h-[6.5cqw] w-auto object-contain" alt="RuPay" />;
     graphics = (
-      <svg className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
+      <svg className="absolute inset-0 w-full h-full object-cover pointer-events-none" viewBox="0 0 320 200" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="rupayGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#004e92" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#000428" stopOpacity="0" />
+          {/* Tilted Saffron Swirl Gradient */}
+          <linearGradient id="rupaySaffronWave" x1="0%" y1="0%" x2="80%" y2="80%">
+            <stop offset="0%" stopColor="#ea580c" stopOpacity="0.32" />
+            <stop offset="45%" stopColor="#c2410c" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#7c2d12" stopOpacity="0" />
+          </linearGradient>
+
+          {/* Tilted Emerald Swirl Gradient */}
+          <linearGradient id="rupayEmeraldWave" x1="20%" y1="20%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#047857" stopOpacity="0" />
+            <stop offset="55%" stopColor="#059669" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0.28" />
+          </linearGradient>
+
+          {/* Center Chakra Navy Glow */}
+          <radialGradient id="rupayChakraGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#1d4ed8" stopOpacity="0.28" />
+            <stop offset="50%" stopColor="#1e40af" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="#1e3a8a" stopOpacity="0" />
+          </radialGradient>
+
+          {/* Tilted Center Sheen */}
+          <linearGradient id="rupayTiltedSheen" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="25%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.03" />
+            <stop offset="75%" stopColor="#ffffff" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d="M0,40 L320,40 M0,80 L320,80 M0,120 L320,120 M0,160 L320,160" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <path d="M60,0 L60,200 M120,0 L120,200 M180,0 L180,200 M240,0 L240,200" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <path d="M0,100 L120,100 L140,120 L320,120" fill="none" stroke="url(#rupayGrad)" strokeWidth="2" opacity="0.5" />
+
+        {/* 1. Tilted Saffron Flow in Top-Left */}
+        <path
+          d="M-20,75 C50,25 150,55 340,-15 L340,-20 L-20,-20 Z"
+          fill="url(#rupaySaffronWave)"
+        />
+        <path
+          d="M-20,105 C70,55 170,80 340,15 L340,-20 L-20,-20 Z"
+          fill="url(#rupaySaffronWave)"
+          opacity="0.6"
+        />
+
+        {/* 2. Tilted Emerald Flow in Bottom-Right */}
+        <path
+          d="M-20,220 L340,220 L340,125 C230,175 130,145 -20,205 Z"
+          fill="url(#rupayEmeraldWave)"
+        />
+        <path
+          d="M-20,220 L340,220 L340,95 C250,145 150,120 -20,185 Z"
+          fill="url(#rupayEmeraldWave)"
+          opacity="0.5"
+        />
+
+        {/* 3. Tilted Diagonal Guilloche Security Lines (30 deg angle) */}
+        <g opacity="0.45">
+          <path
+            d="M-40,90 L180,-20 M-20,130 L240,0 M0,170 L300,20 M20,210 L360,40 M60,230 L380,70"
+            stroke="rgba(255,255,255,0.04)"
+            strokeWidth="0.6"
+          />
+        </g>
+
+        {/* 4. Subtle Tilted Card Sheen */}
+        <rect x="0" y="0" width="320" height="200" fill="url(#rupayTiltedSheen)" />
+
+        {/* 5. Elegant Stylized 24-Spoke Chakra Motif (Center-Right) */}
+        <g transform="translate(225, 96)" opacity="0.65">
+          <circle cx="0" cy="0" r="50" fill="url(#rupayChakraGlow)" />
+          {/* Outer Ring */}
+          <circle cx="0" cy="0" r="34" stroke="rgba(147, 197, 253, 0.22)" strokeWidth="0.8" fill="none" />
+          {/* Middle Decorative Ring */}
+          <circle cx="0" cy="0" r="23" stroke="rgba(147, 197, 253, 0.12)" strokeWidth="0.6" fill="none" strokeDasharray="2 3" />
+          {/* Inner Hub Ring */}
+          <circle cx="0" cy="0" r="8" stroke="rgba(147, 197, 253, 0.28)" strokeWidth="0.8" fill="none" />
+          {/* Center Hub Dot */}
+          <circle cx="0" cy="0" r="3" fill="rgba(147, 197, 253, 0.45)" />
+          {/* 24 Radial Spokes (12 Diameters across 360 deg) */}
+          <path
+            d="M-34,0 L34,0 M-32.8,-8.8 L32.8,8.8 M-29.4,-17 L29.4,17 M-24,-24 L24,24 M-17,-29.4 L17,29.4 M-8.8,-32.8 L8.8,32.8 M0,-34 L0,34 M8.8,-32.8 L-8.8,32.8 M17,-29.4 L-17,29.4 M24,-24 L-24,24 M29.4,-17 L-29.4,17 M32.8,-8.8 L-32.8,8.8"
+            stroke="rgba(147, 197, 253, 0.18)"
+            strokeWidth="0.65"
+          />
+        </g>
       </svg>
     );
   } else if (isOther) {
@@ -319,7 +392,7 @@ export function DetailedCardBackVisual({
   } else if (isDiscover) {
     bgClass = "from-[#1F0F07] via-[#0C0603] to-[#020101]";
   } else if (isRuPay) {
-    bgClass = "from-[#05111A] via-[#02080D] to-[#000000]";
+    bgClass = "from-[#2b1306] via-[#081324] to-[#021a12]";
   } else if (isOther) {
     bgClass = "from-[#18181b] via-[#131316] to-[#0a0a0c]";
   } else if (cardBrand) {

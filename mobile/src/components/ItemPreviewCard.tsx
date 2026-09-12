@@ -272,11 +272,11 @@ function CardBackgroundSurface({
       ];
     }
     if (isRuPay) {
-      // from-[#05111A] via-[#02080D] to-[#000000]
+      // from-[#2b1306] via-[#081324] to-[#021a12]
       return [
-        { offset: "0%", color: "#05111A" },
-        { offset: "50%", color: "#02080D" },
-        { offset: "100%", color: "#000000" },
+        { offset: "0%", color: "#2b1306" },
+        { offset: "50%", color: "#081324" },
+        { offset: "100%", color: "#021a12" },
       ];
     }
     if (isOther) {
@@ -369,12 +369,37 @@ function CardBackgroundSurface({
             </RadialGradient>
           )}
 
-          {/* RuPay Circuit Bus Def */}
+          {/* RuPay Tilted Tricolor Defs */}
           {isRuPay && !isBackFace && (
-            <LinearGradient id="rupayGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <Stop offset="0%" stopColor="#004e92" stopOpacity={0.3} />
-              <Stop offset="100%" stopColor="#000428" stopOpacity={0} />
-            </LinearGradient>
+            <>
+              {/* Tilted Saffron Swirl Gradient */}
+              <LinearGradient id="rupaySaffronWave" x1="0%" y1="0%" x2="80%" y2="80%">
+                <Stop offset="0%" stopColor="#ea580c" stopOpacity={0.32} />
+                <Stop offset="45%" stopColor="#c2410c" stopOpacity={0.14} />
+                <Stop offset="100%" stopColor="#7c2d12" stopOpacity={0} />
+              </LinearGradient>
+
+              {/* Tilted Emerald Swirl Gradient */}
+              <LinearGradient id="rupayEmeraldWave" x1="20%" y1="20%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="#047857" stopOpacity={0} />
+                <Stop offset="55%" stopColor="#059669" stopOpacity={0.16} />
+                <Stop offset="100%" stopColor="#10b981" stopOpacity={0.28} />
+              </LinearGradient>
+
+              {/* Center Chakra Navy Glow */}
+              <RadialGradient id="rupayChakraGlow" cx="50%" cy="50%" r="50%">
+                <Stop offset="0%" stopColor="#1d4ed8" stopOpacity={0.28} />
+                <Stop offset="50%" stopColor="#1e40af" stopOpacity={0.10} />
+                <Stop offset="100%" stopColor="#1e3a8a" stopOpacity={0} />
+              </RadialGradient>
+
+              {/* Tilted Center Sheen */}
+              <LinearGradient id="rupayTiltedSheen" x1="0%" y1="100%" x2="100%" y2="0%">
+                <Stop offset="25%" stopColor="#ffffff" stopOpacity={0} />
+                <Stop offset="50%" stopColor="#ffffff" stopOpacity={0.03} />
+                <Stop offset="75%" stopColor="#ffffff" stopOpacity={0} />
+              </LinearGradient>
+            </>
           )}
         </Defs>
 
@@ -440,13 +465,62 @@ function CardBackgroundSurface({
               </>
             )}
 
-            {/* RuPay: Grid Lines + Bus Circuit Trace with clean lines matching Web */}
+            {/* RuPay: Tilted Tricolor Aura Waves, Guilloche Security Lines, and 24-Spoke Chakra */}
             {isRuPay && (
-              <G opacity={0.2}>
-                <Path d="M0,40 L320,40 M0,80 L320,80 M0,120 L320,120 M0,160 L320,160" stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} />
-                <Path d="M60,0 L60,200 M120,0 L120,200 M180,0 L180,200 M240,0 L240,200" stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} />
-                <Path d="M0,100 L120,100 L140,120 L320,120" fill="none" stroke="url(#rupayGrad)" strokeWidth={2} opacity={0.5} />
-              </G>
+              <>
+                {/* 1. Tilted Saffron Flow in Top-Left */}
+                <Path
+                  d="M-20,75 C50,25 150,55 340,-15 L340,-20 L-20,-20 Z"
+                  fill="url(#rupaySaffronWave)"
+                />
+                <Path
+                  d="M-20,105 C70,55 170,80 340,15 L340,-20 L-20,-20 Z"
+                  fill="url(#rupaySaffronWave)"
+                  opacity={0.6}
+                />
+
+                {/* 2. Tilted Emerald Flow in Bottom-Right */}
+                <Path
+                  d="M-20,220 L340,220 L340,125 C230,175 130,145 -20,205 Z"
+                  fill="url(#rupayEmeraldWave)"
+                />
+                <Path
+                  d="M-20,220 L340,220 L340,95 C250,145 150,120 -20,185 Z"
+                  fill="url(#rupayEmeraldWave)"
+                  opacity={0.5}
+                />
+
+                {/* 3. Tilted Diagonal Guilloche Security Lines (30 deg angle) */}
+                <G opacity={0.45}>
+                  <Path
+                    d="M-40,90 L180,-20 M-20,130 L240,0 M0,170 L300,20 M20,210 L360,40 M60,230 L380,70"
+                    stroke="rgba(255,255,255,0.04)"
+                    strokeWidth={0.6}
+                  />
+                </G>
+
+                {/* 4. Subtle Tilted Card Sheen */}
+                <Rect x={0} y={0} width={320} height={200} fill="url(#rupayTiltedSheen)" rx={16} ry={16} />
+
+                {/* 5. Elegant Stylized 24-Spoke Chakra Motif (Center-Right) */}
+                <G transform="translate(225, 96)" opacity={0.65}>
+                  <Circle cx={0} cy={0} r={50} fill="url(#rupayChakraGlow)" />
+                  {/* Outer Ring */}
+                  <Circle cx={0} cy={0} r={34} stroke="rgba(147, 197, 253, 0.22)" strokeWidth={0.8} fill="none" />
+                  {/* Middle Decorative Ring */}
+                  <Circle cx={0} cy={0} r={23} stroke="rgba(147, 197, 253, 0.12)" strokeWidth={0.6} fill="none" strokeDasharray="2 3" />
+                  {/* Inner Hub Ring */}
+                  <Circle cx={0} cy={0} r={8} stroke="rgba(147, 197, 253, 0.28)" strokeWidth={0.8} fill="none" />
+                  {/* Center Hub Dot */}
+                  <Circle cx={0} cy={0} r={3} fill="rgba(147, 197, 253, 0.45)" />
+                  {/* 24 Radial Spokes (12 Diameters across 360 deg) */}
+                  <Path
+                    d="M-34,0 L34,0 M-32.8,-8.8 L32.8,8.8 M-29.4,-17 L29.4,17 M-24,-24 L24,24 M-17,-29.4 L17,29.4 M-8.8,-32.8 L8.8,32.8 M0,-34 L0,34 M8.8,-32.8 L-8.8,32.8 M17,-29.4 L-17,29.4 M24,-24 L-24,24 M29.4,-17 L-29.4,17 M32.8,-8.8 L-32.8,8.8"
+                    stroke="rgba(147, 197, 253, 0.18)"
+                    strokeWidth={0.65}
+                  />
+                </G>
+              </>
             )}
           </>
         )}
@@ -488,7 +562,7 @@ function CreditCardVisual({
     if (isMC) return "#1a1a1c";
     if (isAmex) return "#141414";
     if (isDiscover) return "#1F0F07";
-    if (isRuPay) return "#05111A";
+    if (isRuPay) return "#2b1306";
     if (isOther) return "#18181b";
     if (cardBrand) return "#1f1a30";
     return "#22252c";
@@ -1037,7 +1111,7 @@ function CreditCardBackVisual({
     if (isMC) return "#1a1a1c";
     if (isAmex) return "#141414";
     if (isDiscover) return "#1F0F07";
-    if (isRuPay) return "#05111A";
+    if (isRuPay) return "#2b1306";
     if (isOther) return "#18181b";
     if (cardBrand) return "#1f1a30";
     return "#22252c";
