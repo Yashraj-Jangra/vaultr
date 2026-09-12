@@ -1,4 +1,56 @@
-## Current Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
+## Current Session: Mobile Dialog Buttons Redesign & Confirmation Audit (2026-09-12) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Core Alert Dialog Button Redesign (`mobile/src/components/CustomAlertOverlay.tsx`)
+- **Action Hierarchy Prioritization**:
+  - Automatically partitioned buttons into `actionButtons` (`b.style !== "cancel"`) and `cancelButtons` (`b.style === "cancel"`).
+  - Ordered actions so the primary/destructive action is positioned on **TOP**, and the secondary/cancel action is positioned at the **BOTTOM**.
+- **Tactile Button Containers ("Divs") & Visual Styling**:
+  - **Destructive Button** (`style === "destructive"`): Solid red button container (`#dc2626`, 14px border radius, 48px min-height, border `rgba(239, 68, 68, 0.4)`, red elevation/shadow, bold white text `#ffffff`, activeOpacity 0.8).
+  - **Primary Button** (`style === "default"` or standard): Solid high-contrast light button (`#f4f4f5`, 14px radius, 48px min-height, dark text `#09090b`, activeOpacity 0.8).
+  - **Cancel Button** (`style === "cancel"`): Sleek dark surface container (`#18181b`, border `rgba(255, 255, 255, 0.08)`, 14px radius, 48px min-height, text `#d4d4d8`, activeOpacity 0.7) for clear tactile geometry while subordinating to the top action.
+
+#### 2. Screen-Level Button Audit & Explicit Ordering
+- **`mobile/src/screens/settings/SessionsScreen.tsx`**:
+  - Updated `handleRevokeSession` to explicitly order `[Revoke (destructive), Cancel (cancel)]`.
+  - Updated `handleRevokeAllOther` to explicitly order `[Sign Out All (destructive), Cancel (cancel)]`.
+- **`mobile/src/screens/TrashScreen.tsx`**:
+  - Updated `handleRestoreItem` to explicitly order `[Restore (default), Cancel (cancel)]`.
+  - Updated `handleRestoreAll` to explicitly order `[Restore All (default), Cancel (cancel)]`.
+- **`mobile/src/screens/settings/DataScreen.tsx`**:
+  - Updated `handleExportCsv` to explicitly order `[Export Plain Text CSV (destructive), Cancel (cancel)]`.
+  - Updated `handleRevertImport` to explicitly order `[Revert Import (destructive), Cancel (cancel)]`.
+- **`mobile/src/screens/ItemDetailScreen.tsx`**:
+  - **Added confirmation guard** to header trash button (`Move to Trash?` confirmation dialog before moving items to trash).
+  - Updated unsaved edits back alerts (hardware back, predictive back, nav back) to order `[Discard (destructive), Keep Editing (cancel)]`.
+- **`mobile/src/screens/SettingsScreen.tsx`**:
+  - **Added confirmation guard** to `Sign Out Account` button to prevent accidental logouts.
+- **`mobile/src/screens/ItemFormScreen.tsx`**:
+  - **Added unsaved changes confirmation** (`isFormDirty` check) on close button (`X`), predictive back swipe, and Android hardware back button.
+- **`mobile/src/components/PurgeConfirmModal.tsx`**:
+  - Aligned button heights (48px), radius (14px), and color tokens with `CustomAlertOverlay`.
+
+#### 3. Buttery-Smooth Premium Modal Transitions (`CustomAlertOverlay`, `PurgeConfirmModal`, `FolderManagerScreen`, `FolderSelectModal`)
+- **Eliminated Spring Wobble & Disjointed Timings**:
+  - Replaced abrupt 140ms/200ms springs and mismatched opacity timers with Apple/Linear-grade cubic bezier curves.
+  - **Open**: `Easing.bezier(0.16, 1, 0.3, 1)` over 240ms with synchronized `opacity` (0 -> 1), tight `scale` (0.96 -> 1.0), and micro-float `translateY` (10 -> 0) for an elegant glide onto glass with zero bounce.
+  - **Close**: `Easing.bezier(0.2, 0, 0, 1)` over 160ms with smooth fade (`opacity` 1 -> 0), subtle scale down (0.96), and descent (6px) with zero jank or lag.
+
+#### 4. Centered Mobile Unlock Screen & Launcher App Icon (`scripts/generate-app-icons.js`, `mobile/assets/`)
+- **Visual Center Recalibration on V-Tip**:
+  - Fixed SVG translation matrix across icon generation scripts from old asymmetric bounding box center (`-420.4, -498.8`) to the true visual center on the shield V-tip, keyhole, and shackle (`-500.5, -498.8`).
+  - Regenerated `mobile/assets/vaultr-lock-dark-transparent.png` and `public/brand/vaultr-lock-dark-transparent.png`, eliminating the ~72px horizontal right-drift and centering the lock body dead-center inside the Unlock screen's `lockBox`.
+- **Launcher App Icon Safe-Zone Calibration**:
+  - Calibrated adaptive icon foreground scale to `0.55` (and solid icon to `0.52`, round to `0.48`), providing an even ~72px vertical breathing margin that prevents the shackle and V-tip from clipping against squircle and circular launcher cutouts while maintaining horizontal visual centering.
+  - Re-generated `adaptive-icon.png`, `splash.png`, `vaultr-lock-dark-solid.png`, and Android mipmap icon drawables (`ic_launcher.webp`, `ic_launcher_round.webp`, `ic_launcher_foreground.webp`).
+- **Compiled Android Production Release APK**:
+  - Executed `.\gradlew.bat assembleRelease` in `mobile/android` (Build completed successfully in 6m 49s).
+  - Output binary: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.9-release.apk` (139.5 MB).
+
+---
+
+## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
 
 ### ✅ What Was Done
 
@@ -92,10 +144,15 @@
 - `npx tsc --noEmit` on root / web: 0 errors.
 - `npx tsc --noEmit` on mobile: 0 errors.
 
+#### 7. Release Sync, Pull Request & Main Merge
+- Synchronized local `dev` commits to `origin/dev`.
+- Opened GitHub Pull Request **#14**: *"✨ Credit Card Visual Parity, Microtext Security Overlays & Mobile Interaction Polish"*.
+- Included clean, human-readable changelogs categorized by type with emojis (Feature, Brand Themes, Mobile Parity, Brand Logo Polish).
+- Successfully merged PR #14 into `main` and returned to working branch `dev`.
+
 ### 📋 What's Planned Next
-- Sync all commits on `dev` to remote, prepare PR with human-readable release notes, and merge to `main`.
-- Verify continuous swipe gesture, flip button state, and card copying on device.
-- Proactively suggest version bump if milestone complete.
+- Proactively suggest version bump for next milestone.
+- Verify continuous swipe gesture, flip button state, and card copying on real devices.
 
 ---
 

@@ -14,27 +14,32 @@ import { X } from "lucide-react-native";
 
 const { width } = Dimensions.get("window");
 
+const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
+const CLOSE_EASING = Easing.bezier(0.2, 0, 0, 1);
+
 export function CustomAlertOverlay() {
   const { isVisible, title, message, buttons, options, hide } = useAlertStore();
 
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.93);
+  const scale = useSharedValue(0.96);
+  const translateY = useSharedValue(10);
 
   useEffect(() => {
     if (isVisible) {
-      opacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
-      scale.value = withSpring(1, { damping: 22, stiffness: 220 });
+      opacity.value = withTiming(1, { duration: 240, easing: OPEN_EASING });
+      scale.value = withTiming(1, { duration: 240, easing: OPEN_EASING });
+      translateY.value = withTiming(0, { duration: 240, easing: OPEN_EASING });
     } else {
-      opacity.value = withTiming(0, { duration: 140 });
-      scale.value = withTiming(0.93, { duration: 140 });
+      opacity.value = withTiming(0, { duration: 160, easing: CLOSE_EASING });
+      scale.value = withTiming(0.96, { duration: 160, easing: CLOSE_EASING });
+      translateY.value = withTiming(6, { duration: 160, easing: CLOSE_EASING });
     }
   }, [isVisible]);
 
-
   const handlePress = (btn: AlertButton) => {
-    // Start closing animation, then call the button's onPress and hide the store
-    opacity.value = withTiming(0, { duration: 140 });
-    scale.value = withTiming(0.93, { duration: 140 }, (finished) => {
+    opacity.value = withTiming(0, { duration: 160, easing: CLOSE_EASING });
+    scale.value = withTiming(0.96, { duration: 160, easing: CLOSE_EASING });
+    translateY.value = withTiming(6, { duration: 160, easing: CLOSE_EASING }, (finished) => {
       if (finished) {
         runOnJS(hide)();
         if (btn.onPress) {
@@ -46,8 +51,9 @@ export function CustomAlertOverlay() {
 
   const handleClose = () => {
     if (options?.cancelable === false) return;
-    opacity.value = withTiming(0, { duration: 140 });
-    scale.value = withTiming(0.93, { duration: 140 }, (finished) => {
+    opacity.value = withTiming(0, { duration: 160, easing: CLOSE_EASING });
+    scale.value = withTiming(0.96, { duration: 160, easing: CLOSE_EASING });
+    translateY.value = withTiming(6, { duration: 160, easing: CLOSE_EASING }, (finished) => {
       if (finished) {
         runOnJS(hide)();
       }
@@ -60,12 +66,16 @@ export function CustomAlertOverlay() {
 
   const surfaceStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ scale: scale.value }],
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value },
+    ],
   }));
 
-  // Separate primary buttons from secondary/destructive
-  const primaryButtons = buttons.filter((b) => b.style !== "cancel" && b.style !== "destructive");
-  const secondaryButtons = buttons.filter((b) => b.style === "cancel" || b.style === "destructive");
+  // Prioritize actionable buttons on TOP (destructive or primary), cancel button at BOTTOM
+  const actionButtons = buttons.filter((b) => b.style !== "cancel");
+  const cancelButtons = buttons.filter((b) => b.style === "cancel");
+  const orderedButtons = [...actionButtons, ...cancelButtons];
 
   const glowBg = options?.glowColor || "rgba(245, 158, 11, 0.08)";
 
@@ -94,34 +104,39 @@ export function CustomAlertOverlay() {
           </View>
 
           <View style={styles.actions}>
-            {primaryButtons.map((btn, i) => (
-              <TouchableOpacity
-                key={`primary-${i}`}
-                style={styles.primaryBtn}
-                onPress={() => handlePress(btn)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.primaryBtnText}>{btn.text}</Text>
-              </TouchableOpacity>
-            ))}
+            {orderedButtons.map((btn, i) => {
+              const isDestructive = btn.style === "destructive";
+              const isCancel = btn.style === "cancel";
 
-            {secondaryButtons.map((btn, i) => (
-              <TouchableOpacity
-                key={`secondary-${i}`}
-                style={styles.ghostBtn}
-                onPress={() => handlePress(btn)}
-                activeOpacity={0.7}
-              >
-                <Text
+              return (
+                <TouchableOpacity
+                  key={`btn-${i}`}
                   style={[
-                    styles.ghostBtnText,
-                    btn.style === "destructive" && styles.destructiveText,
+                    styles.btnBase,
+                    isDestructive
+                      ? styles.destructiveBtn
+                      : isCancel
+                      ? styles.cancelBtn
+                      : styles.primaryBtn,
                   ]}
+                  onPress={() => handlePress(btn)}
+                  activeOpacity={isCancel ? 0.7 : 0.8}
                 >
-                  {btn.text}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.btnTextBase,
+                      isDestructive
+                        ? styles.destructiveBtnText
+                        : isCancel
+                        ? styles.cancelBtnText
+                        : styles.primaryBtnText,
+                    ]}
+                  >
+                    {btn.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Animated.View>
       </Animated.View>
@@ -191,31 +206,48 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   actions: {
-    gap: 12,
+    gap: 10,
+  },
+  btnBase: {
+    borderRadius: 14,
+    paddingVertical: 13,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnTextBase: {
+    fontSize: 14,
+    textAlign: "center",
   },
   primaryBtn: {
     backgroundColor: "#f4f4f5",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
   },
   primaryBtnText: {
-    fontSize: 14,
     fontWeight: "600",
     color: "#09090b",
   },
-  ghostBtn: {
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
+  destructiveBtn: {
+    backgroundColor: "#dc2626",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.4)",
+    shadowColor: "#dc2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  ghostBtnText: {
-    fontSize: 14,
+  destructiveBtnText: {
+    fontWeight: "600",
+    color: "#ffffff",
+    letterSpacing: 0.2,
+  },
+  cancelBtn: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  cancelBtnText: {
     fontWeight: "500",
-    color: "#a3a3a3",
-  },
-  destructiveText: {
-    color: "#f87171",
+    color: "#d4d4d8",
   },
 });

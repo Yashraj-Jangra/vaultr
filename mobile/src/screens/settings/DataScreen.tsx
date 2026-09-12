@@ -184,7 +184,6 @@ export function DataScreen({ navigation }: any) {
       "Export Unencrypted CSV",
       "WARNING: This will generate plain-text CSV data containing your decrypted passwords. Are you sure?",
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Export Plain Text CSV",
           style: "destructive",
@@ -305,6 +304,7 @@ export function DataScreen({ navigation }: any) {
             }
           },
         },
+        { text: "Cancel", style: "cancel" },
       ],
       { illustration: "all-the-data_ijgn", glowColor: "rgba(245, 158, 11, 0.12)" }
     );
@@ -528,7 +528,6 @@ export function DataScreen({ navigation }: any) {
       "Revert Import?",
       `Are you sure you want to revert this import and permanently delete the ${lastImportedBatch.count} newly added entries?`,
       [
-        { text: "Cancel", style: "cancel" },
         {
           text: "Revert Import",
           style: "destructive",
@@ -551,6 +550,7 @@ export function DataScreen({ navigation }: any) {
             }
           },
         },
+        { text: "Cancel", style: "cancel" },
       ]
     );
   };

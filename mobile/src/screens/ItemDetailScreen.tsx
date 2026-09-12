@@ -169,12 +169,26 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       vaultAlert.alert("Offline Mode", "Internet connection is required to move items to trash.", undefined, { illustration: "clouds_bmtk" });
       return;
     }
-    try {
-      await trashItem(item.id);
-      navigation.goBack();
-    } catch (e: any) {
-      vaultAlert.alert("Error", e.message || "Failed to move item to trash.", undefined, { illustration: "cancel_k4w9" });
-    }
+    vaultAlert.alert(
+      "Move to Trash?",
+      `Are you sure you want to move "${item.name}" to Trash? You can restore it later from Trash.`,
+      [
+        {
+          text: "Move to Trash",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await trashItem(item.id);
+              navigation.goBack();
+            } catch (e: any) {
+              vaultAlert.alert("Error", e.message || "Failed to move item to trash.", undefined, { illustration: "cancel_k4w9" });
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { illustration: "throw-away_k2t5", glowColor: "rgba(239, 68, 68, 0.12)" }
+    );
   };
 
   const { isSplitView } = useResponsive();
@@ -189,8 +203,8 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         "Unsaved Changes",
         "You have unsaved edits on this note. Are you sure you want to discard them?",
         [
-          { text: "Keep Editing", style: "cancel" },
           { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+          { text: "Keep Editing", style: "cancel" },
         ],
         { illustration: "throw-away_k2t5" }
       );
@@ -870,8 +884,8 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             "Unsaved Changes",
             "You have unsaved edits on this note. Are you sure you want to discard them?",
             [
-              { text: "Keep Editing", style: "cancel" },
               { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+              { text: "Keep Editing", style: "cancel" },
             ],
             { illustration: "throw-away_k2t5" }
           );
@@ -893,8 +907,8 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                   "Unsaved Changes",
                   "You have unsaved edits on this note. Are you sure you want to discard them?",
                   [
-                    { text: "Keep Editing", style: "cancel" },
                     { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+                    { text: "Keep Editing", style: "cancel" },
                   ],
                   { illustration: "throw-away_k2t5" }
                 );
