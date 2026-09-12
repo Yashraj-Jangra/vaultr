@@ -377,33 +377,35 @@ export function DetailedCardBackVisual({
         </div>
       </div>
 
-      {/* 4. Security & Support Micro-Text with Contactless Symbol */}
+      {/* 4. Security & Support Micro-Text with Contactless Symbol in Empty Space Below */}
       <div className="px-[5cqw] mt-[1.5cqw] flex flex-col gap-[0.5cqw]">
-        <div className="flex items-center justify-between text-[1.7cqw] text-white/35 font-mono">
-          <span className="truncate">ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM</span>
-          {/* Contactless Wave Symbol */}
-          <span className="flex items-center gap-[0.6cqw] text-white/40 shrink-0 ml-2">
-            <svg className="w-[2.2cqw] h-[2.2cqw]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-              <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-              <path d="M15.5 21.5a12 12 0 0 0 0-19" />
-            </svg>
-            <span className="text-[1.5cqw] font-semibold tracking-wider">CID 8492</span>
-          </span>
-        </div>
-        <p className="text-[1.6cqw] text-white/25 leading-tight font-sans">
+        <span className="text-[1.8cqw] text-white/40 font-mono tracking-wider uppercase font-medium">
+          ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM
+        </span>
+        <p className="text-[1.6cqw] text-white/28 leading-tight font-sans">
           Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
         </p>
+        {/* Contactless Wave Symbol & CID moved below text in the open area, larger in size */}
+        <div className="flex items-center gap-[1.2cqw] text-white/50 mt-[1.2cqw]">
+          <svg className="w-[4.8cqw] h-[4.8cqw]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+            <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+            <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+          </svg>
+          <span className="text-[2.2cqw] font-mono font-bold tracking-widest text-white/45">
+            CID 8492
+          </span>
+        </div>
       </div>
 
-      {/* 5. Bottom Brand: Full VaultR Logo (Left) + Zero-Knowledge text (Right) */}
-      <div className="px-[5cqw] pb-[3.5cqw] mt-auto flex items-center justify-between border-t border-white/[0.06] pt-[1.5cqw]">
+      {/* 5. Bottom Brand: Larger Full VaultR Logo (Left) + Zero-Knowledge text (Right) */}
+      <div className="px-[5cqw] pb-[3.5cqw] mt-auto flex items-center justify-between border-t border-white/[0.08] pt-[1.8cqw]">
         <img
           src="/brand/vaultr-full-dark-transparent.png"
-          className="h-[3cqw] w-auto object-contain opacity-55 select-none pointer-events-none"
+          className="h-[4.4cqw] w-auto object-contain opacity-70 select-none pointer-events-none"
           alt="VaultR"
         />
-        <span className="text-[1.8cqw] font-mono tracking-widest font-semibold text-white/30 uppercase">
+        <span className="text-[2cqw] font-mono tracking-widest font-semibold text-white/35 uppercase">
           VAULTR ZERO-KNOWLEDGE
         </span>
       </div>

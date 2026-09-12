@@ -857,24 +857,24 @@ function CreditCardBackVisual({
           </TouchableOpacity>
         </View>
 
-        {/* 4. Security & Support Micro-Text with Contactless Symbol */}
+        {/* 4. Security & Legal Micro-Text with Contactless Symbol in Empty Space Below */}
         <View style={cardBack.microTextWrap}>
-          <View style={cardBack.microHeaderRow}>
-            <Text style={cardBack.microEnclave} numberOfLines={1}>
-              ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM
-            </Text>
-            <View style={cardBack.contactlessBox}>
-              <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
-                <Path d="M8.5 16.5a5 5 0 0 1 0-9" stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round" />
-                <Path d="M12 19a8.5 8.5 0 0 0 0-14" stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round" />
-                <Path d="M15.5 21.5a12 12 0 0 0 0-19" stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round" />
-              </Svg>
-              <Text style={cardBack.cidText}>CID 8492</Text>
-            </View>
-          </View>
+          <Text style={cardBack.microEnclave} numberOfLines={1}>
+            ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM
+          </Text>
           <Text style={cardBack.legalDisclaimer} numberOfLines={2}>
             Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app.
           </Text>
+
+          {/* Contactless Wave Symbol & CID moved into empty space below text, larger in size */}
+          <View style={cardBack.contactlessBox}>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path d="M8.5 16.5a5 5 0 0 1 0-9" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
+              <Path d="M12 19a8.5 8.5 0 0 0 0-14" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
+              <Path d="M15.5 21.5a12 12 0 0 0 0-19" stroke="rgba(255,255,255,0.45)" strokeWidth={2.2} strokeLinecap="round" />
+            </Svg>
+            <Text style={cardBack.cidText}>CID 8492</Text>
+          </View>
         </View>
 
         {/* 5. Bottom Brand: Full VaultR Logo (Left) + Zero-Knowledge text (Right) */}
@@ -994,57 +994,52 @@ const cardBack = StyleSheet.create({
     letterSpacing: 1.5,
   },
   microTextWrap: {
-    gap: 2,
-  },
-  microHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    gap: 3,
   },
   microEnclave: {
-    fontSize: 6.5,
+    fontSize: 6.8,
     fontFamily: "monospace",
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.35)",
-    letterSpacing: 0.5,
-    maxWidth: "70%",
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.38)",
+    letterSpacing: 0.6,
+  },
+  legalDisclaimer: {
+    fontSize: 6,
+    color: "rgba(255, 255, 255, 0.25)",
+    lineHeight: 8.5,
+    letterSpacing: 0.2,
   },
   contactlessBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 5,
+    marginTop: 4,
   },
   cidText: {
-    fontSize: 6,
+    fontSize: 8,
     fontFamily: "monospace",
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.35)",
-    letterSpacing: 0.6,
-  },
-  legalDisclaimer: {
-    fontSize: 5.8,
-    color: "rgba(255, 255, 255, 0.22)",
-    lineHeight: 8,
-    letterSpacing: 0.2,
+    color: "rgba(255, 255, 255, 0.4)",
+    letterSpacing: 0.8,
   },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
-    paddingTop: 4,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    paddingTop: 5,
   },
   logoImg: {
-    height: 11,
-    width: 58,
-    opacity: 0.55,
+    height: 15,
+    width: 78,
+    opacity: 0.72,
   },
   watermark: {
-    fontSize: 6.5,
+    fontSize: 7.2,
     fontWeight: "800",
     fontFamily: "monospace",
-    color: "rgba(255, 255, 255, 0.28)",
+    color: "rgba(255, 255, 255, 0.32)",
     letterSpacing: 0.9,
   },
 });

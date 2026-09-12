@@ -9,10 +9,10 @@
   - Added realistic signature panel with `"Authorized Signature"` and white CVV box.
   - Enriched card back with authentic banking micro-text and security features:
     - First micro-line: `ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM`.
-    - Contactless wave SVG symbol (`(((•)))`) + `CID 8492`.
     - Legal recovery note: `"Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app."`
+    - Repositioned larger Contactless wave SVG symbol (`(((•)))`) + `CID 8492` in the open space below the legal text.
   - Reorganized bottom brand row with border divider:
-    - **Left**: Full VaultR logo with text (`/brand/vaultr-full-dark-transparent.png`) at 55% opacity.
+    - **Left**: Enlarged full VaultR logo with text (`/brand/vaultr-full-dark-transparent.png`, `h-[4.4cqw]`) at 70% opacity.
     - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
   - Replaced "Other" network brand background with neutral dark charcoal (`#18181b` / `#131316` / `#0a0a0c`).
 - **Per-Field Silent Click-to-Copy**:
@@ -30,11 +30,11 @@
   - Added `topHeader` with `itemLabel` on left and `referenceLabel` (`"REFERENCE CARD"`) on right in clean uppercase monospace.
   - Upgraded `signaturePanel` with `"AUTHORIZED SIGNATURE"` micro-label alongside cardholder signature text.
   - Enriched back face with security microtext and contactless symbol:
-    - `microHeaderRow` with `ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM`.
-    - Inline contactless wave symbol SVG (`react-native-svg`) + `CID 8492`.
+    - Enclave origin: `ISSUED BY VAULTR SECURE ENCLAVE · AES-256-GCM`.
     - 2-line legal disclaimer: `"Private reference card protected by zero-knowledge client keys. Not valid for terminal payments. For vault recovery visit vaultr.app."`
+    - Repositioned larger Contactless wave symbol SVG (`react-native-svg`, 14x14) + `CID 8492` in the open space below the legal disclaimer.
   - Upgraded `bottomRow`:
-    - **Left**: Full VaultR logo with text (`mobile/assets/vaultr-full-dark-transparent.png`) at 55% opacity.
+    - **Left**: Enlarged full VaultR logo with text (`mobile/assets/vaultr-full-dark-transparent.png`, 15x78) at 72% opacity.
     - **Right**: `VAULTR ZERO-KNOWLEDGE` text watermark.
   - Replaced "Other" theme with neutral dark charcoal (`bg: "#131316", border: "#222228"`) and neutral fallback brand text (`#a1a1aa`).
 - **Per-Field Silent Tap-to-Copy**:
