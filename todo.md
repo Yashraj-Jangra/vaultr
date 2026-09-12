@@ -1,4 +1,52 @@
-## Current Session: Swipe Gesture to Flip Credit Cards (Issue #5) (2026-09-11) · Branch: `dev`
+## Current Session: Credit Card Back Face Redesign & Silent Field Copy (2026-09-12) · Branch: `dev`
+
+### ✅ What Was Done
+
+#### 1. Web Credit Card Back Face Redesign & Silent Copy (`src/components/vault/DialogPreviews.tsx`, `src/app/vault/page.tsx`)
+- **Aesthetic Redesign (Real Card Feel)**:
+  - Removed glowing green `256-BIT AES-GCM` badge and glowing amber `SECURITY SEAL` div.
+  - Added clean uppercase item name header (`name || cardName || "VAULT CARD"`) above the magnetic stripe.
+  - Added muted disclaimer text: `"Reference card · Not for payment"` with subtle 25% opacity.
+  - Rendered inline VaultR VR monogram geometric SVG mark in bottom-right corner at subtle 20% opacity.
+  - Dimmed `VAULTR ZERO-KNOWLEDGE` watermark text to subtle 20% opacity.
+  - Replaced "Other" network brand background with neutral dark charcoal (`#18181b` / `#131316` / `#0a0a0c`).
+- **Per-Field Silent Click-to-Copy**:
+  - Implemented direct clipboard copy on individual front card fields: card number (digits only), cardholder name, and expiry date.
+  - Implemented direct clipboard copy on CVV value box on back face.
+  - Wrapped each field in `e.stopPropagation()` with `cursor-default` so clicking a field never triggers the card flip gesture or creates visual disruption.
+- **Wire & Prop Synchronization**:
+  - Passed `name` through `DetailedCardVisual`, `DetailedCardBackVisual`, `DynamicPreviewCanvas`, `CreditCardGraphic`, and `ExpandedDetails`.
+
+#### 2. Mobile Credit Card Back Face Redesign & Silent Copy (`mobile/src/components/ItemPreviewCard.tsx`)
+- **Aesthetic Redesign (Real Card Feel)**:
+  - Removed neon green `sealBadge` and amber `hologramMini` containers.
+  - Added `topHeader` with `itemLabel` above magnetic stripe displaying item name in clean uppercase monospace.
+  - Added muted `disclaimer` text: `"Reference card · Not for payment"`.
+  - Rendered inline VaultR VR monogram geometric SVG mark (`react-native-svg`) in bottom-right corner at 18% opacity.
+  - Dimmed `watermark` text color to `#3f3f46`.
+  - Replaced "Other" theme with neutral dark charcoal (`bg: "#131316", border: "#222228"`) and neutral fallback brand text (`#a1a1aa`).
+- **Per-Field Silent Tap-to-Copy**:
+  - Wrapped number, cardholder name, and expiry date in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
+  - Wrapped CVV box on back face in `<TouchableOpacity activeOpacity={1}>` calling `copyToClipboardWithAutoClear`.
+  - Zero opacity flash, preserving user's auto-clear clipboard timeout settings.
+- **Card Typography Sizing**:
+  - Enlarged card number text: `fontSize: 19`, `letterSpacing: 3`.
+  - Enlarged cardholder name text: `fontSize: 14`.
+  - Enlarged expiry text: `fontSize: 14`.
+  - Maintained 100% frozen brand logos (Visa, Mastercard, AMEX, Discover, RuPay).
+
+#### 3. Verification & Zero-Error Compilation
+- `npx tsc --noEmit` on root / web: 0 errors.
+- `npx tsc --noEmit` on mobile: 0 errors.
+
+### 📋 What's Planned Next
+- Connect physical Android device or start emulator to test/stream APK install (`adb install -r`).
+- Verify continuous swipe gesture, flip button state, and card copying on device.
+- Proactively suggest version bump if milestone complete.
+
+---
+
+## Previous Session: Swipe Gesture to Flip Credit Cards (Issue #5) (2026-09-11) · Branch: `dev`
 
 ### ✅ What Was Done
 
