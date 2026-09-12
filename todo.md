@@ -47,7 +47,21 @@
   - Enlarged expiry text: `fontSize: 14`.
   - Maintained 100% frozen brand logos (Visa, Mastercard, AMEX, Discover, RuPay).
 
-#### 3. Verification & Zero-Error Compilation
+#### 3. Edit & Preview Mode Visibility & Synchronization
+- **Edit / Create Mode Always Visible**:
+  - Web (`src/components/vault/NewEntryDialog.tsx`): Passed `isNumberVisible={true}` to both single-column and multi-column `DynamicPreviewCanvas` instances so the card preview always displays full unmasked digits in edit/create mode.
+  - Mobile (`mobile/src/screens/ItemFormScreen.tsx`): Passed `isNumberVisible={true}` to `ItemPreviewCard` so the card preview always displays full unmasked digits in edit/create mode.
+  - Input fields in both Web and Mobile already display unmasked editable characters.
+- **Preview Mode Show/Hide Synchronization**:
+  - Web (`src/app/vault/page.tsx`):
+    - Added controlled `visible?: boolean` prop support to `MaskedValue` and forwarded it from `DetailRow`.
+    - Bound both `Number` and `CVV` rows in `ExpandedDetails` to `showCard` state with `visible={showCard} onToggle={setShowCard}`.
+    - Synchronized `CreditCardGraphic` with `showCard`, ensuring toggling either field row or clicking the eye toggles both detail fields and the preview card simultaneously.
+    - Added `useEffect` on `itemId` change to reset `showCard` to `false` when switching items in the vault list.
+  - Mobile (`mobile/src/screens/ItemDetailScreen.tsx`):
+    - Verified that `showPassword` state controls both `cardNumber` and `cvv` in `FieldRow`, as well as `ItemPreviewCard` (`isNumberVisible={showPassword}`), maintaining 100% synchronized reveal and masking.
+
+#### 4. Verification & Zero-Error Compilation
 - `npx tsc --noEmit` on root / web: 0 errors.
 - `npx tsc --noEmit` on mobile: 0 errors.
 

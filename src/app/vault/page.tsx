@@ -180,11 +180,14 @@ function CopyBtn({ value, size = "sm" }: { value: string; size?: "sm" | "xs" }) 
   );
 }
 
-function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }: { value: string; mono?: boolean; dots?: number; isCard?: boolean; onToggle?: (v: boolean) => void }) {
-  const [visible, setVisible] = useState(false);
+function MaskedValue({ value, mono = true, dots = 12, isCard = false, visible: controlledVisible, onToggle }: {
+  value: string; mono?: boolean; dots?: number; isCard?: boolean; visible?: boolean; onToggle?: (v: boolean) => void
+}) {
+  const [internalVisible, setInternalVisible] = useState(false);
+  const isVisible = controlledVisible !== undefined ? controlledVisible : internalVisible;
 
   const displayVal = useMemo(() => {
-    if (!visible) {
+    if (!isVisible) {
       if (isCard && value.replace(/\D/g, "").length >= 4) {
         return "•••• •••• •••• " + value.replace(/\D/g, "").slice(-4);
       }
@@ -205,16 +208,26 @@ function MaskedValue({ value, mono = true, dots = 12, isCard = false, onToggle }
       return parts.join(" ");
     }
     return value;
-  }, [visible, value, isCard, dots]);
+  }, [isVisible, value, isCard, dots]);
 
   return (
     <div className="flex items-center justify-end gap-1.5 min-w-0">
-      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${visible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!visible && !isCard ? "tracking-widest" : ""}`}>
+      <span className={`truncate min-w-0 ${mono ? "font-mono" : ""} ${isVisible ? "text-neutral-200" : "text-neutral-500"} text-[12.5px] ${!isVisible && !isCard ? "tracking-widest" : ""}`}>
         {displayVal}
       </span>
       <div className="flex items-center shrink-0">
-        <button onClick={() => { setVisible(v => { const next = !v; onToggle?.(next); return next; }) }} className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0">
-          {visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !isVisible;
+            if (controlledVisible === undefined) {
+              setInternalVisible(next);
+            }
+            onToggle?.(next);
+          }}
+          className="text-neutral-600 hover:text-neutral-300 cursor-pointer p-1 shrink-0"
+        >
+          {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
         </button>
         <CopyBtn value={value} />
       </div>
@@ -763,15 +776,15 @@ function SectionGroup({ title, children }: { title: string; children: React.Reac
   );
 }
 
-function DetailRow({ label, value, masked = false, isUrl = false, isCard = false, dots = 12, onToggle }: {
-  label: string; value: string; masked?: boolean; isUrl?: boolean; isCard?: boolean; dots?: number; onToggle?: (v: boolean) => void
+function DetailRow({ label, value, masked = false, isUrl = false, isCard = false, dots = 12, visible, onToggle }: {
+  label: string; value: string; masked?: boolean; isUrl?: boolean; isCard?: boolean; dots?: number; visible?: boolean; onToggle?: (v: boolean) => void
 }) {
   if (!value) return null;
   return (
     <div className="flex items-center justify-between px-3 py-2.5 min-w-0">
       <span className="text-[11px] text-neutral-400 font-medium shrink-0 pr-3">{label}</span>
       <div className="flex-1 min-w-0 text-right">
-        {masked ? <MaskedValue value={value} dots={dots} isCard={isCard} onToggle={onToggle} /> :
+        {masked ? <MaskedValue value={value} dots={dots} isCard={isCard} visible={visible} onToggle={onToggle} /> :
           isUrl ? (
             <div className="flex items-center justify-end gap-1.5 min-w-0">
               <a
@@ -894,6 +907,10 @@ function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = fa
       .catch(console.error);
   }, [itemId]);
 
+  useEffect(() => {
+    setShowCard(false);
+  }, [itemId]);
+
   const t = data._template ?? "login";
   return (
     <div className={inGrid 
@@ -935,13 +952,13 @@ function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = fa
               <DetailRow label="Name" value={data.cardName || data.cardholderName || ""} />
             ) : null}
             {data.cardNumber ? (
-              <DetailRow label="Number" value={data.cardNumber} masked isCard onToggle={setShowCard} />
+              <DetailRow label="Number" value={data.cardNumber} masked isCard visible={showCard} onToggle={setShowCard} />
             ) : null}
             {(data.expiry || data.expMonth || data.expYear) ? (
               <DetailRow label="Expiry" value={data.expiry || (data.expMonth || data.expYear ? `${data.expMonth || "MM"} / ${data.expYear || "YY"}` : "")} />
             ) : null}
             {data.cvv ? (
-              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} />
+              <DetailRow label="CVV" value={data.cvv || ""} masked dots={3} visible={showCard} onToggle={setShowCard} />
             ) : null}
             {data.pin ? <DetailRow label="PIN" value={data.pin} masked dots={3} /> : null}
           </SectionGroup>
