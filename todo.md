@@ -75,6 +75,8 @@
   - Title: `VaultR v0.2.10 — Card Back Realism, Smooth Dialogs & Icon Alignment`.
   - Attached Asset: `vaultr-v0.2.10-release.apk` (139.5 MB standalone release APK).
   - Release Notes: Written in clean, non-technical, human-understandable language for end users.
+- **Docker Deployment Fix (`docker-compose.yml`)**:
+  - Switched MinIO container image to official mirror `quay.io/minio/minio:latest` across `dev` and `main` to eliminate Docker Hub anonymous pull rate-limiting and auth errors in Portainer.
 
 ---
 
