@@ -3,23 +3,23 @@ const fs = require('fs');
 const path = require('path');
 
 // VaultR Lock Shield SVG Path Coordinate Bounds:
-// X spans: 61 to 779.8 (Width: 718.8, Visual Center X: 420.4)
+// X spans: 61 to 779.8 (Shield V-Tip: 500.5, Keyhole: 500, Shackle Center: 502.5 -> Visual Center X: 500.5)
 // Y spans: 21 to 976.6 (Height: 955.6, Visual Center Y: 498.8)
 
-// 1. Generate Adaptive Foreground SVG (transparent background with scaled, perfectly centered logo in standard Android 66dp safe zone)
-function getAdaptiveSvg(scale = 0.42) {
+// 1. Generate Adaptive Foreground SVG (transparent background with scaled, perfectly centered logo in standard Android safe zone)
+function getAdaptiveSvg(scale = 0.657) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none" shape-rendering="geometricPrecision">
   <defs>
     <mask id="shield">
       <rect width="1000" height="1000" fill="#000"/>
-      <g transform="translate(500, 500) scale(${scale}) translate(-420.4, -498.8)">
+      <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
         <path fill="#fff" d="M 61 148 L 500.5 976.6 L 779.8 589.8 L 779.8 351.1 L 725.1 310.5 L 291.5 311 L 394 462.9 L 339.8 447.3 L 539.6 782.7 L 507.3 827.6 L 275.4 403.3 L 326.2 419.4 Z"/>
         <path fill="#000" d="M 500 433 C 472 433 449 456 449 484 C 449 504 460 521 477 530 L 469 604 L 531 604 L 523 530 C 540 521 551 504 551 484 C 551 456 528 433 500 433 Z"/>
       </g>
     </mask>
   </defs>
   <rect width="1000" height="1000" fill="#ffffff" mask="url(#shield)"/>
-  <g transform="translate(500, 500) scale(${scale}) translate(-420.4, -498.8)">
+  <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
     <path fill="#ffffff" d="M 305 285 L 305 78 L 360 21 L 640 21 L 700 78 L 700 285 L 625 285 L 625 106 L 605 88 L 395 88 L 380 106 L 380 285 Z"/>
   </g>
 </svg>`;
@@ -31,24 +31,24 @@ function getInAppTransparentSvg(scale = 0.88) {
   <defs>
     <mask id="shield-inapp">
       <rect width="1000" height="1000" fill="#000"/>
-      <g transform="translate(500, 500) scale(${scale}) translate(-420.4, -498.8)">
+      <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
         <path fill="#fff" d="M 61 148 L 500.5 976.6 L 779.8 589.8 L 779.8 351.1 L 725.1 310.5 L 291.5 311 L 394 462.9 L 339.8 447.3 L 539.6 782.7 L 507.3 827.6 L 275.4 403.3 L 326.2 419.4 Z"/>
         <path fill="#000" d="M 500 433 C 472 433 449 456 449 484 C 449 504 460 521 477 530 L 469 604 L 531 604 L 523 530 C 540 521 551 504 551 484 C 551 456 528 433 500 433 Z"/>
       </g>
     </mask>
   </defs>
   <rect width="1000" height="1000" fill="#ffffff" mask="url(#shield-inapp)"/>
-  <g transform="translate(500, 500) scale(${scale}) translate(-420.4, -498.8)">
+  <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
     <path fill="#ffffff" d="M 305 285 L 305 78 L 360 21 L 640 21 L 700 78 L 700 285 L 625 285 L 625 106 L 605 88 L 395 88 L 380 106 L 380 285 Z"/>
   </g>
 </svg>`;
 }
 
 // 3. Generate Solid App Icon & Splash Logo SVG (with #09090b background and calibrated safe zone)
-function getSolidSvg(scale = 0.48) {
+function getSolidSvg(scale = 0.44) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none" shape-rendering="geometricPrecision">
   <rect width="1000" height="1000" fill="#09090b"/>
-  <g transform="translate(500, 500) scale(${scale}) translate(-420.4, -498.8)">
+  <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
     <path fill="#ffffff" d="M 61 148 L 500.5 976.6 L 779.8 589.8 L 779.8 351.1 L 725.1 310.5 L 291.5 311 L 394 462.9 L 339.8 447.3 L 539.6 782.7 L 507.3 827.6 L 275.4 403.3 L 326.2 419.4 Z"/>
     <path fill="#09090b" d="M 500 433 C 472 433 449 456 449 484 C 449 504 460 521 477 530 L 469 604 L 531 604 L 523 530 C 540 521 551 504 551 484 C 551 456 528 433 500 433 Z"/>
     <path fill="#ffffff" d="M 305 285 L 305 78 L 360 21 L 640 21 L 700 78 L 700 285 L 625 285 L 625 106 L 605 88 L 395 88 L 380 106 L 380 285 Z"/>
@@ -57,10 +57,10 @@ function getSolidSvg(scale = 0.48) {
 }
 
 // 4. Generate Round App Icon SVG (with circular mask for ic_launcher_round)
-function getRoundSvg(scale = 0.46) {
+function getRoundSvg(scale = 0.42) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none" shape-rendering="geometricPrecision">
   <circle cx="500" cy="500" r="500" fill="#09090b"/>
-  <g transform="translate(500, 500) scale(${scale}) translate(-420.4, -498.8)">
+  <g transform="translate(500, 500) scale(${scale}) translate(-500.5, -498.8)">
     <path fill="#ffffff" d="M 61 148 L 500.5 976.6 L 779.8 589.8 L 779.8 351.1 L 725.1 310.5 L 291.5 311 L 394 462.9 L 339.8 447.3 L 539.6 782.7 L 507.3 827.6 L 275.4 403.3 L 326.2 419.4 Z"/>
     <path fill="#09090b" d="M 500 433 C 472 433 449 456 449 484 C 449 504 460 521 477 530 L 469 604 L 531 604 L 523 530 C 540 521 551 504 551 484 C 551 456 528 433 500 433 Z"/>
     <path fill="#ffffff" d="M 305 285 L 305 78 L 360 21 L 640 21 L 700 78 L 700 285 L 625 285 L 625 106 L 605 88 L 395 88 L 380 106 L 380 285 Z"/>
@@ -70,10 +70,10 @@ function getRoundSvg(scale = 0.46) {
 
 async function run() {
   const rootDir = path.join(__dirname, '..');
-  const adaptiveSvg = Buffer.from(getAdaptiveSvg(0.42));
+  const adaptiveSvg = Buffer.from(getAdaptiveSvg(0.657));
   const inAppSvg = Buffer.from(getInAppTransparentSvg(0.88));
-  const solidSvg = Buffer.from(getSolidSvg(0.48));
-  const roundSvg = Buffer.from(getRoundSvg(0.46));
+  const solidSvg = Buffer.from(getSolidSvg(0.44));
+  const roundSvg = Buffer.from(getRoundSvg(0.42));
 
   console.log('Generating Expo and app brand assets...');
   
