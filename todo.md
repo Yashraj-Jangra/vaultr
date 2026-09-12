@@ -78,6 +78,50 @@
 - **Docker Deployment Fix (`docker-compose.yml`)**:
   - Switched MinIO container image to official mirror `quay.io/minio/minio:latest` across `dev` and `main` to eliminate Docker Hub anonymous pull rate-limiting and auth errors in Portainer.
 
+### 📋 What's Planned Next & Feature Roadmap Backlog
+
+#### 1. Passkey & Passwordless Hardware Authentication
+- **Android 14+ Credential Manager (`androidx.credentials`)**:
+  - Implement native `CredentialProviderService` so VaultR acts as a first-class Passkey provider across Android apps and Chrome alongside Google Password Manager.
+- **Browser Extension WebAuthn Interceptor**:
+  - Intercept `navigator.credentials.create()` and `navigator.credentials.get()` to register and authenticate FIDO2 passkeys directly in Chrome/Edge/Brave.
+- **WebAuthn PRF (`hmac-secret`) Vault Unlock**:
+  - Unlock VaultR via YubiKey NFC, Windows Hello, or Mac Touch ID without entering a master password, deriving the AES-256-GCM vault key directly from the hardware passkey.
+- **Better-Auth Passkey Plugin for Account Login**:
+  - Enable passkey-based account sign-in on `src/lib/auth/auth.ts` for frictionless authentication.
+
+#### 2. Zero-Knowledge Sharing & Security Architecture
+- **VaultR Send (Ephemeral Encrypted Sharing)**:
+  - Create single-use or timed self-destructing links for sharing secrets, credentials, or encrypted files with non-VaultR users (client-side encrypted with decryption key in URL hash fragment `#key`).
+- **Emergency Access (Digital Will / Trusted Contacts)**:
+  - Allow designated trusted emergency contacts to request vault access with a configurable approval waiting period (7–30 days) and automated check-ins.
+- **Duress PIN & Decoy Vault (Mobile)**:
+  - Secondary PIN on mobile unlock screen that silently loads a decoy/empty vault for personal security during coercive scenarios.
+- **Travel Mode / Geo-Fenced Vaults**:
+  - Flag sensitive items as "Do Not Travel", temporarily wiping them from mobile storage during border crossings and restoring them via web toggle.
+
+#### 3. Creative & Delightful User Experiences
+- **Disposable Privacy Email Alias Generator**:
+  - Integrated 1-click disposable alias generation (via Cloudflare Email Routing, SimpleLogin, or self-hosted mail domains) directly from password generation views and the browser extension.
+- **Audio-Haptic Rotary Safe Tumbler (Mobile)**:
+  - Interactive mechanical safe dial with tactile micro-clicks for quick PIN unlock, master key visual verification, or easter egg security achievements.
+- **Camera OCR Card & Document Scanner**:
+  - On-device Google ML Kit scanner on Android to instantly scan physical credit card numbers, expiry dates, and ID cards into new vault items without manual typing.
+- **Passphrase Poetry & Themed Diceware Generator**:
+  - Cryptographic passphrase generator featuring curated dictionaries (Cyberpunk, Sci-Fi, Nature, Astronomy) accompanied by visual mnemonic icon glyphs.
+- **Live Security Breach Radar**:
+  - Dynamic radar animation in the Security Hub visualizing compromised credentials (via k-anonymity HaveIBeenPwned lookups), password age decay, and 1-click change recommendations.
+- **Browser Extension Floating Inline Pill**:
+  - Sleek floating suggestion badge directly inside webpage login fields for one-tap autofill.
+- **Offline Encrypted Local Cache**:
+  - Client-side SQLite/WatermelonDB encrypted cache on mobile for full offline vault availability during airplane mode or outages.
+
+#### 4. Self-Hosting & DevOps Operations
+- **Automated S3 & Local Encrypted Backup Snapshots**:
+  - Scheduled automated backups of PostgreSQL database and MinIO storage into an encrypted `.vaultr.backup` archive exported to offsite S3 or local disk.
+- **Custom Item Templates & Schema Builder**:
+  - Allow users to build custom category schemas (SSH Keys, Wi-Fi Networks, Crypto Seeds, Software Licenses, API Tokens).
+
 ---
 
 ## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
