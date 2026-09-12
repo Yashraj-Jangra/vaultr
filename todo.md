@@ -46,8 +46,8 @@
   - Aligned Web's `DetailedCardVisual` (`DialogPreviews.tsx`) tap and button handler to advance forward `prev + 180` for 100% cross-platform parity.
 
 ### 📋 What's Planned Next
-- Compile updated Android release build with continuous flip mechanics.
-- Test swipe gesture and button state on connected Android device / emulator.
+- Connect physical Android device or start emulator to test/stream APK install (`adb install -r`).
+- Verify continuous swipe gesture and flip button state synchronization directly on device.
 - Prepare version bump if ready.
 
 ---
