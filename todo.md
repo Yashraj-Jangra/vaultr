@@ -122,6 +122,40 @@
 - **Custom Item Templates & Schema Builder**:
   - Allow users to build custom category schemas (SSH Keys, Wi-Fi Networks, Crypto Seeds, Software Licenses, API Tokens).
 
+#### 5. Plausible Deniability, Anti-Forensics & Stealth Security
+- **Ghost Vault (Plausible Deniability Partition)**:
+  - Secondary master password that decrypts a completely separate, plausible dummy vault populated with benign everyday logins (Netflix, Reddit, Spotify) and realistic history, leaving zero cryptographic evidence of the true vault partition.
+- **Image Steganography ("Hidden in Plain Sight")**:
+  - Client-side WebCrypto steganography that embeds an encrypted recovery seed phrase or emergency backup bundle inside any standard JPEG/PNG photo in your gallery.
+- **NFC Hardware Tap-to-Unlock**:
+  - Require tapping a physical NFC ring, card, or YubiKey NFC to phone to supply a hardware entropy shard required to decrypt the vault on mobile.
+- **Honeytoken Credentials (Intrusion Tripwires)**:
+  - Generate fake canary credentials (e.g. dummy AWS keys or decoy login accounts). If touched or queried anywhere on the web, trigger an immediate emergency alert push notification to your phone.
+- **Auto-Wipe & Tamper Resistance**:
+  - Configurable hardware wipe policy (e.g. 5 consecutive failed biometric/master password attempts permanently wipes all local cached vaults and decryption keys from the device).
+
+#### 6. Sensory Haptics, Audio Soundscapes & Gyroscopic Physics
+- **Mechanical Safe Audio-Haptic Soundscape**:
+  - Satisfying sound design on mobile: authentic mechanical tumbler clicks on dial rotation, heavy steel bolt slide on vault unlock, and crisp micro-relay shutter on item lock (with master volume toggle).
+- **Gyroscope-Driven Rainbow Foil & Parallax (Mobile)**:
+  - Real-time device gyroscope parallax on payment cards and preview badges, simulating holographic rainbow foil, brushed metallic highlights, and gold leaf reflection as the phone is tilted.
+- **Dynamic Vault Aura**:
+  - Ambient glowing backdrop on unlock and dashboard subtly shifts colors based on live security health (Emerald = All Healthy, Amber = Expired/Old Passwords, Crimson Pulse = Active Breach Detected).
+
+#### 7. Developer Ecosystem & Terminal Superpowers
+- **VaultR CLI & Secret Injection (`vaultr run -- <cmd>`)**:
+  - Command-line tool that injects encrypted credentials and API keys directly into child process environment variables without creating insecure plain text `.env` files on disk.
+- **Native SSH Agent & Biometric Signing**:
+  - Allow VaultR to act as an `ssh-agent` provider: store encrypted Ed25519/RSA SSH private keys in the vault, prompting your mobile app or fingerprint sensor for authorization every time a terminal runs `ssh` or `git push`.
+- **Webhook Expiry & Security Alerts**:
+  - Outbound webhooks to Discord, Telegram, or Slack for expiring API keys, TLS certificates, or domain renewal alerts stored in vault items.
+
+#### 8. Collaborative Zero-Knowledge & Split-Key Inheritance
+- **Shamir's Secret Sharing (Cryptographic Multi-Key Quorum)**:
+  - Mathematically divide the emergency master recovery key into $k$-of-$n$ shares (e.g., 3 of 5). Distribute shares among trusted family members or locations; no individual can compromise the vault without the threshold quorum.
+- **Zero-Knowledge Shared Family/Team Folders**:
+  - Asymmetric ECDH / RSA-4096 envelope encryption allowing multiple VaultR users to collaborate on shared folders with fine-grained read/write permissions without ever exposing individual master passwords.
+
 ---
 
 ## Previous Session: Credit Card Back Face Redesign, Microtext & Logo Alignment (2026-09-12) · Branch: `dev`
