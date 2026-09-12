@@ -204,9 +204,6 @@ export function DetailedCardFrontFace({
     <div className={`w-full h-full rounded-[5cqw] overflow-hidden bg-gradient-to-br ${bgClass} shadow-xl flex flex-col justify-between ${textColor} p-[6cqw] transition-colors duration-500 relative select-none`}>
       {graphics}
 
-      {/* Subtle security watermark illustration inside card */}
-      <img src="/illustrations/fingerprint_kdwq.svg" className="absolute right-4 bottom-4 w-28 h-28 opacity-10 pointer-events-none select-none mix-blend-overlay" alt="" />
-
       {/* Top Row: Bank Logo left, Network right */}
       <div className="relative z-10 flex justify-between items-start h-[8cqw]">
         <div className="flex items-center h-full">

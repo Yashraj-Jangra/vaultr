@@ -46,10 +46,10 @@
       - **Visa**: `from-[#0A0D1A] via-[#151233] to-[#2B1B54]` + dual sine waves + ambient purple glow orb.
       - **Mastercard**: `from-[#1a1a1c] via-[#141415] to-[#0a0a0b]` + red/amber glow orbs.
       - **AMEX**: `from-[#141414] via-[#090909] to-[#000000]` + concentric amber borders + diagonal sheen.
-      - **Discover**: `from-[#1F0F07] via-[#0C0603] to-[#020101]` + 3 orange concentric rings + bottom-left glow.
-      - **RuPay**: `from-[#05111A] via-[#02080D] to-[#000000]` + circuit grid + trace line.
+      - **Discover**: `from-[#1F0F07] via-[#0C0603] to-[#020101]` + 3 orange concentric rings (r=96, 80, 64) + bottom-left glow.
+      - **RuPay**: `from-[#05111A] via-[#02080D] to-[#000000]` + subtle 0.5px grid lines + `#004e92` circuit trace.
       - **Other / Default / Custom**: exact multi-stop charcoal and dark slate gradients.
-    - Added subtle security fingerprint watermark (`fingerprint_kdwq.svg`) at bottom-right of every payment card.
+    - Removed fingerprint watermark SVG completely from both Web and Mobile card preview.
     - Applied identical gradient background to both Front and Back card faces.
     - Upgraded LoginKeycard (`#1a1a20` to `#0d0d10`), ProfileBadge (vertical `#111115` to `#070709` + accent gradient bar), and NotePaper (golden multi-stop top bar).
 

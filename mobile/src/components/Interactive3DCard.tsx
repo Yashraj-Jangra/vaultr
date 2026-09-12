@@ -444,8 +444,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#ffffff",
+    borderWidth: 0,
+    borderColor: "transparent",
   },
   controlsRow: {
     flexDirection: "row",
