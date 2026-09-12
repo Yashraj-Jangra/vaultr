@@ -78,7 +78,17 @@
   - Added local fallback animated pill inside `ItemPreviewCard` when rendered outside `ItemDetailScreen`.
   - Added `Vibration.vibrate(12)` to `copyToClipboard` in `ItemDetailScreen.tsx` so all regular copy button fields also trigger tactile haptics.
 
-#### 5. Verification & Zero-Error Compilation
+#### 5. Discover & AMEX Brand Logo Adjustments (`mobile/src/components/ItemPreviewCard.tsx`)
+- **Discover Logo Clipping Fix & Subtle Size Increase**:
+  - Replaced the unclipped bottom-truncated crescent path with the full official sunset gradient `<Ellipse cx={258.75} cy={250} rx={37.52} ry={37.65} fill="url(#discOrangeGrad)" />`.
+  - Expanded `viewBox` from `25 213 450 73` to `20 206 458 86`, providing comfortable margin around all letter strokes and the 'O' ellipse.
+  - Increased rendered dimensions on mobile from `78x16` to `88x18` (+13% size increase).
+- **AMEX Logo Size Increase & Border Padding**:
+  - Increased rendered dimensions on mobile from `50x32` to `58x34` (+16% size increase).
+  - Adjusted `viewBox` from `51 182 424 160` to `48 180 430 164` to provide full clearance for the 3px white stroke outline.
+  - Web preview canvas (`src/components/vault/DialogPreviews.tsx`) remains completely untouched.
+
+#### 6. Verification & Zero-Error Compilation
 - `npx tsc --noEmit` on root / web: 0 errors.
 - `npx tsc --noEmit` on mobile: 0 errors.
 
