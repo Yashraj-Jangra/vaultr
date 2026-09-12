@@ -203,24 +203,6 @@ export function Interactive3DCard({
       })
       .onEnd((e) => {
         "worklet";
-        const wasTap = Math.abs(e.translationX) < 8 && Math.abs(e.translationY) < 8;
-
-        if (wasTap) {
-          const currentBase = Math.round(startRotation.value / 180) * 180;
-          const currentlyBack = isBackAngle(currentBase);
-          const nextBack = !currentlyBack;
-          const targetAngle = currentBase + 180;
-
-          isFlippedShared.value = nextBack;
-          flipRotation.value = withSpring(targetAngle, {
-            damping: 18,
-            stiffness: 140,
-            mass: 0.8,
-          });
-          runOnJS(triggerHapticAndSync)(nextBack);
-          return;
-        }
-
         const dragDelta = flipRotation.value - startRotation.value;
         const isFlick = Math.abs(e.velocityX) > 350;
         const passedThreshold = Math.abs(dragDelta) > 35;
@@ -263,6 +245,7 @@ export function Interactive3DCard({
           velocity: initialVelocity,
         });
 
+        // Only vibrate and sync if the card actually rotated to the other face
         if (nextBack !== wasBack) {
           runOnJS(triggerHapticAndSync)(nextBack);
         }
@@ -277,7 +260,7 @@ export function Interactive3DCard({
         rimOpacity.value = withTiming(0.06, { duration: 240 });
         shadowOpacity.value = withTiming(0.35, { duration: 240 });
 
-        // If gesture was cancelled mid-drag (e.g. vertical scroll takeover), snap to nearest resting face
+        // If gesture was cancelled mid-drag (e.g. vertical scroll takeover), snap to nearest resting face without vibrating
         if (!success) {
           const nearestBase = Math.round(flipRotation.value / 180) * 180;
           flipRotation.value = withSpring(nearestBase, {
@@ -286,7 +269,7 @@ export function Interactive3DCard({
           });
           const nearestBack = isBackAngle(nearestBase);
           isFlippedShared.value = nearestBack;
-          runOnJS(triggerHapticAndSync)(nearestBack);
+          runOnJS(setFlipped)(nearestBack);
         }
       });
   }, [canFlip, backContent, dimensions.width]);

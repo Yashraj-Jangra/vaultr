@@ -3,11 +3,12 @@
  * Renders live visual previews for Vault items (Credit Cards, Login Keycards, Secure Notes, Address Labels, Profile Badges).
  */
 
-import React, { useMemo } from "react";
-import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
+import React, { useMemo, useState, useRef } from "react";
+import { StyleSheet, Text, View, Image, TouchableOpacity, Vibration } from "react-native";
 import Svg, { Path, Circle, Line, Defs, LinearGradient, RadialGradient, G, Stop, Polygon, Rect } from "react-native-svg";
 import { Template } from "@vaultr/core";
-import { Globe, User, FileText, MapPin } from "lucide-react-native";
+import { Globe, User, FileText, MapPin, Check } from "lucide-react-native";
+import Animated, { FadeInUp, FadeOut } from "react-native-reanimated";
 import { resolveDomain } from "@vaultr/core";
 import { Interactive3DCard } from "./Interactive3DCard";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
@@ -23,7 +24,7 @@ export function detectCardBrand(cardNumber: string): string {
   return "";
 }
 
-interface ItemPreviewCardProps {
+export interface ItemPreviewCardProps {
   template: Template;
   name?: string;
   // Login fields
@@ -56,45 +57,113 @@ interface ItemPreviewCardProps {
   idNumber?: string;
   // Note fields
   note?: string;
+  onCopy?: (label: string, value: string) => void;
 }
 
 export function ItemPreviewCard(props: ItemPreviewCardProps) {
-  const { template } = props;
+  const { template, onCopy } = props;
+  const [localCopied, setLocalCopied] = useState(false);
+  const localTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopyInternal = (label: string, val: string) => {
+    if (!val) return;
+    try {
+      Vibration.vibrate(12);
+    } catch {}
+    copyToClipboardWithAutoClear(val);
+
+    if (onCopy) {
+      onCopy(label, val);
+    } else {
+      setLocalCopied(true);
+      if (localTimerRef.current) clearTimeout(localTimerRef.current);
+      localTimerRef.current = setTimeout(() => setLocalCopied(false), 2000);
+    }
+  };
+
+  const augmentedProps: ItemPreviewCardProps = {
+    ...props,
+    onCopy: handleCopyInternal,
+  };
 
   let content: React.ReactNode = null;
   let backContent: React.ReactNode = null;
 
   if (template === "card") {
-    content = <CreditCardVisual {...props} />;
-    backContent = <CreditCardBackVisual {...props} />;
+    content = <CreditCardVisual {...augmentedProps} />;
+    backContent = <CreditCardBackVisual {...augmentedProps} />;
   } else if (template === "login") {
-    content = <LoginKeycardVisual {...props} />;
+    content = <LoginKeycardVisual {...augmentedProps} />;
   } else if (template === "note") {
-    content = <NotePaperVisual {...props} />;
+    content = <NotePaperVisual {...augmentedProps} />;
   } else if (template === "address") {
-    content = <AddressLabelVisual {...props} />;
+    content = <AddressLabelVisual {...augmentedProps} />;
   } else if (template === "profile") {
-    content = <ProfileBadgeVisual {...props} />;
+    content = <ProfileBadgeVisual {...augmentedProps} />;
   }
 
   if (!content) return null;
 
   return (
-    <Interactive3DCard
-      canFlip={template === "card"}
-      backContent={backContent}
-      style={previewStyles.wrapper}
-    >
-      {content}
-    </Interactive3DCard>
+    <View style={previewStyles.container}>
+      <Interactive3DCard
+        canFlip={template === "card"}
+        backContent={backContent}
+        style={previewStyles.wrapper}
+      >
+        {content}
+      </Interactive3DCard>
+
+      {/* Floating Copied Pill fallback if onCopy not provided by parent */}
+      {localCopied && !onCopy ? (
+        <Animated.View
+          entering={FadeInUp.duration(180)}
+          exiting={FadeOut.duration(140)}
+          style={previewStyles.localCopiedPill}
+          pointerEvents="none"
+        >
+          <Check size={13} color="#10b981" strokeWidth={2.5} />
+          <Text style={previewStyles.localCopiedText}>Copied to clipboard</Text>
+        </Animated.View>
+      ) : null}
+    </View>
   );
 }
 
 const previewStyles = StyleSheet.create({
+  container: {
+    width: "100%",
+    position: "relative",
+  },
   wrapper: {
     width: "100%",
     maxWidth: 380,
     alignSelf: "center",
+  },
+  localCopiedPill: {
+    position: "absolute",
+    bottom: -14,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 9999,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 999,
+  },
+  localCopiedText: {
+    color: "#f4f4f5",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });
 
@@ -515,6 +584,7 @@ function CreditCardVisual({
   cardBrand = "",
   fallbackBrand = "",
   isNumberVisible = false,
+  onCopy,
 }: ItemPreviewCardProps) {
 
   // Resolve effective brand: explicit > auto-detect from number
@@ -603,12 +673,12 @@ function CreditCardVisual({
         </View>
       </View>
 
-      {/* Card Number with silent click-to-copy */}
+      {/* Card Number with click-to-copy */}
       <View style={card.numberWrap}>
         <TouchableOpacity
-          activeOpacity={1}
+          activeOpacity={0.75}
           onPress={() => {
-            if (num) copyToClipboardWithAutoClear(num);
+            if (num) onCopy?.("cardNumber", num);
           }}
           style={card.digitGroupsRow}
           accessibilityLabel={num.length > 0 ? formattedNumber : "Card number masked"}
@@ -621,13 +691,13 @@ function CreditCardVisual({
         </TouchableOpacity>
       </View>
 
-      {/* Bottom Row: Name + Expiry with silent click-to-copy */}
+      {/* Bottom Row: Name + Expiry with click-to-copy */}
       <View style={card.bottomRow}>
         <View style={card.colLeft}>
           <TouchableOpacity
-            activeOpacity={1}
+            activeOpacity={0.75}
             onPress={() => {
-              if (displayName) copyToClipboardWithAutoClear(displayName);
+              if (displayName) onCopy?.("cardholderName", displayName);
             }}
           >
             <Text style={card.metaLabel}>Cardholder Name</Text>
@@ -636,9 +706,9 @@ function CreditCardVisual({
         </View>
         <View style={card.colRight}>
           <TouchableOpacity
-            activeOpacity={1}
+            activeOpacity={0.75}
             onPress={() => {
-              if (expiryStr) copyToClipboardWithAutoClear(expiryStr);
+              if (expiryStr) onCopy?.("exp", expiryStr);
             }}
             style={{ alignItems: "flex-end" }}
           >
@@ -653,7 +723,7 @@ function CreditCardVisual({
 
 // ── 4. Login Keycard with SiteIcon ───────────────────────────────────────────
 
-function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProps) {
+function LoginKeycardVisual({ name, username, url, domain, onCopy }: ItemPreviewCardProps) {
   const [faviconError, setFaviconError] = React.useState(false);
 
   const effectiveDomain = useMemo(() => {
@@ -717,11 +787,17 @@ function LoginKeycardVisual({ name, username, url, domain }: ItemPreviewCardProp
         </View>
       </View>
 
-      {/* Identity row */}
-      <View style={login.identityWrap}>
+      {/* Identity row with click-to-copy */}
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => {
+          if (username) onCopy?.("username", username);
+        }}
+        style={login.identityWrap}
+      >
         <Text style={login.identityLabel}>IDENTITY</Text>
         <Text style={login.identityValue} numberOfLines={1}>{username || "username@email.com"}</Text>
-      </View>
+      </TouchableOpacity>
 
       {/* Footer */}
       <View style={login.footer}>
@@ -1067,6 +1143,7 @@ function CreditCardBackVisual({
   cardNumber = "",
   fallbackBrand = "",
   isNumberVisible = false,
+  onCopy,
 }: ItemPreviewCardProps) {
   const effectiveBrand = useMemo(() => {
     if (cardBrand && cardBrand.toLowerCase() !== "auto-detect") return cardBrand;
@@ -1131,9 +1208,9 @@ function CreditCardBackVisual({
             </Text>
           </View>
           <TouchableOpacity
-            activeOpacity={1}
+            activeOpacity={0.75}
             onPress={() => {
-              if (cvv) copyToClipboardWithAutoClear(cvv);
+              if (cvv) onCopy?.("cvv", cvv);
             }}
             style={cardBack.cvvBox}
           >
