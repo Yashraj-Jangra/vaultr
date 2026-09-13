@@ -74,6 +74,8 @@ dist/
 .parcel-cache/
 *.tsbuildinfo
 next-env.d.ts
+packages/core/src/*.js
+packages/core/src/*.d.ts
 
 # ==========================================
 # Mobile (React Native / Expo / Android / iOS)
