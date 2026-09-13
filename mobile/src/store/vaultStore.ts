@@ -1178,7 +1178,8 @@ async function syncAutofillStore() {
     try {
       const raw = await decrypt(cryptoKey, item.encryptedBlob);
       const p = JSON.parse(raw);
-      if (p.username || p.password) {
+      const isPasskey = Boolean(p.isPasskey || p.passkeyCredentialId || item.isPasskey || item.tags?.includes("passkey"));
+      if (p.username || p.password || isPasskey) {
         const rawUrls: string[] = [];
         if (p.url && typeof p.url === "string") rawUrls.push(p.url);
         if (item.domain && typeof item.domain === "string") rawUrls.push(item.domain);
@@ -1195,6 +1196,13 @@ async function syncAutofillStore() {
           username: p.username || "",
           password: p.password || "",
           urls: Array.from(new Set(rawUrls)).filter(Boolean),
+          isPasskey,
+          passkeyRpId: p.passkeyRpId || item.domain || "",
+          passkeyCredentialId: p.passkeyCredentialId || "",
+          passkeyUserHandle: p.passkeyUserHandle || "",
+          passkeyPrivateKey: p.passkeyPrivateKey || "",
+          passkeySignCount: p.passkeySignCount || 0,
+          passkeyTransports: Array.isArray(p.passkeyTransports) ? p.passkeyTransports : ["internal"],
         });
       }
     } catch {}

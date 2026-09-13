@@ -13,7 +13,14 @@ data class AutofillItem(
     val domain: String?,
     val username: String,
     val password: String,
-    val urls: List<String> = emptyList()
+    val urls: List<String> = emptyList(),
+    val isPasskey: Boolean = false,
+    val passkeyRpId: String? = null,
+    val passkeyCredentialId: String? = null,
+    val passkeyUserHandle: String? = null,
+    val passkeyPrivateKey: String? = null,
+    val passkeySignCount: Long = 0L,
+    val passkeyTransports: List<String> = emptyList()
 )
 
 object AutofillCredentialStore {
@@ -241,6 +248,39 @@ object AutofillCredentialStore {
         return clean
     }
 
+    fun getPasskeyCount(): Int {
+        if (isVaultLocked()) return 0
+        return cachedItems.count { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+    }
+
+    fun findPasskeys(rpId: String?): List<AutofillItem> {
+        if (isVaultLocked() || rpId.isNullOrBlank()) return emptyList()
+        val cleanRp = normalizeDomain(rpId)
+        return cachedItems.filter { item ->
+            item.isPasskey && !item.passkeyCredentialId.isNullOrBlank() && (
+                (item.passkeyRpId != null && normalizeDomain(item.passkeyRpId) == cleanRp) ||
+                (!item.domain.isNullOrBlank() && normalizeDomain(item.domain) == cleanRp) ||
+                cleanRp.endsWith(".${normalizeDomain(item.passkeyRpId ?: item.domain ?: "")}")
+            )
+        }
+    }
+
+    fun findPasskeyByCredentialId(credentialId: String): AutofillItem? {
+        if (isVaultLocked()) return null
+        return cachedItems.firstOrNull { it.isPasskey && it.passkeyCredentialId == credentialId }
+    }
+
+    fun updatePasskeySignCount(credentialId: String, newCount: Long) {
+        val index = cachedItems.indexOfFirst { it.passkeyCredentialId == credentialId }
+        if (index != -1) {
+            val item = cachedItems[index]
+            val updated = item.copy(passkeySignCount = newCount)
+            val newList = cachedItems.toMutableList()
+            newList[index] = updated
+            cachedItems = newList
+        }
+    }
+
     private fun parseJson(jsonString: String): List<AutofillItem> {
         val list = mutableListOf<AutofillItem>()
         val array = JSONArray(jsonString)
@@ -261,8 +301,40 @@ object AutofillCredentialStore {
                 }
             }
 
-            if (username.isNotEmpty() || password.isNotEmpty()) {
-                list.add(AutofillItem(id, name, domain, username, password, urlsList))
+            val isPasskey = obj.optBoolean("isPasskey", false) || obj.optString("passkeyCredentialId").isNotBlank()
+            val passkeyRpId = obj.optString("passkeyRpId", null).takeIf { !it.isNullOrBlank() } ?: domain
+            val passkeyCredentialId = obj.optString("passkeyCredentialId", null).takeIf { !it.isNullOrBlank() }
+            val passkeyUserHandle = obj.optString("passkeyUserHandle", null).takeIf { !it.isNullOrBlank() }
+            val passkeyPrivateKey = obj.optString("passkeyPrivateKey", null).takeIf { !it.isNullOrBlank() }
+            val passkeySignCount = obj.optLong("passkeySignCount", 0L)
+
+            val transportsList = mutableListOf<String>()
+            val transportsArr = obj.optJSONArray("passkeyTransports")
+            if (transportsArr != null) {
+                for (j in 0 until transportsArr.length()) {
+                    val t = transportsArr.optString(j)
+                    if (!t.isNullOrBlank()) transportsList.add(t)
+                }
+            }
+
+            if (username.isNotEmpty() || password.isNotEmpty() || isPasskey) {
+                list.add(
+                    AutofillItem(
+                        id = id,
+                        name = name,
+                        domain = domain,
+                        username = username,
+                        password = password,
+                        urls = urlsList,
+                        isPasskey = isPasskey,
+                        passkeyRpId = passkeyRpId,
+                        passkeyCredentialId = passkeyCredentialId,
+                        passkeyUserHandle = passkeyUserHandle,
+                        passkeyPrivateKey = passkeyPrivateKey,
+                        passkeySignCount = passkeySignCount,
+                        passkeyTransports = transportsList
+                    )
+                )
             }
         }
         return list

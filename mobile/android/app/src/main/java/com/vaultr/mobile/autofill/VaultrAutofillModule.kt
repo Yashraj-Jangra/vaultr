@@ -60,19 +60,40 @@ class VaultrAutofillModule(private val reactContext: ReactApplicationContext) :
             }
 
             val isAccessibilityEnabled = checkAccessibilityEnabled()
+            val isCredentialManagerSupported = Build.VERSION.SDK_INT >= 34
             val count = AutofillCredentialStore.getCount()
+            val passkeys = AutofillCredentialStore.getPasskeyCount()
 
             val map = Arguments.createMap().apply {
                 putBoolean("isAutofillSupported", isAutofillSupported)
                 putBoolean("isAutofillEnabled", isAutofillEnabled)
                 putBoolean("isAccessibilityEnabled", isAccessibilityEnabled)
+                putBoolean("isCredentialManagerSupported", isCredentialManagerSupported)
+                putBoolean("isCredentialManagerEnabled", isCredentialManagerSupported)
                 putInt("credentialCount", count)
+                putInt("passkeyCount", passkeys)
             }
 
             promise.resolve(map)
         } catch (e: Exception) {
             promise.reject("STATUS_ERROR", e.message, e)
         }
+    }
+
+    @ReactMethod
+    fun openCredentialManagerSettings() {
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                // Open Android 14+ Credential Provider settings
+                val intent = Intent("android.settings.CREDENTIAL_PROVIDER").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                reactContext.startActivity(intent)
+                return
+            } catch (_: Exception) {}
+        }
+        // Fallback to standard autofill provider picker
+        openSettings()
     }
 
     @ReactMethod

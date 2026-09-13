@@ -167,6 +167,10 @@ dependencies {
     // AndroidX Autofill — provides InlineSuggestionUi for proper Gboard keyboard chips
     implementation("androidx.autofill:autofill:1.1.0")
 
+    // AndroidX Credential Manager (Android 14+ native passkey provider)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";

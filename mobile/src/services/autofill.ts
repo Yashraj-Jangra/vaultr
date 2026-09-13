@@ -14,23 +14,36 @@ export interface AutofillDataset {
   username?: string;
   password?: string;
   urls?: string[];
+  isPasskey?: boolean;
+  passkeyRpId?: string;
+  passkeyCredentialId?: string;
+  passkeyUserHandle?: string;
+  passkeyPrivateKey?: string;
+  passkeySignCount?: number;
+  passkeyTransports?: string[];
 }
 
 export interface AutofillStatus {
   isAutofillSupported: boolean;
   isAutofillEnabled: boolean;
   isAccessibilityEnabled: boolean;
+  isCredentialManagerSupported?: boolean;
+  isCredentialManagerEnabled?: boolean;
   credentialCount: number;
+  passkeyCount?: number;
 }
 
-/** Check comprehensive autofill and accessibility status on Android. */
+/** Check comprehensive autofill, passkey, and accessibility status on Android. */
 export async function getAutofillStatus(): Promise<AutofillStatus> {
   if (Platform.OS !== "android" || !VaultrAutofillModule) {
     return {
       isAutofillSupported: false,
       isAutofillEnabled: false,
       isAccessibilityEnabled: false,
+      isCredentialManagerSupported: false,
+      isCredentialManagerEnabled: false,
       credentialCount: 0,
+      passkeyCount: 0,
     };
   }
   try {
@@ -39,14 +52,20 @@ export async function getAutofillStatus(): Promise<AutofillStatus> {
       isAutofillSupported: !!res.isAutofillSupported,
       isAutofillEnabled: !!res.isAutofillEnabled,
       isAccessibilityEnabled: !!res.isAccessibilityEnabled,
+      isCredentialManagerSupported: !!res.isCredentialManagerSupported,
+      isCredentialManagerEnabled: !!res.isCredentialManagerEnabled,
       credentialCount: res.credentialCount || 0,
+      passkeyCount: res.passkeyCount || 0,
     };
   } catch {
     return {
       isAutofillSupported: false,
       isAutofillEnabled: false,
       isAccessibilityEnabled: false,
+      isCredentialManagerSupported: false,
+      isCredentialManagerEnabled: false,
       credentialCount: 0,
+      passkeyCount: 0,
     };
   }
 }
@@ -63,6 +82,20 @@ export function openAutofillSettings(): void {
   try {
     VaultrAutofillModule.openSettings();
   } catch {}
+}
+
+/** Open Android Settings screen to configure Credential Manager / Passkeys provider (Android 14+). */
+export function openCredentialManagerSettings(): void {
+  if (Platform.OS !== "android" || !VaultrAutofillModule) return;
+  try {
+    if (typeof VaultrAutofillModule.openCredentialManagerSettings === "function") {
+      VaultrAutofillModule.openCredentialManagerSettings();
+    } else {
+      VaultrAutofillModule.openSettings();
+    }
+  } catch {
+    openAutofillSettings();
+  }
 }
 
 /** Open Android Accessibility settings screen. */
