@@ -34,7 +34,35 @@
 - **Security Settings Integration (`mobile/src/screens/settings/SecuritySettingsScreen.tsx`)**:
   - Added Quick PIN Unlock toggle card with enrollment, change PIN modal, and confirmation before disabling.
 
----
+### ✅ What Was Done (Phase 2b & Phase 3: Extension Biometrics, WebAuthn Passkey Provider & Session Badges)
+- **FIDO2 / WebAuthn Cryptography Suite (`packages/core/src/webauthn.ts`)**:
+  - Built zero-dependency FIDO2 cryptography suite using WebCrypto (`SubtleCrypto`).
+  - Implemented standard COSE Key serialization for ECDSA P-256 (ES256), CBOR attestation object serializer (`fmt: "none"`), and DER signature encoder (`p1363ToDer`).
+  - Built WebAuthn platform authenticator biometric re-unlock (`isPlatformAuthenticatorAvailable`, `enrollBiometricUnlock`, `unlockWithBiometrics`) for Windows Hello and Touch ID.
+- **Browser Extension Passkey Provider (`extension/`)**:
+  - `webauthn-page.ts`: MAIN world page script intercepting `navigator.credentials.create` and `navigator.credentials.get`, relaying WebAuthn calls via `window.postMessage`.
+  - `autofill.ts`: Embedded isolated Shadow DOM passkey approval prompt (*"Save Passkey to VaultR"* / *"Sign In with Passkey"*).
+  - `service-worker.ts`: Handled passkey credential creation, attached passkeys directly to existing login items in encrypted vault, and performed ECDSA assertions with sign counter updates.
+  - `UnlockScreen.tsx`: Added instant `[ 👆 Unlock with Windows Hello / Touch ID ]` biometric authentication.
+  - `SettingsScreen.tsx`: Added passkey provider configuration instructions, deep-link settings, and biometric unlock enrollment.
+  - `VaultScreen.tsx` & `NewEntryForm.tsx`: Added passkey badges, enrolled credentials inspector, and passkey field preservation.
+- **Sleek Session Enrollment Badges (Web & Mobile)**:
+  - `src/app/settings/security/page.tsx`: Displaying sleek enrolled capability chips (`🛡️ Windows Hello / Touch ID`, `🔑 Passkey Provider`, `👆 Biometrics`, `🔢 Quick PIN`).
+  - `mobile/src/screens/settings/SessionsScreen.tsx`: Added tactile chips for `👆 BIOMETRICS`, `🔢 QUICK PIN`, `WINDOWS HELLO / TOUCH ID`, and `PASSKEY READY`.
+
+### ✅ What Was Done (Phase 4 & Phase 5: Android 14+ Credential Provider & Passkey Service)
+- **Native Android Credential Provider Service (`mobile/android/`)**:
+  - Added `androidx.credentials:credentials:1.3.0` and `credentials-play-services-auth:1.3.0` to `build.gradle`.
+  - Created `credential_provider_config.xml` declaring `TYPE_PUBLIC_KEY_CREDENTIAL` and `TYPE_PASSWORD_CREDENTIAL`.
+  - Declared `VaultrCredentialProviderService` in `AndroidManifest.xml` with `BIND_CREDENTIAL_PROVIDER_SERVICE`.
+  - Built `VaultrCredentialProviderService.kt`: handles `onBeginGetCredential` for FIDO2 passkeys, generates standard ASN.1 DER ECDSA P-256 signatures (`SHA256withECDSA`), updates sign counters, and matches RPs.
+- **Native Store & React Native Bridge Updates**:
+  - `AutofillCredentialStore.kt`: Extended `AutofillItem` with passkey fields, parsed passkey data from sync payloads, added `findPasskeys(rpId)`, `findPasskeyByCredentialId()`, and `updatePasskeySignCount()`.
+  - `VaultrAutofillModule.kt`: Added `openCredentialManagerSettings()` (`Settings.ACTION_CREDENTIAL_PROVIDER`) and reported passkey stats in `checkStatus()`.
+  - `mobile/src/store/vaultStore.ts`: Updated `syncAutofillCredentials` preparation to decrypt and sync passkey credentials into Android native keystore.
+  - `mobile/src/services/autofill.ts`: Extended `AutofillDataset` with passkey fields and added `openCredentialManagerSettings()`.
+  - `mobile/src/screens/settings/AutofillSettingsScreen.tsx`: Made Passkeys row interactive with enrolled count badge and 1-tap navigation to Android Credential Provider settings.
+- **Type Checking Gate**: All 4 subprojects (`packages/core`, `mobile`, `extension`, root Next.js) compile with zero errors.
 
 
 
