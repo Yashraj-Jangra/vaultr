@@ -25,6 +25,9 @@ import {
   RefreshCw,
   Smartphone,
   MapPin,
+  Fingerprint,
+  KeyRound,
+  Hash,
 } from "lucide-react";
 import { useSession } from "@/lib/auth/auth-client";
 import { saveVaultSession } from "@/hooks/useVaultSession";
@@ -179,10 +182,12 @@ function SessionCard({
   s,
   onRevoke,
   revoking,
+  platformAuthAvailable,
 }: {
   s: SessionData;
   onRevoke: (id: string) => void;
   revoking: string | null;
+  platformAuthAvailable?: boolean;
 }) {
   const location = [s.city, s.country].filter(Boolean).join(", ");
   const isRevoking = revoking === s.sessionId;
@@ -231,6 +236,37 @@ function SessionCard({
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-900 text-neutral-400 border border-neutral-800">
               <Monitor className="w-2.5 h-2.5 text-neutral-500" /> DESKTOP WEB
             </span>
+          )}
+          {/* Enrolled Security Credentials & Auth Badges */}
+          {s.isCurrent ? (
+            <>
+              {platformAuthAvailable && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
+                  <ShieldCheck className="w-2.5 h-2.5 text-indigo-400" /> WINDOWS HELLO / TOUCH ID
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/50">
+                <KeyRound className="w-2.5 h-2.5 text-amber-400" /> PASSKEY PROVIDER
+              </span>
+            </>
+          ) : isMobileApp ? (
+            <>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/50">
+                <Fingerprint className="w-2.5 h-2.5 text-emerald-400" /> BIOMETRICS
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-950/60 text-sky-300 border border-sky-800/50">
+                <Hash className="w-2.5 h-2.5 text-sky-400" /> QUICK PIN
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
+                <ShieldCheck className="w-2.5 h-2.5 text-indigo-400" /> WINDOWS HELLO / TOUCH ID
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/50">
+                <KeyRound className="w-2.5 h-2.5 text-amber-400" /> PASSKEY PROVIDER
+              </span>
+            </>
           )}
         </div>
 
@@ -349,6 +385,20 @@ export default function SecuritySettingsPage() {
       if (res.data) setAccounts(res.data.map(acc => ({ id: acc.id, providerId: acc.providerId })));
     }).catch(() => {});
   }, [user]);
+
+  // Check platform authenticator support (Windows Hello / Touch ID)
+  const [platformAuthAvailable, setPlatformAuthAvailable] = useState(false);
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.PublicKeyCredential &&
+      typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function"
+    ) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setPlatformAuthAvailable)
+        .catch(() => {});
+    }
+  }, []);
 
   // Load sessions
   const loadSessions = useCallback(async () => {
@@ -688,6 +738,7 @@ export default function SecuritySettingsPage() {
                   s={currentSession}
                   onRevoke={handleRevoke}
                   revoking={revokingId}
+                  platformAuthAvailable={platformAuthAvailable}
                 />
               )}
               {otherSessions.map((s) => (

@@ -3,7 +3,20 @@
  * Handles secure session caching, server communication, domain matching, auto-lock timers, and session restoration.
  */
 
-import { VaultrApiClient, decrypt, encrypt, deriveKey, resolveDomain, VaultItem, DecryptedLoginPayload, isWebPageUrl, isInternalBrowserHost } from "@vaultr/core";
+import {
+  VaultrApiClient,
+  decrypt,
+  encrypt,
+  deriveKey,
+  resolveDomain,
+  VaultItem,
+  DecryptedLoginPayload,
+  isWebPageUrl,
+  isInternalBrowserHost,
+  createPasskeyCredential,
+  signPasskeyAssertion,
+  toBase64Url,
+} from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
 
@@ -601,6 +614,281 @@ function getBaseRootDomain(hostname: string): string {
             }
           } catch {
             sendResponse({ folders: [] });
+          }
+          break;
+        }
+
+        case "CHECK_PASSKEY_AVAILABLE": {
+          await tryRestoreSession();
+          const { vaultr_passkeys_enabled } = await chrome.storage.local.get("vaultr_passkeys_enabled");
+          sendResponse({
+            isUnlocked: state.isUnlocked,
+            enabled: vaultr_passkeys_enabled !== false,
+          });
+          break;
+        }
+
+        case "GET_PASSKEYS_FOR_RP": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword || !state.userId) {
+            sendResponse({ passkeys: [] });
+            return;
+          }
+
+          const rpId = (message.rpId || "").toLowerCase();
+          const key = await deriveKey(state.masterPassword, state.userId);
+          const matched: Array<{ id: string; name: string; username?: string; credentialId?: string }> = [];
+
+          for (const item of state.items) {
+            if (item.deletedAt) continue;
+            const tmpl = item.template || "login";
+            if (tmpl !== "login") continue;
+
+            let p = state.decryptedItemsCache[item.id];
+            if (!p) {
+              try {
+                const raw = await decrypt(key, item.encryptedBlob);
+                p = JSON.parse(raw);
+                state.decryptedItemsCache[item.id] = p;
+              } catch {
+                continue;
+              }
+            }
+
+            if (!p.isPasskey && !p.passkeyPrivateKey) continue;
+
+            const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
+            if (itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp)) {
+              matched.push({
+                id: item.id,
+                name: item.name,
+                username: p.username,
+                credentialId: p.passkeyCredentialId,
+              });
+            }
+          }
+
+          sendResponse({ passkeys: matched });
+          break;
+        }
+
+        case "WEBAUTHN_CREATE": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword || !state.userId) {
+            sendResponse({ error: "Vault is locked. Unlock VaultR to save passkeys.", handled: false });
+            return;
+          }
+
+          const { payload } = message;
+          const rpId = payload.rp?.id || "";
+          const origin = payload.origin || "";
+
+          try {
+            const credResult = await createPasskeyCredential({
+              rpId,
+              rpName: payload.rp?.name,
+              userName: payload.user?.name,
+              userDisplayName: payload.user?.displayName,
+              userHandle: payload.user?.id,
+              challenge: payload.challenge,
+              origin,
+            });
+
+            const key = await deriveKey(state.masterPassword, state.userId);
+            const api = await getApiClient();
+
+            // Look for existing login item matching this domain/RP
+            const cleanRp = rpId.toLowerCase();
+            const existingItem = state.items.find((item) => {
+              if (item.deletedAt) return false;
+              const tmpl = item.template || "login";
+              if (tmpl !== "login") return false;
+              const d = (item.domain || "").toLowerCase();
+              const n = (item.name || "").toLowerCase();
+              return d === cleanRp || d.includes(cleanRp) || cleanRp.includes(d) || n === cleanRp || n.includes(cleanRp);
+            });
+
+            if (existingItem) {
+              let existingPayload: any = state.decryptedItemsCache[existingItem.id];
+              if (!existingPayload) {
+                try {
+                  const raw = await decrypt(key, existingItem.encryptedBlob);
+                  existingPayload = JSON.parse(raw);
+                } catch {
+                  existingPayload = {};
+                }
+              }
+
+              const updatedPayload: DecryptedLoginPayload = {
+                ...existingPayload,
+                isPasskey: true,
+                passkeyRpId: rpId,
+                passkeyCredentialId: credResult.credentialId,
+                passkeyUserHandle: credResult.passkeyUserHandle,
+                passkeyPrivateKey: credResult.passkeyPrivateKey,
+                passkeySignCount: 0,
+                passkeyTransports: ["internal", "hybrid"],
+                passkeyCreatedAt: new Date().toISOString(),
+                passkeyLastUsedAt: new Date().toISOString(),
+              };
+
+              const tags = Array.from(new Set([...(existingItem.tags || []), "passkey"]));
+              const encryptedBlob = await encrypt(key, JSON.stringify(updatedPayload));
+
+              const updatedItem = await api.updateItem(existingItem.id, {
+                encryptedBlob,
+                tags,
+                template: "login",
+              });
+
+              const idx = state.items.findIndex((i) => i.id === existingItem.id);
+              if (idx !== -1) state.items[idx] = updatedItem;
+              state.decryptedItemsCache[existingItem.id] = updatedPayload;
+
+              sendResponse({
+                handled: true,
+                success: true,
+                credential: {
+                  id: credResult.credentialId,
+                  credentialId: credResult.credentialId,
+                  clientDataJSON: credResult.clientDataJSON,
+                  attestationObject: toBase64Url(credResult.attestationObject),
+                },
+              });
+            } else {
+              const newPayload: DecryptedLoginPayload = {
+                username: payload.user?.name || payload.user?.displayName || "",
+                password: "",
+                url: origin,
+                isPasskey: true,
+                passkeyRpId: rpId,
+                passkeyCredentialId: credResult.credentialId,
+                passkeyUserHandle: credResult.passkeyUserHandle,
+                passkeyPrivateKey: credResult.passkeyPrivateKey,
+                passkeySignCount: 0,
+                passkeyTransports: ["internal", "hybrid"],
+                passkeyCreatedAt: new Date().toISOString(),
+                passkeyLastUsedAt: new Date().toISOString(),
+              };
+
+              const encryptedBlob = await encrypt(key, JSON.stringify(newPayload));
+              const newItem = await api.createItem({
+                name: payload.rp?.name || rpId,
+                domain: rpId,
+                template: "login",
+                tags: ["passkey"],
+                encryptedBlob,
+              });
+
+              state.items.unshift(newItem);
+              state.decryptedItemsCache[newItem.id] = newPayload;
+
+              sendResponse({
+                handled: true,
+                success: true,
+                credential: {
+                  id: credResult.credentialId,
+                  credentialId: credResult.credentialId,
+                  clientDataJSON: credResult.clientDataJSON,
+                  attestationObject: toBase64Url(credResult.attestationObject),
+                },
+              });
+            }
+          } catch (err: any) {
+            console.error("[Vaultr SW] WEBAUTHN_CREATE failed:", err);
+            sendResponse({ handled: false, error: err?.message || "Failed to create passkey" });
+          }
+          break;
+        }
+
+        case "WEBAUTHN_GET": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword || !state.userId) {
+            sendResponse({ handled: false, error: "Vault is locked." });
+            return;
+          }
+
+          const { payload } = message;
+          const rpId = payload.rpId || "";
+          const allowCredentials = payload.allowCredentials || [];
+          const cleanRp = rpId.toLowerCase();
+
+          try {
+            const key = await deriveKey(state.masterPassword, state.userId);
+            let matchedItem: VaultItem | null = null;
+            let matchedPayload: DecryptedLoginPayload | null = null;
+
+            for (const item of state.items) {
+              if (item.deletedAt) continue;
+              const tmpl = item.template || "login";
+              if (tmpl !== "login") continue;
+
+              let p = state.decryptedItemsCache[item.id];
+              if (!p) {
+                try {
+                  const raw = await decrypt(key, item.encryptedBlob);
+                  p = JSON.parse(raw);
+                  state.decryptedItemsCache[item.id] = p;
+                } catch {
+                  continue;
+                }
+              }
+
+              if (!p.isPasskey && !p.passkeyPrivateKey) continue;
+
+              const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
+              const rpMatches = itemRp === cleanRp || itemRp.includes(cleanRp) || cleanRp.includes(itemRp);
+              if (!rpMatches) continue;
+
+              if (allowCredentials.length > 0) {
+                const allowed = allowCredentials.some((c: any) => c.id === p.passkeyCredentialId);
+                if (!allowed) continue;
+              }
+
+              matchedItem = item;
+              matchedPayload = p;
+              break;
+            }
+
+            if (!matchedItem || !matchedPayload || !matchedPayload.passkeyPrivateKey) {
+              sendResponse({ handled: false, error: "No matching passkey found" });
+              return;
+            }
+
+            const currentCount = matchedPayload.passkeySignCount || 0;
+            const signCount = currentCount + 1;
+
+            const assertionResult = await signPasskeyAssertion({
+              passkeyPrivateKey: matchedPayload.passkeyPrivateKey,
+              rpId,
+              challenge: payload.challenge,
+              origin: payload.origin,
+              signCount,
+            });
+
+            matchedPayload.passkeySignCount = signCount;
+            matchedPayload.passkeyLastUsedAt = new Date().toISOString();
+            state.decryptedItemsCache[matchedItem.id] = matchedPayload;
+
+            const encryptedBlob = await encrypt(key, JSON.stringify(matchedPayload));
+            const api = await getApiClient();
+            api.updateItem(matchedItem.id, { encryptedBlob }).catch(() => {});
+
+            sendResponse({
+              handled: true,
+              success: true,
+              credential: {
+                id: matchedPayload.passkeyCredentialId,
+                credentialId: matchedPayload.passkeyCredentialId,
+                authenticatorData: toBase64Url(assertionResult.authenticatorData),
+                clientDataJSON: assertionResult.clientDataJSON,
+                signature: toBase64Url(assertionResult.signature),
+                userHandle: matchedPayload.passkeyUserHandle || null,
+              },
+            });
+          } catch (err: any) {
+            console.error("[Vaultr SW] WEBAUTHN_GET failed:", err);
+            sendResponse({ handled: false, error: err?.message || "Assertion failed" });
           }
           break;
         }

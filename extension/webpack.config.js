@@ -7,6 +7,7 @@ module.exports = {
     popup: "./src/popup/index.tsx",
     background: "./src/background/service-worker.ts",
     autofill: "./src/content-script/autofill.ts",
+    "webauthn-page": "./src/content-script/webauthn-page.ts",
   },
   output: {
     path: path.resolve(__dirname, "dist"),

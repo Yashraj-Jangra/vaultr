@@ -370,7 +370,28 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
         {getItemIcon(item)}
 
         <div className="item-meta">
-          <div className="item-name">{item.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="item-name">{item.name}</div>
+            {(item.isPasskey || item.tags?.includes("passkey") || decrypted?.isPasskey) && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(245, 158, 11, 0.15)",
+                  color: "#f59e0b",
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  lineHeight: 1.2,
+                }}
+              >
+                🔑 Passkey
+              </span>
+            )}
+          </div>
           <div className="item-sub">
             {decrypted?.username || item.domain || item.template || "vault item"}
           </div>
@@ -444,6 +465,22 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                       <div className="detail-section-title">AUTHENTICATOR</div>
                       <div className="detail-section-box">
                         <TotpDisplay secret={decrypted.totpSecret} />
+                      </div>
+                    </div>
+                  )}
+
+                  {(decrypted.isPasskey || decrypted.passkeyCredentialId) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title">PASSKEY CREDENTIAL</div>
+                      <div className="detail-section-box">
+                        {decrypted.passkeyRpId && <DetailRow label="RP ID" value={decrypted.passkeyRpId} />}
+                        {decrypted.passkeyCredentialId && (
+                          <DetailRow label="Credential ID" value={decrypted.passkeyCredentialId} />
+                        )}
+                        {decrypted.passkeyUserHandle && (
+                          <DetailRow label="User Handle" value={decrypted.passkeyUserHandle} />
+                        )}
+                        <DetailRow label="Status" value="FIDO2 / WebAuthn Enrolled" />
                       </div>
                     </div>
                   )}

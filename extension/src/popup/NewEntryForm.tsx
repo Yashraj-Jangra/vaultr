@@ -50,6 +50,16 @@ export interface DecryptedPayload {
   customFields?: { key: string; value: string }[];
   totpSecret?: string;
   entryNotes?: string;
+  // passkey
+  isPasskey?: boolean;
+  passkeyRpId?: string;
+  passkeyCredentialId?: string;
+  passkeyUserHandle?: string;
+  passkeyPrivateKey?: string;
+  passkeySignCount?: number;
+  passkeyTransports?: string[];
+  passkeyCreatedAt?: string;
+  passkeyLastUsedAt?: string;
 }
 
 interface NewEntryFormProps {
@@ -269,6 +279,20 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
         totpSecret: totpSecret.trim(),
         passwordHistory: history.length > 0 ? history : undefined,
       });
+
+      if (initialData?.payload?.isPasskey) {
+        Object.assign(payload, {
+          isPasskey: true,
+          passkeyRpId: initialData.payload.passkeyRpId,
+          passkeyCredentialId: initialData.payload.passkeyCredentialId,
+          passkeyUserHandle: initialData.payload.passkeyUserHandle,
+          passkeyPrivateKey: initialData.payload.passkeyPrivateKey,
+          passkeySignCount: initialData.payload.passkeySignCount,
+          passkeyTransports: initialData.payload.passkeyTransports,
+          passkeyCreatedAt: initialData.payload.passkeyCreatedAt,
+          passkeyLastUsedAt: initialData.payload.passkeyLastUsedAt,
+        });
+      }
     }
     if (template === "card") {
       let expMonth = "";
@@ -302,6 +326,9 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
     if (template === "note") Object.assign(payload, { note });
 
     const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
+    if (initialData?.payload?.isPasskey && !parsedTags.includes("passkey")) {
+      parsedTags.push("passkey");
+    }
 
     try {
       await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id, favorite);
@@ -497,6 +524,22 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
                   />
                   <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 9, fontWeight: 700, color: "var(--neutral-600)", background: "var(--neutral-900)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 4px" }}>TOTP</div>
                 </div>
+              </div>
+            )}
+
+            {initialData?.payload?.isPasskey && (
+              <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.25)", borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", display: "flex", alignItems: "center", gap: 5 }}>
+                    🔑 PASSKEY ENROLLED
+                  </span>
+                  <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
+                    {initialData.payload.passkeyRpId || "FIDO2"}
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                  This login item has an active passkey credential linked for instant WebAuthn sign-in.
+                </p>
               </div>
             )}
           </div>

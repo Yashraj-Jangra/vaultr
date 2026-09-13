@@ -495,3 +495,269 @@ chrome.runtime.onMessage.addListener((message) => {
     }
   }
 });
+
+// ─── WebAuthn Passkey Interceptor Bridge ───────────────────────────────────────
+
+function injectWebAuthnPageScript() {
+  if (document.getElementById("vaultr-webauthn-page-script")) return;
+  try {
+    const s = document.createElement("script");
+    s.id = "vaultr-webauthn-page-script";
+    s.src = chrome.runtime.getURL("webauthn-page.js");
+    s.async = false;
+    (document.head || document.documentElement).appendChild(s);
+  } catch {
+    // Ignore if injection not permitted on this document
+  }
+}
+
+injectWebAuthnPageScript();
+
+let activePasskeyPrompt: HTMLElement | null = null;
+
+function removePasskeyPrompt() {
+  if (activePasskeyPrompt) {
+    const el = activePasskeyPrompt;
+    activePasskeyPrompt = null;
+    el.style.opacity = "0";
+    el.style.transform = "translateY(-8px)";
+    setTimeout(() => el.remove(), 200);
+  }
+}
+
+function showPasskeyPrompt(opts: {
+  mode: "create" | "get";
+  rpId: string;
+  username?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  removePasskeyPrompt();
+
+  const host = document.createElement("div");
+  host.id = "vaultr-passkey-prompt-host";
+  host.style.cssText = `
+    position: fixed !important;
+    top: 16px !important;
+    right: 16px !important;
+    width: 320px !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  `;
+
+  const shadow = host.attachShadow({ mode: "open" });
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .card {
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      padding: 14px 16px;
+      color: #f4f4f5;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fbbf24;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 2px;
+    }
+    .close-btn:hover { color: #f4f4f5; }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .sub {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-primary {
+      flex: 1;
+      height: 34px;
+      background: #f4f4f5;
+      color: #09090b;
+      border: none;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #ffffff; }
+    .btn-ghost {
+      height: 34px;
+      padding: 0 10px;
+      background: #18181b;
+      color: #a1a1aa;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 9px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.2); }
+  `;
+
+  shadow.appendChild(styleEl);
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const isCreate = opts.mode === "create";
+  card.innerHTML = `
+    <div class="header">
+      <div class="badge">
+        <span>🔑</span>
+        <span>VaultR Passkey</span>
+      </div>
+      <button class="close-btn" title="Dismiss">✕</button>
+    </div>
+    <div class="title">${isCreate ? "Save Passkey to VaultR" : "Sign In with Passkey"}</div>
+    <div class="sub">
+      ${
+        isCreate
+          ? `Save passkey for <strong>${opts.rpId}</strong>${opts.username ? ` (${opts.username})` : ""}`
+          : `Use passkey stored in VaultR for <strong>${opts.rpId}</strong>${opts.username ? ` (${opts.username})` : ""}`
+      }
+    </div>
+    <div class="actions">
+      <button class="btn-primary">${isCreate ? "Save Passkey" : "Sign In"}</button>
+      <button class="btn-ghost">Use Browser</button>
+    </div>
+  `;
+
+  card.querySelector(".btn-primary")?.addEventListener("click", () => {
+    removePasskeyPrompt();
+    opts.onConfirm();
+  });
+
+  const handleDismiss = () => {
+    removePasskeyPrompt();
+    opts.onCancel();
+  };
+
+  card.querySelector(".btn-ghost")?.addEventListener("click", handleDismiss);
+  card.querySelector(".close-btn")?.addEventListener("click", handleDismiss);
+
+  shadow.appendChild(card);
+  document.body.appendChild(host);
+  activePasskeyPrompt = host;
+
+  requestAnimationFrame(() => {
+    host.style.opacity = "1";
+    host.style.transform = "translateY(0)";
+  });
+}
+
+window.addEventListener("message", (event) => {
+  if (event.source !== window || !event.data || event.data.source !== "VAULTR_WEBAUTHN_PAGE") {
+    return;
+  }
+
+  const { action, reqId, payload } = event.data;
+
+  chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (status) => {
+    if (chrome.runtime.lastError || !status?.enabled) {
+      window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+      return;
+    }
+
+    if (!status.isUnlocked) {
+      // Vault is locked; delegate to browser native
+      window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "locked" }, "*");
+      return;
+    }
+
+    if (action === "CREATE") {
+      const rpId = payload.rp?.id || window.location.hostname;
+      const username = payload.user?.name || payload.user?.displayName;
+
+      showPasskeyPrompt({
+        mode: "create",
+        rpId,
+        username,
+        onConfirm: () => {
+          chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
+            window.postMessage(
+              {
+                source: "VAULTR_WEBAUTHN_CONTENT",
+                reqId,
+                handled: res?.handled ?? true,
+                credential: res?.credential,
+                error: res?.error,
+              },
+              "*"
+            );
+          });
+        },
+        onCancel: () => {
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+        },
+      });
+    } else if (action === "GET") {
+      const rpId = payload.rpId || window.location.hostname;
+
+      chrome.runtime.sendMessage({ type: "GET_PASSKEYS_FOR_RP", rpId }, (res) => {
+        if (!res?.passkeys || res.passkeys.length === 0) {
+          // No passkeys in vault for this RP; let browser handle natively
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+          return;
+        }
+
+        const passkey = res.passkeys[0];
+        showPasskeyPrompt({
+          mode: "get",
+          rpId,
+          username: passkey.username,
+          onConfirm: () => {
+            chrome.runtime.sendMessage({ type: "WEBAUTHN_GET", payload }, (getRes) => {
+              window.postMessage(
+                {
+                  source: "VAULTR_WEBAUTHN_CONTENT",
+                  reqId,
+                  handled: getRes?.handled ?? true,
+                  credential: getRes?.credential,
+                  error: getRes?.error,
+                },
+                "*"
+              );
+            });
+          },
+          onCancel: () => {
+            window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+          },
+        });
+      });
+    }
+  });
+});

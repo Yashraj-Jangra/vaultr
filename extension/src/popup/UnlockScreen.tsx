@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { Lock, LogIn, ExternalLink, Shield } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Lock, LogIn, ExternalLink, Shield, Fingerprint } from "lucide-react";
+import { unlockWithBiometrics, isPlatformAuthenticatorAvailable } from "@vaultr/core";
 
 interface UnlockScreenProps {
   serverUrl: string;
@@ -10,9 +11,48 @@ interface UnlockScreenProps {
 export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenProps) {
   const [masterPassword, setMasterPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [biometricsEnrolled, setBiometricsEnrolled] = useState(false);
+  const [biometricBlob, setBiometricBlob] = useState<{ credentialId: string; encryptedPassword: string; iv: string } | null>(null);
   const [error, setError] = useState("");
   const [shakeKey, setShakeKey] = useState(0);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
+
+  useEffect(() => {
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.get(["vaultr_biometric_enrolled", "vaultr_biometric_blob"], async (res) => {
+        if (res?.vaultr_biometric_enrolled && res?.vaultr_biometric_blob) {
+          const avail = await isPlatformAuthenticatorAvailable();
+          if (avail) {
+            setBiometricsEnrolled(true);
+            setBiometricBlob(res.vaultr_biometric_blob);
+          }
+        }
+      });
+    }
+  }, []);
+
+  const handleBiometricUnlock = async () => {
+    if (!biometricBlob || bioLoading || loading) return;
+    setBioLoading(true);
+    setError("");
+    try {
+      const password = await unlockWithBiometrics(
+        biometricBlob.credentialId,
+        biometricBlob.encryptedPassword,
+        biometricBlob.iv
+      );
+      await onUnlock(password);
+    } catch (err: any) {
+      const msg = err?.message || "Biometric authentication failed";
+      if (!msg.toLowerCase().includes("cancelled") && !msg.toLowerCase().includes("abort")) {
+        setError(msg);
+        setShakeKey((k) => k + 1);
+      }
+    } finally {
+      setBioLoading(false);
+    }
+  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -155,6 +195,46 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
             <div className="alert-error animate-auth-form-in">
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0, marginTop: 4 }} />
               <p style={{ fontSize: 12, color: "#f87171", margin: 0, lineHeight: 1.4, flex: 1 }}>{error}</p>
+            </div>
+          )}
+
+          {biometricsEnrolled && (
+            <div>
+              <button
+                type="button"
+                onClick={handleBiometricUnlock}
+                disabled={loading || bioLoading}
+                className="btn btn-primary"
+                style={{
+                  width: "100%",
+                  height: 44,
+                  borderRadius: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: "#f4f4f5",
+                  color: "#09090b",
+                  boxShadow: "0 2px 10px rgba(255,255,255,0.12)",
+                }}
+              >
+                {bioLoading ? (
+                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: "#09090b", borderTopColor: "transparent" }} />
+                ) : (
+                  <>
+                    <Fingerprint size={16} />
+                    Unlock with Windows Hello / Touch ID
+                  </>
+                )}
+              </button>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 2px", opacity: 0.5 }}>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "1px", color: "var(--neutral-400)", fontWeight: 600 }}>or master password</span>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              </div>
             </div>
           )}
 

@@ -11,6 +11,10 @@ import {
   LifeBuoy,
   FileText,
   Globe,
+  Fingerprint,
+  KeyRound,
+  Copy,
+  Check,
 } from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
 import {
@@ -18,6 +22,8 @@ import {
   VAULTR_VERSION,
   VAULTR_BUILD_NUMBER,
   VAULTR_CRYPTO_SPEC,
+  isPlatformAuthenticatorAvailable,
+  enrollBiometricUnlock,
 } from "@vaultr/core";
 
 interface SettingsScreenProps {
@@ -35,14 +41,34 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [autofillSubmit, setAutofillSubmit] = useState(false);
   const [autoLockMinutes, setAutoLockMinutes] = useState("15");
 
+  const [passkeysEnabled, setPasskeysEnabled] = useState(true);
+  const [biometricsSupported, setBiometricsSupported] = useState(false);
+  const [biometricsEnrolled, setBiometricsEnrolled] = useState(false);
+  const [bioEnrolling, setBioEnrolling] = useState(false);
+  const [bioError, setBioError] = useState("");
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [promptPassword, setPromptPassword] = useState("");
+  const [copiedSettings, setCopiedSettings] = useState(false);
+
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.get(
-        ["autofill_enabled", "autofill_submit", "autolock_minutes"],
-        (res) => {
+        [
+          "autofill_enabled",
+          "autofill_submit",
+          "autolock_minutes",
+          "vaultr_passkeys_enabled",
+          "vaultr_biometric_enrolled",
+        ],
+        async (res) => {
           if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled);
           if (res.autofill_submit !== undefined) setAutofillSubmit(res.autofill_submit);
           if (res.autolock_minutes !== undefined) setAutoLockMinutes(res.autolock_minutes);
+          if (res.vaultr_passkeys_enabled !== undefined) setPasskeysEnabled(res.vaultr_passkeys_enabled);
+          if (res.vaultr_biometric_enrolled !== undefined) setBiometricsEnrolled(res.vaultr_biometric_enrolled);
+
+          const avail = await isPlatformAuthenticatorAvailable();
+          setBiometricsSupported(avail);
         }
       );
     }
@@ -59,6 +85,58 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     setAutofillSubmit(enabled);
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.set({ autofill_submit: enabled });
+    }
+  };
+
+  const handleTogglePasskeys = (enabled: boolean) => {
+    setPasskeysEnabled(enabled);
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ vaultr_passkeys_enabled: enabled });
+    }
+  };
+
+  const handleToggleBiometrics = async (enabled: boolean) => {
+    setBioError("");
+    if (!enabled) {
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        await chrome.storage.local.remove(["vaultr_biometric_enrolled", "vaultr_biometric_blob"]);
+      }
+      setBiometricsEnrolled(false);
+      return;
+    }
+
+    let pw = "";
+    if (typeof chrome !== "undefined" && chrome.storage?.session) {
+      const sess = await chrome.storage.session.get("vaultr_master_password");
+      pw = sess?.vaultr_master_password || "";
+    }
+
+    if (!pw) {
+      setShowPasswordPrompt(true);
+      return;
+    }
+
+    await executeBiometricEnrollment(pw);
+  };
+
+  const executeBiometricEnrollment = async (password: string) => {
+    setBioEnrolling(true);
+    setBioError("");
+    try {
+      const blob = await enrollBiometricUnlock(password);
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        await chrome.storage.local.set({
+          vaultr_biometric_enrolled: true,
+          vaultr_biometric_blob: blob,
+        });
+      }
+      setBiometricsEnrolled(true);
+      setShowPasswordPrompt(false);
+      setPromptPassword("");
+    } catch (err: any) {
+      setBioError(err?.message || "Biometric enrollment failed");
+    } finally {
+      setBioEnrolling(false);
     }
   };
 
@@ -160,6 +238,168 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           Manage Account on Vaultr
         </button>
       </div>
+
+      {/* Passkeys & Hardware Security */}
+      <div className="settings-section">
+        <div className="settings-section-title">PASSKEYS & HARDWARE SECURITY</div>
+
+        <div className="settings-row">
+          <div>
+            <div className="settings-row-label">Save and fill passkeys</div>
+            <div className="settings-row-sub">VaultR acts as browser passkey provider</div>
+          </div>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={passkeysEnabled}
+              onChange={(e) => handleTogglePasskeys(e.target.checked)}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+
+        {/* Set as Default Passkey Provider card */}
+        <div style={{ marginTop: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-200)", display: "flex", alignItems: "center", gap: 6 }}>
+              <KeyRound size={13} style={{ color: "#fbbf24" }} />
+              Default Passkey Provider
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 6, background: "rgba(251, 191, 36, 0.15)", color: "#fbbf24" }}>
+              Active
+            </span>
+          </div>
+          <p style={{ fontSize: 11, color: "var(--neutral-500)", lineHeight: 1.4, margin: "4px 0 8px" }}>
+            To configure VaultR as default in Chrome or Edge, visit browser passkey settings:
+          </p>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ flex: 1, height: 28, fontSize: 10, justifyContent: "center", gap: 4, padding: "0 8px" }}
+              onClick={() => {
+                navigator.clipboard.writeText("chrome://settings/passkeys");
+                setCopiedSettings(true);
+                setTimeout(() => setCopiedSettings(false), 2000);
+              }}
+            >
+              {copiedSettings ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+              {copiedSettings ? "Copied Chrome URL" : "Copy Chrome Link"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ flex: 1, height: 28, fontSize: 10, justifyContent: "center", gap: 4, padding: "0 8px" }}
+              onClick={() => {
+                navigator.clipboard.writeText("edge://settings/passwords");
+                setCopiedSettings(true);
+                setTimeout(() => setCopiedSettings(false), 2000);
+              }}
+            >
+              {copiedSettings ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+              {copiedSettings ? "Copied Edge URL" : "Copy Edge Link"}
+            </button>
+          </div>
+        </div>
+
+        {/* Biometric Unlock (Windows Hello / Touch ID) */}
+        {biometricsSupported && (
+          <div style={{ marginTop: 12 }}>
+            <div className="settings-row">
+              <div>
+                <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Fingerprint size={13} style={{ color: "#34d399" }} />
+                  Windows Hello / Touch ID
+                </div>
+                <div className="settings-row-sub">Quick biometric vault re-unlock</div>
+              </div>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={biometricsEnrolled}
+                  disabled={bioEnrolling}
+                  onChange={(e) => handleToggleBiometrics(e.target.checked)}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            {bioEnrolling && (
+              <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                <span className="spinner" style={{ width: 12, height: 12 }} />
+                Authenticating with hardware device…
+              </div>
+            )}
+
+            {bioError && (
+              <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>
+                {bioError}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Password Prompt Modal for Biometrics Setup */}
+      {showPasswordPrompt && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.8)",
+          backdropFilter: "blur(6px)",
+          zIndex: 100,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 16
+        }}>
+          <div style={{
+            background: "#0d0d0d",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            padding: 18,
+            width: "100%",
+            maxWidth: 280,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Fingerprint size={18} style={{ color: "#34d399" }} />
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>Enable Biometric Unlock</div>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+              Enter your master password once to authorize Windows Hello / Touch ID unlock.
+            </p>
+            <input
+              type="password"
+              className="form-input"
+              value={promptPassword}
+              onChange={(e) => setPromptPassword(e.target.value)}
+              placeholder="Master password"
+              autoFocus
+              style={{ width: "100%", height: 38, fontSize: 12 }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-ghost"
+                style={{ flex: 1, height: 34, fontSize: 11, justifyContent: "center" }}
+                onClick={() => { setShowPasswordPrompt(false); setPromptPassword(""); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, height: 34, fontSize: 11, justifyContent: "center" }}
+                disabled={!promptPassword || bioEnrolling}
+                onClick={() => executeBiometricEnrollment(promptPassword)}
+              >
+                {bioEnrolling ? "Verifying…" : "Authorize"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Autofill Preferences */}
       <div className="settings-section">
