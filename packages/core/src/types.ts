@@ -16,8 +16,10 @@ export interface VaultItem {
   lastAccessedAt?: string;
   favorite?: boolean;
   hasTotp?: boolean;
+  isPasskey?: boolean;
   tags?: string[];
   deletedAt?: string | null;
+  unencryptedPayload?: any;
 }
 
 export type NewVaultItemPayload = Omit<VaultItem, "id" | "createdAt" | "lastAccessedAt"> & {
@@ -61,6 +63,16 @@ export interface DecryptedLoginPayload {
   customFields?: CustomFieldEntry[];
   fields?: CustomFieldEntry[];
   attachments?: AttachmentMetadata[];
+  // ── Passkey fields (optional — only present if this login has a linked passkey) ──
+  isPasskey?: boolean;
+  passkeyRpId?: string;
+  passkeyCredentialId?: string;
+  passkeyUserHandle?: string;
+  passkeyPrivateKey?: string;
+  passkeySignCount?: number;
+  passkeyTransports?: string[];
+  passkeyCreatedAt?: string;
+  passkeyLastUsedAt?: string;
 }
 
 export interface DecryptedCardPayload {

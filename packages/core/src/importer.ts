@@ -92,6 +92,11 @@ export interface ParsedImportItem {
     passkeyRpId?: string;
     passkeyCredentialId?: string;
     passkeyUserHandle?: string;
+    passkeyPrivateKey?: string;
+    passkeySignCount?: number;
+    passkeyTransports?: string[];
+    passkeyCreatedAt?: string;
+    passkeyLastUsedAt?: string;
     [key: string]: any;
   };
 }
@@ -215,7 +220,17 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
     (template === "note" ? "Imported Note" : `Imported Entry #${index + 1}`)
   ).trim();
 
-  const isPasskey = !!(row.passkey_id || row.credential_id || row.rp_id);
+  // Passkey detection (CSV columns or PASSKEY: note prefix from Google export)
+  const isPasskeyFromCol = !!(row.passkey_id || row.credential_id || row.rp_id);
+  const isPasskeyFromNote = rawNote.startsWith("PASSKEY:") || rawNote.includes("\nPASSKEY:");
+  const isPasskey = isPasskeyFromCol || isPasskeyFromNote;
+  let passkeyRpId = row.rp_id || "";
+  const passkeyCredentialId = row.passkey_id || row.credential_id || "";
+  const passkeyUserHandle = row.user_handle || "";
+  if (isPasskeyFromNote && !passkeyRpId) {
+    const pkMatch = rawNote.match(/PASSKEY:\s*([^\s,;\n]+)/i);
+    if (pkMatch) passkeyRpId = pkMatch[1];
+  }
 
     const rawCsvMonth = row.exp_month || row.expiration_month || row.expiry_month || row.expMonth || row.month || "";
     const rawCsvYear = row.exp_year || row.expiration_year || row.expiry_year || row.expYear || row.year || "";
@@ -271,9 +286,10 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
       dob: (row.dob || row.date_of_birth || "").trim() || undefined,
       idNumber: (row.id_number || row.idNumber || row.ssn || row.passport || "").trim() || undefined,
       isPasskey,
-      passkeyRpId: row.rp_id || "",
-      passkeyCredentialId: row.passkey_id || row.credential_id || "",
-      passkeyUserHandle: row.user_handle || "",
+      passkeyRpId: passkeyRpId || "",
+      passkeyCredentialId: passkeyCredentialId || "",
+      passkeyUserHandle: passkeyUserHandle || "",
+      passkeyPrivateKey: row.passkey_private_key || row.private_key || "",
     };
 
     return {
@@ -434,6 +450,10 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
         passkeyRpId: fido2?.rpId || "",
         passkeyCredentialId: fido2?.credentialId || "",
         passkeyUserHandle: fido2?.userHandle || "",
+        passkeyPrivateKey: fido2?.keyValue || fido2?.privateKey || "",
+        passkeySignCount: typeof fido2?.counter === "number" ? fido2.counter : undefined,
+        passkeyTransports: Array.isArray(fido2?.transports) ? fido2.transports : undefined,
+        passkeyCreatedAt: fido2?.creationDate || undefined,
       };
 
       result.push({

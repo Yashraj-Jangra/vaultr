@@ -1,6 +1,27 @@
-## Current Session: Mobile Dialog Buttons Redesign & Confirmation Audit (2026-09-12) · Branch: `dev`
+## Current Session: Passkey Integration Across Web, Mobile & Extension (2026-09-13) · Branch: `dev`
 
-### ✅ What Was Done
+### ✅ What Was Done (Phase 1: Passkey Support on Login Items)
+- **Core Package Data Contracts (`packages/core`)**:
+  - Extended `VaultItem` and `DecryptedLoginPayload` with 9 standard passkey fields (`isPasskey`, `passkeyRpId`, `passkeyCredentialId`, `passkeyUserHandle`, `passkeyPrivateKey`, `passkeySignCount`, `passkeyTransports`, `passkeyCreatedAt`, `passkeyLastUsedAt`).
+  - Extended Bitwarden JSON importer to extract `fido2Credentials[0]` into login passkey fields.
+  - Added CSV passkey column and `PASSKEY:` note extraction in `importer.ts`.
+  - Normalized `isPasskey: Boolean(item.isPasskey || item.tags?.includes("passkey"))` across `api-client.ts` (`getItems`, `createItem`, `updateItem`).
+- **Web Vault Experience (`src/app/vault/page.tsx`, `src/components/vault/NewEntryDialog.tsx`, `src/context/VaultContext.tsx`)**:
+  - Added amber `🔑 Passkey` badge chips next to 2FA badges in both grid and list views.
+  - Added sub-filter pills (`All Logins`, `Passkeys`, `2FA / TOTP`, `Favorites`) when filtering login items.
+  - Added Passkey Credential details section (RP ID, Credential ID, User Handle, Sign Count, Created Date).
+  - Added Link/Unlink passkey dialog and field management in `NewEntryDialog`.
+  - Ensured passkey payload fields and `"passkey"` tag are preserved upon saving and editing.
+- **Mobile Experience (`mobile/`)**:
+  - `ItemPreviewCard.tsx`: Added amber `🔑 PASSKEY` badge tag to `LoginKeycardVisual` header.
+  - `VaultFilteredScreen.tsx`: Added amber `Passkey` badge chip alongside 2FA in item rows.
+  - `ItemDetailScreen.tsx`: Added `PASSKEY CREDENTIAL` section showing RP ID, Credential ID, User Handle, and Created Date.
+  - `ItemFormScreen.tsx`: Added passkey state persistence, passkey info card, and unlink button.
+  - All TypeScript suites (`packages/core`, root Next.js, `mobile`, `extension`) pass with zero errors.
+
+---
+
+
 
 #### 1. Core Alert Dialog Button Redesign (`mobile/src/components/CustomAlertOverlay.tsx`)
 - **Action Hierarchy Prioritization**:

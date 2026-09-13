@@ -57,6 +57,7 @@ import {
   CreditCard,
   Folder,
   Tag,
+  KeyRound,
 } from "lucide-react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemDetail">;
@@ -302,6 +303,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             username={payload?.username}
             url={payload?.url || item.domain}
             domain={item.domain || payload?.url}
+            isPasskey={payload?.isPasskey || (item as any).isPasskey || item.tags?.includes("passkey")}
             cardholderName={payload?.cardholderName || payload?.cardName}
             cardName={payload?.cardName || payload?.cardholderName}
             cardNumber={payload?.cardNumber}
@@ -372,6 +374,49 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     onToggleShow={() => setShowPassword(!showPassword)}
                     isPassword
                     showPassword={showPassword}
+                    hasDivider={false}
+                  />
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Passkey Credential Section */}
+          {(payload.isPasskey || (item as any).isPasskey || item.tags?.includes("passkey")) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>PASSKEY CREDENTIAL</Text>
+              <View style={styles.sectionGroup}>
+                <FieldRow
+                  label="Relying Party (RP ID)"
+                  value={payload.passkeyRpId || item.domain || "WebAuthn"}
+                  onCopy={() => copyToClipboard("rpId", payload.passkeyRpId || item.domain || "WebAuthn")}
+                  isCopied={copiedField === "rpId"}
+                  hasDivider={!!payload.passkeyCredentialId || !!payload.passkeyUserHandle || !!payload.passkeyCreatedAt}
+                />
+                {payload.passkeyCredentialId ? (
+                  <FieldRow
+                    label="Credential ID"
+                    value={payload.passkeyCredentialId}
+                    onCopy={() => copyToClipboard("credId", payload.passkeyCredentialId)}
+                    isCopied={copiedField === "credId"}
+                    hasDivider={!!payload.passkeyUserHandle || !!payload.passkeyCreatedAt}
+                  />
+                ) : null}
+                {payload.passkeyUserHandle ? (
+                  <FieldRow
+                    label="User Handle"
+                    value={payload.passkeyUserHandle}
+                    onCopy={() => copyToClipboard("userHandle", payload.passkeyUserHandle)}
+                    isCopied={copiedField === "userHandle"}
+                    hasDivider={!!payload.passkeyCreatedAt}
+                  />
+                ) : null}
+                {payload.passkeyCreatedAt ? (
+                  <FieldRow
+                    label="Created Date"
+                    value={new Date(payload.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    onCopy={() => copyToClipboard("createdDate", new Date(payload.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))}
+                    isCopied={copiedField === "createdDate"}
                     hasDivider={false}
                   />
                 ) : null}

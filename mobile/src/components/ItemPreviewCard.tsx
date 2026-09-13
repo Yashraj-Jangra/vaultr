@@ -31,6 +31,7 @@ export interface ItemPreviewCardProps {
   username?: string;
   url?: string;
   domain?: string;
+  isPasskey?: boolean;
   // Card fields
   cardholderName?: string;
   cardNumber?: string;
@@ -729,7 +730,7 @@ function CreditCardVisual({
 
 // ── 4. Login Keycard with SiteIcon ───────────────────────────────────────────
 
-function LoginKeycardVisual({ name, username, url, domain, onCopy }: ItemPreviewCardProps) {
+function LoginKeycardVisual({ name, username, url, domain, isPasskey, onCopy }: ItemPreviewCardProps) {
   const [faviconError, setFaviconError] = React.useState(false);
 
   const effectiveDomain = useMemo(() => {
@@ -776,7 +777,14 @@ function LoginKeycardVisual({ name, username, url, domain, onCopy }: ItemPreview
       {/* Top Row: Label + Site Favicon */}
       <View style={login.topRow}>
         <View style={login.headerLeft}>
-          <Text style={login.cardTag}>ACCESS KEYCARD</Text>
+          <View style={login.tagRow}>
+            <Text style={login.cardTag}>ACCESS KEYCARD</Text>
+            {isPasskey && (
+              <View style={login.passkeyBadge}>
+                <Text style={login.passkeyBadgeText}>🔑 PASSKEY</Text>
+              </View>
+            )}
+          </View>
           <Text style={login.title} numberOfLines={1}>{name || "Untitled Login"}</Text>
         </View>
         {/* Site favicon or fallback Globe */}
@@ -1028,6 +1036,26 @@ const login = StyleSheet.create({
     flex: 1,
   },
   cardTag: { fontSize: 9, fontWeight: "800", color: "#737373", letterSpacing: 1.5, textTransform: "uppercase" },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  passkeyBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.35)",
+  },
+  passkeyBadgeText: {
+    fontSize: 7.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "#f59e0b",
+    letterSpacing: 0.5,
+  },
   title: { fontSize: 17, fontWeight: "700", color: "#ffffff", marginTop: 4 },
   faviconBox: {
     width: 48,

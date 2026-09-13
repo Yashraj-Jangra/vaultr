@@ -79,7 +79,10 @@ export class VaultrApiClient {
   /** Get all vault items for the authenticated user. */
   async getItems(): Promise<VaultItem[]> {
     const data = await this.request<{ items: VaultItem[] }>("/api/vault/items");
-    return data.items || [];
+    return (data.items || []).map((item) => ({
+      ...item,
+      isPasskey: Boolean((item as any).isPasskey || item.tags?.includes("passkey")),
+    }));
   }
 
   /** Create a new vault item. */
@@ -88,7 +91,10 @@ export class VaultrApiClient {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    return data.item;
+    return {
+      ...data.item,
+      isPasskey: Boolean((data.item as any).isPasskey || data.item.tags?.includes("passkey")),
+    };
   }
 
   /** Update an existing vault item by ID. */
@@ -97,7 +103,10 @@ export class VaultrApiClient {
       method: "PATCH",
       body: JSON.stringify(patch),
     });
-    return data.item;
+    return {
+      ...data.item,
+      isPasskey: Boolean((data.item as any).isPasskey || data.item.tags?.includes("passkey")),
+    };
   }
 
   /** Soft delete (trash) a vault item. */

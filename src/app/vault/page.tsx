@@ -17,7 +17,7 @@ import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
   CreditCard, User, FileText, Lock, Plus, Minus, X, Wand2, Inbox, Shield, Star, Edit2, LayoutList, LayoutGrid,
-  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus, MapPin,
+  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus, MapPin, KeyRound,
 } from "lucide-react";
 import { buildFolderTree, FolderNode } from "@/components/layout/Sidebar";
 import { SiteIcon } from "@/components/vault/SiteIcon";
@@ -75,6 +75,11 @@ export interface DecryptedPayload {
   passkeyRpId?: string;
   passkeyCredentialId?: string;
   passkeyUserHandle?: string;
+  passkeyPrivateKey?: string;
+  passkeySignCount?: number;
+  passkeyTransports?: string[];
+  passkeyCreatedAt?: string;
+  passkeyLastUsedAt?: string;
   // legacy
   payload?: string;
 }
@@ -91,6 +96,7 @@ export interface VaultItem {
   lastAccessedAt?: string;
   favorite?: boolean;
   hasTotp?: boolean;
+  isPasskey?: boolean;
   tags?: string[];
   deletedAt?: string | null;
 }
@@ -932,6 +938,16 @@ function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = fa
             </SectionGroup>
           )}
 
+          {(data.isPasskey || data.passkeyCredentialId) && (
+            <SectionGroup title="PASSKEY CREDENTIAL">
+              <DetailRow label="Relying Party" value={data.passkeyRpId || "WebAuthn"} />
+              <DetailRow label="Credential ID" value={data.passkeyCredentialId ? `${data.passkeyCredentialId.slice(0, 16)}…` : "Active"} />
+              {data.passkeyUserHandle ? <DetailRow label="User Handle" value={data.passkeyUserHandle} /> : null}
+              {data.passkeySignCount !== undefined ? <DetailRow label="Sign Count" value={String(data.passkeySignCount)} /> : null}
+              {data.passkeyCreatedAt ? <DetailRow label="Created" value={new Date(data.passkeyCreatedAt).toLocaleDateString()} /> : null}
+            </SectionGroup>
+          )}
+
           {(data.url || (data.urls && data.urls.length > 0)) && (
             <SectionGroup title="WEBSITE URLS">
               {data.urls && data.urls.length > 0 ? (
@@ -1325,13 +1341,19 @@ export default function VaultPage() {
       }
     }
 
+    const hasPasskey = template === "login" && !!payload.isPasskey;
+    const finalTags = hasPasskey
+      ? (tags.includes("passkey") ? tags : [...tags, "passkey"])
+      : tags.filter(t => t !== "passkey");
+
     if (editIdParams) {
       const updates: Partial<VaultItem> = {
         name,
         encryptedBlob: blob,
         template,
         hasTotp: !!payload.totpSecret,
-        tags: tags.length > 0 ? tags : [],
+        isPasskey: hasPasskey,
+        tags: finalTags.length > 0 ? finalTags : [],
         folder: folder || undefined,
         domain: domain || undefined,
       };
@@ -1349,7 +1371,8 @@ export default function VaultPage() {
         encryptedBlob: blob,
         template,
         hasTotp: !!payload.totpSecret,
-        tags: tags.length > 0 ? tags : [],
+        isPasskey: hasPasskey,
+        tags: finalTags.length > 0 ? finalTags : [],
         folder: folder || undefined,
         domain: domain || undefined,
       };
@@ -1459,6 +1482,10 @@ export default function VaultPage() {
     // Advanced filters
     if (activeFilter === "favorites") {
       filtered = filtered.filter(i => !!i.favorite);
+    } else if (activeFilter === "passkeys") {
+      filtered = filtered.filter(i => !!i.isPasskey || i.tags?.includes("passkey"));
+    } else if (activeFilter === "totp") {
+      filtered = filtered.filter(i => !!i.hasTotp);
     }
 
     if (activeTag) {
@@ -1649,6 +1676,11 @@ export default function VaultPage() {
                 {item.hasTotp && (
                   <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400">2FA</span>
                 )}
+                {(item.isPasskey || item.tags?.includes("passkey")) && (
+                  <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-amber-900/50 bg-amber-950/60 text-amber-400 flex items-center gap-1">
+                    <KeyRound className="w-2.5 h-2.5" /> Passkey
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1747,6 +1779,11 @@ export default function VaultPage() {
               {item.favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
               {item.hasTotp && (
                 <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400 shrink-0 hidden sm:inline">2FA</span>
+              )}
+              {(item.isPasskey || item.tags?.includes("passkey")) && (
+                <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-amber-900/50 bg-amber-950/60 text-amber-400 shrink-0 hidden sm:inline-flex items-center gap-1">
+                  <KeyRound className="w-2.5 h-2.5" /> Passkey
+                </span>
               )}
               {dateStr && (
                 <span className="text-[10px] text-neutral-700 font-mono shrink-0 ml-auto hidden sm:inline">{dateStr}</span>
@@ -2054,6 +2091,8 @@ export default function VaultPage() {
               <div className="text-xs text-neutral-600 uppercase tracking-wider">
                 {activeFilter === "trash" ? "Trash" :
                   activeFilter === "favorites" ? "Favorites" :
+                  activeFilter === "passkeys" ? "Passkeys" :
+                  activeFilter === "totp" ? "2FA Logins" :
                     activeType ? `${activeType.charAt(0).toUpperCase()}${activeType.slice(1)}s` :
                       activeFolder !== null ? (activeFolder === "" ? "Uncategorized" : activeFolder) :
                         activeTag ? `#${activeTag}` :
@@ -2101,6 +2140,58 @@ export default function VaultPage() {
               <span className="text-xs text-neutral-700">{visibleItems.length}</span>
             </div>
           </div>
+
+          {/* Login Type sub-filter chips */}
+          {activeType === "login" && (
+            <div className="flex items-center gap-1.5 pb-2 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => router.push("/vault?type=login")}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
+                  !activeFilter
+                    ? "bg-neutral-800 text-neutral-100 border-neutral-700"
+                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-neutral-200 hover:border-neutral-700"
+                }`}
+              >
+                All Logins
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/vault?type=login&filter=passkeys")}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === "passkeys"
+                    ? "bg-amber-950/60 text-amber-300 border-amber-800/80"
+                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-amber-400 hover:border-neutral-700"
+                }`}
+              >
+                <KeyRound className="w-3 h-3 text-amber-400" />
+                Passkeys
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/vault?type=login&filter=totp")}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === "totp"
+                    ? "bg-violet-950/60 text-violet-300 border-violet-800/80"
+                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-violet-400 hover:border-neutral-700"
+                }`}
+              >
+                2FA / TOTP
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/vault?type=login&filter=favorites")}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === "favorites"
+                    ? "bg-amber-950/60 text-amber-300 border-amber-800/80"
+                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-neutral-200 hover:border-neutral-700"
+                }`}
+              >
+                <Star className="w-3 h-3 text-amber-400" />
+                Favorites
+              </button>
+            </div>
+          )}
 
           {/* Folder filter pills */}
           {folders.length > 0 && activeFolder === null && (
