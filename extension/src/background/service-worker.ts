@@ -844,8 +844,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
 
           const { payload } = message;
-          const rpId = payload.rp?.id || "";
           const origin = payload.origin || "";
+          let rpId = payload.rp?.id || "";
+          if (!rpId && origin) {
+            try {
+              rpId = new URL(origin).hostname;
+            } catch {
+              rpId = "localhost";
+            }
+          }
 
           try {
             const credResult = await createPasskeyCredential({
@@ -917,6 +924,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                   credentialId: credResult.credentialId,
                   clientDataJSON: credResult.clientDataJSON,
                   attestationObject: toBase64Url(credResult.attestationObject),
+                  authenticatorData: toBase64Url(credResult.authenticatorData),
+                  publicKey: toBase64Url(credResult.publicKeySpki),
                 },
               });
             } else {
@@ -955,6 +964,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                   credentialId: credResult.credentialId,
                   clientDataJSON: credResult.clientDataJSON,
                   attestationObject: toBase64Url(credResult.attestationObject),
+                  authenticatorData: toBase64Url(credResult.authenticatorData),
+                  publicKey: toBase64Url(credResult.publicKeySpki),
                 },
               });
             }

@@ -85,17 +85,22 @@ export function encodeCoseKeyP256(xCoord: Uint8Array, yCoord: Uint8Array): Uint8
 }
 
 /**
- * Encodes attestationObject in CBOR with fmt: "none".
- * Map of 2 items: { "authData": authDataBytes, "fmt": "none" }
+ * Encodes attestationObject in canonical CBOR with fmt: "none" and empty attStmt {}.
+ * Map of 3 items (canonically sorted by length then byte value):
+ *  1. "fmt" => "none" (len 3)
+ *  2. "attStmt" => {} (len 7)
+ *  3. "authData" => bytes (len 8)
  */
 export function encodeAttestationObjectNone(authData: Uint8Array): Uint8Array {
-  // CBOR map with 2 keys: 0xa2
-  // "fmt" => "none": 0x63, 'f','m','t', 0x64, 'n','o','n','e'
-  // "authData" => bstr(len): 0x68, 'a','u','t','h','D','a','t','a', ...
-  const fmtKeyAndVal = [
-    0x63, 0x66, 0x6d, 0x74, // "fmt"
-    0x64, 0x6e, 0x6f, 0x6e, 0x65, // "none"
-    0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, // "authData"
+  const keysAndFmt = [
+    // "fmt": "none"
+    0x63, 0x66, 0x6d, 0x74,
+    0x64, 0x6e, 0x6f, 0x6e, 0x65,
+    // "attStmt": {}
+    0x67, 0x61, 0x74, 0x74, 0x53, 0x74, 0x6d, 0x74,
+    0xa0,
+    // "authData" key
+    0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61,
   ];
 
   let lenHeader: number[];
@@ -110,11 +115,11 @@ export function encodeAttestationObjectNone(authData: Uint8Array): Uint8Array {
     lenHeader = [0x5a, (len >> 24) & 0xff, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff];
   }
 
-  const out = new Uint8Array(1 + fmtKeyAndVal.length + lenHeader.length + authData.length);
-  out[0] = 0xa2; // Map of 2 pairs
-  out.set(fmtKeyAndVal, 1);
-  out.set(lenHeader, 1 + fmtKeyAndVal.length);
-  out.set(authData, 1 + fmtKeyAndVal.length + lenHeader.length);
+  const out = new Uint8Array(1 + keysAndFmt.length + lenHeader.length + authData.length);
+  out[0] = 0xa3; // Canonical CBOR map of 3 pairs
+  out.set(keysAndFmt, 1);
+  out.set(lenHeader, 1 + keysAndFmt.length);
+  out.set(authData, 1 + keysAndFmt.length + lenHeader.length);
 
   return out;
 }
@@ -182,10 +187,20 @@ export interface CreatedPasskeyResult {
   passkeyRpId: string;
   clientDataJSON: string;       // JSON string
   attestationObject: Uint8Array;
+  authenticatorData: Uint8Array;
+  publicKeySpki: Uint8Array;
 }
 
 export async function createPasskeyCredential(params: CreatePasskeyParams): Promise<CreatedPasskeyResult> {
-  const { rpId, challenge, origin, userHandle } = params;
+  const { challenge, origin, userHandle } = params;
+  let effectiveRpId = params.rpId;
+  if (!effectiveRpId) {
+    try {
+      effectiveRpId = new URL(origin).hostname;
+    } catch {
+      effectiveRpId = "localhost";
+    }
+  }
 
   // 1. Generate ECDSA P-256 keypair
   const keyPair = await crypto.subtle.generateKey(
@@ -194,8 +209,10 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
     ["sign", "verify"]
   );
 
-  // 2. Export public key as raw uncompressed coordinates
+  // 2. Export public key as raw uncompressed coordinates and SPKI
   const rawPub = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+  const spki = new Uint8Array(await crypto.subtle.exportKey("spki", keyPair.publicKey));
+
   // raw format is 0x04 || X (32) || Y (32)
   const xCoord = rawPub.slice(1, 33);
   const yCoord = rawPub.slice(33, 65);
@@ -210,7 +227,7 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
   const credentialId = toBase64Url(credIdBytes);
 
   // 5. Build Authenticator Data with Attested Credential Data
-  const rpIdHash = await sha256Bytes(rpId);
+  const rpIdHash = await sha256Bytes(effectiveRpId);
   const flags = 0x01 | 0x04 | 0x40; // UP (0x01) | UV (0x04) | AT (0x40)
   const signCount = 0;
   const aaguid = new Uint8Array(16); // 16 zeroes for platform / software passkey
@@ -233,7 +250,7 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
   authData.set(credIdBytes, offset); offset += credIdBytes.length;
   authData.set(coseKey, offset);
 
-  // 6. Build Attestation Object (fmt: "none")
+  // 6. Build Attestation Object (fmt: "none" + attStmt: {})
   const attestationObject = encodeAttestationObjectNone(authData);
 
   // 7. Build clientDataJSON
@@ -252,9 +269,11 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
     rawId: credIdBytes.buffer,
     passkeyPrivateKey,
     passkeyUserHandle: finalUserHandle,
-    passkeyRpId: rpId,
+    passkeyRpId: effectiveRpId,
     clientDataJSON,
     attestationObject,
+    authenticatorData: authData,
+    publicKeySpki: spki,
   };
 }
 

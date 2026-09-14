@@ -1082,21 +1082,6 @@ setupFormSubmitInterceptor();
 
 // ─── WebAuthn Passkey Interceptor Bridge ───────────────────────────────────────
 
-function injectWebAuthnPageScript() {
-  if (document.getElementById("vaultr-webauthn-page-script")) return;
-  try {
-    const s = document.createElement("script");
-    s.id = "vaultr-webauthn-page-script";
-    s.src = chrome.runtime.getURL("webauthn-page.js");
-    s.async = false;
-    (document.head || document.documentElement).appendChild(s);
-  } catch {
-    // Ignore if injection not permitted on this document
-  }
-}
-
-injectWebAuthnPageScript();
-
 let activePasskeyPrompt: HTMLElement | null = null;
 
 function removePasskeyPrompt() {
@@ -1254,7 +1239,10 @@ function showPasskeyPrompt(opts: {
   card.querySelector(".close-btn")?.addEventListener("click", handleDismiss);
 
   shadow.appendChild(card);
-  document.body.appendChild(host);
+  const targetParent = document.body || document.documentElement;
+  if (targetParent) {
+    targetParent.appendChild(host);
+  }
   activePasskeyPrompt = host;
 
   requestAnimationFrame(() => {
@@ -1292,6 +1280,10 @@ window.addEventListener("message", (event) => {
         username,
         onConfirm: () => {
           chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
+            if (chrome.runtime.lastError || !res) {
+              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+              return;
+            }
             window.postMessage(
               {
                 source: "VAULTR_WEBAUTHN_CONTENT",
@@ -1312,7 +1304,7 @@ window.addEventListener("message", (event) => {
       const rpId = payload.rpId || window.location.hostname;
 
       chrome.runtime.sendMessage({ type: "GET_PASSKEYS_FOR_RP", rpId }, (res) => {
-        if (!res?.passkeys || res.passkeys.length === 0) {
+        if (chrome.runtime.lastError || !res?.passkeys || res.passkeys.length === 0) {
           // No passkeys in vault for this RP; let browser handle natively
           window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
           return;
@@ -1325,6 +1317,10 @@ window.addEventListener("message", (event) => {
           username: passkey.username,
           onConfirm: () => {
             chrome.runtime.sendMessage({ type: "WEBAUTHN_GET", payload }, (getRes) => {
+              if (chrome.runtime.lastError || !getRes) {
+                window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+                return;
+              }
               window.postMessage(
                 {
                   source: "VAULTR_WEBAUTHN_CONTENT",

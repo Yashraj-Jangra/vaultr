@@ -1,6 +1,31 @@
 ## Current Session: Passkey Integration Across Web, Mobile & Extension (2026-09-13) · Branch: `dev`
 
-### ✅ What Was Done (Phase 1: Passkey Support on Login Items)
+### ✅ What Was Done (Phase 9: Extension Passkey Interceptor & W3C/FIDO2 Prototype Conformance)
+- **Resolved Passkey Interception & Execution Failures in Browser Extension**:
+  - **CSP & Injection Bypass via MV3 `"world": "MAIN"` (`extension/manifest.json`)**:
+    - Discovered that dynamic DOM script injection (`document.createElement('script')` with `s.src = chrome.runtime.getURL('webauthn-page.js')`) at `document_idle` was blocked by Content Security Policy (`script-src 'self'`) on modern authentication websites (GitHub, Google, Passkeys.io, WebAuthn.io).
+    - Added `webauthn-page.js` to `manifest.json` `content_scripts` with `"world": "MAIN"` and `"run_at": "document_start"`, allowing the interceptor to execute natively in the webpage's JavaScript execution context before any page scripts run, completely bypassing page CSP without `<script>` tag injection.
+    - Removed obsolete dynamic DOM script injection from `extension/src/content-script/autofill.ts`.
+  - **Platform Authenticator Discovery Overrides (`extension/src/content-script/webauthn-page.ts`)**:
+    - Overrode `window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = async () => true;` so relying parties detect VaultR as an active platform passkey authenticator and render passkey options.
+    - Overrode `PublicKeyCredential.isConditionalMediationAvailable = async () => true;` and `getClientCapabilities = async () => (...)`.
+    - Overrode both `CredentialsContainer.prototype.create`/`get` and `navigator.credentials.create`/`get` to ensure any calling convention triggers VaultR.
+  - **W3C/WebAuthn Prototype Chain Conformance (`webauthn-page.ts`)**:
+    - Replaced plain object literals with standard prototype chains: `Object.create(PublicKeyCredential.prototype)` and `Object.create(AuthenticatorAttestationResponse.prototype)` / `AuthenticatorAssertionResponse.prototype`.
+    - Passed `credential instanceof PublicKeyCredential` and `response instanceof AuthenticatorAttestationResponse` / `AuthenticatorAssertionResponse` checks enforced by `@simplewebauthn/browser` and `@github/webauthn-json`.
+  - **FIDO2 Attestation Object & CBOR `attStmt: {}` Fix (`packages/core/src/webauthn.ts`)**:
+    - Fixed critical CBOR encoding bug in `encodeAttestationObjectNone`: added canonical `attStmt: {}` map (`0xa0`) with map header `0xa3`. Previous 2-key encoding caused WebAuthn servers to reject registrations with "missing attStmt".
+    - Exported authentic `authenticatorData` and `publicKeySpki` from `createPasskeyCredential`.
+    - Provided real `authenticatorData` in `AuthenticatorAttestationResponse.getAuthenticatorData()` and DER SPKI buffer in `getPublicKey()`.
+  - **Service Worker & Bridge Robustness (`service-worker.ts`, `autofill.ts`)**:
+    - Provided fallback effective `rpId` from origin hostname if `payload.rp?.id` is omitted.
+    - Exported `authenticatorData` and `publicKey` in `WEBAUTHN_CREATE` response.
+    - Handled runtime disconnect errors and non-blocking timeout parameters dynamically.
+- **Verification**:
+  - Extension TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Root TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Production Webpack build: compiled successfully with code 0.
+
 - **Core Package Data Contracts (`packages/core`)**:
   - Extended `VaultItem` and `DecryptedLoginPayload` with 9 standard passkey fields (`isPasskey`, `passkeyRpId`, `passkeyCredentialId`, `passkeyUserHandle`, `passkeyPrivateKey`, `passkeySignCount`, `passkeyTransports`, `passkeyCreatedAt`, `passkeyLastUsedAt`).
   - Extended Bitwarden JSON importer to extract `fido2Credentials[0]` into login passkey fields.
