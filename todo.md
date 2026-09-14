@@ -62,7 +62,12 @@
   - `mobile/src/store/vaultStore.ts`: Updated `syncAutofillCredentials` preparation to decrypt and sync passkey credentials into Android native keystore.
   - `mobile/src/services/autofill.ts`: Extended `AutofillDataset` with passkey fields and added `openCredentialManagerSettings()`.
   - `mobile/src/screens/settings/AutofillSettingsScreen.tsx`: Made Passkeys row interactive with enrolled count badge and 1-tap navigation to Android Credential Provider settings.
-- **Type Checking Gate**: All 4 subprojects (`packages/core`, `mobile`, `extension`, root Next.js) compile with zero errors.
+- **Native Build & Physical Device Deployment (`0.2.10 (Build 10)`)**:
+  - Resolved Android 14 API 34+ compilation error by migrating exception classes to `android.credentials.*` (`ClearCredentialStateException`, `GetCredentialException`, `CreateCredentialException`).
+  - Compiled and installed debug APK targeting physical device 64-bit architecture (`arm64-v8a`) directly over wireless ADB (`192.168.1.42:34685`).
+  - Verified package registration in Android OS: `VaultrCredentialProviderService` registered with `BIND_CREDENTIAL_PROVIDER_SERVICE`.
+  - Re-bound Metro bundler on `0.0.0.0:8081` with live watch mode, established `adb reverse` tunnels (`tcp:8081`, `tcp:3000`), and verified live rendering of Vault home screen.
+- **Type Checking Gate**: All subprojects compile cleanly with zero errors.
 
 
 
