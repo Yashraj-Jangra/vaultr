@@ -138,6 +138,25 @@
   - Root type check (`npx tsc --noEmit`): 0 errors.
   - Extension Webpack production build: 0 errors.
 
+### ✅ What Was Done (Phase 7: Mobile Password Generator Wrapping & Sleek Minimal History)
+- **Multi-Line Wrapping for Long Passwords (`mobile/src/screens/GeneratorScreen.tsx`)**:
+  - Replaced `<ScrollView horizontal showsHorizontalScrollIndicator={false}>` with `<View style={styles.outputDisplayWrapper}>`.
+  - Added adaptive monospace font sizing (`16px`, `17.5px`, `19px`) and line-heights (`24px`, `25px`, `27px`) so long passwords (up to 64 characters) wrap cleanly across lines without horizontal scrolling or text clipping.
+- **Sleek, Minimal History Design (No Div Clutter)**:
+  - Eliminated boxed card containers around individual history items (`historyRow`).
+  - Implemented clean borderless item rows separated by hair-thin horizontal dividers (`StyleSheet.hairlineWidth`).
+  - Added visual `CURRENT` badge for the top active password in history.
+  - Added inline copy confirmation pill (`✓ Copied`) per row with isolated `copiedId` state.
+  - Added clean "Clear" button and empty state when history is cleared.
+- **Auto-Record Bug Fix**:
+  - Fixed bug where changing length, toggling character options, switching modes, or regenerating seeds failed to appear in history.
+  - Implemented a 120ms debounced auto-record `useEffect` that listens to `currentPassword` changes and prepends newly generated credentials into `history`.
+  - Added persistent storage using `AsyncStorage` (`@vaultr_generator_history_v1`) so recent history survives tab switching and app restarts.
+- **Verification**:
+  - Mobile TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Root TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Android Gradle build: `.\gradlew.bat assembleDebug` completed with code 0 (`BUILD SUCCESSFUL in 3m 15s`).
+
 
 
 #### 1. Core Alert Dialog Button Redesign (`mobile/src/components/CustomAlertOverlay.tsx`)
