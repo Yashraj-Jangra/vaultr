@@ -17,11 +17,97 @@ interface AutofillCredential {
   url?: string;
   username?: string;
   password?: string;
+  totp?: string;
+  hasTotp?: boolean;
 }
 
 let activeDropdown: HTMLElement | null = null;
 let activeInput: HTMLInputElement | null = null;
 let lastFocusedField: HTMLInputElement | null = null;
+let activeToastTimeout: any = null;
+
+// ─── Toast UI (Shadow DOM Isolated) ──────────────────────────────────────────
+
+function showInPageToast(messageHtml: string, durationMs = 3500) {
+  const existing = document.getElementById("vaultr-toast-host");
+  if (existing) existing.remove();
+  if (activeToastTimeout) clearTimeout(activeToastTimeout);
+
+  const host = document.createElement("div");
+  host.id = "vaultr-toast-host";
+  host.style.cssText = `
+    position: fixed !important;
+    bottom: 24px !important;
+    left: 50% !important;
+    transform: translateX(-50%) translateY(16px) !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  `;
+
+  const shadow = host.attachShadow({ mode: "open" });
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 50%;
+      color: #10b981;
+      font-size: 11px;
+    }
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 1px;
+    }
+  `;
+  shadow.appendChild(styleEl);
+
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `
+    <div class="badge">✓</div>
+    <span>${messageHtml}</span>
+  `;
+  shadow.appendChild(toast);
+
+  document.body.appendChild(host);
+
+  requestAnimationFrame(() => {
+    host.style.opacity = "1";
+    host.style.transform = "translateX(-50%) translateY(0)";
+  });
+
+  activeToastTimeout = setTimeout(() => {
+    host.style.opacity = "0";
+    host.style.transform = "translateX(-50%) translateY(16px)";
+    setTimeout(() => host.remove(), 250);
+  }, durationMs);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -107,6 +193,25 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
     if (cred.password) {
       const passwordEl = findPasswordField(focusedField);
       if (passwordEl) nativeInputValueSetter(passwordEl, cred.password);
+    }
+  }
+
+  // Auto-copy 2FA code to clipboard
+  if (cred.totp) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.get("vaultr_autocopy_2fa", (res) => {
+        if (res?.vaultr_autocopy_2fa !== false && cred.totp) {
+          try {
+            navigator.clipboard.writeText(cred.totp).then(() => {
+              showInPageToast(`2FA code copied: <span class="code">${cred.totp}</span>`);
+            }).catch(() => {
+              showInPageToast(`2FA code: <span class="code">${cred.totp}</span>`);
+            });
+          } catch {
+            showInPageToast(`2FA code: <span class="code">${cred.totp}</span>`);
+          }
+        }
+      });
     }
   }
 }
@@ -448,14 +553,177 @@ function isLoginField(input: HTMLInputElement): boolean {
   return false;
 }
 
+function isOtpField(input: HTMLInputElement): boolean {
+  if (input.type === "password" || input.type === "hidden" || input.type === "checkbox") return false;
+  const ac = (input.autocomplete || "").toLowerCase();
+  if (ac === "one-time-code") return true;
+
+  const id = (input.id || "").toLowerCase();
+  const name = (input.name || "").toLowerCase();
+  const placeholder = (input.placeholder || "").toLowerCase();
+  const aria = (input.getAttribute("aria-label") || "").toLowerCase();
+  const combined = `${id} ${name} ${placeholder} ${aria}`;
+
+  if (/otp|totp|2fa|mfa|verification.*code|two.*factor|security.*code|auth.*code/.test(combined)) {
+    return true;
+  }
+
+  // Split-cell inputs (e.g. 6 boxes of maxlength=1)
+  if (input.maxLength === 1) {
+    const parent = input.parentElement;
+    if (parent) {
+      const siblingInputs = parent.querySelectorAll<HTMLInputElement>('input[maxlength="1"]');
+      if (siblingInputs.length >= 4 && siblingInputs.length <= 8) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function fillTotpCode(target: HTMLInputElement, code: string) {
+  // Check if it is a split cell input (e.g. 6 boxes)
+  if (target.maxLength === 1) {
+    const parent = target.closest("form") || target.parentElement;
+    if (parent) {
+      const splitInputs = Array.from(parent.querySelectorAll<HTMLInputElement>('input[maxlength="1"]'))
+        .filter((el) => el.offsetParent !== null);
+      if (splitInputs.length >= code.length) {
+        for (let i = 0; i < code.length; i++) {
+          nativeInputValueSetter(splitInputs[i], code[i]);
+        }
+        splitInputs[Math.min(code.length - 1, splitInputs.length - 1)].focus();
+        showInPageToast(`2FA code filled: <span class="code">${code}</span>`);
+        navigator.clipboard?.writeText(code).catch(() => {});
+        return;
+      }
+    }
+  }
+
+  // Otherwise single input field
+  nativeInputValueSetter(target, code);
+  navigator.clipboard?.writeText(code).catch(() => {});
+  showInPageToast(`2FA code filled: <span class="code">${code}</span>`);
+}
+
+function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential[]) {
+  if (activeInput === inputEl && activeDropdown) return;
+  removeDropdown();
+  const withTotp = credentials.filter((c) => c.totp);
+  if (withTotp.length === 0) return;
+
+  activeInput = inputEl;
+  const rect = inputEl.getBoundingClientRect();
+
+  const host = document.createElement("div");
+  host.id = "vaultr-autofill-host";
+  host.style.cssText = `
+    position: fixed !important;
+    top: ${rect.bottom + 6}px !important;
+    left: ${rect.left}px !important;
+    width: ${Math.max(rect.width, 280)}px !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  `;
+
+  const shadow = host.attachShadow({ mode: "open" });
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    * { box-sizing: border-box !important; margin: 0 !important; padding: 0 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important; }
+    .dropdown {
+      background: #09090b !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+      overflow: hidden !important;
+      padding: 6px !important;
+      backdrop-filter: blur(16px) !important;
+    }
+    .item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      padding: 8px 10px !important;
+      border-radius: 8px !important;
+      cursor: pointer !important;
+      transition: background 0.15s ease !important;
+    }
+    .item:hover { background: #18181b !important; }
+    .badge {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 26px !important;
+      height: 26px !important;
+      border-radius: 6px !important;
+      background: rgba(56, 189, 248, 0.15) !important;
+      color: #38bdf8 !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+    }
+    .meta { min-width: 0 !important; flex: 1 !important; }
+    .title { font-size: 12.5px !important; font-weight: 600 !important; color: #ffffff !important; display: flex !important; align-items: center !important; gap: 6px !important; }
+    .code-pill { font-family: ui-monospace, monospace !important; font-size: 12px !important; font-weight: 700 !important; color: #38bdf8 !important; letter-spacing: 0.5px !important; }
+    .sub { font-size: 11px !important; color: #a1a1aa !important; margin-top: 2px !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+  `;
+  shadow.appendChild(styleEl);
+
+  const container = document.createElement("div");
+  container.className = "dropdown";
+
+  withTotp.forEach((cred) => {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `
+      <div class="badge">🔑</div>
+      <div class="meta">
+        <div class="title">
+          <span>Fill 2FA</span>
+          <span class="code-pill">${cred.totp}</span>
+        </div>
+        <div class="sub">${cred.name}${cred.username ? ` · ${cred.username}` : ""}</div>
+      </div>
+    `;
+
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (cred.totp) {
+        fillTotpCode(inputEl, cred.totp);
+      }
+      removeDropdown();
+    });
+
+    container.appendChild(item);
+  });
+
+  shadow.appendChild(container);
+  document.body.appendChild(host);
+  activeDropdown = host;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (activeDropdown) {
+        activeDropdown.style.opacity = "1";
+        activeDropdown.style.transform = "translateY(0)";
+      }
+    });
+  });
+}
+
 document.addEventListener("focusin", (e) => {
   const target = e.target as HTMLInputElement;
   if (!target || target.tagName !== "INPUT") return;
-  if (!isLoginField(target)) return;
   if (target.closest("#vaultr-autofill-host")) return;
-
-  // Only suggest for valid websites, not internal browser pages (newtab, chrome://, etc.)
   if (!isWebPageUrl(window.location.href)) return;
+
+  const isLogin = isLoginField(target);
+  const isOtp = isOtpField(target);
+  if (!isLogin && !isOtp) return;
 
   lastFocusedField = target;
 
@@ -466,13 +734,17 @@ document.addEventListener("focusin", (e) => {
     if (chrome.runtime.lastError) return;
     if (response?.logins?.length > 0) {
       if (document.activeElement === target) {
-        showDropdown(target, response.logins);
+        if (isOtp) {
+          showOtpDropdown(target, response.logins);
+        } else {
+          showDropdown(target, response.logins);
+        }
       }
     }
   });
 }, true);
 
-// Handle autofill from popup (AUTOFILL_CREDENTIAL message)
+// Handle autofill, copy TOTP, and password fill messages
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "AUTOFILL_CREDENTIAL" && message.credential) {
     const cred: AutofillCredential = {
@@ -480,8 +752,6 @@ chrome.runtime.onMessage.addListener((message) => {
       name: "Vaultr",
       ...message.credential,
     };
-
-    // Try to find the best field to anchor to
     const activeEl = document.activeElement as HTMLInputElement | null;
     const anchor =
       (activeEl && activeEl.tagName === "INPUT" ? activeEl : null) ||
@@ -493,8 +763,322 @@ chrome.runtime.onMessage.addListener((message) => {
     if (anchor) {
       fillCredential(anchor, cred);
     }
+  } else if (message.type === "TRIGGER_AUTOFILL" && message.credential) {
+    const cred: AutofillCredential = message.credential;
+    const activeEl = document.activeElement as HTMLInputElement | null;
+    const anchor =
+      (activeEl && activeEl.tagName === "INPUT" ? activeEl : null) ||
+      lastFocusedField ||
+      document.querySelector<HTMLInputElement>('input[type="password"]') ||
+      document.querySelector<HTMLInputElement>('input[type="email"]') ||
+      document.querySelector<HTMLInputElement>('input[type="text"]');
+
+    if (anchor) {
+      fillCredential(anchor, cred);
+    }
+  } else if (message.type === "COPY_TOTP_CLIPBOARD" && message.totp) {
+    try {
+      navigator.clipboard.writeText(message.totp).then(() => {
+        showInPageToast(`2FA code copied: <span class="code">${message.totp}</span>`);
+      }).catch(() => {
+        showInPageToast(`2FA code: <span class="code">${message.totp}</span>`);
+      });
+    } catch {
+      showInPageToast(`2FA code: <span class="code">${message.totp}</span>`);
+    }
+  } else if (message.type === "FILL_GENERATED_PASSWORD" && message.password) {
+    const activeEl = document.activeElement as HTMLInputElement | null;
+    const target =
+      (activeEl && activeEl.tagName === "INPUT" ? activeEl : null) ||
+      lastFocusedField ||
+      document.querySelector<HTMLInputElement>('input[type="password"]');
+    if (target) {
+      nativeInputValueSetter(target, message.password);
+      navigator.clipboard?.writeText(message.password).catch(() => {});
+      showInPageToast("Generated password filled & copied");
+    }
   }
 });
+
+// ─── Save / Update Password Prompt on Form Submission ────────────────────────
+
+let activeSavePrompt: HTMLElement | null = null;
+let lastSubmittedUsername = "";
+let lastSubmittedPassword = "";
+let lastSubmittedDomain = "";
+
+function removeSavePrompt() {
+  if (activeSavePrompt) {
+    const el = activeSavePrompt;
+    activeSavePrompt = null;
+    el.style.opacity = "0";
+    el.style.transform = "translateY(-8px)";
+    setTimeout(() => el.remove(), 200);
+  }
+}
+
+function showSaveOrUpdatePrompt(opts: {
+  mode: "save" | "update";
+  domain: string;
+  username: string;
+  password: string;
+  itemId?: string;
+  itemName?: string;
+}) {
+  removeSavePrompt();
+  lastSubmittedUsername = opts.username;
+  lastSubmittedPassword = opts.password;
+  lastSubmittedDomain = opts.domain;
+
+  const host = document.createElement("div");
+  host.id = "vaultr-save-prompt-host";
+  host.style.cssText = `
+    position: fixed !important;
+    top: 16px !important;
+    right: 16px !important;
+    width: 320px !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  `;
+
+  const shadow = host.attachShadow({ mode: "open" });
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .card {
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      padding: 14px 16px;
+      color: #f4f4f5;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 2px;
+    }
+    .close-btn:hover { color: #f4f4f5; }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .sub {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-bottom: 14px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-primary {
+      flex: 1;
+      height: 34px;
+      background: #f4f4f5;
+      color: #09090b;
+      border: none;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #ffffff; }
+    .btn-ghost {
+      height: 34px;
+      padding: 0 12px;
+      background: #18181b;
+      color: #a1a1aa;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 9px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.2); }
+  `;
+  shadow.appendChild(styleEl);
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const isSave = opts.mode === "save";
+  card.innerHTML = `
+    <div class="header">
+      <div class="badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>VaultR Password Manager</span>
+      </div>
+      <button class="close-btn" title="Dismiss">✕</button>
+    </div>
+    <div class="title">${isSave ? "Save password to VaultR?" : "Update password in VaultR?"}</div>
+    <div class="sub">
+      ${
+        isSave
+          ? `Save login for <strong>${opts.domain}</strong>${opts.username ? ` (${opts.username})` : ""}?`
+          : `Update saved password for <strong>${opts.username || opts.itemName || opts.domain}</strong>?`
+      }
+    </div>
+    <div class="actions">
+      <button class="btn-primary">${isSave ? "Save Password" : "Update Password"}</button>
+      <button class="btn-ghost">Not now</button>
+    </div>
+  `;
+
+  card.querySelector(".btn-primary")?.addEventListener("click", () => {
+    removeSavePrompt();
+    if (isSave) {
+      chrome.runtime.sendMessage(
+        {
+          type: "SAVE_NEW_LOGIN",
+          domain: opts.domain,
+          username: opts.username,
+          password: opts.password,
+        },
+        (res) => {
+          if (res?.success) {
+            showInPageToast(`Password saved to VaultR for <strong>${opts.domain}</strong>`);
+          }
+        }
+      );
+    } else if (opts.itemId) {
+      chrome.runtime.sendMessage(
+        {
+          type: "UPDATE_LOGIN_PASSWORD",
+          itemId: opts.itemId,
+          password: opts.password,
+        },
+        (res) => {
+          if (res?.success) {
+            showInPageToast(`Password updated in VaultR for <strong>${opts.username || opts.domain}</strong>`);
+          }
+        }
+      );
+    }
+  });
+
+  const handleDismiss = () => removeSavePrompt();
+  card.querySelector(".btn-ghost")?.addEventListener("click", handleDismiss);
+  card.querySelector(".close-btn")?.addEventListener("click", handleDismiss);
+
+  shadow.appendChild(card);
+  document.body.appendChild(host);
+  activeSavePrompt = host;
+
+  requestAnimationFrame(() => {
+    host.style.opacity = "1";
+    host.style.transform = "translateY(0)";
+  });
+
+  // Auto-dismiss after 20 seconds
+  setTimeout(() => {
+    if (activeSavePrompt === host) removeSavePrompt();
+  }, 20000);
+}
+
+function checkAndShowSavePrompt(username: string, password: string, domain: string) {
+  if (!password || !domain) return;
+  if (lastSubmittedUsername === username && lastSubmittedPassword === password && lastSubmittedDomain === domain) {
+    return;
+  }
+
+  chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (res) => {
+    if (chrome.runtime.lastError) return;
+    const logins: AutofillCredential[] = res?.logins || [];
+
+    const matchingUser = logins.find(
+      (l) => l.username && username && l.username.toLowerCase() === username.toLowerCase()
+    );
+
+    if (matchingUser) {
+      if (matchingUser.password && matchingUser.password === password) {
+        return;
+      }
+      showSaveOrUpdatePrompt({
+        mode: "update",
+        domain,
+        username: matchingUser.username || username,
+        password,
+        itemId: matchingUser.id,
+        itemName: matchingUser.name,
+      });
+    } else {
+      showSaveOrUpdatePrompt({
+        mode: "save",
+        domain,
+        username,
+        password,
+      });
+    }
+  });
+}
+
+function setupFormSubmitInterceptor() {
+  document.addEventListener("submit", (e) => {
+    const form = e.target as HTMLFormElement;
+    if (!form || form.tagName !== "FORM") return;
+    const pwdInput = form.querySelector<HTMLInputElement>('input[type="password"]');
+    if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
+    const userInput = findUsernameField(pwdInput);
+    const username = userInput?.value || "";
+    const password = pwdInput.value;
+    const domain = getDomain();
+    if (!domain) return;
+    checkAndShowSavePrompt(username, password, domain);
+  }, true);
+
+  document.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement)?.closest('button[type="submit"], input[type="submit"], button:not([type])');
+    if (!btn) return;
+    const form = btn.closest("form");
+    if (form) {
+      const pwdInput = form.querySelector<HTMLInputElement>('input[type="password"]');
+      if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
+      const userInput = findUsernameField(pwdInput);
+      const username = userInput?.value || "";
+      const password = pwdInput.value;
+      const domain = getDomain();
+      if (!domain) return;
+      checkAndShowSavePrompt(username, password, domain);
+    } else {
+      const pwd = document.querySelector<HTMLInputElement>('input[type="password"]');
+      if (pwd && pwd.value.trim().length >= 4) {
+        const usr = findUsernameField(pwd);
+        checkAndShowSavePrompt(usr?.value || "", pwd.value, getDomain());
+      }
+    }
+  }, true);
+}
+
+setupFormSubmitInterceptor();
+
 
 // ─── WebAuthn Passkey Interceptor Bridge ───────────────────────────────────────
 

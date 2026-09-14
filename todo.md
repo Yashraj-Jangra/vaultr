@@ -157,6 +157,28 @@
   - Root TypeScript check (`npx tsc --noEmit`): 0 errors.
   - Android Gradle build: `.\gradlew.bat assembleDebug` completed with code 0 (`BUILD SUCCESSFUL in 3m 15s`).
 
+### ✅ What Was Done (Phase 8: Bitwarden-Level Browser Takeover, 2FA Autofill & Advanced Shortcuts)
+- **Chromium Native Password Manager Override (`extension/`)**:
+  - Added `"privacy"` and `"contextMenus"` permissions to `extension/manifest.json`.
+  - Implemented `chrome.privacy.services.passwordSavingEnabled.set({ value: false })` and autofill suppression in `service-worker.ts`.
+  - Chromium browsers (Edge/Chrome/Brave) now display the native managed banner: *"This setting is managed by the 'VaultR' extension"*.
+  - Added boot restoration for `vaultr_default_manager` in service worker initialization.
+  - Built dedicated "Make VaultR Default Password Manager" card in `SettingsScreen.tsx` with live status detection (`GET_BROWSER_OVERRIDE_STATUS`) and `✓ MANAGING BROWSER PASSWORD SETTING` indicator badge.
+- **Autofill 2FA & Direct OTP Field Detection (`extension/`)**:
+  - Added RFC 6238 TOTP computation (`generateTOTP`) directly in background service worker matching logins.
+  - Implemented automatic TOTP clipboard copy upon autofilling login credentials with configurable toggle (`vaultr_autocopy_2fa`).
+  - Created isolated Shadow DOM floating toast pill (`showInPageToast`) with emerald check badge and monospace code display.
+  - Built direct OTP / 2FA field detection (`autocomplete="one-time-code"`, `otp/totp/2fa` names/IDs, and split 6-box cell inputs).
+  - Built 1-tap OTP dropdown pill anchored to OTP fields (`showOtpDropdown`), supporting single inputs and distributing digits across split 6-cell boxes.
+- **Advanced Autofill Extensions & Shortcuts**:
+  - Registered keyboard shortcuts in manifest: `Ctrl+Shift+L` / `Command+Shift+L` to autofill matching credentials, `Ctrl+Shift+T` / `Command+Shift+T` to copy 2FA code.
+  - Registered context menus: `VaultR` -> `Autofill Credentials`, `Copy 2FA Code`, `Generate Secure Password`.
+  - Implemented form submission detection and non-intrusive top-right prompt: *"Save password to VaultR?"* / *"Update password in VaultR?"*.
+- **Verification**:
+  - Root TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Extension TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Webpack production bundle build: compiled successfully with code 0.
+
 
 
 #### 1. Core Alert Dialog Button Redesign (`mobile/src/components/CustomAlertOverlay.tsx`)

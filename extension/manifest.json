@@ -40,8 +40,26 @@
     "activeTab",
     "scripting",
     "alarms",
-    "clipboardWrite"
+    "clipboardWrite",
+    "privacy",
+    "contextMenus"
   ],
+  "commands": {
+    "autofill_credential": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Autofill matching login credentials"
+    },
+    "copy_totp": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+T",
+        "mac": "Command+Shift+T"
+      },
+      "description": "Copy 2FA TOTP code to clipboard"
+    }
+  },
   "host_permissions": [
     "http://*/*",
     "https://*/*"

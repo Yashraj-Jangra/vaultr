@@ -41,6 +41,10 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [autofillSubmit, setAutofillSubmit] = useState(false);
   const [autoLockMinutes, setAutoLockMinutes] = useState("15");
 
+  const [browserOverrideActive, setBrowserOverrideActive] = useState(false);
+  const [browserOverrideSupported, setBrowserOverrideSupported] = useState(true);
+  const [autoCopy2fa, setAutoCopy2fa] = useState(true);
+
   const [passkeysEnabled, setPasskeysEnabled] = useState(true);
   const [biometricsSupported, setBiometricsSupported] = useState(false);
   const [biometricsEnrolled, setBiometricsEnrolled] = useState(false);
@@ -59,6 +63,8 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           "autolock_minutes",
           "vaultr_passkeys_enabled",
           "vaultr_biometric_enrolled",
+          "vaultr_default_manager",
+          "vaultr_autocopy_2fa",
         ],
         async (res) => {
           if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled);
@@ -66,13 +72,45 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           if (res.autolock_minutes !== undefined) setAutoLockMinutes(res.autolock_minutes);
           if (res.vaultr_passkeys_enabled !== undefined) setPasskeysEnabled(res.vaultr_passkeys_enabled);
           if (res.vaultr_biometric_enrolled !== undefined) setBiometricsEnrolled(res.vaultr_biometric_enrolled);
+          if (res.vaultr_default_manager !== undefined) setBrowserOverrideActive(res.vaultr_default_manager);
+          if (res.vaultr_autocopy_2fa !== undefined) setAutoCopy2fa(res.vaultr_autocopy_2fa);
 
           const avail = await isPlatformAuthenticatorAvailable();
           setBiometricsSupported(avail);
         }
       );
+
+      if (chrome.runtime) {
+        chrome.runtime.sendMessage({ type: "GET_BROWSER_OVERRIDE_STATUS" }, (status) => {
+          if (chrome.runtime.lastError) return;
+          if (status) {
+            setBrowserOverrideSupported(status.supported !== false);
+            if (status.isControlled !== undefined) {
+              setBrowserOverrideActive(status.isControlled);
+            }
+          }
+        });
+      }
     }
   }, []);
+
+  const handleToggleBrowserOverride = (enabled: boolean) => {
+    setBrowserOverrideActive(enabled);
+    if (typeof chrome !== "undefined" && chrome.runtime) {
+      chrome.runtime.sendMessage({ type: "SET_BROWSER_OVERRIDE", enabled }, (res) => {
+        if (res?.isControlled !== undefined) {
+          setBrowserOverrideActive(res.isControlled);
+        }
+      });
+    }
+  };
+
+  const handleToggleAutoCopy2fa = (enabled: boolean) => {
+    setAutoCopy2fa(enabled);
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ vaultr_autocopy_2fa: enabled });
+    }
+  };
 
   const handleToggleAutofill = (enabled: boolean) => {
     setAutofillEnabled(enabled);
@@ -401,9 +439,66 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         </div>
       )}
 
-      {/* Autofill Preferences */}
+      {/* Browser Integration & Autofill Preferences */}
       <div className="settings-section">
-        <div className="settings-section-title">AUTOFILL PREFERENCES</div>
+        <div className="settings-section-title">BROWSER INTEGRATION & AUTOFILL</div>
+
+        {/* Make VaultR Default Password Manager card */}
+        {browserOverrideSupported && (
+          <div
+            style={{
+              padding: "12px",
+              background: "#0d0d0d",
+              border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
+              borderRadius: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <ShieldCheck size={14} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8" }} />
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                    Make VaultR Default Password Manager
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                  {browserOverrideActive
+                    ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
+                    : "Turn off browser password prompts and let VaultR seamlessly autofill and manage logins."}
+                </div>
+              </div>
+              <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                <input
+                  type="checkbox"
+                  checked={browserOverrideActive}
+                  onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            {browserOverrideActive && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "6px 10px",
+                  background: "rgba(16, 185, 129, 0.1)",
+                  border: "1px solid rgba(16, 185, 129, 0.2)",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Check size={12} style={{ color: "#10b981", flexShrink: 0 }} />
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: "#10b981" }}>
+                  MANAGING BROWSER PASSWORD SETTING
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="settings-row">
           <div>
@@ -422,6 +517,21 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
         <div className="settings-row" style={{ marginTop: 4 }}>
           <div>
+            <div className="settings-row-label">Auto-copy 2FA code on fill</div>
+            <div className="settings-row-sub">Copies one-time TOTP code to clipboard</div>
+          </div>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={autoCopy2fa}
+              onChange={(e) => handleToggleAutoCopy2fa(e.target.checked)}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+
+        <div className="settings-row" style={{ marginTop: 4 }}>
+          <div>
             <div className="settings-row-label">Auto-submit form</div>
             <div className="settings-row-sub">Automatically submit form after fill</div>
           </div>
@@ -433,6 +543,27 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
             />
             <span className="toggle-slider" />
           </label>
+        </div>
+
+        {/* Keyboard Shortcuts & Context Menu */}
+        <div style={{ marginTop: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 6, textTransform: "uppercase" }}>
+            Keyboard Shortcuts
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Autofill credentials</span>
+              <kbd style={{ padding: "2px 6px", fontSize: 10.5, fontFamily: "monospace", background: "#1c1c1e", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
+                {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
+              </kbd>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Copy 2FA code</span>
+              <kbd style={{ padding: "2px 6px", fontSize: 10.5, fontFamily: "monospace", background: "#1c1c1e", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
+                {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
+              </kbd>
+            </div>
+          </div>
         </div>
       </div>
 

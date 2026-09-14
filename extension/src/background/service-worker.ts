@@ -16,6 +16,7 @@ import {
   createPasskeyCredential,
   signPasskeyAssertion,
   toBase64Url,
+  generateTOTP,
 } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
@@ -40,12 +41,26 @@ const state: ServiceWorkerState = {
   accountInfo: null,
 };
 
-// Initialize server URL from local storage
-chrome.storage.local.get(["vaultr_server_url", "autolock_minutes"], (result) => {
+// Initialize server URL from local storage and restore browser override
+chrome.storage.local.get(["vaultr_server_url", "autolock_minutes", "vaultr_default_manager"], (result) => {
   if (result.vaultr_server_url) {
     state.serverUrl = result.vaultr_server_url;
   }
   touchAutoLock(result.autolock_minutes || "15");
+
+  if (result.vaultr_default_manager && chrome.privacy?.services?.passwordSavingEnabled) {
+    chrome.privacy.services.passwordSavingEnabled.set({ value: false }, () => {});
+    if (chrome.privacy.services.autofillAddressEnabled) {
+      try {
+        chrome.privacy.services.autofillAddressEnabled.set({ value: false }, () => {});
+      } catch {}
+    }
+    if (chrome.privacy.services.autofillCreditCardEnabled) {
+      try {
+        chrome.privacy.services.autofillCreditCardEnabled.set({ value: false }, () => {});
+      } catch {}
+    }
+  }
 });
 
 // Auto-lock alarm listener
@@ -167,6 +182,125 @@ async function tryRestoreSession(): Promise<boolean> {
     lockVault();
     return false;
   }
+}
+
+function extractDomainHost(rawUrlOrDomain?: string): string {
+  if (!rawUrlOrDomain || !rawUrlOrDomain.trim()) return "";
+  let clean = rawUrlOrDomain.trim().toLowerCase();
+
+  // Filter out internal browser pages (newtab, chrome://, edge://, about:blank, etc.)
+  if (isInternalBrowserHost(clean) || (clean.includes("://") && !isWebPageUrl(clean))) {
+    return "";
+  }
+
+  if (clean.includes("://")) {
+    try {
+      clean = new URL(clean).hostname;
+    } catch {
+      clean = clean.split("://")[1] || clean;
+    }
+  }
+
+  clean = clean.split("/")[0].split("?")[0].split("#")[0].split(":")[0];
+  clean = clean.replace(/^www\./, "");
+
+  if (isInternalBrowserHost(clean)) return "";
+  return clean;
+}
+
+function getBaseRootDomain(hostname: string): string {
+  if (!hostname) return "";
+  const parts = hostname.split(".");
+  if (parts.length <= 2) return hostname;
+  return parts.slice(-2).join(".");
+}
+
+export interface MatchedLogin {
+  id: string;
+  name: string;
+  username?: string;
+  password?: string;
+  totp?: string;
+  hasTotp?: boolean;
+  score: number;
+}
+
+async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
+  await tryRestoreSession();
+  if (!state.isUnlocked || !state.masterPassword || !domain) {
+    return [];
+  }
+
+  const currentHost = extractDomainHost(domain);
+  if (!currentHost) {
+    return [];
+  }
+
+  const currentRoot = getBaseRootDomain(currentHost);
+  const key = await deriveKey(state.masterPassword, state.userId || "");
+
+  const matches: MatchedLogin[] = [];
+
+  for (const item of state.items) {
+    if (item.deletedAt) continue;
+    const template = item.template || "login";
+    if (template !== "login") continue;
+
+    let decrypted = state.decryptedItemsCache[item.id];
+    if (!decrypted) {
+      try {
+        const raw = await decrypt(key, item.encryptedBlob);
+        decrypted = JSON.parse(raw) as DecryptedLoginPayload;
+        state.decryptedItemsCache[item.id] = decrypted;
+      } catch (err) {
+        console.error("[Vaultr SW] Decrypt error:", item.id, err);
+        continue;
+      }
+    }
+
+    if (!decrypted.username && !decrypted.password) continue;
+
+    const rawDomain = item.domain || decrypted.url;
+    if (!rawDomain || !rawDomain.trim()) continue;
+
+    const itemHost = extractDomainHost(rawDomain);
+    if (!itemHost) continue;
+
+    const itemRoot = getBaseRootDomain(itemHost);
+
+    let score = 0;
+    if (itemHost === currentHost) {
+      score = 3;
+    } else if (itemHost === currentRoot) {
+      score = 2;
+    } else if (itemRoot === currentRoot) {
+      score = 1;
+    } else {
+      continue;
+    }
+
+    let totpCode: string | undefined;
+    if (decrypted.totpSecret) {
+      try {
+        totpCode = await generateTOTP(decrypted.totpSecret);
+      } catch (e) {
+        console.warn("[Vaultr SW] TOTP generation error:", e);
+      }
+    }
+
+    matches.push({
+      id: item.id,
+      name: item.name,
+      username: decrypted.username,
+      password: decrypted.password,
+      totp: totpCode,
+      hasTotp: !!decrypted.totpSecret,
+      score,
+    });
+  }
+
+  matches.sort((a, b) => b.score - a.score);
+  return matches;
 }
 
 // ─── Message Handler ──────────────────────────────────────────────────────────
@@ -332,113 +466,143 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
 
-function extractDomainHost(rawUrlOrDomain?: string): string {
-  if (!rawUrlOrDomain || !rawUrlOrDomain.trim()) return "";
-  let clean = rawUrlOrDomain.trim().toLowerCase();
-
-  // Filter out internal browser pages (newtab, chrome://, edge://, about:blank, etc.)
-  if (isInternalBrowserHost(clean) || (clean.includes("://") && !isWebPageUrl(clean))) {
-    return "";
-  }
-
-  if (clean.includes("://")) {
-    try {
-      clean = new URL(clean).hostname;
-    } catch {
-      clean = clean.split("://")[1] || clean;
-    }
-  }
-
-  clean = clean.split("/")[0].split("?")[0].split("#")[0].split(":")[0];
-  clean = clean.replace(/^www\./, "");
-
-  if (isInternalBrowserHost(clean)) return "";
-  return clean;
-}
-
-function getBaseRootDomain(hostname: string): string {
-  if (!hostname) return "";
-  const parts = hostname.split(".");
-  if (parts.length <= 2) return hostname;
-  return parts.slice(-2).join(".");
-}
-
         case "GET_LOGINS_FOR_DOMAIN": {
-          await tryRestoreSession();
-          if (!state.isUnlocked || !state.masterPassword) {
-            sendResponse({ logins: [] });
-            return;
+          const matches = await getLoginsForDomain(message.domain);
+          sendResponse({
+            logins: matches.map(({ id, name, username, password, totp, hasTotp }) => ({
+              id,
+              name,
+              username,
+              password,
+              totp,
+              hasTotp,
+            })),
+          });
+          break;
+        }
+
+        case "GET_BROWSER_OVERRIDE_STATUS": {
+          if (!chrome.privacy?.services?.passwordSavingEnabled) {
+            sendResponse({ supported: false, isControlled: false, levelOfControl: "not_supported" });
+            break;
+          }
+          chrome.privacy.services.passwordSavingEnabled.get({}, (details) => {
+            const isControlled = details?.levelOfControl === "controlled_by_this_extension";
+            sendResponse({
+              supported: true,
+              isControlled,
+              levelOfControl: details?.levelOfControl,
+              value: details?.value,
+            });
+          });
+          break;
+        }
+
+        case "SET_BROWSER_OVERRIDE": {
+          const enableOverride = !!message.enabled;
+          if (!chrome.privacy?.services?.passwordSavingEnabled) {
+            sendResponse({ success: false, error: "Privacy API not supported in this browser" });
+            break;
           }
 
-          const currentHost = extractDomainHost(message.domain);
-          if (!currentHost) {
-            sendResponse({ logins: [] });
-            return;
-          }
-
-          const currentRoot = getBaseRootDomain(currentHost);
-          const key = await deriveKey(state.masterPassword, state.userId || "");
-
-          const matches: Array<{
-            id: string;
-            name: string;
-            username?: string;
-            password?: string;
-            score: number;
-          }> = [];
-
-          for (const item of state.items) {
-            if (item.deletedAt) continue;
-            const template = item.template || "login";
-            if (template !== "login") continue;
-
-            let decrypted = state.decryptedItemsCache[item.id];
-            if (!decrypted) {
-              try {
-                const raw = await decrypt(key, item.encryptedBlob);
-                decrypted = JSON.parse(raw) as DecryptedLoginPayload;
-                state.decryptedItemsCache[item.id] = decrypted;
-              } catch (err) {
-                console.error("[Vaultr SW] Decrypt error:", item.id, err);
-                continue;
+          if (enableOverride) {
+            chrome.privacy.services.passwordSavingEnabled.set({ value: false }, async () => {
+              if (chrome.privacy.services.autofillAddressEnabled) {
+                try {
+                  chrome.privacy.services.autofillAddressEnabled.set({ value: false }, () => {});
+                } catch {}
               }
-            }
-
-            if (!decrypted.username && !decrypted.password) continue;
-
-            const rawDomain = item.domain || decrypted.url;
-            if (!rawDomain || !rawDomain.trim()) continue;
-
-            const itemHost = extractDomainHost(rawDomain);
-            if (!itemHost) continue;
-
-            const itemRoot = getBaseRootDomain(itemHost);
-
-            let score = 0;
-            if (itemHost === currentHost) {
-              score = 3;
-            } else if (itemHost === currentRoot) {
-              score = 2;
-            } else if (itemRoot === currentRoot) {
-              score = 1;
-            } else {
-              continue;
-            }
-
-            matches.push({
-              id: item.id,
-              name: item.name,
-              username: decrypted.username,
-              password: decrypted.password,
-              score,
+              if (chrome.privacy.services.autofillCreditCardEnabled) {
+                try {
+                  chrome.privacy.services.autofillCreditCardEnabled.set({ value: false }, () => {});
+                } catch {}
+              }
+              await chrome.storage.local.set({ vaultr_default_manager: true });
+              sendResponse({ success: true, isControlled: true });
+            });
+          } else {
+            chrome.privacy.services.passwordSavingEnabled.clear({}, async () => {
+              if (chrome.privacy.services.autofillAddressEnabled) {
+                try {
+                  chrome.privacy.services.autofillAddressEnabled.clear({}, () => {});
+                } catch {}
+              }
+              if (chrome.privacy.services.autofillCreditCardEnabled) {
+                try {
+                  chrome.privacy.services.autofillCreditCardEnabled.clear({}, () => {});
+                } catch {}
+              }
+              await chrome.storage.local.set({ vaultr_default_manager: false });
+              sendResponse({ success: true, isControlled: false });
             });
           }
+          break;
+        }
 
-          matches.sort((a, b) => b.score - a.score);
+        case "SAVE_NEW_LOGIN": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword) {
+            sendResponse({ error: "Vault is locked" });
+            break;
+          }
+          try {
+            const { domain, username, password } = message;
+            const key = await deriveKey(state.masterPassword, state.userId || "");
+            const cleanDomain = extractDomainHost(domain) || domain;
+            const name = cleanDomain || "Login";
+            const payload: DecryptedLoginPayload = {
+              username: username || "",
+              password: password || "",
+              url: domain.includes("://") ? domain : `https://${domain}`,
+            };
+            const encryptedBlob = await encrypt(key, JSON.stringify(payload));
+            const api = await getApiClient();
+            const newItem = await api.createItem({
+              name,
+              domain: cleanDomain,
+              template: "login",
+              tags: [],
+              encryptedBlob,
+            });
+            state.items.unshift(newItem);
+            state.decryptedItemsCache[newItem.id] = payload;
+            sendResponse({ success: true, item: newItem });
+          } catch (err: any) {
+            sendResponse({ error: err?.message || "Failed to save login" });
+          }
+          break;
+        }
 
-          sendResponse({
-            logins: matches.map(({ id, name, username, password }) => ({ id, name, username, password }))
-          });
+        case "UPDATE_LOGIN_PASSWORD": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword) {
+            sendResponse({ error: "Vault is locked" });
+            break;
+          }
+          try {
+            const { itemId, password } = message;
+            const target = state.items.find((i) => i.id === itemId);
+            if (!target) {
+              sendResponse({ error: "Item not found" });
+              break;
+            }
+            const key = await deriveKey(state.masterPassword, state.userId || "");
+            let existingPayload: DecryptedLoginPayload = state.decryptedItemsCache[itemId];
+            if (!existingPayload) {
+              const raw = await decrypt(key, target.encryptedBlob);
+              existingPayload = JSON.parse(raw);
+            }
+            const updatedPayload = { ...existingPayload, password };
+            const encryptedBlob = await encrypt(key, JSON.stringify(updatedPayload));
+            const api = await getApiClient();
+            const updatedItem = await api.updateItem(itemId, { encryptedBlob });
+            const idx = state.items.findIndex((i) => i.id === itemId);
+            if (idx !== -1) state.items[idx] = updatedItem;
+            state.decryptedItemsCache[itemId] = updatedPayload;
+            sendResponse({ success: true, item: updatedItem });
+          } catch (err: any) {
+            sendResponse({ error: err?.message || "Failed to update password" });
+          }
           break;
         }
 
@@ -902,5 +1066,101 @@ function getBaseRootDomain(hostname: string): string {
   })();
 
   return true;
+});
+
+// ─── Context Menus & Keyboard Shortcuts ────────────────────────────────────────
+
+function setupContextMenus() {
+  if (!chrome.contextMenus) return;
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "vaultr_root",
+      title: "VaultR",
+      contexts: ["editable", "page"],
+    });
+    chrome.contextMenus.create({
+      parentId: "vaultr_root",
+      id: "vaultr_autofill",
+      title: "Autofill Credentials (Ctrl+Shift+L)",
+      contexts: ["editable", "page"],
+    });
+    chrome.contextMenus.create({
+      parentId: "vaultr_root",
+      id: "vaultr_copy_totp",
+      title: "Copy 2FA Code (Ctrl+Shift+T)",
+      contexts: ["editable", "page"],
+    });
+    chrome.contextMenus.create({
+      parentId: "vaultr_root",
+      id: "vaultr_generate_password",
+      title: "Generate Secure Password",
+      contexts: ["editable"],
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  setupContextMenus();
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  setupContextMenus();
+});
+
+chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
+  if (!tab?.id || !tab.url) return;
+  if (info.menuItemId === "vaultr_autofill") {
+    const matches = await getLoginsForDomain(tab.url);
+    if (matches.length > 0) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: "TRIGGER_AUTOFILL",
+        credential: matches[0],
+      });
+    }
+  } else if (info.menuItemId === "vaultr_copy_totp") {
+    const matches = await getLoginsForDomain(tab.url);
+    const withTotp = matches.find((m) => m.totp);
+    if (withTotp?.totp) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: "COPY_TOTP_CLIPBOARD",
+        totp: withTotp.totp,
+        accountName: withTotp.name,
+      });
+    }
+  } else if (info.menuItemId === "vaultr_generate_password") {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=";
+    const array = new Uint8Array(20);
+    crypto.getRandomValues(array);
+    const pwd = Array.from(array, (byte) => chars[byte % chars.length]).join("");
+    chrome.tabs.sendMessage(tab.id, {
+      type: "FILL_GENERATED_PASSWORD",
+      password: pwd,
+    });
+  }
+});
+
+chrome.commands?.onCommand.addListener(async (command) => {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.id || !activeTab.url) return;
+
+  if (command === "autofill_credential") {
+    const matches = await getLoginsForDomain(activeTab.url);
+    if (matches.length > 0) {
+      chrome.tabs.sendMessage(activeTab.id, {
+        type: "TRIGGER_AUTOFILL",
+        credential: matches[0],
+      });
+    }
+  } else if (command === "copy_totp") {
+    const matches = await getLoginsForDomain(activeTab.url);
+    const withTotp = matches.find((m) => m.totp);
+    if (withTotp?.totp) {
+      chrome.tabs.sendMessage(activeTab.id, {
+        type: "COPY_TOTP_CLIPBOARD",
+        totp: withTotp.totp,
+        accountName: withTotp.name,
+      });
+    }
+  }
 });
 
