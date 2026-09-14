@@ -7,15 +7,15 @@ import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.OutcomeReceiver
+import android.credentials.ClearCredentialStateException
+import android.credentials.CreateCredentialException
+import android.credentials.GetCredentialException
 import android.service.credentials.BeginCreateCredentialRequest
 import android.service.credentials.BeginCreateCredentialResponse
 import android.service.credentials.BeginGetCredentialRequest
 import android.service.credentials.BeginGetCredentialResponse
 import android.service.credentials.ClearCredentialStateRequest
-import android.service.credentials.ClearCredentialException
-import android.service.credentials.CreateCredentialException
 import android.service.credentials.CredentialProviderService
-import android.service.credentials.GetCredentialException
 import android.util.Base64
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -173,7 +173,7 @@ class VaultrCredentialProviderService : CredentialProviderService() {
             callback.onResult(responseBuilder.build())
         } catch (e: Exception) {
             Log.e(TAG, "Error in onBeginGetCredential", e)
-            callback.onError(GetCredentialException("GET_CREDENTIAL_ERROR", e.message))
+            callback.onError(GetCredentialException(GetCredentialException.TYPE_UNKNOWN, e.message))
         }
     }
 
@@ -187,19 +187,19 @@ class VaultrCredentialProviderService : CredentialProviderService() {
             callback.onResult(responseBuilder.build())
         } catch (e: Exception) {
             Log.e(TAG, "Error in onBeginCreateCredential", e)
-            callback.onError(CreateCredentialException("CREATE_CREDENTIAL_ERROR", e.message))
+            callback.onError(CreateCredentialException(CreateCredentialException.TYPE_UNKNOWN, e.message))
         }
     }
 
     override fun onClearCredentialState(
         request: ClearCredentialStateRequest,
         cancellationSignal: CancellationSignal,
-        callback: OutcomeReceiver<Void?, ClearCredentialException>
+        callback: OutcomeReceiver<Void?, ClearCredentialStateException>
     ) {
         try {
             callback.onResult(null)
         } catch (e: Exception) {
-            callback.onError(ClearCredentialException("CLEAR_CREDENTIAL_ERROR", e.message))
+            callback.onError(ClearCredentialStateException(ClearCredentialStateException.TYPE_UNKNOWN, e.message))
         }
     }
 }

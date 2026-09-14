@@ -288,7 +288,7 @@ object AutofillCredentialStore {
             val obj = array.getJSONObject(i)
             val id = obj.optString("id", "item_$i")
             val name = obj.optString("name", "Account")
-            val domain = obj.optString("domain", null).takeIf { !it.isNullOrBlank() }
+            val domain = obj.optString("domain", "").takeIf { it.isNotBlank() }
             val username = obj.optString("username", "")
             val password = obj.optString("password", "")
 
@@ -302,10 +302,10 @@ object AutofillCredentialStore {
             }
 
             val isPasskey = obj.optBoolean("isPasskey", false) || obj.optString("passkeyCredentialId").isNotBlank()
-            val passkeyRpId = obj.optString("passkeyRpId", null).takeIf { !it.isNullOrBlank() } ?: domain
-            val passkeyCredentialId = obj.optString("passkeyCredentialId", null).takeIf { !it.isNullOrBlank() }
-            val passkeyUserHandle = obj.optString("passkeyUserHandle", null).takeIf { !it.isNullOrBlank() }
-            val passkeyPrivateKey = obj.optString("passkeyPrivateKey", null).takeIf { !it.isNullOrBlank() }
+            val passkeyRpId = obj.optString("passkeyRpId", "").takeIf { it.isNotBlank() } ?: domain
+            val passkeyCredentialId = obj.optString("passkeyCredentialId", "").takeIf { it.isNotBlank() }
+            val passkeyUserHandle = obj.optString("passkeyUserHandle", "").takeIf { it.isNotBlank() }
+            val passkeyPrivateKey = obj.optString("passkeyPrivateKey", "").takeIf { it.isNotBlank() }
             val passkeySignCount = obj.optLong("passkeySignCount", 0L)
 
             val transportsList = mutableListOf<String>()
