@@ -572,7 +572,7 @@ function showPasskeyPrompt(opts: {
       gap: 6px;
       font-size: 11px;
       font-weight: 700;
-      color: #fbbf24;
+      color: #38bdf8;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -637,7 +637,7 @@ function showPasskeyPrompt(opts: {
   card.innerHTML = `
     <div class="header">
       <div class="badge">
-        <span>🔑</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m21 2-2 2m-1.5 1.5L10 13a5 5 0 1 0 4 4l7.5-7.5M15.5 7.5l3 3"/></svg>
         <span>VaultR Passkey</span>
       </div>
       <button class="close-btn" title="Dismiss">✕</button>

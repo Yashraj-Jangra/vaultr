@@ -108,6 +108,36 @@
     - `ItemPreviewCard.tsx`: Passkey and 2FA badges render side-by-side with distinct key glyphs and contrasting colors (`#38bdf8` and `#a78bfa`).
 - **Type Checking Gate**: All subprojects compile cleanly with zero errors.
 
+### ✅ What Was Done (Phase 6: Web & Extension Icon Semantics & Color Overhaul)
+- **Standardized Key Style Separation & Colors Across Entire Ecosystem**:
+  - **Passkeys (FIDO2 / WebAuthn)**: Exclusively standardized on `KeyRound` in Sky Blue (`#38bdf8` / `text-sky-400`):
+    - `extension/src/popup/VaultScreen.tsx`: Passkey badges, header section, and enrolled inspection cards styled in Sky Blue.
+    - `extension/src/popup/SettingsScreen.tsx`: Default Passkey Provider card and active pill updated to Sky Blue (`#38bdf8`, `<KeyRound size={13} />`).
+    - `extension/src/popup/NewEntryForm.tsx`: Passkey enrolled status card updated to Sky Blue.
+    - `extension/src/content-script/autofill.ts`: Injected Shadow DOM passkey prompt badge upgraded with inline SVG of `KeyRound` in Sky Blue (`#38bdf8`).
+    - `src/app/vault/page.tsx`: Passkey item badges, Passkey filter pill, and Passkey section headers updated to Sky Blue `KeyRound`.
+    - `src/components/vault/NewEntryDialog.tsx`: Passkey credential cards updated to Sky Blue `KeyRound`.
+    - `src/app/settings/security/page.tsx`: PASSKEY PROVIDER session capability badge updated from amber to Sky Blue (`text-sky-400`, `bg-sky-950/60`, `border-sky-800/50`).
+  - **2FA / Authenticator (TOTP)**: Exclusively standardized on `Key` (classic skeleton key) in Violet / Purple (`#c084fc` / `text-purple-400` / `text-violet-400`):
+    - `extension/src/popup/VaultScreen.tsx`: Added violet `<Key size={9} /> 2FA` badge chip and `<Key size={11} color="#c084fc" />` header.
+    - `extension/src/popup/NewEntryForm.tsx`: Added violet `Key` to "Add 2FA Secret" and "2FA Key" labels.
+    - `src/components/layout/Sidebar.tsx`: Replaced `Fingerprint` with `<Key className="w-4 h-4 shrink-0" />` for Authenticator link.
+    - `src/app/vault/authenticator/page.tsx`: Header icon updated from sky blue `Fingerprint` to violet `<Key className="w-5 h-5 text-purple-400" />`.
+    - `src/app/vault/page.tsx`: Authenticator detail header, 2FA grid/list badges, and 2FA filter pill updated to violet `Key`.
+    - `src/components/vault/NewEntryDialog.tsx`: Added violet `Key` to 2FA / TOTP buttons and field labels.
+    - `src/app/vault/health/page.tsx`: Missing 2FA metric card and audit list items updated from sky blue `Fingerprint` to violet `Key`.
+  - **Quick PIN**:
+    - `src/app/settings/security/page.tsx`: QUICK PIN session badge updated from sky blue to Amber (`text-amber-400`, `bg-amber-950/60`, `border-amber-800/50`).
+  - **Passwords**:
+    - `src/app/settings/account/page.tsx`: Replaced `KeySquare` with `<Lock className="w-4 h-4" /> Link Password`.
+    - `src/app/vault/health/page.tsx`: Weak Passwords metric card and audit badge updated from `Key` to `<Lock className="w-4 h-4 text-amber-400" />`.
+  - **Vault Navigation & Empty States**:
+    - `extension/src/popup/App.tsx`: Replaced `KeyRound` with `<Shield size={16} />` for Vault bottom tab.
+    - `extension/src/popup/VaultScreen.tsx`: Replaced empty state icon from `KeyRound` to `<Shield size={28} color="var(--neutral-600)" />`.
+- **Pre-Commit Verification**:
+  - Root type check (`npx tsc --noEmit`): 0 errors.
+  - Extension Webpack production build: 0 errors.
+
 
 
 #### 1. Core Alert Dialog Button Redesign (`mobile/src/components/CustomAlertOverlay.tsx`)

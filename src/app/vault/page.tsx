@@ -17,7 +17,7 @@ import {
   Copy, Check, Eye, EyeOff, Trash2, ExternalLink,
   RefreshCw, ChevronDown, ChevronRight, Folder, FolderOpen,
   CreditCard, User, FileText, Lock, Plus, Minus, X, Wand2, Inbox, Shield, Star, Edit2, LayoutList, LayoutGrid,
-  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus, MapPin, KeyRound,
+  ShieldCheck, Mail, Loader2, AlertTriangle, CornerDownRight, FolderPlus, MapPin, Key, KeyRound,
 } from "lucide-react";
 import { buildFolderTree, FolderNode } from "@/components/layout/Sidebar";
 import { SiteIcon } from "@/components/vault/SiteIcon";
@@ -771,7 +771,7 @@ function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntryFormPr
 
 // ─── Row detail renderer ──────────────────────────────────────────────────────
 
-function SectionGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionGroup({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="space-y-1 mt-3 first:mt-0">
       <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-1">{title}</div>
@@ -933,13 +933,25 @@ function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = fa
           )}
 
           {data.totpSecret && (
-            <SectionGroup title="AUTHENTICATOR">
+            <SectionGroup
+              title={
+                <span className="flex items-center gap-1.5 text-purple-400">
+                  <Key className="w-3 h-3" /> AUTHENTICATOR
+                </span>
+              }
+            >
               <TotpDisplay secret={data.totpSecret} />
             </SectionGroup>
           )}
 
           {(data.isPasskey || data.passkeyCredentialId) && (
-            <SectionGroup title="PASSKEY">
+            <SectionGroup
+              title={
+                <span className="flex items-center gap-1.5 text-sky-400">
+                  <KeyRound className="w-3 h-3" /> PASSKEY
+                </span>
+              }
+            >
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--surface-hover)] border border-sky-500/20">
                 <div className="flex items-center gap-3.5">
                   <KeyRound className="w-6 h-6 text-sky-400 shrink-0" />
@@ -1686,10 +1698,12 @@ export default function VaultPage() {
               <div className="flex items-center gap-1.5 shrink-0">
                 {item.favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
                 {item.hasTotp && (
-                  <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400">2FA</span>
+                  <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400 flex items-center gap-1">
+                    <Key className="w-2.5 h-2.5" /> 2FA
+                  </span>
                 )}
                 {(item.isPasskey || item.tags?.includes("passkey")) && (
-                  <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-amber-900/50 bg-amber-950/60 text-amber-400 flex items-center gap-1">
+                  <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-sky-900/50 bg-sky-950/60 text-sky-400 flex items-center gap-1">
                     <KeyRound className="w-2.5 h-2.5" /> Passkey
                   </span>
                 )}
@@ -1790,10 +1804,12 @@ export default function VaultPage() {
               <span className="text-[13.5px] font-medium text-neutral-100 truncate flex-shrink min-w-0">{item.name}</span>
               {item.favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
               {item.hasTotp && (
-                <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400 shrink-0 hidden sm:inline">2FA</span>
+                <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-violet-900/50 bg-violet-950/60 text-violet-400 shrink-0 hidden sm:inline-flex items-center gap-1">
+                  <Key className="w-2.5 h-2.5" /> 2FA
+                </span>
               )}
               {(item.isPasskey || item.tags?.includes("passkey")) && (
-                <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-amber-900/50 bg-amber-950/60 text-amber-400 shrink-0 hidden sm:inline-flex items-center gap-1">
+                <span className="text-[9px] font-semibold tracking-wider px-1.5 py-0.5 rounded-full border border-sky-900/50 bg-sky-950/60 text-sky-400 shrink-0 hidden sm:inline-flex items-center gap-1">
                   <KeyRound className="w-2.5 h-2.5" /> Passkey
                 </span>
               )}
@@ -2172,11 +2188,11 @@ export default function VaultPage() {
                 onClick={() => router.push("/vault?type=login&filter=passkeys")}
                 className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
                   activeFilter === "passkeys"
-                    ? "bg-amber-950/60 text-amber-300 border-amber-800/80"
-                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-amber-400 hover:border-neutral-700"
+                    ? "bg-sky-950/60 text-sky-300 border-sky-800/80"
+                    : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-sky-400 hover:border-neutral-700"
                 }`}
               >
-                <KeyRound className="w-3 h-3 text-amber-400" />
+                <KeyRound className="w-3 h-3 text-sky-400" />
                 Passkeys
               </button>
               <button
@@ -2188,6 +2204,7 @@ export default function VaultPage() {
                     : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-violet-400 hover:border-neutral-700"
                 }`}
               >
+                <Key className="w-3 h-3 text-violet-400" />
                 2FA / TOTP
               </button>
               <button
@@ -2199,7 +2216,7 @@ export default function VaultPage() {
                     : "bg-neutral-900/60 text-neutral-400 border-neutral-800/80 hover:text-neutral-200 hover:border-neutral-700"
                 }`}
               >
-                <Star className="w-3 h-3 text-amber-400" />
+                <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                 Favorites
               </button>
             </div>

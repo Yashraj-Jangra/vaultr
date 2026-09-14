@@ -262,10 +262,10 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         <div style={{ marginTop: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-200)", display: "flex", alignItems: "center", gap: 6 }}>
-              <KeyRound size={13} style={{ color: "#fbbf24" }} />
+              <KeyRound size={13} style={{ color: "#38bdf8" }} />
               Default Passkey Provider
             </span>
-            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 6, background: "rgba(251, 191, 36, 0.15)", color: "#fbbf24" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 6, background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8" }}>
               Active
             </span>
           </div>

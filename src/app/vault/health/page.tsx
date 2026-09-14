@@ -8,7 +8,7 @@ import { useVault } from "@/context/VaultContext";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Shield, ShieldAlert, ShieldCheck, AlertTriangle, Key, Repeat,
-  Fingerprint, ExternalLink, Edit2, Wand2, RefreshCw, Check, ArrowLeft,
+  ExternalLink, Edit2, Wand2, RefreshCw, Check, ArrowLeft,
   ChevronRight, Lock, Eye, EyeOff, Search
 } from "lucide-react";
 import { SiteIcon } from "@/components/vault/SiteIcon";
@@ -318,7 +318,7 @@ export default function PasswordHealthPage() {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-400">Weak Passwords</span>
-            <Key
+            <Lock
               className={`w-4 h-4 ${weakCount > 0 ? "text-amber-400" : "text-neutral-500"}`}
             />
           </div>
@@ -350,14 +350,14 @@ export default function PasswordHealthPage() {
           onClick={() => setFilter(filter === "no2fa" ? "all" : "no2fa")}
           className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
             filter === "no2fa"
-              ? "bg-sky-950/30 border-sky-500/60 shadow-lg shadow-sky-950/20"
+              ? "bg-violet-950/30 border-violet-500/60 shadow-lg shadow-violet-950/20"
               : "bg-neutral-900/40 border-neutral-800/80 hover:border-neutral-700"
           }`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-400">Missing 2FA</span>
-            <Fingerprint
-              className={`w-4 h-4 ${no2faCount > 0 ? "text-sky-400" : "text-neutral-500"}`}
+            <Key
+              className={`w-4 h-4 ${no2faCount > 0 ? "text-violet-400" : "text-neutral-500"}`}
             />
           </div>
           <div className="text-2xl font-bold text-neutral-100 font-mono">{no2faCount}</div>
@@ -454,7 +454,7 @@ export default function PasswordHealthPage() {
 
                     {item.isWeak && (
                       <span className="text-[10px] font-medium bg-amber-950/40 text-amber-400 border border-amber-800/50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <Key className="w-3 h-3" /> Weak password
+                        <Lock className="w-3 h-3" /> Weak password
                       </span>
                     )}
 
@@ -465,8 +465,8 @@ export default function PasswordHealthPage() {
                     )}
 
                     {!item.hasTotp && (
-                      <span className="text-[10px] font-medium bg-sky-950/40 text-sky-400 border border-sky-800/50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <Fingerprint className="w-3 h-3" /> No 2FA TOTP
+                      <span className="text-[10px] font-medium bg-violet-950/40 text-violet-400 border border-violet-800/50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Key className="w-3 h-3" /> No 2FA TOTP
                       </span>
                     )}
                   </div>

@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Check, Link2, AlertCircle, KeySquare, Moon, Sun, Monitor, CheckCircle2 } from "lucide-react";
+import { Check, Link2, AlertCircle, Lock, Moon, Sun, Monitor, CheckCircle2 } from "lucide-react";
 import { useTheme, AppMode } from "@/context/ThemeContext";
 import { ThemeConfig } from "@/lib/themes";
 
@@ -511,7 +511,7 @@ export default function AccountSettingsPage() {
               )}
               {!hasPassword && linkStep === 0 && (
                 <button onClick={handleSendOtp} className="text-[13px] text-neutral-300 hover:text-white bg-neutral-800 border border-neutral-700 rounded-md px-4 py-2 transition-colors flex items-center gap-2">
-                  <KeySquare className="w-4 h-4" /> Link Password
+                  <Lock className="w-4 h-4" /> Link Password
                 </button>
               )}
               {linkStep === 1 && (

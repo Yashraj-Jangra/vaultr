@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
-  Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User, MapPin,
+  Search, Copy, Check, Globe, Key, KeyRound, Shield, CreditCard, FileText, User, MapPin,
   Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
 } from "lucide-react";
 import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost, detectCardBrand } from "@vaultr/core";
@@ -372,6 +372,27 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
         <div className="item-meta">
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div className="item-name">{item.name}</div>
+            {/* 2FA Badge */}
+            {decrypted?.totpSecret && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(168, 85, 247, 0.12)",
+                  color: "#c084fc",
+                  border: "1px solid rgba(168, 85, 247, 0.3)",
+                  lineHeight: 1.2,
+                }}
+              >
+                <Key size={9} /> 2FA
+              </span>
+            )}
+            {/* Passkey Badge */}
             {(item.isPasskey || item.tags?.includes("passkey") || decrypted?.isPasskey) && (
               <span
                 style={{
@@ -382,13 +403,13 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                   fontWeight: 600,
                   padding: "1px 5px",
                   borderRadius: 4,
-                  background: "rgba(245, 158, 11, 0.15)",
-                  color: "#f59e0b",
-                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  background: "rgba(56, 189, 248, 0.12)",
+                  color: "#38bdf8",
+                  border: "1px solid rgba(56, 189, 248, 0.3)",
                   lineHeight: 1.2,
                 }}
               >
-                🔑 Passkey
+                <KeyRound size={9} /> Passkey
               </span>
             )}
           </div>
@@ -462,7 +483,10 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
                   {decrypted.totpSecret && (
                     <div className="detail-section-group">
-                      <div className="detail-section-title">AUTHENTICATOR</div>
+                      <div className="detail-section-title" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <Key size={11} style={{ color: "#c084fc" }} />
+                        AUTHENTICATOR
+                      </div>
                       <div className="detail-section-box">
                         <TotpDisplay secret={decrypted.totpSecret} />
                       </div>
@@ -471,7 +495,10 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
                   {(decrypted.isPasskey || decrypted.passkeyCredentialId) && (
                     <div className="detail-section-group">
-                      <div className="detail-section-title">PASSKEY</div>
+                      <div className="detail-section-title" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <KeyRound size={11} style={{ color: "#38bdf8" }} />
+                        PASSKEY
+                      </div>
                       <div style={{
                         display: "flex",
                         alignItems: "center",
@@ -868,7 +895,7 @@ export function VaultScreen({
         {/* All items */}
         {shownItems.length === 0 ? (
           <div className="empty-state">
-            <KeyRound size={28} />
+            <Shield size={28} style={{ color: "var(--neutral-600)" }} />
             <div className="empty-state-title">
               {query ? "No results found" : selectedFolder !== "All" ? `No items in ${selectedFolder}` : "No items in vault"}
             </div>

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useVault } from "@/context/VaultContext";
 import { useCrypto } from "@/hooks/useCrypto";
-import { Fingerprint, Copy, Check } from "lucide-react";
+import { Key, Copy, Check } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -147,7 +147,7 @@ export default function AuthenticatorPage() {
       <div className="flex items-end justify-between border-b border-[var(--border)] pb-4">
         <div>
           <h1 className="text-xl font-semibold text-neutral-100 flex items-center gap-2">
-            <Fingerprint className="w-5 h-5 text-sky-400" />
+            <Key className="w-5 h-5 text-purple-400" />
             Authenticator
           </h1>
           <p className="text-[13px] text-neutral-500 mt-1">Live synchronized 2-factor authentication codes.</p>

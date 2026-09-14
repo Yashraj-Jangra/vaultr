@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, KeyRound, Star
+  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, Key, KeyRound, Star
 } from "lucide-react";
 import { VaultItem, detectCardBrand } from "@vaultr/core";
 
@@ -508,11 +508,13 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
 
             {!showTotpField ? (
               <button type="button" onClick={() => setShowTotpField(true)} className="btn btn-ghost" style={{ fontSize: 11, padding: "6px 10px", width: "fit-content" }}>
-                <Plus size={12} style={{ marginRight: 4 }} /> Add 2FA Secret
+                <Key size={12} style={{ color: "#c084fc", marginRight: 4 }} /> Add 2FA Secret
               </button>
             ) : (
               <div className="form-group">
-                <span className="form-label">2FA Key</span>
+                <span className="form-label" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Key size={12} style={{ color: "#c084fc" }} /> 2FA Key
+                </span>
                 <div style={{ position: "relative" }}>
                   <input
                     type="text"
@@ -528,10 +530,10 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
             )}
 
             {initialData?.payload?.isPasskey && (
-              <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.25)", borderRadius: 10 }}>
+              <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", display: "flex", alignItems: "center", gap: 5 }}>
-                    🔑 PASSKEY ENROLLED
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: 5 }}>
+                    <KeyRound size={12} color="#38bdf8" /> PASSKEY ENROLLED
                   </span>
                   <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
                     {initialData.payload.passkeyRpId || "FIDO2"}

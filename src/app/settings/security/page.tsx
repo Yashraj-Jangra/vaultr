@@ -245,8 +245,8 @@ function SessionCard({
                   <ShieldCheck className="w-2.5 h-2.5 text-indigo-400" /> WINDOWS HELLO / TOUCH ID
                 </span>
               )}
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/50">
-                <KeyRound className="w-2.5 h-2.5 text-amber-400" /> PASSKEY PROVIDER
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-950/60 text-sky-300 border border-sky-800/50">
+                <KeyRound className="w-2.5 h-2.5 text-sky-400" /> PASSKEY PROVIDER
               </span>
             </>
           ) : isMobileApp ? (
@@ -254,8 +254,8 @@ function SessionCard({
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/50">
                 <Fingerprint className="w-2.5 h-2.5 text-emerald-400" /> BIOMETRICS
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-950/60 text-sky-300 border border-sky-800/50">
-                <Hash className="w-2.5 h-2.5 text-sky-400" /> QUICK PIN
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/50">
+                <Hash className="w-2.5 h-2.5 text-amber-400" /> QUICK PIN
               </span>
             </>
           ) : (
@@ -263,8 +263,8 @@ function SessionCard({
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
                 <ShieldCheck className="w-2.5 h-2.5 text-indigo-400" /> WINDOWS HELLO / TOUCH ID
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/50">
-                <KeyRound className="w-2.5 h-2.5 text-amber-400" /> PASSKEY PROVIDER
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-950/60 text-sky-300 border border-sky-800/50">
+                <KeyRound className="w-2.5 h-2.5 text-sky-400" /> PASSKEY PROVIDER
               </span>
             </>
           )}

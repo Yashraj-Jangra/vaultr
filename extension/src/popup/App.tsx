@@ -5,7 +5,7 @@ import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { NewEntryForm } from "./NewEntryForm";
-import { KeyRound, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
+import { Shield, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
 import "./popup.css";
 
 export function resolveAvatarUrl(url?: string, serverUrl?: string) {
@@ -347,7 +347,7 @@ export function App() {
           className={`nav-btn${activeTab === "vault" ? " active" : ""}`}
           onClick={() => setActiveTab("vault")}
         >
-          <KeyRound size={16} />
+          <Shield size={16} />
           <span>Vault</span>
         </button>
         <button

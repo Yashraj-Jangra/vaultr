@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  Shield, KeyRound, Folder, FolderOpen, Star, Settings,
+  Shield, Key, KeyRound, Folder, FolderOpen, Star, Settings,
   ChevronDown, ChevronRight, Plus, Fingerprint,
   LayoutDashboard, Inbox, Wand2, Trash2,
   CreditCard, FileText, User, Lock, MapPin, X,
@@ -614,7 +614,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             </Link>
 
             <Link href="/vault/authenticator" className={navLinkCls(pathname === "/vault/authenticator")}>
-              <Fingerprint className="w-4 h-4 shrink-0" />
+              <Key className="w-4 h-4 shrink-0" />
               <span className={`flex-1 truncate transition-opacity duration-200 whitespace-nowrap ${collapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                 Authenticator
               </span>
