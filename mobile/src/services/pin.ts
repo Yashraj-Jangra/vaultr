@@ -63,8 +63,8 @@ export async function getRemainingAttempts(): Promise<number> {
 /** Enroll a 4-to-6 digit PIN to encrypt the master password for fast re-unlock. */
 export async function setupPin(pin: string, masterPassword: string): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!pin || pin.length < 4 || pin.length > 6) {
-      return { success: false, error: "PIN must be 4 to 6 digits." };
+    if (!pin || (pin.length !== 4 && pin.length !== 6)) {
+      return { success: false, error: "PIN must be 4 or 6 digits." };
     }
     if (!masterPassword) {
       return { success: false, error: "Master password is required to configure PIN unlock." };

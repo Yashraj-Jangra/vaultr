@@ -29,6 +29,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
   const [pinLength, setPinLength] = useState(4);
+  const [pinLengthTarget, setPinLengthTarget] = useState<4 | 6>(4);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinStep, setPinStep] = useState<"enter" | "confirm">("enter");
   const [enteredPin, setEnteredPin] = useState("");
@@ -53,6 +54,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
       if (hasPin) {
         const len = await getPinLength();
         setPinLength(len);
+        setPinLengthTarget(len === 6 ? 6 : 4);
       }
 
       const savedAutoLock = await AsyncStorage.getItem(AUTO_LOCK_KEY);
@@ -106,6 +108,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
       setEnteredPin("");
       setConfirmPin("");
       setPinModalError("");
+      setPinLengthTarget(pinLength === 6 ? 6 : 4);
       setShowPinModal(true);
     } else {
       vaultAlert.alert(
@@ -163,8 +166,9 @@ export function SecuritySettingsScreen({ navigation }: any) {
       const res = await setupPin(pin, masterPassword);
       if (res.success) {
         setPinEnabled(true);
+        setPinLength(pin.length);
         setShowPinModal(false);
-        vaultAlert.alert("PIN Enabled", "4-digit PIN unlock configured successfully!", undefined, {
+        vaultAlert.alert("PIN Enabled", `${pin.length}-digit PIN unlock configured successfully!`, undefined, {
           illustration: "fingerprint_kdwq",
           glowColor: "rgba(52, 211, 153, 0.12)",
         });
@@ -225,8 +229,8 @@ export function SecuritySettingsScreen({ navigation }: any) {
               <Text style={styles.cardTitle}>Quick PIN Unlock</Text>
               <Text style={styles.cardDesc}>
                 {pinEnabled
-                  ? "4-digit PIN is active. Use it to quickly unlock your vault."
-                  : "Set a 4-digit PIN for lightning-fast hardware-encrypted re-unlock."}
+                  ? `${pinLength}-digit PIN is active. Use it to quickly unlock your vault.`
+                  : "Set a 4 or 6-digit PIN for lightning-fast hardware-encrypted re-unlock."}
               </Text>
             </View>
             <CustomSwitch
@@ -242,6 +246,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
                 setEnteredPin("");
                 setConfirmPin("");
                 setPinModalError("");
+                setPinLengthTarget(pinLength === 6 ? 6 : 4);
                 setShowPinModal(true);
               }}
             >
@@ -372,12 +377,47 @@ export function SecuritySettingsScreen({ navigation }: any) {
 
             <Text style={styles.modalSubtitle}>
               {pinStep === "enter"
-                ? "Enter a 4-digit numeric code for fast local re-unlock."
-                : "Re-enter your 4-digit PIN to confirm."}
+                ? `Enter a ${pinLengthTarget}-digit numeric code for fast local re-unlock.`
+                : `Re-enter your ${pinLengthTarget}-digit PIN to confirm.`}
             </Text>
 
+            {pinStep === "enter" && (
+              <View style={styles.lengthPickerContainer}>
+                <TouchableOpacity
+                  style={[styles.lengthPickerBtn, pinLengthTarget === 4 && styles.lengthPickerBtnActive]}
+                  onPress={() => {
+                    if (pinLengthTarget !== 4) {
+                      setPinLengthTarget(4);
+                      setEnteredPin("");
+                      setPinModalError("");
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.lengthPickerText, pinLengthTarget === 4 && styles.lengthPickerTextActive]}>
+                    4 Digits
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.lengthPickerBtn, pinLengthTarget === 6 && styles.lengthPickerBtnActive]}
+                  onPress={() => {
+                    if (pinLengthTarget !== 6) {
+                      setPinLengthTarget(6);
+                      setEnteredPin("");
+                      setPinModalError("");
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.lengthPickerText, pinLengthTarget === 6 && styles.lengthPickerTextActive]}>
+                    6 Digits
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <PinPad
-              length={4}
+              length={pinLengthTarget}
               value={pinStep === "enter" ? enteredPin : confirmPin}
               onChange={handlePinPadChange}
               onComplete={handlePinPadComplete}
@@ -436,9 +476,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 20,
     paddingHorizontal: 16,
     lineHeight: 18,
+  },
+  lengthPickerContainer: {
+    flexDirection: "row",
+    backgroundColor: "#18181b",
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#27272a",
+    width: 200,
+  },
+  lengthPickerBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 9,
+  },
+  lengthPickerBtnActive: {
+    backgroundColor: "#27272a",
+  },
+  lengthPickerText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  lengthPickerTextActive: {
+    color: "#fafafa",
   },
   resetPinBtn: {
     marginTop: 16,

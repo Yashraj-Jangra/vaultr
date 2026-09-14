@@ -73,6 +73,18 @@
   - **Edit Mode Theme**: Swapped out amber/yellow accents for sleek sky blue (`#38bdf8`, `rgba(56, 189, 248, 0.08)`) across the linked passkey card, title, and key icon.
   - **Badge Unification**: Updated all passkey badge chips in `ItemPreviewCard.tsx`, `VaultFilteredScreen.tsx`, and `SessionsScreen.tsx` to match the sky blue theme.
   - **Ecosystem Parity**: Mirrored the minimal Passkey Configured card and standalone key icon across Web (`src/app/vault/page.tsx`) and Browser Extension (`extension/src/popup/VaultScreen.tsx`).
+- **6-Digit Quick PIN Support & Ultra-Snappy Keypad Overhaul (`mobile/`)**:
+  - `mobile/src/services/pin.ts`: Updated `setupPin` validation to strictly allow both 4-digit and 6-digit PINs (`pin.length !== 4 && pin.length !== 6`); preserves existing `pinLength` persistence.
+  - `mobile/src/components/PinPad.tsx`:
+    - Created `AnimatedDot` component with dynamic Reanimated spring pop (`scale: 1.22 -> 1.0` with `stiffness: 360, damping: 14`) and quick opacity transition upon digit entry; crisp pop-out upon backspace.
+    - Added adaptive dot sizing and spacing (`dotSize: 12.5, dotGap: 13` for 6 digits; `dotSize: 14, dotGap: 18` for 4 digits).
+    - Created `KeypadDigitButton` and `KeypadActionButton`: instantaneous `onPressIn` scale compression (`0.92`), surface highlight (`rgba(255, 255, 255, 0.14)`), 10ms tactile touch-down vibration, and snappy spring release (`stiffness: 420, damping: 16`).
+    - Tightened error shake animation sequence to 240ms.
+  - `mobile/src/screens/settings/SecuritySettingsScreen.tsx`:
+    - Added interactive `4 Digits` vs `6 Digits` segmented pill selector in Quick PIN setup modal.
+    - Updated modal copy, card descriptions, and success notifications to dynamically reflect PIN length.
+  - `mobile/src/screens/UnlockScreen.tsx`:
+    - Added 80ms yield before triggering PBKDF2 decryption so the final dot fill and spring scale render completely with zero frame drop.
 - **Type Checking Gate**: All subprojects compile cleanly with zero errors.
 
 

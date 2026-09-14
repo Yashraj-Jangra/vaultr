@@ -238,38 +238,41 @@ export function UnlockScreen() {
     setPinError("");
     setShakePin(false);
 
-    InteractionManager.runAfterInteractions(async () => {
-      try {
-        const res = await verifyPinAndGetPassword(enteredPin);
-        if (res.success && res.password) {
-          await unlock(res.password);
-          if (await isAutofillUnlockPending()) {
-            await finishAutofillUnlock();
+    // Yield slightly so the final dot spring pop animation finishes rendering before PBKDF2 runs
+    setTimeout(() => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const res = await verifyPinAndGetPassword(enteredPin);
+          if (res.success && res.password) {
+            await unlock(res.password);
+            if (await isAutofillUnlockPending()) {
+              await finishAutofillUnlock();
+            }
+          } else {
+            setPinValue("");
+            setShakePin(true);
+            setTimeout(() => setShakePin(false), 500);
+            if (res.lockedOut) {
+              setPinEnrolled(false);
+              setUnlockMode("password");
+              setUnlockError(res.error || "Too many failed attempts. PIN has been disabled.");
+              vaultAlert.alert("PIN Disabled", res.error || "PIN has been disabled after 5 failed attempts.", undefined, {
+                illustration: "cancel_k4w9",
+              });
+            } else {
+              setPinError(res.error || "Incorrect PIN");
+            }
           }
-        } else {
+        } catch (err: any) {
           setPinValue("");
           setShakePin(true);
           setTimeout(() => setShakePin(false), 500);
-          if (res.lockedOut) {
-            setPinEnrolled(false);
-            setUnlockMode("password");
-            setUnlockError(res.error || "Too many failed attempts. PIN has been disabled.");
-            vaultAlert.alert("PIN Disabled", res.error || "PIN has been disabled after 5 failed attempts.", undefined, {
-              illustration: "cancel_k4w9",
-            });
-          } else {
-            setPinError(res.error || "Incorrect PIN");
-          }
+          setPinError(err?.message || "Failed to verify PIN");
+        } finally {
+          setUnlocking(false);
         }
-      } catch (err: any) {
-        setPinValue("");
-        setShakePin(true);
-        setTimeout(() => setShakePin(false), 500);
-        setPinError(err?.message || "Failed to verify PIN");
-      } finally {
-        setUnlocking(false);
-      }
-    });
+      });
+    }, 80);
   };
 
   const animatedMainStyle = useAnimatedStyle(() => ({

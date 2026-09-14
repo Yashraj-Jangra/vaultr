@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -13,8 +13,12 @@ import Animated, {
   useAnimatedStyle,
   withSequence,
   withTiming,
+  withSpring,
+  Easing,
 } from "react-native-reanimated";
 import { colors } from "../theme/colors";
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 function BackspaceIcon({ size = 24, color = "#f4f4f5" }: { size?: number; color?: string }) {
   return (
@@ -23,6 +27,130 @@ function BackspaceIcon({ size = 24, color = "#f4f4f5" }: { size?: number; color?
       <Path d="m12 9 6 6" />
       <Path d="m18 9-6 6" />
     </Svg>
+  );
+}
+
+interface AnimatedDotProps {
+  filled: boolean;
+  error: boolean;
+  size: number;
+}
+
+function AnimatedDot({ filled, error, size }: AnimatedDotProps) {
+  const scale = useSharedValue(filled ? 1 : 0.82);
+  const opacity = useSharedValue(filled ? 1 : 0.3);
+
+  useEffect(() => {
+    if (filled) {
+      scale.value = withSequence(
+        withTiming(1.25, { duration: 75, easing: Easing.out(Easing.quad) }),
+        withSpring(1, { damping: 14, stiffness: 360 })
+      );
+      opacity.value = withTiming(1, { duration: 60 });
+    } else {
+      scale.value = withTiming(0.82, { duration: 80 });
+      opacity.value = withTiming(0.3, { duration: 80 });
+    }
+  }, [filled]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        { width: size, height: size, borderRadius: size / 2 },
+        filled ? styles.dotFilled : styles.dotEmpty,
+        error && styles.dotError,
+        animStyle,
+      ]}
+    />
+  );
+}
+
+interface KeypadDigitButtonProps {
+  item: { num: string; sub?: string };
+  disabled?: boolean;
+  onPress: () => void;
+}
+
+function KeypadDigitButton({ item, disabled, onPress }: KeypadDigitButtonProps) {
+  const scale = useSharedValue(1);
+  const bgAlpha = useSharedValue(0.04);
+
+  const handlePressIn = () => {
+    if (disabled) return;
+    try {
+      Vibration.vibrate(10);
+    } catch {}
+    scale.value = withTiming(0.92, { duration: 45, easing: Easing.out(Easing.quad) });
+    bgAlpha.value = withTiming(0.14, { duration: 45 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 16, stiffness: 420 });
+    bgAlpha.value = withTiming(0.04, { duration: 140 });
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: `rgba(255, 255, 255, ${bgAlpha.value})`,
+  }));
+
+  return (
+    <AnimatedTouchable
+      style={[styles.keyBtn, animStyle]}
+      activeOpacity={1}
+      disabled={disabled}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+    >
+      <Text style={styles.keyNum}>{item.num}</Text>
+      {item.sub ? <Text style={styles.keySub}>{item.sub}</Text> : null}
+    </AnimatedTouchable>
+  );
+}
+
+interface KeypadActionButtonProps {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onPress: () => void;
+}
+
+function KeypadActionButton({ children, disabled, onPress }: KeypadActionButtonProps) {
+  const scale = useSharedValue(1);
+
+  const handlePressIn = () => {
+    if (disabled) return;
+    try {
+      Vibration.vibrate(10);
+    } catch {}
+    scale.value = withTiming(0.88, { duration: 45 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 16, stiffness: 420 });
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedTouchable
+      style={[styles.keyBtn, styles.specialKeyBtn, animStyle]}
+      activeOpacity={1}
+      disabled={disabled}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+    >
+      {children}
+    </AnimatedTouchable>
   );
 }
 
@@ -66,25 +194,21 @@ export function PinPad({
   useEffect(() => {
     if (shake) {
       shakeAnim.value = withSequence(
-        withTiming(-12, { duration: 50 }),
-        withTiming(12, { duration: 50 }),
-        withTiming(-8, { duration: 50 }),
-        withTiming(8, { duration: 50 }),
-        withTiming(-4, { duration: 50 }),
-        withTiming(0, { duration: 50 })
+        withTiming(-12, { duration: 40 }),
+        withTiming(12, { duration: 40 }),
+        withTiming(-8, { duration: 40 }),
+        withTiming(8, { duration: 40 }),
+        withTiming(-4, { duration: 40 }),
+        withTiming(0, { duration: 40 })
       );
       try {
-        Vibration.vibrate(30);
+        Vibration.vibrate(25);
       } catch {}
     }
   }, [shake]);
 
   const handlePressDigit = (digit: string) => {
     if (disabled || value.length >= length) return;
-    try {
-      Vibration.vibrate(8);
-    } catch {}
-
     const next = value + digit;
     onChange(next);
     if (next.length === length && onComplete) {
@@ -94,9 +218,6 @@ export function PinPad({
 
   const handlePressDelete = () => {
     if (disabled || value.length === 0) return;
-    try {
-      Vibration.vibrate(8);
-    } catch {}
     onChange(value.slice(0, -1));
   };
 
@@ -104,20 +225,21 @@ export function PinPad({
     transform: [{ translateX: shakeAnim.value }],
   }));
 
+  const dotSize = length === 6 ? 12.5 : 14;
+  const dotGap = length === 6 ? 13 : 18;
+
   return (
     <View style={styles.container}>
       {/* Dots Row */}
-      <Animated.View style={[styles.dotsContainer, animatedDotsStyle]}>
+      <Animated.View style={[styles.dotsContainer, { gap: dotGap }, animatedDotsStyle]}>
         {Array.from({ length }).map((_, idx) => {
           const filled = idx < value.length;
           return (
-            <View
+            <AnimatedDot
               key={idx}
-              style={[
-                styles.dot,
-                filled && styles.dotFilled,
-                errorMessage ? styles.dotError : null,
-              ]}
+              filled={filled}
+              error={Boolean(errorMessage)}
+              size={dotSize}
             />
           );
         })}
@@ -133,44 +255,30 @@ export function PinPad({
       {/* Numeric Keypad Grid */}
       <View style={styles.grid}>
         {DIGIT_KEYS.map((k) => (
-          <TouchableOpacity
+          <KeypadDigitButton
             key={k.num}
-            style={styles.keyBtn}
-            activeOpacity={0.65}
+            item={k}
             disabled={disabled}
             onPress={() => handlePressDigit(k.num)}
-          >
-            <Text style={styles.keyNum}>{k.num}</Text>
-            {k.sub ? <Text style={styles.keySub}>{k.sub}</Text> : null}
-          </TouchableOpacity>
+          />
         ))}
 
         {/* Bottom Row: Biometric Shortcut / Empty, '0', Delete */}
         {showBiometricButton && onBiometricPress ? (
-          <TouchableOpacity
-            style={[styles.keyBtn, styles.specialKeyBtn]}
-            activeOpacity={0.65}
-            disabled={disabled}
-            onPress={onBiometricPress}
-          >
+          <KeypadActionButton disabled={disabled} onPress={onBiometricPress}>
             <Fingerprint size={28} color={colors.accent || "#fafafa"} />
-          </TouchableOpacity>
+          </KeypadActionButton>
         ) : (
           <View style={[styles.keyBtn, styles.emptyKey]} />
         )}
 
-        <TouchableOpacity
-          style={styles.keyBtn}
-          activeOpacity={0.65}
+        <KeypadDigitButton
+          item={{ num: "0", sub: "" }}
           disabled={disabled}
           onPress={() => handlePressDigit("0")}
-        >
-          <Text style={styles.keyNum}>0</Text>
-        </TouchableOpacity>
+        />
 
-        <TouchableOpacity
-          style={[styles.keyBtn, styles.specialKeyBtn]}
-          activeOpacity={0.65}
+        <KeypadActionButton
           disabled={disabled || value.length === 0}
           onPress={handlePressDelete}
         >
@@ -178,7 +286,7 @@ export function PinPad({
             size={24}
             color={value.length > 0 ? "#f4f4f5" : "rgba(255, 255, 255, 0.2)"}
           />
-        </TouchableOpacity>
+        </KeypadActionButton>
       </View>
     </View>
   );
@@ -195,16 +303,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
     height: 36,
     marginBottom: 8,
   },
   dot: {
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
     borderWidth: 1,
+  },
+  dotEmpty: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     borderColor: "rgba(255, 255, 255, 0.2)",
   },
   dotFilled: {
@@ -212,12 +318,13 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
     shadowColor: "#ffffff",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 6,
+    shadowOpacity: 0.65,
+    shadowRadius: 8,
     elevation: 4,
   },
   dotError: {
     borderColor: "#ef4444",
+    backgroundColor: "#ef4444",
   },
   errorText: {
     color: "#f87171",
