@@ -1474,14 +1474,19 @@ window.addEventListener("message", (event) => {
                   },
                 },
                 (getRes) => {
-                  if (chrome.runtime.lastError || !getRes) {
+                  if (chrome.runtime.lastError || !getRes || !getRes.handled || !getRes.credential) {
+                    const errMsg = getRes?.error || chrome.runtime.lastError?.message || "Passkey sign-in failed";
+                    showInPageToast(
+                      `<span style="color:#ef4444;font-weight:700">✕</span> <span>${errMsg}</span>`,
+                      6000
+                    );
                     window.postMessage(
                       {
                         source: "VAULTR_WEBAUTHN_CONTENT",
                         reqId,
                         handled: false,
                         userConfirmed: true,
-                        error: chrome.runtime.lastError?.message || "Failed to communicate with VaultR",
+                        error: errMsg,
                       },
                       "*"
                     );
@@ -1491,10 +1496,9 @@ window.addEventListener("message", (event) => {
                     {
                       source: "VAULTR_WEBAUTHN_CONTENT",
                       reqId,
-                      handled: getRes.handled ?? true,
+                      handled: true,
                       userConfirmed: true,
                       credential: getRes.credential,
-                      error: getRes.error,
                     },
                     "*"
                   );

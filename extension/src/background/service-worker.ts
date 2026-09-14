@@ -825,7 +825,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
               }
             }
 
-            if (!p.isPasskey && !p.passkeyPrivateKey) continue;
+            if (!p.passkeyPrivateKey) continue;
 
             const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
             const rpMatches = !rpId || itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp);
@@ -855,7 +855,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
               if (tmpl !== "login") continue;
 
               const p = state.decryptedItemsCache[item.id];
-              if (!p || (!p.isPasskey && !p.passkeyPrivateKey)) continue;
+              if (!p || !p.passkeyPrivateKey) continue;
 
               const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
               const rpMatches = !rpId || itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp);
@@ -1157,7 +1157,13 @@ function normalizeCredentialId(id: string | undefined | null): string {
             });
           } catch (err: any) {
             console.error("[Vaultr SW] WEBAUTHN_GET failed:", err);
-            sendResponse({ handled: false, error: err?.message || "Assertion failed" });
+            let userMsg = "Passkey assertion failed";
+            if (err?.message?.includes("keyData") || err?.name === "DataError") {
+              userMsg = "Passkey private key is invalid (or contains only public key metadata from an export). Please re-enroll this passkey in your Google Account settings.";
+            } else if (err?.message) {
+              userMsg = err.message;
+            }
+            sendResponse({ handled: false, error: userMsg });
           }
           break;
         }

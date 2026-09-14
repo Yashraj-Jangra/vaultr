@@ -450,7 +450,9 @@ export function mapCsvRow(row: GenericImportRow, index: number): ParsedImportIte
         passkeyRpId: fido2?.rpId || "",
         passkeyCredentialId: fido2?.credentialId || "",
         passkeyUserHandle: fido2?.userHandle || "",
-        passkeyPrivateKey: fido2?.keyValue || fido2?.privateKey || "",
+        // In Bitwarden JSON exports, keyValue is the PUBLIC KEY (with keyType: "public-key").
+        // Bitwarden does not export private keys in unencrypted JSON exports.
+        passkeyPrivateKey: fido2?.keyType === "public-key" ? "" : (fido2?.privateKey || fido2?.keyValue || ""),
         passkeySignCount: typeof fido2?.counter === "number" ? fido2.counter : undefined,
         passkeyTransports: Array.isArray(fido2?.transports) ? fido2.transports : undefined,
         passkeyCreatedAt: fido2?.creationDate || undefined,

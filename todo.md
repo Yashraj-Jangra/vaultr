@@ -1,5 +1,21 @@
 ## Current Session: Passkey Integration Across Web, Mobile & Extension (2026-09-13) · Branch: `dev`
 
+### ✅ What Was Done (Phase 12: Bitwarden Passkey Import Safeguards & Clear In-Page Failure Feedback)
+- **Resolved Cryptographic Mismatch on Bitwarden-Imported Passkeys**:
+  - **Root Cause Discovered**:
+    - In Bitwarden JSON exports, `fido2Credentials` contains `"keyType": "public-key"` and `"keyValue": "<base64>"`. This is the **Public Key**, NOT the private key! Bitwarden deliberately excludes private keys in unencrypted exports to prevent leaking raw cryptographic secrets in cleartext files.
+    - Previously, `importer.ts` mapped `passkeyPrivateKey: fido2.keyValue`. When used, `crypto.subtle.importKey("pkcs8", ...)` failed with `Invalid keyData` because a public key cannot be imported as a private signing key.
+  - **Core Importer Safeguard (`packages/core/src/importer.ts`)**:
+    - Prevented treating Bitwarden `keyValue` with `keyType: "public-key"` as `passkeyPrivateKey`.
+  - **Service Worker Guard (`extension/src/background/service-worker.ts`)**:
+    - Ensured `GET_PASSKEYS_FOR_RP` strictly requires `passkeyPrivateKey` so items lacking private keys are not offered as functional authenticators.
+    - Provided descriptive error in `WEBAUTHN_GET` catch block explaining that the imported passkey lacks private key material and must be re-enrolled.
+  - **In-Page Feedback (`extension/src/content-script/autofill.ts`)**:
+    - Added error toast with `showInPageToast` on assertion failure so users immediately see why authentication was rejected rather than falling into silent failure.
+- **Verification**:
+  - TypeScript check: 0 errors across extension and root.
+  - Webpack production build: compiled cleanly.
+
 ### ✅ What Was Done (Phase 11: Direct In-Page Passkey Sign-In & Windows Hello Suppression)
 - **Resolved Windows Hello Modal Spawning After VaultR Passkey Selection**:
   - **Root Cause**:
