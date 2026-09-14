@@ -413,7 +413,7 @@ export function SessionsScreen({ navigation }: any) {
                               <Text style={styles.helloBadgeText}>WINDOWS HELLO / TOUCH ID</Text>
                             </View>
                             <View style={styles.passkeyBadge}>
-                              <KeyRound size={10} color="#f59e0b" />
+                              <KeyRound size={10} color="#38bdf8" />
                               <Text style={styles.passkeyBadgeText}>PASSKEY READY</Text>
                             </View>
                           </>
@@ -709,15 +709,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    borderColor: "rgba(245, 158, 11, 0.35)",
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderColor: "rgba(56, 189, 248, 0.35)",
     borderWidth: 1,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
   passkeyBadgeText: {
-    color: "#fbbf24",
+    color: "#38bdf8",
     fontSize: 9,
     fontWeight: "700",
   },

@@ -833,7 +833,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 </View>
                 <View style={styles.passkeyInfoCard}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <KeyRound size={14} color="#f59e0b" />
+                    <KeyRound size={14} color="#38bdf8" />
                     <Text style={styles.passkeyInfoTitle}>Linked FIDO2 Passkey</Text>
                   </View>
                   <Text style={styles.passkeyInfoText}>RP ID: {passkeyData.passkeyRpId || url || "WebAuthn"}</Text>
@@ -1872,15 +1872,15 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   passkeyInfoCard: {
-    backgroundColor: "rgba(245, 158, 11, 0.08)",
+    backgroundColor: "rgba(56, 189, 248, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.25)",
+    borderColor: "rgba(56, 189, 248, 0.25)",
     borderRadius: 12,
     padding: 12,
     gap: 4,
   },
   passkeyInfoTitle: {
-    color: "#f59e0b",
+    color: "#38bdf8",
     fontSize: 12,
     fontWeight: "600",
   },

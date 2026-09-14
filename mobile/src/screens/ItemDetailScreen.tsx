@@ -381,45 +381,30 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {/* Passkey Credential Section */}
-          {(payload.isPasskey || (item as any).isPasskey || item.tags?.includes("passkey")) && (
+          {/* Passkey Status Card */}
+          {(payload.isPasskey || (item as any).isPasskey || item.tags?.includes("passkey") || payload.passkeyCredentialId) && (
             <View style={{ gap: 6 }}>
-              <Text style={styles.sectionHeaderLabel}>PASSKEY CREDENTIAL</Text>
-              <View style={styles.sectionGroup}>
-                <FieldRow
-                  label="Relying Party (RP ID)"
-                  value={payload.passkeyRpId || item.domain || "WebAuthn"}
-                  onCopy={() => copyToClipboard("rpId", payload.passkeyRpId || item.domain || "WebAuthn")}
-                  isCopied={copiedField === "rpId"}
-                  hasDivider={!!payload.passkeyCredentialId || !!payload.passkeyUserHandle || !!payload.passkeyCreatedAt}
-                />
-                {payload.passkeyCredentialId ? (
-                  <FieldRow
-                    label="Credential ID"
-                    value={payload.passkeyCredentialId}
-                    onCopy={() => copyToClipboard("credId", payload.passkeyCredentialId)}
-                    isCopied={copiedField === "credId"}
-                    hasDivider={!!payload.passkeyUserHandle || !!payload.passkeyCreatedAt}
-                  />
-                ) : null}
-                {payload.passkeyUserHandle ? (
-                  <FieldRow
-                    label="User Handle"
-                    value={payload.passkeyUserHandle}
-                    onCopy={() => copyToClipboard("userHandle", payload.passkeyUserHandle)}
-                    isCopied={copiedField === "userHandle"}
-                    hasDivider={!!payload.passkeyCreatedAt}
-                  />
-                ) : null}
-                {payload.passkeyCreatedAt ? (
-                  <FieldRow
-                    label="Created Date"
-                    value={new Date(payload.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                    onCopy={() => copyToClipboard("createdDate", new Date(payload.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))}
-                    isCopied={copiedField === "createdDate"}
-                    hasDivider={false}
-                  />
-                ) : null}
+              <Text style={styles.sectionHeaderLabel}>PASSKEY</Text>
+              <View style={styles.passkeyCard}>
+                <View style={styles.passkeyCardLeft}>
+                  <KeyRound size={26} color="#38bdf8" />
+                  <View style={styles.passkeyInfoCol}>
+                    <Text style={styles.passkeyTitleText}>Passkey Configured</Text>
+                    <Text style={styles.passkeyDateText}>
+                      {payload.passkeyCreatedAt
+                        ? `Configured • ${new Date(payload.passkeyCreatedAt).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}`
+                        : "Configured for passwordless sign-in"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.passkeyStatusBadge}>
+                  <View style={styles.passkeyStatusDot} />
+                  <Text style={styles.passkeyStatusText}>ACTIVE</Text>
+                </View>
               </View>
             </View>
           )}
@@ -1631,5 +1616,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  passkeyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.2)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  passkeyCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flex: 1,
+  },
+  passkeyInfoCol: {
+    flex: 1,
+    gap: 2,
+  },
+  passkeyTitleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#f4f4f5",
+  },
+  passkeyDateText: {
+    fontSize: 12,
+    color: "#a1a1aa",
+  },
+  passkeyStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+  },
+  passkeyStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#10b981",
+  },
+  passkeyStatusText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#34d399",
+    letterSpacing: 0.6,
+  },
 });
+
 

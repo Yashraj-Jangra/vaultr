@@ -67,6 +67,12 @@
   - Compiled and installed debug APK targeting physical device 64-bit architecture (`arm64-v8a`) directly over wireless ADB (`192.168.1.42:34685`).
   - Verified package registration in Android OS: `VaultrCredentialProviderService` registered with `BIND_CREDENTIAL_PROVIDER_SERVICE`.
   - Re-bound Metro bundler on `0.0.0.0:8081` with live watch mode, established `adb reverse` tunnels (`tcp:8081`, `tcp:3000`), and verified live rendering of Vault home screen.
+- **Passkey Display Redesign & Minimal Theming (Detail & Edit Views)**:
+  - **Detail View Mode**: Concealed raw passkey credentials (no raw `passkeyCredentialId`, `passkeyUserHandle`, or `passkeyRpId` shown) in favor of a sleek, minimal status card.
+  - Displays "Passkey Configured", configured date (or fallback "Configured for passwordless sign-in"), a larger standalone `KeyRound` logo (no enclosing div/box), and an emerald `ACTIVE` status pill.
+  - **Edit Mode Theme**: Swapped out amber/yellow accents for sleek sky blue (`#38bdf8`, `rgba(56, 189, 248, 0.08)`) across the linked passkey card, title, and key icon.
+  - **Badge Unification**: Updated all passkey badge chips in `ItemPreviewCard.tsx`, `VaultFilteredScreen.tsx`, and `SessionsScreen.tsx` to match the sky blue theme.
+  - **Ecosystem Parity**: Mirrored the minimal Passkey Configured card and standalone key icon across Web (`src/app/vault/page.tsx`) and Browser Extension (`extension/src/popup/VaultScreen.tsx`).
 - **Type Checking Gate**: All subprojects compile cleanly with zero errors.
 
 

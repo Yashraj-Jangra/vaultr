@@ -471,16 +471,43 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
                   {(decrypted.isPasskey || decrypted.passkeyCredentialId) && (
                     <div className="detail-section-group">
-                      <div className="detail-section-title">PASSKEY CREDENTIAL</div>
-                      <div className="detail-section-box">
-                        {decrypted.passkeyRpId && <DetailRow label="RP ID" value={decrypted.passkeyRpId} />}
-                        {decrypted.passkeyCredentialId && (
-                          <DetailRow label="Credential ID" value={decrypted.passkeyCredentialId} />
-                        )}
-                        {decrypted.passkeyUserHandle && (
-                          <DetailRow label="User Handle" value={decrypted.passkeyUserHandle} />
-                        )}
-                        <DetailRow label="Status" value="FIDO2 / WebAuthn Enrolled" />
+                      <div className="detail-section-title">PASSKEY</div>
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(56, 189, 248, 0.05)",
+                        border: "1px solid rgba(56, 189, 248, 0.2)",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <KeyRound size={22} color="#38bdf8" style={{ flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: "12px", fontWeight: "600", color: "#f4f4f5" }}>Passkey Configured</div>
+                            <div style={{ fontSize: "10.5px", color: "#a1a1aa" }}>
+                              {decrypted.passkeyCreatedAt
+                                ? `Configured • ${new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
+                                : "Configured for passwordless sign-in"}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "2px 7px",
+                          borderRadius: "9999px",
+                          backgroundColor: "rgba(16, 185, 129, 0.12)",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                          fontSize: "9px",
+                          fontWeight: "700",
+                          color: "#34d399",
+                          letterSpacing: "0.5px",
+                        }}>
+                          <span style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: "#10b981", display: "inline-block" }} />
+                          ACTIVE
+                        </div>
                       </div>
                     </div>
                   )}

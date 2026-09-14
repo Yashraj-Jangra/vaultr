@@ -189,7 +189,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
               </Text>
               {((item as any).isPasskey || item.tags?.includes("passkey") || (item.unencryptedPayload as any)?.isPasskey) && (
                 <View style={styles.passkeyBadge}>
-                  <KeyRound size={9} color="#f59e0b" />
+                  <KeyRound size={9} color="#38bdf8" />
                   <Text style={styles.passkeyBadgeText}>Passkey</Text>
                 </View>
               )}
@@ -498,14 +498,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.35)",
+    borderColor: "rgba(56, 189, 248, 0.3)",
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  passkeyBadgeText: { fontSize: 9, color: "#f59e0b", fontWeight: "700", letterSpacing: 0.5 },
+  passkeyBadgeText: { fontSize: 9, color: "#38bdf8", fontWeight: "700", letterSpacing: 0.5 },
   totpBadge: {
     flexDirection: "row",
     alignItems: "center",

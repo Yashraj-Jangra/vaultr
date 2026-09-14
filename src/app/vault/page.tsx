@@ -939,12 +939,24 @@ function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = fa
           )}
 
           {(data.isPasskey || data.passkeyCredentialId) && (
-            <SectionGroup title="PASSKEY CREDENTIAL">
-              <DetailRow label="Relying Party" value={data.passkeyRpId || "WebAuthn"} />
-              <DetailRow label="Credential ID" value={data.passkeyCredentialId ? `${data.passkeyCredentialId.slice(0, 16)}…` : "Active"} />
-              {data.passkeyUserHandle ? <DetailRow label="User Handle" value={data.passkeyUserHandle} /> : null}
-              {data.passkeySignCount !== undefined ? <DetailRow label="Sign Count" value={String(data.passkeySignCount)} /> : null}
-              {data.passkeyCreatedAt ? <DetailRow label="Created" value={new Date(data.passkeyCreatedAt).toLocaleDateString()} /> : null}
+            <SectionGroup title="PASSKEY">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--surface-hover)] border border-sky-500/20">
+                <div className="flex items-center gap-3.5">
+                  <KeyRound className="w-6 h-6 text-sky-400 shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium text-neutral-200">Passkey Configured</div>
+                    <div className="text-xs text-neutral-400">
+                      {data.passkeyCreatedAt
+                        ? `Configured • ${new Date(data.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
+                        : "Configured for passwordless sign-in"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-400 tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  ACTIVE
+                </div>
+              </div>
             </SectionGroup>
           )}
 
