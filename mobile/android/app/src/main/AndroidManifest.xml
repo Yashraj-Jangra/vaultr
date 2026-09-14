@@ -87,5 +87,13 @@
         android:excludeFromRecents="true"
         android:windowSoftInputMode="adjustResize|stateHidden"
         android:exported="true" />
+
+    <!-- Vaultr Passkey & Credential Manager Authentication Bridge Activity -->
+    <activity
+        android:name=".autofill.PasskeyAuthActivity"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar"
+        android:taskAffinity=""
+        android:excludeFromRecents="true"
+        android:exported="true" />
   </application>
 </manifest>

@@ -75,10 +75,19 @@ object AutofillCredentialStore {
             lastUnlockedAt = prefs.getLong(KEY_UNLOCKED_AT, 0L)
             autoLockTimeoutMs = prefs.getLong(KEY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
 
-            // If auto-lock timeout has expired, wipe immediately
-            if (isVaultLockedInternal()) {
+            // If never unlocked or auto-lock timeout has expired, wipe immediately
+            if (lastUnlockedAt == 0L) {
                 clear(context)
                 return
+            }
+
+            if (autoLockTimeoutMs > 0L) {
+                val elapsed = System.currentTimeMillis() - lastUnlockedAt
+                if (elapsed >= autoLockTimeoutMs) {
+                    Log.d(TAG, "Auto-lock timeout expired ($elapsed >= $autoLockTimeoutMs ms). Vault is locked.")
+                    clear(context)
+                    return
+                }
             }
 
             if (cachedItems.isEmpty()) {
@@ -98,8 +107,8 @@ object AutofillCredentialStore {
     }
 
     private fun isVaultLockedInternal(): Boolean {
-        if (cachedItems.isEmpty() && lastUnlockedAt == 0L) return true
-        if (autoLockTimeoutMs > 0 && lastUnlockedAt > 0) {
+        if (lastUnlockedAt == 0L) return true
+        if (autoLockTimeoutMs > 0L && lastUnlockedAt > 0L) {
             val elapsed = System.currentTimeMillis() - lastUnlockedAt
             if (elapsed >= autoLockTimeoutMs) {
                 Log.d(TAG, "Auto-lock timeout expired ($elapsed >= $autoLockTimeoutMs ms). Vault is locked.")
@@ -256,29 +265,78 @@ object AutofillCredentialStore {
     fun findPasskeys(rpId: String?): List<AutofillItem> {
         if (isVaultLocked() || rpId.isNullOrBlank()) return emptyList()
         val cleanRp = normalizeDomain(rpId)
+        val mappedDomain = PACKAGE_DOMAIN_MAP[cleanRp.lowercase()]
         return cachedItems.filter { item ->
-            item.isPasskey && !item.passkeyCredentialId.isNullOrBlank() && (
-                (item.passkeyRpId != null && normalizeDomain(item.passkeyRpId) == cleanRp) ||
-                (!item.domain.isNullOrBlank() && normalizeDomain(item.domain) == cleanRp) ||
-                cleanRp.endsWith(".${normalizeDomain(item.passkeyRpId ?: item.domain ?: "")}")
-            )
+            if (!item.isPasskey || item.passkeyCredentialId.isNullOrBlank()) return@filter false
+
+            val itemRp = item.passkeyRpId?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
+            val itemDomain = item.domain?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
+
+            // 1. Direct match on RP ID or domain
+            if (itemRp == cleanRp || itemDomain == cleanRp) return@filter true
+            if (mappedDomain != null && (itemRp == mappedDomain || itemDomain == mappedDomain)) return@filter true
+
+            // 2. Subdomain / parent domain match (e.g. login.live.com vs live.com)
+            if (itemRp != null && (cleanRp.endsWith(".$itemRp") || itemRp.endsWith(".$cleanRp"))) return@filter true
+            if (itemDomain != null && (cleanRp.endsWith(".$itemDomain") || itemDomain.endsWith(".$cleanRp"))) return@filter true
+
+            // 3. URLs match
+            for (u in item.urls) {
+                val uDomain = normalizeDomain(u)
+                if (uDomain == cleanRp || (mappedDomain != null && uDomain == mappedDomain)) return@filter true
+                if (cleanRp.endsWith(".$uDomain") || uDomain.endsWith(".$cleanRp")) return@filter true
+            }
+
+            false
         }
     }
 
     fun findPasskeyByCredentialId(credentialId: String): AutofillItem? {
         if (isVaultLocked()) return null
-        return cachedItems.firstOrNull { it.isPasskey && it.passkeyCredentialId == credentialId }
+        return cachedItems.firstOrNull { it.isPasskey && (it.passkeyCredentialId == credentialId || it.id == credentialId) }
     }
 
-    fun updatePasskeySignCount(credentialId: String, newCount: Long) {
-        val index = cachedItems.indexOfFirst { it.passkeyCredentialId == credentialId }
+    fun updatePasskeySignCount(credentialId: String, newCount: Long, context: Context? = null) {
+        val index = cachedItems.indexOfFirst { it.passkeyCredentialId == credentialId || it.id == credentialId }
         if (index != -1) {
             val item = cachedItems[index]
             val updated = item.copy(passkeySignCount = newCount)
             val newList = cachedItems.toMutableList()
             newList[index] = updated
             cachedItems = newList
+
+            if (context != null) {
+                try {
+                    val raw = serializeToJson(cachedItems)
+                    getPrefs(context).edit().putString(KEY_CREDENTIALS, raw).apply()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to persist updated signCount", e)
+                }
+            }
         }
+    }
+
+    private fun serializeToJson(items: List<AutofillItem>): String {
+        val array = JSONArray()
+        for (item in items) {
+            val obj = JSONObject().apply {
+                put("id", item.id)
+                put("name", item.name)
+                if (!item.domain.isNullOrBlank()) put("domain", item.domain)
+                put("username", item.username)
+                put("password", item.password)
+                put("urls", JSONArray(item.urls))
+                put("isPasskey", item.isPasskey)
+                if (!item.passkeyRpId.isNullOrBlank()) put("passkeyRpId", item.passkeyRpId)
+                if (!item.passkeyCredentialId.isNullOrBlank()) put("passkeyCredentialId", item.passkeyCredentialId)
+                if (!item.passkeyUserHandle.isNullOrBlank()) put("passkeyUserHandle", item.passkeyUserHandle)
+                if (!item.passkeyPrivateKey.isNullOrBlank()) put("passkeyPrivateKey", item.passkeyPrivateKey)
+                put("passkeySignCount", item.passkeySignCount)
+                put("passkeyTransports", JSONArray(item.passkeyTransports))
+            }
+            array.put(obj)
+        }
+        return array.toString()
     }
 
     private fun parseJson(jsonString: String): List<AutofillItem> {

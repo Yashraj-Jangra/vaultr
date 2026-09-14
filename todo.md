@@ -1,5 +1,39 @@
 ## Current Session: Passkey Integration, URL Matching & Mobile UI Parity (2026-09-14) · Branch: `dev`
 
+### ✅ What Was Done (Phase 15: Android Credential Manager Passkey Integration Fix)
+- **Resolved Android Falling Back to Google Default Passkeys**:
+  - **Diagnosed Root Causes in Android Native Layer**:
+    - `VaultrCredentialProviderService.kt`: In `onBeginGetCredential()`, candidate passkeys were queried from `AutofillCredentialStore` but never added to `BeginGetCredentialResponse.Builder` (only logged via `Log.d`). Because 0 candidates were returned to Android OS, Credential Manager had no VaultR entries and fell back to Google Password Manager.
+    - `AutofillCredentialStore.kt`: In `initialize(context)`, `isVaultLockedInternal()` evaluated `cachedItems.isEmpty()` before reading credentials from `SharedPreferences`. On cold service invocations, this immediately called `clear(context)`, wiping all synced credentials from `SharedPreferences`.
+    - Missing Assertion Activity: No Activity was registered to receive the mutable `PendingIntent` from the Credential Manager bottom sheet to execute ECDSA P-256 assertion signing and return `GetCredentialResponse(PublicKeyCredential)`.
+  - **Native Implementation (`mobile/android/app/src/main/java/com/vaultr/mobile/autofill/`)**:
+    - `AutofillCredentialStore.kt`:
+      - Rewrote `initialize(context)` to load `KEY_CREDENTIALS` into memory before performing auto-lock timeout checks.
+      - Refactored `isVaultLockedInternal()` to evaluate lock status using `lastUnlockedAt` and `autoLockTimeoutMs`.
+      - Enhanced `findPasskeys(rpId)` with package mapping, subdomain matching, and URL candidate inspection.
+      - Implemented `updatePasskeySignCount(credentialId, newCount, context)` with persistent write-back to SharedPreferences.
+    - `PasskeyAuthActivity.kt` (New):
+      - Implemented transparent assertion activity handling `ACTION_PASSKEY_AUTH` and `ACTION_PASSWORD_AUTH`.
+      - Extracted `ProviderGetCredentialRequest`, `GetPublicKeyCredentialOption`, `clientDataHash`, and WebAuthn parameters.
+      - Generated standard 37-byte `authenticatorData` with flags (UP, UV, BE, BS) and sign count.
+      - Signed assertion with ECDSA P-256 (`SHA256withECDSA`) using PKCS#8 private key (supporting standard PKCS#8 DER, raw 32-byte scalars, and PEM).
+      - Returned `GetCredentialResponse(PublicKeyCredential)` via `PendingIntentHandler.setGetCredentialResponse(...)`.
+    - `VaultrCredentialProviderService.kt`:
+      - Migrated to `androidx.credentials.provider.CredentialProviderService`.
+      - In `onBeginGetCredentialRequest`, registered `PublicKeyCredentialEntry` and `PasswordCredentialEntry` candidates using their respective builders with mutable PendingIntents pointing to `PasskeyAuthActivity`.
+      - Provided `AuthenticationAction` ("Unlock VaultR") when vault is locked.
+    - `AndroidManifest.xml`:
+      - Registered `PasskeyAuthActivity` with `@android:style/Theme.Translucent.NoTitleBar`, `android:taskAffinity=""`, `android:excludeFromRecents="true"`, and `android:exported="true"`.
+- **Verification**:
+  - `mobile` TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Release APK Compilation: `.\gradlew.bat assembleRelease` built cleanly (`BUILD SUCCESSFUL in 4m 12s`), generating `vaultr-v0.2.10-release.apk` (146.7 MB).
+  - Deployed to device: Installed onto physical Android 16 device (`192.168.1.41:42251`) via wireless ADB (`Success`).
+  - Configured secure system settings:
+    - `credential_service`: `com.vaultr.mobile/.autofill.VaultrCredentialProviderService`
+    - `credential_service_primary`: `com.vaultr.mobile/.autofill.VaultrCredentialProviderService`
+    - `autofill_service`: `com.vaultr.mobile/.autofill.VaultrAutofillService`
+
 ### ✅ What Was Done (Phase 14: Non-Credit Card Preview Cards Background Glitch Fix on Mobile)
 - **Eliminated Background & Border Rendering Glitches in Non-Credit Card Preview Cards (`mobile/src/components/ItemPreviewCard.tsx`)**:
   - **Zero Touch on Payment Cards**:
