@@ -1,4 +1,44 @@
-## Current Session: Passkey Integration Across Web, Mobile & Extension (2026-09-13) · Branch: `dev`
+## Current Session: Passkey Integration, URL Matching & Mobile UI Parity (2026-09-14) · Branch: `dev`
+
+### ✅ What Was Done (Phase 14: Non-Credit Card Preview Cards Background Glitch Fix on Mobile)
+- **Eliminated Background & Border Rendering Glitches in Non-Credit Card Preview Cards (`mobile/src/components/ItemPreviewCard.tsx`)**:
+  - **Zero Touch on Payment Cards**:
+    - Completely untouched `CreditCardVisual`, `CreditCardBackVisual`, `CardBackgroundSurface`, brand logos, and payment card styling to preserve perfect credit card rendering.
+  - **Resolved Android Skia Rendering Quirks on Non-Card Previews**:
+    - `LoginKeycardVisual`:
+      - Replaced unclipped percentage `<Rect>` with standard `viewBox="0 0 320 200" preserveAspectRatio="none"` SVG architecture matching `CardBackgroundSurface`.
+      - Replaced View-level ambient glow with negative coordinates (`top: -24, right: -24`) that caused hardware clipping glitches with an SVG `<RadialGradient>` strictly constrained via `<ClipPath id="loginCardClip">`.
+      - Removed View-level border to eliminate double-border aliasing moiré against the rounded SVG card.
+    - `NotePaperVisual`:
+      - Replaced unclipped square SVG header bar with a 5px high rect cleanly clipped by `<ClipPath id="noteCardClip">` with `rx={16} ry={16}`, eliminating the dog-eared corner clipping artifacts.
+      - Integrated subtle SVG confidential letter watermark and crisp inset border.
+    - `AddressLabelVisual`:
+      - Removed `borderStyle: "dashed"` from the React Native View container with `borderRadius`, eliminating a known Android Skia bug where dashed borders draw glitch lines cutting across the background.
+      - Migrated dashed rounded border directly to hardware-accelerated SVG (`<Rect strokeDasharray="6,4" rx={15} ry={15} ... />`).
+      - Added decorative postal route lines with `<ClipPath id="addrCardClip">`.
+    - `ProfileBadgeVisual`:
+      - Replaced unclipped square left accent bar with `<Rect width={4} clipPath="url(#profileCardClip)" />` so the accent bar smoothly hugs the left 16px corner curves.
+      - Added security emblem vector watermark and crisp inset border.
+    - **Solid Surface Foundations**:
+      - Replaced `backgroundColor: "transparent"` with matching solid dark background colors on all container styles (`#0d0d10`, `#111113`, `#0d0e12`, `#07070a`) to prevent subpixel bleed during 3D tilt animations.
+- **Verification**:
+  - `mobile` TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Extension and Core type checks: passed with 0 errors.
+
+### ✅ What Was Done (Phase 13: Multi-URL Domain Matching, IP:Port Normalization & Subdomain Matching Option)
+- **Enhanced Domain Matching Across Ecosystem (`packages/core/src/domain.ts`)**:
+  - Added `isIpAddress()` and updated `extractDomainHost()` to strip ports from IP addresses (e.g. `192.168.1.100:8080` -> `192.168.1.100`).
+  - Added `getBaseRootDomain()` supporting 2-part ccTLDs (`.co.uk`, `.com.au`) and returning raw IP for IP addresses.
+  - Implemented `calculateDomainMatchScore()` supporting exact match, subdomain match, and base root domain match.
+- **Service Worker & Popup Autofill Synchronization (`extension/src/background/service-worker.ts`, `extension/src/popup/VaultScreen.tsx`)**:
+  - Scanned all candidate URLs for vault items (`item.domain`, `decrypted.url`, `decrypted.urls[]`).
+  - Integrated `vaultr_subdomain_matching` setting allowing users to toggle suggestions for subdomains (e.g. suggesting `abc.example.com` credentials on `example.com` and vice versa).
+- **Settings Toggle (`extension/src/popup/SettingsScreen.tsx`)**:
+  - Added "Match subdomains" toggle under Browser Integration & Autofill.
+- **Verification**:
+  - TypeScript check: 0 errors across extension, core, and root.
+  - Webpack production build: compiled cleanly.
 
 ### ✅ What Was Done (Phase 12: Bitwarden Passkey Import Safeguards & Clear In-Page Failure Feedback)
 - **Resolved Cryptographic Mismatch on Bitwarden-Imported Passkeys**:
