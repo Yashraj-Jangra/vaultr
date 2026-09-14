@@ -25,6 +25,7 @@
   - `mobile` TypeScript check: `npx tsc --noEmit` passed with 0 errors.
   - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
   - Extension and Core type checks: passed with 0 errors.
+  - Native Release APK Compilation: `.\gradlew.bat assembleRelease` built successfully (`BUILD SUCCESSFUL in 3m 35s`, 93 tasks executed), generating standalone `vaultr-v0.2.10-release.apk` (146.7 MB).
 
 ### ✅ What Was Done (Phase 13: Multi-URL Domain Matching, IP:Port Normalization & Subdomain Matching Option)
 - **Enhanced Domain Matching Across Ecosystem (`packages/core/src/domain.ts`)**:
