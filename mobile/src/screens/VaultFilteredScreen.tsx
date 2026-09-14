@@ -19,6 +19,7 @@ import {
   Lock,
   Star,
   KeyRound,
+  Key,
   Folder,
   CreditCard,
   FileText,
@@ -195,7 +196,7 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
               )}
               {item.hasTotp && (
                 <View style={styles.totpBadge}>
-                  <KeyRound size={9} color="#a78bfa" />
+                  <Key size={9} color="#a78bfa" />
                   <Text style={styles.totpBadgeText}>2FA</Text>
                 </View>
               )}

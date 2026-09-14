@@ -85,6 +85,27 @@
     - Updated modal copy, card descriptions, and success notifications to dynamically reflect PIN length.
   - `mobile/src/screens/UnlockScreen.tsx`:
     - Added 80ms yield before triggering PBKDF2 decryption so the final dot fill and spring scale render completely with zero frame drop.
+- **Icon Semantics & Color System Overhaul (`mobile/`)**:
+  - **Key Style Separation**:
+    - Passkeys: Standardized on `KeyRound` (circular head, modern digital WebAuthn standard) in Sky Blue (`#38bdf8`) across item cards, badges, forms, and settings.
+    - 2FA / Authenticator: Standardized on `Key` (classic notched skeleton key) in Violet (`#c084fc` / `#a78bfa`) across bottom tab navigation, screen headers, TOTP entry labels, and item badges.
+    - Quick PIN: Decoupled numeric PIN from key icons; using `Hash` (`#`) in Amber (`#f59e0b`).
+  - **Autofill Settings (`AutofillSettingsScreen.tsx`)**:
+    - Replaced irrelevant `Sparkles` magic icon in Passkeys row with `<KeyRound size={18} color="#38bdf8" />`.
+    - Replaced `KeyRound` in Indexed Vault Items row with `<Database size={16} color="#818cf8" />`.
+    - Updated Passkey enrolled mini-badge pill to sky blue.
+  - **Security Settings (`SecuritySettingsScreen.tsx`)**:
+    - Upgraded Biometric Unlock icon to Emerald (`#10b981`).
+    - Upgraded Auto-Lock Timeout icon to Amber (`#fbbf24`).
+    - Upgraded Auto-Clear Clipboard icon to Sky Blue (`#38bdf8`).
+  - **Settings & Account Management**:
+    - `SettingsScreen.tsx`: Updated Account Settings row `User` icon from plain white to violet (`#a78bfa`).
+    - `AccountSettingsScreen.tsx`: Replaced `KeyRound` in Vault Master Password card with `<Lock size={18} color="#fbbf24" />`.
+    - `FolderManagerScreen.tsx`: Updated folder row icons from `#fafafa` to warm amber (`#fbbf24`).
+  - **Item Form & Details**:
+    - `ItemDetailScreen.tsx`: Added violet `Key` icon beside `AUTHENTICATOR` section heading.
+    - `ItemFormScreen.tsx`: Added violet `Key` icon beside `2FA TOTP Secret Key (Optional)` form label.
+    - `ItemPreviewCard.tsx`: Passkey and 2FA badges render side-by-side with distinct key glyphs and contrasting colors (`#38bdf8` and `#a78bfa`).
 - **Type Checking Gate**: All subprojects compile cleanly with zero errors.
 
 

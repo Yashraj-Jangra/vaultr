@@ -343,7 +343,10 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       {/* Live 2FA TOTP Code */}
       {payload && (payload.totpSecret || payload.totp_secret) ? (
         <View style={{ gap: 6 }}>
-          <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Key size={13} color="#c084fc" />
+            <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
+          </View>
           <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
         </View>
       ) : null}

@@ -21,7 +21,7 @@ import { SiteIcon } from "../components/SiteIcon";
 import { AnimatedListItem } from "../components/AnimatedListItem";
 import { colors } from "../theme/colors";
 import {
-  KeyRound,
+  Key,
   Plus,
   Edit3,
   X,
@@ -288,7 +288,7 @@ export function AuthenticatorScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <KeyRound size={20} color="#fafafa" />
+          <Key size={20} color="#c084fc" />
           <Text style={styles.headerTitle}>Authenticator</Text>
           <View style={styles.countBadge}>
             <Text style={styles.countBadgeText}>{totpItems.length}</Text>
@@ -340,7 +340,7 @@ export function AuthenticatorScreen() {
               onPress={() => setShowOptionsModal(true)}
               activeOpacity={0.85}
             >
-              <KeyRound size={16} color="#09090b" />
+              <Key size={16} color="#09090b" />
               <Text style={styles.emptyCtaBtnText}>Add 2FA Token</Text>
             </TouchableOpacity>
           </View>

@@ -8,7 +8,7 @@ import { GeneratorScreen } from "../screens/GeneratorScreen";
 import { AuthenticatorScreen } from "../screens/AuthenticatorScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { colors } from "../theme/colors";
-import { Shield, Wand2, KeyRound, Settings as SettingsIcon, Lock } from "lucide-react-native";
+import { Shield, Wand2, Key, Settings as SettingsIcon, Lock } from "lucide-react-native";
 import { useResponsive } from "../utils/responsive";
 import { useVaultStore } from "../store/vaultStore";
 
@@ -59,7 +59,7 @@ function TabletTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
           let IconComp = Shield;
           if (route.name === "GeneratorTab") IconComp = Wand2;
-          else if (route.name === "AuthenticatorTab") IconComp = KeyRound;
+          else if (route.name === "AuthenticatorTab") IconComp = Key;
           else if (route.name === "SettingsTab") IconComp = SettingsIcon;
 
           return (
@@ -143,7 +143,7 @@ function MobileTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         let IconComp = Shield;
         if (route.name === "GeneratorTab") IconComp = Wand2;
-        else if (route.name === "AuthenticatorTab") IconComp = KeyRound;
+        else if (route.name === "AuthenticatorTab") IconComp = Key;
         else if (route.name === "SettingsTab") IconComp = SettingsIcon;
 
         return (

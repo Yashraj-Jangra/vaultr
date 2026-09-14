@@ -20,7 +20,6 @@ import * as FileSystem from "expo-file-system/legacy";
 import { getAvatarUri } from "../../utils/avatar";
 import {
   User,
-  KeyRound,
   Lock,
   ArrowLeft,
   CheckCircle2,
@@ -654,7 +653,7 @@ export function AccountSettingsScreen({ navigation }: any) {
         {/* ── Section 5: Vault Master Password ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <KeyRound size={18} color="#fbbf24" />
+            <Lock size={18} color="#fbbf24" />
             <Text style={styles.cardTitle}>Vault Master Password</Text>
           </View>
           <Text style={styles.cardDesc}>

@@ -41,6 +41,7 @@ import {
   Upload,
   Star,
   Scan,
+  Key,
   KeyRound,
 } from "lucide-react-native";
 import { Modal, Pressable } from "react-native";
@@ -786,7 +787,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
             {/* 2FA TOTP Secret Key (Optional) */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>2FA TOTP Secret Key (Optional)</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Key size={12} color="#c084fc" />
+                <Text style={styles.label}>2FA TOTP Secret Key (Optional)</Text>
+              </View>
               <View style={styles.inputEyeRow}>
                 <TextInput
                   key={showTotpSecret ? "totp_shown" : "totp_hidden"}

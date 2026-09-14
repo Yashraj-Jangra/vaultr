@@ -198,7 +198,7 @@ export function SettingsScreen({ navigation }: any) {
           <Text style={styles.sectionLabel}>SECURITY & ACCESS</Text>
           <View style={styles.sectionGroup}>
             <SettingsRow
-              icon={<User size={15} color={colors.accent} />}
+              icon={<User size={15} color="#a78bfa" />}
               title="Account Settings"
               subtitle="Passwords, display name, email"
               onPress={() => navigation.navigate("AccountSettings")}

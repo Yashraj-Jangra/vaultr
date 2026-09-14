@@ -7,7 +7,7 @@ import React, { useMemo, useState, useRef } from "react";
 import { StyleSheet, Text, View, Image, TouchableOpacity, Vibration } from "react-native";
 import Svg, { Path, Circle, Ellipse, Line, Defs, LinearGradient, RadialGradient, G, Stop, Polygon, Rect } from "react-native-svg";
 import { Template } from "@vaultr/core";
-import { Globe, User, FileText, MapPin, Check } from "lucide-react-native";
+import { Globe, User, FileText, MapPin, Check, KeyRound, Key } from "lucide-react-native";
 import Animated, { FadeInUp, FadeOut } from "react-native-reanimated";
 import { resolveDomain } from "@vaultr/core";
 import { Interactive3DCard } from "./Interactive3DCard";
@@ -32,6 +32,7 @@ export interface ItemPreviewCardProps {
   url?: string;
   domain?: string;
   isPasskey?: boolean;
+  hasTotp?: boolean;
   // Card fields
   cardholderName?: string;
   cardNumber?: string;
@@ -730,7 +731,7 @@ function CreditCardVisual({
 
 // ── 4. Login Keycard with SiteIcon ───────────────────────────────────────────
 
-function LoginKeycardVisual({ name, username, url, domain, isPasskey, onCopy }: ItemPreviewCardProps) {
+function LoginKeycardVisual({ name, username, url, domain, isPasskey, hasTotp, onCopy }: ItemPreviewCardProps) {
   const [faviconError, setFaviconError] = React.useState(false);
 
   const effectiveDomain = useMemo(() => {
@@ -781,7 +782,14 @@ function LoginKeycardVisual({ name, username, url, domain, isPasskey, onCopy }: 
             <Text style={login.cardTag}>ACCESS KEYCARD</Text>
             {isPasskey && (
               <View style={login.passkeyBadge}>
-                <Text style={login.passkeyBadgeText}>🔑 PASSKEY</Text>
+                <KeyRound size={9} color="#38bdf8" />
+                <Text style={login.passkeyBadgeText}>PASSKEY</Text>
+              </View>
+            )}
+            {hasTotp && (
+              <View style={login.totpBadge}>
+                <Key size={9} color="#a78bfa" />
+                <Text style={login.totpBadgeText}>2FA</Text>
               </View>
             )}
           </View>
@@ -1042,6 +1050,9 @@ const login = StyleSheet.create({
     gap: 6,
   },
   passkeyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3.5,
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     borderRadius: 4,
@@ -1054,6 +1065,24 @@ const login = StyleSheet.create({
     fontFamily: "monospace",
     fontWeight: "700",
     color: "#38bdf8",
+    letterSpacing: 0.5,
+  },
+  totpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3.5,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: "rgba(167, 139, 250, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(167, 139, 250, 0.3)",
+  },
+  totpBadgeText: {
+    fontSize: 7.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "#a78bfa",
     letterSpacing: 0.5,
   },
   title: { fontSize: 17, fontWeight: "700", color: "#ffffff", marginTop: 4 },

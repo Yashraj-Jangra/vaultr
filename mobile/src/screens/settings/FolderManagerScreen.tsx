@@ -288,7 +288,7 @@ export function FolderManagerScreen({ navigation }: any) {
                 activeOpacity={0.7}
               >
                 <View style={styles.iconCircle}>
-                  <Folder size={18} color="#fafafa" />
+                  <Folder size={18} color="#fbbf24" />
                 </View>
                 <View style={{ flex: 1, justifyContent: "center" }}>
                   <Text style={styles.folderName} numberOfLines={1}>

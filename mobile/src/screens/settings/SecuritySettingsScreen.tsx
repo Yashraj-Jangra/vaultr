@@ -16,7 +16,7 @@ import { colors } from "../../theme/colors";
 import { isBiometricAvailable, isBiometricEnabled, enrollBiometricPassword, clearBiometricPassword } from "../../services/biometrics";
 import { isPinSet, getPinLength, setupPin, clearPin } from "../../services/pin";
 import { PinPad } from "../../components/PinPad";
-import { Fingerprint, Shield, Clock, Copy, ArrowLeft, CheckCircle2, KeyRound, X } from "lucide-react-native";
+import { Fingerprint, Shield, Clock, Copy, ArrowLeft, CheckCircle2, Hash, X } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AUTO_LOCK_KEY = "vaultr_auto_lock_timeout";
@@ -203,7 +203,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
         {/* Biometrics Section */}
         <View style={styles.card}>
           <View style={styles.cardRow}>
-            <Fingerprint size={22} color={colors.accent} />
+            <Fingerprint size={22} color="#10b981" />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>Biometric Unlock</Text>
               <Text style={styles.cardDesc}>
@@ -224,7 +224,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
         {/* Quick PIN Unlock Section */}
         <View style={styles.card}>
           <View style={styles.cardRow}>
-            <KeyRound size={22} color="#f59e0b" />
+            <Hash size={22} color="#f59e0b" />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>Quick PIN Unlock</Text>
               <Text style={styles.cardDesc}>
@@ -260,7 +260,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
         {/* Auto Lock Timeout */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Clock size={20} color={colors.accent} />
+            <Clock size={20} color="#fbbf24" />
             <Text style={styles.cardTitle}>Auto-Lock Timeout</Text>
           </View>
           <Text style={styles.cardDesc}>Automatically lock vault when app remains in background.</Text>
@@ -298,7 +298,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
         {/* Clipboard Clear Timeout */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Copy size={20} color={colors.accent} />
+            <Copy size={20} color="#38bdf8" />
             <Text style={styles.cardTitle}>Auto-Clear Clipboard</Text>
           </View>
           <Text style={styles.cardDesc}>Clear copied passwords from clipboard memory automatically.</Text>

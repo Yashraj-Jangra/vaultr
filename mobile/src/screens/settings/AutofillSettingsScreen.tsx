@@ -31,7 +31,7 @@ import {
   Smartphone,
   Keyboard,
   Globe,
-  Sparkles,
+  Database,
   Search,
   Lock,
   Layers,
@@ -203,14 +203,14 @@ export function AutofillSettingsScreen({ navigation }: any) {
             onPress={openCredentialManagerSettings}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconBox, { backgroundColor: "rgba(251, 191, 36, 0.12)" }]}>
-              <Sparkles size={18} color="#fbbf24" />
+            <View style={[styles.iconBox, { backgroundColor: "rgba(56, 189, 248, 0.12)" }]}>
+              <KeyRound size={18} color="#38bdf8" />
             </View>
             <View style={styles.featureContent}>
               <View style={styles.featureTitleRow}>
                 <Text style={styles.featureTitle}>Passkeys & Credential Manager</Text>
-                <View style={[styles.miniPill, (status.passkeyCount ?? 0) > 0 ? { backgroundColor: "rgba(245, 158, 11, 0.2)", borderColor: "rgba(245, 158, 11, 0.4)", borderWidth: 1 } : null]}>
-                  <Text style={[styles.miniPillText, (status.passkeyCount ?? 0) > 0 ? { color: "#fbbf24", fontWeight: "700" } : null]}>
+                <View style={[styles.miniPill, (status.passkeyCount ?? 0) > 0 ? { backgroundColor: "rgba(56, 189, 248, 0.15)", borderColor: "rgba(56, 189, 248, 0.35)", borderWidth: 1 } : null]}>
+                  <Text style={[styles.miniPillText, (status.passkeyCount ?? 0) > 0 ? { color: "#38bdf8", fontWeight: "700" } : null]}>
                     {(status.passkeyCount ?? 0) > 0 ? `${status.passkeyCount} Enrolled` : "Android 14+"}
                   </Text>
                 </View>
@@ -294,7 +294,7 @@ export function AutofillSettingsScreen({ navigation }: any) {
         <View style={styles.card}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <KeyRound size={16} color="#38bdf8" />
+              <Database size={16} color="#818cf8" />
               <Text style={{ color: "#f4f4f5", fontSize: 13.5, fontWeight: "600" }}>Indexed Vault Items</Text>
             </View>
             <View style={styles.accountCountBadge}>
