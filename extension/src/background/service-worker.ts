@@ -782,6 +782,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
 
+function normalizeCredentialId(id: string | undefined | null): string {
+  if (!id) return "";
+  return id.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+}
+
         case "CHECK_PASSKEY_AVAILABLE": {
           await tryRestoreSession();
           const { vaultr_passkeys_enabled } = await chrome.storage.local.get("vaultr_passkeys_enabled");
@@ -800,6 +805,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
 
           const rpId = (message.rpId || "").toLowerCase();
+          const allowCredentials = message.allowCredentials || [];
           const key = await deriveKey(state.masterPassword, state.userId);
           const matched: Array<{ id: string; name: string; username?: string; credentialId?: string }> = [];
 
@@ -822,7 +828,39 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             if (!p.isPasskey && !p.passkeyPrivateKey) continue;
 
             const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
-            if (itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp)) {
+            const rpMatches = !rpId || itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp);
+            if (!rpMatches) continue;
+
+            if (allowCredentials.length > 0) {
+              const allowed = allowCredentials.some(
+                (c: any) => normalizeCredentialId(c.id) === normalizeCredentialId(p.passkeyCredentialId)
+              );
+              if (!allowed) continue;
+            }
+
+            matched.push({
+              id: item.id,
+              name: item.name,
+              username: p.username,
+              credentialId: p.passkeyCredentialId,
+            });
+          }
+
+          // Fallback: If allowCredentials was specified but filtered out all candidates,
+          // include passkeys for this RP anyway so discoverable/resident credentials work
+          if (matched.length === 0 && allowCredentials.length > 0) {
+            for (const item of state.items) {
+              if (item.deletedAt) continue;
+              const tmpl = item.template || "login";
+              if (tmpl !== "login") continue;
+
+              const p = state.decryptedItemsCache[item.id];
+              if (!p || (!p.isPasskey && !p.passkeyPrivateKey)) continue;
+
+              const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
+              const rpMatches = !rpId || itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp);
+              if (!rpMatches) continue;
+
               matched.push({
                 id: item.id,
                 name: item.name,
@@ -986,6 +1024,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           const { payload } = message;
           const rpId = payload.rpId || "";
           const allowCredentials = payload.allowCredentials || [];
+          const selectedItemId = payload.selectedItemId;
           const cleanRp = rpId.toLowerCase();
 
           try {
@@ -993,36 +1032,90 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             let matchedItem: VaultItem | null = null;
             let matchedPayload: DecryptedLoginPayload | null = null;
 
-            for (const item of state.items) {
-              if (item.deletedAt) continue;
-              const tmpl = item.template || "login";
-              if (tmpl !== "login") continue;
-
-              let p = state.decryptedItemsCache[item.id];
-              if (!p) {
-                try {
-                  const raw = await decrypt(key, item.encryptedBlob);
-                  p = JSON.parse(raw);
-                  state.decryptedItemsCache[item.id] = p;
-                } catch {
-                  continue;
+            // 1. If user explicitly confirmed a passkey item from the in-page prompt, prioritize it directly
+            if (selectedItemId) {
+              const item = state.items.find((i) => i.id === selectedItemId && !i.deletedAt);
+              if (item) {
+                let p = state.decryptedItemsCache[item.id];
+                if (!p) {
+                  try {
+                    const raw = await decrypt(key, item.encryptedBlob);
+                    p = JSON.parse(raw);
+                    state.decryptedItemsCache[item.id] = p;
+                  } catch {}
+                }
+                if (p && (p.isPasskey || p.passkeyPrivateKey)) {
+                  matchedItem = item;
+                  matchedPayload = p;
                 }
               }
+            }
 
-              if (!p.isPasskey && !p.passkeyPrivateKey) continue;
+            // 2. Otherwise scan items matching RP and allowCredentials
+            if (!matchedItem) {
+              for (const item of state.items) {
+                if (item.deletedAt) continue;
+                const tmpl = item.template || "login";
+                if (tmpl !== "login") continue;
 
-              const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
-              const rpMatches = itemRp === cleanRp || itemRp.includes(cleanRp) || cleanRp.includes(itemRp);
-              if (!rpMatches) continue;
+                let p = state.decryptedItemsCache[item.id];
+                if (!p) {
+                  try {
+                    const raw = await decrypt(key, item.encryptedBlob);
+                    p = JSON.parse(raw);
+                    state.decryptedItemsCache[item.id] = p;
+                  } catch {
+                    continue;
+                  }
+                }
 
-              if (allowCredentials.length > 0) {
-                const allowed = allowCredentials.some((c: any) => c.id === p.passkeyCredentialId);
-                if (!allowed) continue;
+                if (!p.isPasskey && !p.passkeyPrivateKey) continue;
+
+                const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
+                const rpMatches = !cleanRp || itemRp === cleanRp || itemRp.includes(cleanRp) || cleanRp.includes(itemRp);
+                if (!rpMatches) continue;
+
+                if (allowCredentials.length > 0) {
+                  const allowed = allowCredentials.some(
+                    (c: any) => normalizeCredentialId(c.id) === normalizeCredentialId(p.passkeyCredentialId)
+                  );
+                  if (!allowed) continue;
+                }
+
+                matchedItem = item;
+                matchedPayload = p;
+                break;
               }
+            }
 
-              matchedItem = item;
-              matchedPayload = p;
-              break;
+            // 3. Fallback: If allowCredentials didn't match any but we have candidates for this RP
+            if (!matchedItem && allowCredentials.length > 0) {
+              for (const item of state.items) {
+                if (item.deletedAt) continue;
+                const tmpl = item.template || "login";
+                if (tmpl !== "login") continue;
+
+                let p = state.decryptedItemsCache[item.id];
+                if (!p) {
+                  try {
+                    const raw = await decrypt(key, item.encryptedBlob);
+                    p = JSON.parse(raw);
+                    state.decryptedItemsCache[item.id] = p;
+                  } catch {
+                    continue;
+                  }
+                }
+
+                if (!p.isPasskey && !p.passkeyPrivateKey) continue;
+
+                const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
+                const rpMatches = !cleanRp || itemRp === cleanRp || itemRp.includes(cleanRp) || cleanRp.includes(itemRp);
+                if (!rpMatches) continue;
+
+                matchedItem = item;
+                matchedPayload = p;
+                break;
+              }
             }
 
             if (!matchedItem || !matchedPayload || !matchedPayload.passkeyPrivateKey) {
@@ -1032,10 +1125,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
             const currentCount = matchedPayload.passkeySignCount || 0;
             const signCount = currentCount + 1;
+            const effectiveRp = payload.rpId || matchedPayload.passkeyRpId || rpId;
 
             const assertionResult = await signPasskeyAssertion({
               passkeyPrivateKey: matchedPayload.passkeyPrivateKey,
-              rpId,
+              rpId: effectiveRp,
               challenge: payload.challenge,
               origin: payload.origin,
               signCount,

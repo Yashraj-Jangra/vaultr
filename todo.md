@@ -1,5 +1,31 @@
 ## Current Session: Passkey Integration Across Web, Mobile & Extension (2026-09-13) · Branch: `dev`
 
+### ✅ What Was Done (Phase 11: Direct In-Page Passkey Sign-In & Windows Hello Suppression)
+- **Resolved Windows Hello Modal Spawning After VaultR Passkey Selection**:
+  - **Root Cause**:
+    - When user clicked "Sign In" on VaultR's prompt, `autofill.ts` dispatched `payload` without explicit `selectedItemId` or `selectedCredentialId`.
+    - In `service-worker.ts`, `WEBAUTHN_GET` compared `c.id === p.passkeyCredentialId` with strict string equality without normalizing Base64 vs Base64URL padding differences (`=` vs no padding, `-` vs `+`, `_` vs `/`). When it failed to match, it returned `{ handled: false, error: "No matching passkey found" }`.
+    - In `webauthn-page.ts`, `interceptedGet` fell through to `return originalGet(options)`, which triggered Chromium's native WebAuthn subsystem and launched Windows Hello (`webauthn.dll`).
+  - **Extension Content Script (`extension/src/content-script/autofill.ts`)**:
+    - Updated `onConfirm` for passkey assertion to forward `selectedItemId: passkey.id` and `selectedCredentialId: passkey.credentialId` directly to `WEBAUTHN_GET`.
+    - Dispatched `userConfirmed: true` flag back to `webauthn-page.ts`.
+    - Set `userCancelled: true` flag when the user explicitly clicks "Use Browser" or dismisses the prompt.
+    - Forwarded `allowCredentials` to `GET_PASSKEYS_FOR_RP` to allow candidate matching.
+  - **Background Service Worker (`extension/src/background/service-worker.ts`)**:
+    - Implemented `normalizeCredentialId()` to strip trailing padding (`=`) and harmonize Base64URL and Base64 characters (`-` → `+`, `_` → `/`).
+    - In `WEBAUTHN_GET`, prioritized `payload.selectedItemId` directly, completely avoiding any search mismatch.
+    - Added fallback to match candidate passkeys for the domain/RP if `allowCredentials` had differing formats.
+    - Scoped `signPasskeyAssertion` to `payload.rpId || matchedPayload.passkeyRpId || rpId`.
+    - In `GET_PASSKEYS_FOR_RP`, used `normalizeCredentialId()` and provided fallback to RP candidates.
+  - **WebAuthn Page Context Interceptor (`extension/src/content-script/webauthn-page.ts`)**:
+    - Added `userConfirmed` guard in both `interceptedGet` and `interceptedCreate`: if the user confirmed VaultR's prompt, NEVER invoke `originalGet(options)` or `originalCreate(options)`. If an error occurs, throws `DOMException("NotAllowedError")`.
+    - Only invokes `originalGet(options)` if the vault is locked/disabled, or if `userCancelled: true` (user explicitly clicked "Use Browser").
+    - Added `toJSON()` implementation on synthetic `PublicKeyCredential` for both assertion and attestation to prevent Blink WebIDL `TypeError: Illegal invocation` with libraries like `@simplewebauthn/browser` and `webauthn-json`.
+    - Guarded `base64UrlToBuffer` against null/undefined/empty string inputs (`if (!str) return new ArrayBuffer(0)`).
+- **Verification**:
+  - Extension TypeScript check (`npx tsc --noEmit` in `extension/`): 0 errors.
+  - Production Webpack build: compiled successfully with code 0.
+
 ### ✅ What Was Done (Phase 10: Scrollable & Boundary-Aware In-Page Autofill Suggestions)
 - **Autofill Suggestions Dropdown Overhaul (`extension/src/content-script/autofill.ts`)**:
   - **Scrollable `.items-list` Container**:

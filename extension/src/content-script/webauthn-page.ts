@@ -57,6 +57,7 @@
   }
 
   function base64UrlToBuffer(str: string): ArrayBuffer {
+    if (!str) return new ArrayBuffer(0);
     let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
     while (base64.length % 4 !== 0) base64 += "=";
     const binary = atob(base64);
@@ -207,11 +208,48 @@
           authenticatorAttachment: { value: "platform", enumerable: true, configurable: true },
           response: { value: responseObj, enumerable: true, configurable: true },
           getClientExtensionResults: { value: () => ({}), enumerable: true, configurable: true },
+          toJSON: {
+            value: () => ({
+              id: c.credentialId || c.id,
+              rawId: c.credentialId || c.id,
+              response: {
+                clientDataJSON: bufferToBase64Url(clientDataJSON),
+                attestationObject: c.attestationObject,
+                transports: ["internal", "hybrid"],
+                authenticatorData: c.authenticatorData,
+                publicKeyAlgorithm: -7,
+                publicKey: c.publicKey,
+              },
+              authenticatorAttachment: "platform",
+              clientExtensionResults: {},
+              type: "public-key",
+            }),
+            enumerable: true,
+            configurable: true,
+          },
         });
 
         return syntheticCredential as PublicKeyCredential;
       }
-    } catch (err) {
+
+      // If user confirmed creation via VaultR prompt, NEVER fall back to Windows Hello!
+      if (res?.userConfirmed) {
+        throw new DOMException(res.error || "Failed to create passkey in VaultR", "NotAllowedError");
+      }
+
+      // If user explicitly chose "Use Browser"
+      if (res?.userCancelled) {
+        return originalCreate(options);
+      }
+
+      // If VaultR didn't handle it (vault locked, passkeys disabled)
+      if (!res?.handled) {
+        return originalCreate(options);
+      }
+    } catch (err: any) {
+      if (err instanceof DOMException || err?.name === "NotAllowedError") {
+        throw err;
+      }
       console.warn("[VaultR WebAuthn] Create fallback:", err);
     }
 
@@ -266,11 +304,46 @@
           authenticatorAttachment: { value: "platform", enumerable: true, configurable: true },
           response: { value: responseObj, enumerable: true, configurable: true },
           getClientExtensionResults: { value: () => ({}), enumerable: true, configurable: true },
+          toJSON: {
+            value: () => ({
+              id: c.id || c.credentialId,
+              rawId: c.id || c.credentialId,
+              response: {
+                authenticatorData: c.authenticatorData,
+                clientDataJSON: bufferToBase64Url(clientDataJSON),
+                signature: c.signature,
+                userHandle: c.userHandle || null,
+              },
+              authenticatorAttachment: "platform",
+              clientExtensionResults: {},
+              type: "public-key",
+            }),
+            enumerable: true,
+            configurable: true,
+          },
         });
 
         return syntheticCredential as PublicKeyCredential;
       }
-    } catch (err) {
+
+      // If user confirmed passkey assertion via VaultR prompt, NEVER fall back to Windows Hello!
+      if (res?.userConfirmed) {
+        throw new DOMException(res.error || "VaultR passkey assertion failed", "NotAllowedError");
+      }
+
+      // If user explicitly chose "Use Browser"
+      if (res?.userCancelled) {
+        return originalGet(options);
+      }
+
+      // If VaultR didn't handle it (vault locked, passkeys disabled, or no passkeys found for RP)
+      if (!res?.handled) {
+        return originalGet(options);
+      }
+    } catch (err: any) {
+      if (err instanceof DOMException || err?.name === "NotAllowedError") {
+        throw err;
+      }
       console.warn("[VaultR WebAuthn] Assertion fallback:", err);
     }
 

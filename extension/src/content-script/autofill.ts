@@ -1417,63 +1417,96 @@ window.addEventListener("message", (event) => {
         onConfirm: () => {
           chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
             if (chrome.runtime.lastError || !res) {
-              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+              window.postMessage(
+                {
+                  source: "VAULTR_WEBAUTHN_CONTENT",
+                  reqId,
+                  handled: false,
+                  userConfirmed: true,
+                  error: chrome.runtime.lastError?.message || "Failed to create passkey in VaultR",
+                },
+                "*"
+              );
               return;
             }
             window.postMessage(
               {
                 source: "VAULTR_WEBAUTHN_CONTENT",
                 reqId,
-                handled: res?.handled ?? true,
-                credential: res?.credential,
-                error: res?.error,
+                handled: res.handled ?? true,
+                userConfirmed: true,
+                credential: res.credential,
+                error: res.error,
               },
               "*"
             );
           });
         },
         onCancel: () => {
-          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");
         },
       });
     } else if (action === "GET") {
       const rpId = payload.rpId || window.location.hostname;
 
-      chrome.runtime.sendMessage({ type: "GET_PASSKEYS_FOR_RP", rpId }, (res) => {
-        if (chrome.runtime.lastError || !res?.passkeys || res.passkeys.length === 0) {
-          // No passkeys in vault for this RP; let browser handle natively
-          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
-          return;
-        }
-
-        const passkey = res.passkeys[0];
-        showPasskeyPrompt({
-          mode: "get",
-          rpId,
-          username: passkey.username,
-          onConfirm: () => {
-            chrome.runtime.sendMessage({ type: "WEBAUTHN_GET", payload }, (getRes) => {
-              if (chrome.runtime.lastError || !getRes) {
-                window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
-                return;
-              }
-              window.postMessage(
-                {
-                  source: "VAULTR_WEBAUTHN_CONTENT",
-                  reqId,
-                  handled: getRes?.handled ?? true,
-                  credential: getRes?.credential,
-                  error: getRes?.error,
-                },
-                "*"
-              );
-            });
-          },
-          onCancel: () => {
+      chrome.runtime.sendMessage(
+        { type: "GET_PASSKEYS_FOR_RP", rpId, allowCredentials: payload.allowCredentials },
+        (res) => {
+          if (chrome.runtime.lastError || !res?.passkeys || res.passkeys.length === 0) {
+            // No passkeys in vault for this RP; let browser handle natively
             window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
-          },
-        });
-      });
+            return;
+          }
+
+          const passkey = res.passkeys[0];
+          showPasskeyPrompt({
+            mode: "get",
+            rpId,
+            username: passkey.username,
+            onConfirm: () => {
+              chrome.runtime.sendMessage(
+                {
+                  type: "WEBAUTHN_GET",
+                  payload: {
+                    ...payload,
+                    selectedItemId: passkey.id,
+                    selectedCredentialId: passkey.credentialId,
+                  },
+                },
+                (getRes) => {
+                  if (chrome.runtime.lastError || !getRes) {
+                    window.postMessage(
+                      {
+                        source: "VAULTR_WEBAUTHN_CONTENT",
+                        reqId,
+                        handled: false,
+                        userConfirmed: true,
+                        error: chrome.runtime.lastError?.message || "Failed to communicate with VaultR",
+                      },
+                      "*"
+                    );
+                    return;
+                  }
+                  window.postMessage(
+                    {
+                      source: "VAULTR_WEBAUTHN_CONTENT",
+                      reqId,
+                      handled: getRes.handled ?? true,
+                      userConfirmed: true,
+                      credential: getRes.credential,
+                      error: getRes.error,
+                    },
+                    "*"
+                  );
+                }
+              );
+            },
+            onCancel: () => {
+              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");
+            },
+          });
+        }
+      );
     }
   });
 });
