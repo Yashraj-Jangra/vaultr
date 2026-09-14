@@ -38,6 +38,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [saved, setSaved] = useState(false);
   
   const [autofillEnabled, setAutofillEnabled] = useState(true);
+  const [subdomainMatching, setSubdomainMatching] = useState(true);
   const [autofillSubmit, setAutofillSubmit] = useState(false);
   const [autoLockMinutes, setAutoLockMinutes] = useState("15");
 
@@ -59,6 +60,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
       chrome.storage.local.get(
         [
           "autofill_enabled",
+          "vaultr_subdomain_matching",
           "autofill_submit",
           "autolock_minutes",
           "vaultr_passkeys_enabled",
@@ -68,6 +70,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         ],
         async (res) => {
           if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled);
+          if (res.vaultr_subdomain_matching !== undefined) setSubdomainMatching(res.vaultr_subdomain_matching !== false);
           if (res.autofill_submit !== undefined) setAutofillSubmit(res.autofill_submit);
           if (res.autolock_minutes !== undefined) setAutoLockMinutes(res.autolock_minutes);
           if (res.vaultr_passkeys_enabled !== undefined) setPasskeysEnabled(res.vaultr_passkeys_enabled);
@@ -116,6 +119,13 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     setAutofillEnabled(enabled);
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.set({ autofill_enabled: enabled });
+    }
+  };
+
+  const handleToggleSubdomainMatching = (enabled: boolean) => {
+    setSubdomainMatching(enabled);
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ vaultr_subdomain_matching: enabled });
     }
   };
 
@@ -510,6 +520,21 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
               type="checkbox"
               checked={autofillEnabled}
               onChange={(e) => handleToggleAutofill(e.target.checked)}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+
+        <div className="settings-row" style={{ marginTop: 4 }}>
+          <div>
+            <div className="settings-row-label">Match subdomains</div>
+            <div className="settings-row-sub">Suggest credentials across subdomains (e.g. abc.example.com on example.com)</div>
+          </div>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={subdomainMatching}
+              onChange={(e) => handleToggleSubdomainMatching(e.target.checked)}
             />
             <span className="toggle-slider" />
           </label>

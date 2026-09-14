@@ -17,6 +17,10 @@ import {
   signPasskeyAssertion,
   toBase64Url,
   generateTOTP,
+  extractDomainHost,
+  getBaseRootDomain,
+  calculateDomainMatchScore,
+  isIpAddress,
 } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
@@ -184,37 +188,6 @@ async function tryRestoreSession(): Promise<boolean> {
   }
 }
 
-function extractDomainHost(rawUrlOrDomain?: string): string {
-  if (!rawUrlOrDomain || !rawUrlOrDomain.trim()) return "";
-  let clean = rawUrlOrDomain.trim().toLowerCase();
-
-  // Filter out internal browser pages (newtab, chrome://, edge://, about:blank, etc.)
-  if (isInternalBrowserHost(clean) || (clean.includes("://") && !isWebPageUrl(clean))) {
-    return "";
-  }
-
-  if (clean.includes("://")) {
-    try {
-      clean = new URL(clean).hostname;
-    } catch {
-      clean = clean.split("://")[1] || clean;
-    }
-  }
-
-  clean = clean.split("/")[0].split("?")[0].split("#")[0].split(":")[0];
-  clean = clean.replace(/^www\./, "");
-
-  if (isInternalBrowserHost(clean)) return "";
-  return clean;
-}
-
-function getBaseRootDomain(hostname: string): string {
-  if (!hostname) return "";
-  const parts = hostname.split(".");
-  if (parts.length <= 2) return hostname;
-  return parts.slice(-2).join(".");
-}
-
 export interface MatchedLogin {
   id: string;
   name: string;
@@ -236,9 +209,16 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
     return [];
   }
 
-  const currentRoot = getBaseRootDomain(currentHost);
-  const key = await deriveKey(state.masterPassword, state.userId || "");
+  // Check user preference for subdomain matching (default: true)
+  let allowSubdomains = true;
+  try {
+    const storageRes = await chrome.storage.local.get("vaultr_subdomain_matching");
+    if (storageRes?.vaultr_subdomain_matching !== undefined) {
+      allowSubdomains = storageRes.vaultr_subdomain_matching !== false;
+    }
+  } catch {}
 
+  const key = await deriveKey(state.masterPassword, state.userId || "");
   const matches: MatchedLogin[] = [];
 
   for (const item of state.items) {
@@ -260,24 +240,35 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
 
     if (!decrypted.username && !decrypted.password) continue;
 
-    const rawDomain = item.domain || decrypted.url;
-    if (!rawDomain || !rawDomain.trim()) continue;
-
-    const itemHost = extractDomainHost(rawDomain);
-    if (!itemHost) continue;
-
-    const itemRoot = getBaseRootDomain(itemHost);
-
-    let score = 0;
-    if (itemHost === currentHost) {
-      score = 3;
-    } else if (itemHost === currentRoot) {
-      score = 2;
-    } else if (itemRoot === currentRoot) {
-      score = 1;
-    } else {
-      continue;
+    // Collect all candidate URLs: item.domain, decrypted.url, and all decrypted.urls[]
+    const candidateUrls: string[] = [];
+    if (item.domain && typeof item.domain === "string" && item.domain.trim()) {
+      candidateUrls.push(item.domain.trim());
     }
+    if (decrypted.url && typeof decrypted.url === "string" && decrypted.url.trim()) {
+      candidateUrls.push(decrypted.url.trim());
+    }
+    if (Array.isArray(decrypted.urls)) {
+      for (const u of decrypted.urls) {
+        if (u && typeof u === "string" && u.trim()) {
+          candidateUrls.push(u.trim());
+        }
+      }
+    }
+
+    if (candidateUrls.length === 0) continue;
+
+    // Evaluate match score across all candidate URLs (picking highest score)
+    let bestScore = 0;
+    for (const cand of candidateUrls) {
+      const score = calculateDomainMatchScore(cand, currentHost, allowSubdomains);
+      if (score > bestScore) {
+        bestScore = score;
+      }
+      if (bestScore === 3) break;
+    }
+
+    if (bestScore === 0) continue;
 
     let totpCode: string | undefined;
     if (decrypted.totpSecret) {
@@ -295,7 +286,7 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
       password: decrypted.password,
       totp: totpCode,
       hasTotp: !!decrypted.totpSecret,
-      score,
+      score: bestScore,
     });
   }
 

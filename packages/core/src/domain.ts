@@ -385,3 +385,163 @@ export function isWebPageUrl(rawUrl?: string): boolean {
 
   return !isInternalBrowserHost(str);
 }
+
+/**
+ * Detects whether a hostname string is an IPv4 or IPv6 address.
+ */
+export function isIpAddress(host: string): boolean {
+  if (!host) return false;
+  const clean = host.trim().toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  
+  // IPv4 regex (0.0.0.0 to 255.255.255.255)
+  const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  if (ipv4Regex.test(clean)) return true;
+
+  // IPv6 detection (contains colons and valid hex chunks or ::)
+  if (clean.includes(":") && /^[0-9a-f:]+$/.test(clean)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Extracts a normalized domain hostname from a raw URL or domain string.
+ * Strips scheme, path, query parameters, port numbers, and 'www.' prefixes.
+ */
+export function extractDomainHost(rawUrlOrDomain?: string): string {
+  if (!rawUrlOrDomain || !rawUrlOrDomain.trim()) return "";
+  let clean = rawUrlOrDomain.trim().toLowerCase();
+
+  // Filter out internal browser pages (newtab, chrome://, edge://, about:blank, etc.)
+  if (isInternalBrowserHost(clean) || (clean.includes("://") && !isWebPageUrl(clean))) {
+    return "";
+  }
+
+  // Bracketed IPv6 (e.g., http://[::1]:8080/path or [::1]:8080)
+  const ipv6BracketMatch = clean.match(/\[([0-9a-f:]+)\](?::\d+)?/);
+  if (ipv6BracketMatch) {
+    return ipv6BracketMatch[1];
+  }
+
+  if (clean.includes("://")) {
+    try {
+      clean = new URL(clean).hostname;
+    } catch {
+      clean = clean.split("://")[1] || clean;
+    }
+  }
+
+  // Strip path, query params, hash
+  clean = clean.split("/")[0].split("?")[0].split("#")[0];
+
+  // Strip port: if IPv4 or standard hostname (e.g. 192.168.1.50:8080 or example.com:3000)
+  clean = clean.split(":")[0];
+
+  // Strip leading www.
+  clean = clean.replace(/^www\./, "");
+
+  if (isInternalBrowserHost(clean)) return "";
+  return clean;
+}
+
+/** Known two-part public suffixes/ccTLDs where base domain requires 3 parts (e.g. example.co.uk) */
+const TWO_PART_CCTLDS = new Set([
+  "co.uk", "org.uk", "me.uk", "ac.uk", "gov.uk", "net.uk", "ltd.uk", "plc.uk",
+  "co.in", "net.in", "org.in", "gen.in", "firm.in", "ind.in", "gov.in", "mil.in", "ac.in", "edu.in",
+  "com.au", "net.au", "org.au", "edu.au", "gov.au",
+  "co.nz", "net.nz", "org.nz", "govt.nz", "ac.nz",
+  "co.za", "net.za", "org.za", "gov.za",
+  "com.br", "net.br", "org.br", "gov.br",
+  "com.mx", "org.mx", "edu.mx", "gob.mx",
+  "com.sg", "net.sg", "org.sg", "gov.sg", "edu.sg",
+  "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp",
+  "com.tr", "net.tr", "org.tr", "gov.tr", "edu.tr",
+  "com.tw", "net.tw", "org.tw", "gov.tw", "edu.tw",
+  "com.hk", "net.hk", "org.hk", "gov.hk", "edu.hk",
+  "com.ar", "net.ar", "org.ar", "gov.ar",
+  "co.kr", "ne.kr", "re.kr", "go.kr",
+  "com.co", "net.co", "nom.co", "co.il", "org.il"
+]);
+
+/**
+ * Derives the base root domain for a given hostname.
+ * - For IP addresses (e.g. 192.168.1.100) or localhost, returns the exact host itself.
+ * - For two-part ccTLDs (e.g. login.example.co.uk), returns 'example.co.uk'.
+ * - For standard domains (e.g. login.example.com), returns 'example.com'.
+ */
+export function getBaseRootDomain(hostname: string): string {
+  if (!hostname) return "";
+  const host = extractDomainHost(hostname);
+  if (!host) return "";
+
+  // IP addresses and localhost have no subdomains; the host itself is the root.
+  if (isIpAddress(host) || host === "localhost") {
+    return host;
+  }
+
+  const parts = host.split(".");
+  if (parts.length <= 2) return host;
+
+  // Check if last two parts form a known multi-part ccTLD
+  const lastTwo = parts.slice(-2).join(".");
+  if (TWO_PART_CCTLDS.has(lastTwo)) {
+    return parts.slice(-3).join(".");
+  }
+
+  return parts.slice(-2).join(".");
+}
+
+/**
+ * Calculates a match score between a candidate URL/domain (from vault) and current page host.
+ * 
+ * Returns:
+ * - 3: Exact host match (e.g., 192.168.1.50 == 192.168.1.50 regardless of port, or app.example.com == app.example.com)
+ * - 2: Base domain match (saved: example.com, current: abc.example.com) [when allowSubdomains is true]
+ * - 1: Subdomain match (saved: abc.example.com, current: example.com or xyz.example.com) [when allowSubdomains is true]
+ * - 0: No match
+ */
+export function calculateDomainMatchScore(
+  candidateUrlOrDomain: string,
+  currentHostOrUrl: string,
+  allowSubdomains: boolean = true
+): number {
+  if (!candidateUrlOrDomain || !currentHostOrUrl) return 0;
+
+  const candidateHost = extractDomainHost(candidateUrlOrDomain);
+  const currentHost = extractDomainHost(currentHostOrUrl);
+
+  if (!candidateHost || !currentHost) return 0;
+
+  // Exact host match (matches across different ports, e.g. 192.168.1.100:8080 vs 192.168.1.100:3000)
+  if (candidateHost === currentHost) {
+    return 3;
+  }
+
+  // IP addresses and localhost never match subdomains
+  if (isIpAddress(currentHost) || isIpAddress(candidateHost) || currentHost === "localhost" || candidateHost === "localhost") {
+    return 0;
+  }
+
+  // If user disabled subdomain matching in settings, require exact host
+  if (!allowSubdomains) {
+    return 0;
+  }
+
+  const candidateRoot = getBaseRootDomain(candidateHost);
+  const currentRoot = getBaseRootDomain(currentHost);
+
+  if (!candidateRoot || !currentRoot) return 0;
+
+  // Candidate is root domain, current page is subdomain (e.g. saved: example.com, current: abc.example.com)
+  if (candidateHost === currentRoot) {
+    return 2;
+  }
+
+  // Root domains match (e.g. saved: abc.example.com, current: example.com or xyz.example.com)
+  if (candidateRoot === currentRoot) {
+    return 1;
+  }
+
+  return 0;
+}

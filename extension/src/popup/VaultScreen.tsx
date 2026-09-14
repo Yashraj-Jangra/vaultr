@@ -4,7 +4,16 @@ import {
   Search, Copy, Check, Globe, Key, KeyRound, Shield, CreditCard, FileText, User, MapPin,
   Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
 } from "lucide-react";
-import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost, detectCardBrand } from "@vaultr/core";
+import {
+  generateTOTP,
+  getTotpPercentage,
+  resolveDomain,
+  isWebPageUrl,
+  isInternalBrowserHost,
+  detectCardBrand,
+  extractDomainHost,
+  calculateDomainMatchScore,
+} from "@vaultr/core";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
@@ -735,20 +744,28 @@ export function VaultScreen({
   const [query, setQuery] = useState("");
   const [selectedFolder, setSelectedFolder] = useState<string>("All");
   const [activeTabDomain, setActiveTabDomain] = useState<string>("");
+  const [allowSubdomains, setAllowSubdomains] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.get("vaultr_subdomain_matching", (res) => {
+        if (res?.vaultr_subdomain_matching !== undefined) {
+          setAllowSubdomains(res.vaultr_subdomain_matching !== false);
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabUrl = tabs[0]?.url || "";
         if (tabUrl && isWebPageUrl(tabUrl)) {
-          try {
-            const url = new URL(tabUrl);
-            const host = url.hostname.replace(/^www\./, "").toLowerCase();
-            if (host && !isInternalBrowserHost(host)) {
-              setActiveTabDomain(host);
-              return;
-            }
-          } catch {}
+          const host = extractDomainHost(tabUrl);
+          if (host && !isInternalBrowserHost(host)) {
+            setActiveTabDomain(host);
+            return;
+          }
         }
         setActiveTabDomain("");
       });
@@ -791,19 +808,32 @@ export function VaultScreen({
       const template = i.template || "login";
       if (template !== "login") return false;
 
-      const rawDomain = (i.domain || (i as any).url || "").trim();
-      if (!rawDomain) return false;
+      const candidateUrls: string[] = [];
+      if (i.domain && typeof i.domain === "string" && i.domain.trim()) {
+        candidateUrls.push(i.domain.trim());
+      }
+      if ((i as any).url && typeof (i as any).url === "string" && (i as any).url.trim()) {
+        candidateUrls.push((i as any).url.trim());
+      }
+      if (i.unencryptedPayload?.url && typeof i.unencryptedPayload.url === "string" && i.unencryptedPayload.url.trim()) {
+        candidateUrls.push(i.unencryptedPayload.url.trim());
+      }
+      if (Array.isArray(i.unencryptedPayload?.urls)) {
+        for (const u of i.unencryptedPayload.urls) {
+          if (u && typeof u === "string" && u.trim()) {
+            candidateUrls.push(u.trim());
+          }
+        }
+      }
 
-      const d = rawDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0];
-      if (!d) return false;
+      if (candidateUrls.length === 0) return false;
 
-      return (
-        d === activeTabDomain ||
-        d.includes(activeTabDomain) ||
-        (d.length >= 4 && activeTabDomain.includes(d))
-      );
+      return candidateUrls.some((cand) => {
+        const score = calculateDomainMatchScore(cand, activeTabDomain, allowSubdomains);
+        return score > 0;
+      });
     });
-  }, [activeItems, activeTabDomain, query]);
+  }, [activeItems, activeTabDomain, query, allowSubdomains]);
 
   const shownItems = filteredItems;
   const matchIds = new Set(matchedItems.map((m) => m.id));
