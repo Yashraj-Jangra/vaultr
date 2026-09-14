@@ -257,16 +257,74 @@ function removeDropdown() {
   }
 }
 
-function repositionDropdown() {
+function getDropdownPosition(rect: DOMRect, estimatedHeight: number, width: number) {
+  const margin = 6;
+  const viewportHeight = window.innerHeight;
+  const viewportWidth = window.innerWidth;
+
+  // Horizontal clamp to keep dropdown inside visible screen
+  let left = rect.left;
+  if (left + width > viewportWidth - 12) {
+    left = Math.max(12, viewportWidth - width - 12);
+  }
+  if (left < 12) {
+    left = 12;
+  }
+
+  // Vertical space calculation
+  const spaceBelow = viewportHeight - rect.bottom - margin - 12;
+  const spaceAbove = rect.top - margin - 12;
+
+  // Render above input if space below is too tight and space above has more room
+  const shouldRenderAbove = spaceBelow < Math.min(estimatedHeight, 200) && spaceAbove > spaceBelow;
+
+  let top: number;
+  let maxHeight: number;
+
+  if (shouldRenderAbove) {
+    maxHeight = Math.min(320, Math.max(120, spaceAbove));
+    top = Math.max(12, rect.top - margin - Math.min(estimatedHeight, maxHeight));
+  } else {
+    maxHeight = Math.min(320, Math.max(120, spaceBelow));
+    top = rect.bottom + margin;
+  }
+
+  return { top, left, maxHeight, isAbove: shouldRenderAbove };
+}
+
+function repositionDropdown(e?: Event) {
   if (!activeDropdown || !activeInput) return;
+  // If the event came from scrolling inside active dropdown itself, ignore
+  if (e?.target) {
+    const target = e.target as Node;
+    if (
+      activeDropdown === target ||
+      activeDropdown.contains(target) ||
+      (activeDropdown.shadowRoot && activeDropdown.shadowRoot.contains(target))
+    ) {
+      return;
+    }
+  }
+
   const rect = activeInput.getBoundingClientRect();
   if (rect.bottom < 0 || rect.top > window.innerHeight) {
     removeDropdown();
     return;
   }
-  activeDropdown.style.top = `${rect.bottom + 6}px`;
-  activeDropdown.style.left = `${rect.left}px`;
-  activeDropdown.style.width = `${Math.max(rect.width, 320)}px`;
+
+  const width = Math.max(rect.width, 320);
+  const pos = getDropdownPosition(rect, 260, width);
+
+  activeDropdown.style.top = `${pos.top}px`;
+  activeDropdown.style.left = `${pos.left}px`;
+  activeDropdown.style.width = `${width}px`;
+  activeDropdown.style.maxHeight = `${pos.maxHeight}px`;
+
+  const shadow = activeDropdown.shadowRoot;
+  const list = shadow?.querySelector<HTMLElement>(".items-list");
+  if (list) {
+    list.style.maxHeight = `${Math.max(80, pos.maxHeight - 48)}px`;
+  }
 }
 
 function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential[]) {
@@ -277,17 +335,22 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
   activeInput = inputEl;
   const rect = inputEl.getBoundingClientRect();
 
+  const width = Math.max(rect.width, 320);
+  const estimatedHeight = 46 + credentials.length * 52;
+  const pos = getDropdownPosition(rect, estimatedHeight, width);
+
   const host = document.createElement("div");
   host.id = "vaultr-autofill-host";
   host.style.cssText = `
     position: fixed !important;
-    top: ${rect.bottom + 6}px !important;
-    left: ${rect.left}px !important;
-    width: ${Math.max(rect.width, 320)}px !important;
+    top: ${pos.top}px !important;
+    left: ${pos.left}px !important;
+    width: ${width}px !important;
+    max-height: ${pos.maxHeight}px !important;
     z-index: 2147483647 !important;
     pointer-events: auto !important;
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(${pos.isAbove ? "6px" : "-6px"});
     transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   `;
 
@@ -315,6 +378,9 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       padding: 6px !important;
       backdrop-filter: blur(16px) !important;
       -webkit-backdrop-filter: blur(16px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      max-height: inherit !important;
     }
     .header {
       display: flex !important;
@@ -327,6 +393,7 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       letter-spacing: 0.04em !important;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
       margin-bottom: 5px !important;
+      flex-shrink: 0 !important;
     }
     .brand-logo {
       height: 18px !important;
@@ -345,6 +412,31 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       border-radius: 9999px !important;
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
+    .items-list {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 2px !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      max-height: ${Math.max(80, pos.maxHeight - 48)}px !important;
+      padding-right: 2px !important;
+      scrollbar-width: thin !important;
+      scrollbar-color: rgba(255, 255, 255, 0.22) transparent !important;
+    }
+    .items-list::-webkit-scrollbar {
+      width: 5px !important;
+    }
+    .items-list::-webkit-scrollbar-track {
+      background: transparent !important;
+    }
+    .items-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2) !important;
+      border-radius: 9999px !important;
+    }
+    .items-list::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.38) !important;
+    }
     .item {
       display: flex !important;
       align-items: center !important;
@@ -354,6 +446,7 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       cursor: pointer !important;
       transition: background 0.15s ease !important;
       background: transparent !important;
+      flex-shrink: 0 !important;
     }
     .item:hover {
       background: #18181b !important;
@@ -444,6 +537,10 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
 
   container.appendChild(header);
 
+  // Scrollable Items List
+  const itemsList = document.createElement("div");
+  itemsList.className = "items-list";
+
   // Credential items
   credentials.forEach((cred) => {
     const item = document.createElement("div");
@@ -497,9 +594,10 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       removeDropdown();
     });
 
-    container.appendChild(item);
+    itemsList.appendChild(item);
   });
 
+  container.appendChild(itemsList);
   shadow.appendChild(container);
   document.body.appendChild(host);
   activeDropdown = host;
@@ -616,17 +714,22 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
   activeInput = inputEl;
   const rect = inputEl.getBoundingClientRect();
 
+  const width = Math.max(rect.width, 280);
+  const estimatedHeight = 16 + withTotp.length * 48;
+  const pos = getDropdownPosition(rect, estimatedHeight, width);
+
   const host = document.createElement("div");
   host.id = "vaultr-autofill-host";
   host.style.cssText = `
     position: fixed !important;
-    top: ${rect.bottom + 6}px !important;
-    left: ${rect.left}px !important;
-    width: ${Math.max(rect.width, 280)}px !important;
+    top: ${pos.top}px !important;
+    left: ${pos.left}px !important;
+    width: ${width}px !important;
+    max-height: ${pos.maxHeight}px !important;
     z-index: 2147483647 !important;
     pointer-events: auto !important;
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(${pos.isAbove ? "6px" : "-6px"});
     transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   `;
 
@@ -642,6 +745,34 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
       overflow: hidden !important;
       padding: 6px !important;
       backdrop-filter: blur(16px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      max-height: inherit !important;
+    }
+    .items-list {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 2px !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      max-height: ${Math.max(80, pos.maxHeight - 16)}px !important;
+      padding-right: 2px !important;
+      scrollbar-width: thin !important;
+      scrollbar-color: rgba(255, 255, 255, 0.22) transparent !important;
+    }
+    .items-list::-webkit-scrollbar {
+      width: 5px !important;
+    }
+    .items-list::-webkit-scrollbar-track {
+      background: transparent !important;
+    }
+    .items-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2) !important;
+      border-radius: 9999px !important;
+    }
+    .items-list::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.38) !important;
     }
     .item {
       display: flex !important;
@@ -651,6 +782,7 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
       border-radius: 8px !important;
       cursor: pointer !important;
       transition: background 0.15s ease !important;
+      flex-shrink: 0 !important;
     }
     .item:hover { background: #18181b !important; }
     .badge {
@@ -675,6 +807,9 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
   const container = document.createElement("div");
   container.className = "dropdown";
 
+  const itemsList = document.createElement("div");
+  itemsList.className = "items-list";
+
   withTotp.forEach((cred) => {
     const item = document.createElement("div");
     item.className = "item";
@@ -698,9 +833,10 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
       removeDropdown();
     });
 
-    container.appendChild(item);
+    itemsList.appendChild(item);
   });
 
+  container.appendChild(itemsList);
   shadow.appendChild(container);
   document.body.appendChild(host);
   activeDropdown = host;

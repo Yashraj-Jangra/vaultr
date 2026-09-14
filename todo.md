@@ -1,5 +1,23 @@
 ## Current Session: Passkey Integration Across Web, Mobile & Extension (2026-09-13) · Branch: `dev`
 
+### ✅ What Was Done (Phase 10: Scrollable & Boundary-Aware In-Page Autofill Suggestions)
+- **Autofill Suggestions Dropdown Overhaul (`extension/src/content-script/autofill.ts`)**:
+  - **Scrollable `.items-list` Container**:
+    - Replaced direct container appending with a dedicated `.items-list` flex column container featuring `overflow-y: auto`, `overscroll-behavior: contain`, and dynamic `max-height`.
+    - Integrated sleek VaultR dark scrollbar with thin track, rounded pill thumb (`rgba(255, 255, 255, 0.2)`), and hover state (`rgba(255, 255, 255, 0.38)`).
+    - Preserved branding header (`VAULTR` logo/text + match counter badge) pinned at the top while list items scroll smoothly beneath it.
+  - **Viewport Collision & Boundary Detection (`getDropdownPosition`)**:
+    - Calculates available space below (`window.innerHeight - rect.bottom`) vs space above (`rect.top`).
+    - Flips dropdown to render **above** the input field if bottom screen clearance is insufficient (<200px or less than estimated height).
+    - Clamps horizontal position (`left`) within screen boundaries (`12px` to `viewportWidth - width - 12px`), preventing edge cutoffs.
+    - Dynamically bounds `maxHeight` so dropdown never shoots outside the visible browser content area.
+  - **Scroll & Reposition Optimization**:
+    - Guarded `repositionDropdown` against scroll events originating inside `.items-list` itself to eliminate jitter during user scrolling.
+    - Applied identical boundary detection and scrollable list container to OTP / 2FA dropdown (`showOtpDropdown`).
+- **Verification**:
+  - Extension TypeScript check (`npx tsc --noEmit`): 0 errors.
+  - Webpack production build: compiled successfully with code 0.
+
 ### ✅ What Was Done (Phase 9: Extension Passkey Interceptor & W3C/FIDO2 Prototype Conformance)
 - **Resolved Passkey Interception & Execution Failures in Browser Extension**:
   - **CSP & Injection Bypass via MV3 `"world": "MAIN"` (`extension/manifest.json`)**:
