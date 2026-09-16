@@ -514,7 +514,7 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
   header.className = "header";
 
   const logoUrl = typeof chrome !== "undefined" && chrome.runtime?.getURL
-    ? chrome.runtime.getURL("brand/logo-dark.png")
+    ? chrome.runtime.getURL("brand/vaultr-full-dark-transparent.png")
     : "";
 
   if (logoUrl) {
@@ -522,9 +522,20 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
     brandImg.src = logoUrl;
     brandImg.alt = "Vaultr";
     brandImg.className = "brand-logo";
+    brandImg.onerror = () => {
+      brandImg.remove();
+      if (!header.querySelector(".brand-fallback-title")) {
+        const fallback = document.createElement("span");
+        fallback.className = "brand-fallback-title";
+        fallback.textContent = "VAULTR";
+        fallback.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
+        header.insertBefore(fallback, badge);
+      }
+    };
     header.appendChild(brandImg);
   } else {
     const title = document.createElement("span");
+    title.className = "brand-fallback-title";
     title.textContent = "VAULTR";
     title.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
     header.appendChild(title);

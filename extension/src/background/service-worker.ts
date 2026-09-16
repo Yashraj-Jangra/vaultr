@@ -179,6 +179,7 @@ async function tryRestoreSession(): Promise<boolean> {
     state.items = items;
     state.isUnlocked = true;
 
+    await decryptAllItems();
     await touchAutoLock(lockSetting);
     return true;
   } catch (err) {
@@ -191,11 +192,37 @@ async function tryRestoreSession(): Promise<boolean> {
 export interface MatchedLogin {
   id: string;
   name: string;
+  domain?: string;
+  url?: string;
   username?: string;
   password?: string;
   totp?: string;
   hasTotp?: boolean;
   score: number;
+}
+
+async function decryptAllItems(): Promise<void> {
+  if (!state.isUnlocked || !state.masterPassword || !state.items || state.items.length === 0) return;
+  try {
+    const key = await deriveKey(state.masterPassword, state.userId || "");
+    await Promise.all(
+      state.items.map(async (item) => {
+        if (!item.encryptedBlob) return;
+        if (state.decryptedItemsCache[item.id]) {
+          item.unencryptedPayload = state.decryptedItemsCache[item.id];
+          return;
+        }
+        try {
+          const raw = await decrypt(key, item.encryptedBlob);
+          const parsed = JSON.parse(raw);
+          state.decryptedItemsCache[item.id] = parsed;
+          item.unencryptedPayload = parsed;
+        } catch {}
+      })
+    );
+  } catch (err) {
+    console.error("[Vaultr SW] decryptAllItems error:", err);
+  }
 }
 
 async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
@@ -282,6 +309,8 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
     matches.push({
       id: item.id,
       name: item.name,
+      domain: item.domain || decrypted.url || (decrypted.urls && decrypted.urls[0]) || undefined,
+      url: decrypted.url || (decrypted.urls && decrypted.urls[0]) || item.domain || undefined,
       username: decrypted.username,
       password: decrypted.password,
       totp: totpCode,
@@ -396,6 +425,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           state.items = items;
           state.isUnlocked = true;
 
+          await decryptAllItems();
+
           // Save password strictly to in-memory session storage (destroyed when browser closes)
           await chrome.storage.session.set({ vaultr_master_password: masterPassword });
 
@@ -418,6 +449,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           if (!state.isUnlocked) {
             sendResponse({ error: "Vault is locked" });
             return;
+          }
+          if (state.items.some((i) => !i.unencryptedPayload && i.encryptedBlob)) {
+            await decryptAllItems();
           }
           sendResponse({ items: state.items });
           break;
@@ -460,9 +494,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         case "GET_LOGINS_FOR_DOMAIN": {
           const matches = await getLoginsForDomain(message.domain);
           sendResponse({
-            logins: matches.map(({ id, name, username, password, totp, hasTotp }) => ({
+            logins: matches.map(({ id, name, domain, url, username, password, totp, hasTotp }) => ({
               id,
               name,
+              domain,
+              url,
               username,
               password,
               totp,
@@ -555,6 +591,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
               tags: [],
               encryptedBlob,
             });
+            newItem.unencryptedPayload = payload;
             state.items.unshift(newItem);
             state.decryptedItemsCache[newItem.id] = payload;
             sendResponse({ success: true, item: newItem });
@@ -587,6 +624,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             const encryptedBlob = await encrypt(key, JSON.stringify(updatedPayload));
             const api = await getApiClient();
             const updatedItem = await api.updateItem(itemId, { encryptedBlob });
+            updatedItem.unencryptedPayload = updatedPayload;
             const idx = state.items.findIndex((i) => i.id === itemId);
             if (idx !== -1) state.items[idx] = updatedItem;
             state.decryptedItemsCache[itemId] = updatedPayload;
@@ -655,6 +693,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
               hasTotp: !!message.payload?.totpSecret,
             });
 
+            newItem.unencryptedPayload = message.payload;
             state.items.unshift(newItem);
             state.decryptedItemsCache[newItem.id] = message.payload;
             sendResponse({ success: true, item: newItem });
@@ -692,6 +731,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             if (favorite !== undefined) updateFields.favorite = favorite;
 
             const updatedItem = await api.updateItem(id, updateFields);
+            updatedItem.unencryptedPayload = payload;
 
             const index = state.items.findIndex((i) => i.id === id);
             if (index !== -1) state.items[index] = updatedItem;

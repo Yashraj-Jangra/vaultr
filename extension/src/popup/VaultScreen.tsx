@@ -33,6 +33,10 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
   const [hasError, setHasError] = useState(false);
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
 
+  useEffect(() => {
+    setHasError(false);
+  }, [effectiveDomain]);
+
   if (!effectiveDomain || hasError) {
     return (
       <div className="site-icon">
@@ -51,6 +55,7 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
   return (
     <div className="site-icon">
       <img
+        key={effectiveDomain}
         src={src}
         alt=""
         onError={() => setHasError(true)}
@@ -61,20 +66,24 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
 }
 
 
-function getItemIcon(item: VaultItem) {
+function getItemIcon(item: VaultItem, decrypted?: any) {
   const template = item.template || "login";
+  const payload = decrypted || item.unencryptedPayload;
 
   if (template === "login") {
-    return <SiteIcon domain={item.domain ?? undefined} name={item.name} url={(item as any).url} />;
+    const candidateUrl = payload?.url || payload?.urls?.[0] || (item as any).url;
+    const candidateDomain = item.domain || candidateUrl;
+    return <SiteIcon domain={candidateDomain} name={item.name} url={candidateUrl} />;
   }
 
   if (template === "card") {
-    const nameLower = item.name.toLowerCase();
-    const isVisa = nameLower.includes("visa");
-    const isMastercard = nameLower.includes("mastercard") || nameLower.includes("master card") || nameLower.includes(" mc");
-    const isAmex = nameLower.includes("amex") || nameLower.includes("american express");
-    const isDiscover = nameLower.includes("discover");
-    const isRupay = nameLower.includes("rupay");
+    const nameLower = (item.name + " " + (payload?.cardholderName || "") + " " + (payload?.cardName || "")).toLowerCase();
+    const cardBrand = (payload?.cardBrand || "").toLowerCase();
+    const isVisa = cardBrand.includes("visa") || nameLower.includes("visa");
+    const isMastercard = cardBrand.includes("mastercard") || nameLower.includes("mastercard") || nameLower.includes(" mc");
+    const isAmex = cardBrand.includes("amex") || nameLower.includes("amex") || nameLower.includes("american express");
+    const isDiscover = cardBrand.includes("discover") || nameLower.includes("discover");
+    const isRupay = cardBrand.includes("rupay") || nameLower.includes("rupay");
 
     let cardBadge: React.ReactNode;
     if (isVisa) {
@@ -297,9 +306,15 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavorite, isCurrentSiteMatch }: ItemRowProps) {
-  const [decrypted, setDecrypted] = useState<any>(null);
+  const [decrypted, setDecrypted] = useState<any>(item.unencryptedPayload || null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (item.unencryptedPayload && !decrypted) {
+      setDecrypted(item.unencryptedPayload);
+    }
+  }, [item.unencryptedPayload]);
 
   const handleExpand = useCallback(async () => {
     const next = !expanded;
@@ -320,7 +335,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
   const handleAutofillClick = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      let cred = decrypted;
+      let cred = decrypted || item.unencryptedPayload;
       if (!cred) {
         try {
           cred = await onDecrypt(item.encryptedBlob, item.id);
@@ -331,13 +346,13 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
       }
       onAutofill({ username: cred.username, password: cred.password });
     },
-    [decrypted, item.encryptedBlob, item.id, onDecrypt, onAutofill]
+    [decrypted, item.unencryptedPayload, item.encryptedBlob, item.id, onDecrypt, onAutofill]
   );
 
   const handleEditClick = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      let payload = decrypted;
+      let payload = decrypted || item.unencryptedPayload;
       if (!payload) {
         setLoading(true);
         try {
@@ -354,7 +369,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
         onEdit(item, payload);
       }
     },
-    [item, decrypted, onDecrypt, onEdit]
+    [item, decrypted, item.unencryptedPayload, onDecrypt, onEdit]
   );
 
   const handleDeleteClick = useCallback(
@@ -368,6 +383,27 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
   );
 
   const isLogin = !item.template || item.template === "login";
+  const payload = decrypted || item.unencryptedPayload;
+
+  const subText = useMemo(() => {
+    if (isLogin) {
+      return payload?.username || payload?.email || "";
+    }
+    if (item.template === "card") {
+      const last4 = payload?.cardNumber ? payload.cardNumber.replace(/\D/g, "").slice(-4) : "";
+      return last4 ? `•••• ${last4}` : (payload?.cardholderName || payload?.cardName || "Credit Card");
+    }
+    if (item.template === "address") {
+      return [payload?.city, payload?.state, payload?.country].filter(Boolean).join(", ") || "Address";
+    }
+    if (item.template === "profile") {
+      return payload?.fullName || payload?.email || "Identity Profile";
+    }
+    if (item.template === "note") {
+      return "Secure Note";
+    }
+    return payload?.username || payload?.email || "";
+  }, [isLogin, item.template, payload]);
 
   return (
     <div className={`item-container${expanded ? " expanded" : ""}`}>
@@ -376,13 +412,13 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
         className="item-row"
         onClick={handleExpand}
       >
-        {getItemIcon(item)}
+        {getItemIcon(item, payload)}
 
         <div className="item-meta">
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div className="item-name">{item.name}</div>
             {/* 2FA Badge */}
-            {decrypted?.totpSecret && (
+            {(payload?.totpSecret || item.hasTotp) && (
               <span
                 style={{
                   display: "inline-flex",
@@ -402,7 +438,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
               </span>
             )}
             {/* Passkey Badge */}
-            {(item.isPasskey || item.tags?.includes("passkey") || decrypted?.isPasskey) && (
+            {(item.isPasskey || item.tags?.includes("passkey") || payload?.isPasskey) && (
               <span
                 style={{
                   display: "inline-flex",
@@ -423,7 +459,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
             )}
           </div>
           <div className="item-sub">
-            {decrypted?.username || item.domain || item.template || "vault item"}
+            {subText || (isLogin ? "No username" : item.template || "vault item")}
           </div>
         </div>
 
@@ -798,7 +834,9 @@ export function VaultScreen({
     return list.filter(
       (i) =>
         i.name.toLowerCase().includes(q) ||
-        (i.domain || "").toLowerCase().includes(q)
+        (i.domain || "").toLowerCase().includes(q) ||
+        (i.unencryptedPayload?.username || "").toLowerCase().includes(q) ||
+        (i.unencryptedPayload?.email || "").toLowerCase().includes(q)
     );
   }, [activeItems, selectedFolder, query]);
 
@@ -901,9 +939,15 @@ export function VaultScreen({
         {/* Matches */}
         {matchedItems.length > 0 && !query && selectedFolder === "All" && (
           <div className="match-banner">
-            <div className="match-banner-label">
+            <div className="match-banner-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(activeTabDomain)}&sz=32`}
+                alt=""
+                style={{ width: 13, height: 13, borderRadius: 2, objectFit: "contain", flexShrink: 0 }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+              />
               <Globe size={11} />
-              {activeTabDomain}
+              <span>{activeTabDomain}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {matchedItems.map((item) => (

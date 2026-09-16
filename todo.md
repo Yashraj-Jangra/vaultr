@@ -1,4 +1,23 @@
-## Current Session: Passkey Integration, URL Matching & Mobile UI Parity (2026-09-14) · Branch: `dev`
+## Current Session: Extension Brand Logo & Item Subtitle Fixes (2026-09-16) · Branch: `dev`
+
+### ✅ What Was Done (Phase 16: Extension Brand Logo & Email/Username Subtitle Fix)
+- **Resolved Extension Brand Logo Not Showing in Suggestions Header**:
+  - `extension/src/content-script/autofill.ts`: Fixed logo asset path from nonexistent `brand/logo-dark.png` to `brand/vaultr-full-dark-transparent.png`. Added `onerror` handler falling back gracefully to styled "VAULTR" typography if the image fails to load.
+  - `extension/webpack.config.js`: Added CopyWebpackPlugin alias copying `vaultr-full-dark-transparent.png` to `brand/logo-dark.png` as a fail-safe fallback.
+  - `extension/src/background/service-worker.ts`: Added `domain` and `url` to `MatchedLogin` interface and `getLoginsForDomain` mapper so matching credential items can reliably resolve their brand/favicon icons.
+- **Fixed Item Subtitle Showing URL Instead of Email/Username Upon Open**:
+  - `extension/src/background/service-worker.ts`:
+    - Implemented `decryptAllItems()` to decrypt vault items on unlock, session restoration, and `GET_ITEMS`, populating `item.unencryptedPayload` and `state.decryptedItemsCache`.
+    - Maintained `unencryptedPayload` across `SAVE_ITEM`, `SAVE_LOGIN`, `UPDATE_ITEM`, and `UPDATE_LOGIN_PASSWORD`.
+  - `extension/src/popup/VaultScreen.tsx`:
+    - Updated `ItemRow` to initialize `decrypted` with `item.unencryptedPayload || null`.
+    - Strictly enforced that login items display `payload?.username || payload?.email || ""` — never falling back to `item.domain` (the URL).
+    - Updated `getItemIcon` to resolve candidate URLs and domains from `payload` (`unencryptedPayload` / `decrypted`).
+    - Added active tab domain favicon to match-banner label.
+    - Added username and email to vault search query filtering.
+- **Verification**:
+  - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Extension Webpack build: `npm run build` compiled cleanly into `extension/dist/` without errors.
 
 ### ✅ What Was Done (Phase 15: Android Credential Manager Passkey Integration Fix)
 - **Resolved Android Falling Back to Google Default Passkeys**:
