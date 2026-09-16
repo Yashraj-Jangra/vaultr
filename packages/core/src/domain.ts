@@ -413,8 +413,17 @@ export function extractDomainHost(rawUrlOrDomain?: string): string {
   if (!rawUrlOrDomain || !rawUrlOrDomain.trim()) return "";
   let clean = rawUrlOrDomain.trim().toLowerCase();
 
-  // Filter out internal browser pages (newtab, chrome://, edge://, about:blank, etc.)
-  if (isInternalBrowserHost(clean) || (clean.includes("://") && !isWebPageUrl(clean))) {
+  // Filter out internal browser schemes (chrome://, edge://, about:blank, etc.)
+  if (
+    clean.startsWith("chrome://") ||
+    clean.startsWith("chrome-extension://") ||
+    clean.startsWith("edge://") ||
+    clean.startsWith("about:") ||
+    clean.startsWith("file://") ||
+    clean.startsWith("view-source:") ||
+    clean.startsWith("brave://") ||
+    clean.startsWith("vivaldi://")
+  ) {
     return "";
   }
 
@@ -432,6 +441,11 @@ export function extractDomainHost(rawUrlOrDomain?: string): string {
     }
   }
 
+  // Strip user auth (e.g. user:pass@host)
+  if (clean.includes("@")) {
+    clean = clean.split("@").pop() || clean;
+  }
+
   // Strip path, query params, hash
   clean = clean.split("/")[0].split("?")[0].split("#")[0];
 
@@ -440,6 +454,9 @@ export function extractDomainHost(rawUrlOrDomain?: string): string {
 
   // Strip leading www.
   clean = clean.replace(/^www\./, "");
+
+  // Strip trailing dots
+  clean = clean.replace(/\.+$/, "");
 
   if (isInternalBrowserHost(clean)) return "";
   return clean;
@@ -493,18 +510,62 @@ export function getBaseRootDomain(hostname: string): string {
 }
 
 /**
+ * Splits a candidate string or array of strings into individual normalized domain or URL tokens.
+ * Handles comma, semicolon, newline, and whitespace delimiters, trimming and removing empty entries.
+ */
+export function splitCandidateUrlsOrDomains(input?: any): string[] {
+  if (!input) return [];
+  const rawList: any[] = Array.isArray(input) ? input.flat(Infinity) : [input];
+  const results: string[] = [];
+  for (const raw of rawList) {
+    if (!raw || typeof raw !== "string") continue;
+    const tokens = raw.split(/[\s,;\n\r]+/);
+    for (const token of tokens) {
+      const trimmed = token.trim();
+      if (trimmed) {
+        results.push(trimmed);
+      }
+    }
+  }
+  return Array.from(new Set(results));
+}
+
+/**
+ * Collects and splits all candidate URLs and domains from a vault item and its decrypted payload.
+ * Inspects item.domain, item.url, item.urls, item.unencryptedPayload (domain, domains, url, urls),
+ * and decrypted payload (domain, domains, url, urls).
+ */
+export function extractItemCandidateUrls(item: any, decrypted?: any): string[] {
+  if (!item) return [];
+  const sources: any[] = [];
+  if (item.domain) sources.push(item.domain);
+  if (item.url) sources.push(item.url);
+  if (item.urls) sources.push(item.urls);
+  if (item.unencryptedPayload?.domain) sources.push(item.unencryptedPayload.domain);
+  if (item.unencryptedPayload?.domains) sources.push(item.unencryptedPayload.domains);
+  if (item.unencryptedPayload?.url) sources.push(item.unencryptedPayload.url);
+  if (item.unencryptedPayload?.urls) sources.push(item.unencryptedPayload.urls);
+  if (decrypted?.domain) sources.push(decrypted.domain);
+  if (decrypted?.domains) sources.push(decrypted.domains);
+  if (decrypted?.url) sources.push(decrypted.url);
+  if (decrypted?.urls) sources.push(decrypted.urls);
+
+  return splitCandidateUrlsOrDomains(sources);
+}
+
+/**
  * Calculates a match score between a candidate URL/domain (from vault) and current page host.
  * 
  * Returns:
  * - 3: Exact host match (e.g., 192.168.1.50 == 192.168.1.50 regardless of port, or app.example.com == app.example.com)
- * - 2: Base domain match (saved: example.com, current: abc.example.com) [when allowSubdomains is true]
- * - 1: Subdomain match (saved: abc.example.com, current: example.com or xyz.example.com) [when allowSubdomains is true]
+ * - 2: Base domain match (saved: example.com, current: abc.example.com) [when allowBaseDomain is true]
+ * - 1: Subdomain match (saved: abc.example.com, current: example.com or xyz.example.com) [when allowBaseDomain is true]
  * - 0: No match
  */
 export function calculateDomainMatchScore(
   candidateUrlOrDomain: string,
   currentHostOrUrl: string,
-  allowSubdomains: boolean = true
+  allowBaseDomain: boolean = true
 ): number {
   if (!candidateUrlOrDomain || !currentHostOrUrl) return 0;
 
@@ -513,18 +574,18 @@ export function calculateDomainMatchScore(
 
   if (!candidateHost || !currentHost) return 0;
 
-  // Exact host match (matches across different ports, e.g. 192.168.1.100:8080 vs 192.168.1.100:3000)
+  // Exact host match (matches across different ports, paths, and protocols, e.g. 192.168.1.100:8080 vs 192.168.1.100:3000, or app.example.com:443 vs app.example.com/login)
   if (candidateHost === currentHost) {
     return 3;
   }
 
-  // IP addresses and localhost never match subdomains
+  // IP addresses and localhost never have subdomains/base domains; only exact host matches
   if (isIpAddress(currentHost) || isIpAddress(candidateHost) || currentHost === "localhost" || candidateHost === "localhost") {
     return 0;
   }
 
-  // If user disabled subdomain matching in settings, require exact host
-  if (!allowSubdomains) {
+  // If base domain matching is turned OFF, require exact host/subdomain match
+  if (!allowBaseDomain) {
     return 0;
   }
 

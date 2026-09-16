@@ -21,6 +21,7 @@ import {
   getBaseRootDomain,
   calculateDomainMatchScore,
   isIpAddress,
+  extractItemCandidateUrls,
 } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
@@ -267,22 +268,8 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
 
     if (!decrypted.username && !decrypted.password) continue;
 
-    // Collect all candidate URLs: item.domain, decrypted.url, and all decrypted.urls[]
-    const candidateUrls: string[] = [];
-    if (item.domain && typeof item.domain === "string" && item.domain.trim()) {
-      candidateUrls.push(item.domain.trim());
-    }
-    if (decrypted.url && typeof decrypted.url === "string" && decrypted.url.trim()) {
-      candidateUrls.push(decrypted.url.trim());
-    }
-    if (Array.isArray(decrypted.urls)) {
-      for (const u of decrypted.urls) {
-        if (u && typeof u === "string" && u.trim()) {
-          candidateUrls.push(u.trim());
-        }
-      }
-    }
-
+    // Collect and split all candidate URLs/domains across item and decrypted payload
+    const candidateUrls = extractItemCandidateUrls(item, decrypted);
     if (candidateUrls.length === 0) continue;
 
     // Evaluate match score across all candidate URLs (picking highest score)

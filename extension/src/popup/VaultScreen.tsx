@@ -13,6 +13,7 @@ import {
   detectCardBrand,
   extractDomainHost,
   calculateDomainMatchScore,
+  extractItemCandidateUrls,
 } from "@vaultr/core";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
@@ -789,6 +790,17 @@ export function VaultScreen({
           setAllowSubdomains(res.vaultr_subdomain_matching !== false);
         }
       });
+
+      const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+        if (area === "local" && changes.vaultr_subdomain_matching) {
+          setAllowSubdomains(changes.vaultr_subdomain_matching.newValue !== false);
+        }
+      };
+
+      chrome.storage.onChanged.addListener(handleStorageChange);
+      return () => {
+        chrome.storage.onChanged.removeListener(handleStorageChange);
+      };
     }
   }, []);
 
@@ -846,24 +858,7 @@ export function VaultScreen({
       const template = i.template || "login";
       if (template !== "login") return false;
 
-      const candidateUrls: string[] = [];
-      if (i.domain && typeof i.domain === "string" && i.domain.trim()) {
-        candidateUrls.push(i.domain.trim());
-      }
-      if ((i as any).url && typeof (i as any).url === "string" && (i as any).url.trim()) {
-        candidateUrls.push((i as any).url.trim());
-      }
-      if (i.unencryptedPayload?.url && typeof i.unencryptedPayload.url === "string" && i.unencryptedPayload.url.trim()) {
-        candidateUrls.push(i.unencryptedPayload.url.trim());
-      }
-      if (Array.isArray(i.unencryptedPayload?.urls)) {
-        for (const u of i.unencryptedPayload.urls) {
-          if (u && typeof u === "string" && u.trim()) {
-            candidateUrls.push(u.trim());
-          }
-        }
-      }
-
+      const candidateUrls = extractItemCandidateUrls(i);
       if (candidateUrls.length === 0) return false;
 
       return candidateUrls.some((cand) => {

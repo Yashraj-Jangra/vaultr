@@ -814,8 +814,11 @@ body {
 
 .toggle {
   position: relative;
+  display: inline-block;
   width: 38px;
+  min-width: 38px;
   height: 20px;
+  flex-shrink: 0;
 }
 
 .toggle input {
@@ -981,6 +984,11 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 4px 2px;
+}
+
+.settings-row > div:first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .settings-row-label {

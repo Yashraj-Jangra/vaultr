@@ -1,4 +1,30 @@
-## Current Session: Extension Brand Logo & Item Subtitle Fixes (2026-09-16) · Branch: `dev`
+## Current Session: Extension Domain Matching & Settings Toggle Button Fix (2026-09-16) · Branch: `dev`
+
+### ✅ What Was Done (Phase 17: Extension Domain Matching & Settings Toggle Button Fix)
+- **Multi-Domain & Multi-URL Normalization in `@vaultr/core` (`packages/core/src/domain.ts`)**:
+  - Enhanced `extractDomainHost()`:
+    - Fixed scheme filtering bug where `isInternalBrowserHost()` was evaluated prematurely before scheme stripping.
+    - Stripped ports (`:3000`, `:8080`), paths (`/dir`), query parameters, hashes, user auth (`user:pass@`), `www.` prefixes, and trailing dots.
+  - Implemented `splitCandidateUrlsOrDomains(input)` with recursive flattening (`input.flat(Infinity)`) to parse comma-, semicolon-, newline-, and space-delimited domains or URLs.
+  - Implemented `extractItemCandidateUrls(item, decrypted)` collecting all domain and URL fields across `item.domain`, `item.url`, `item.urls`, `item.unencryptedPayload` (`domain`, `domains`, `url`, `urls`), and decrypted payloads.
+  - Updated `calculateDomainMatchScore(candidateUrlOrDomain, currentHostOrUrl, allowBaseDomain)`:
+    - When `allowBaseDomain` is ON (default): matches exact host (score 3), root domain (score 2), and sibling subdomains (score 1) across different ports, paths, and protocols.
+    - When `allowBaseDomain` is OFF: matches only exact host/subdomain (score 3); sibling subdomains and root domains return score 0.
+- **Fixed Settings Screen Toggle Button & Layout (`extension/src/popup/popup.css`, `extension/src/popup/SettingsScreen.tsx`)**:
+  - `popup.css`: Added `display: inline-block; flex-shrink: 0; min-width: 38px;` to `.toggle`. Added `.settings-row > div:first-child { flex: 1; min-width: 0; }` to prevent flexbox from squashing switches.
+  - `SettingsScreen.tsx`: Renamed "Match subdomains" setting to "Match base domain" with description "Suggest credentials across all subdomains and paths of the base domain (e.g. login.example.com and example.com)". Added explicit flex constraints.
+- **Real-Time Extension Domain Matching Synchronization**:
+  - `extension/src/popup/VaultScreen.tsx`:
+    - Updated `matchedItems` to use `extractItemCandidateUrls(i)`.
+    - Added `chrome.storage.onChanged` listener on `vaultr_subdomain_matching` so toggling in Settings immediately updates vault suggestions.
+  - `extension/src/background/service-worker.ts`:
+    - Updated `getLoginsForDomain()` to use `extractItemCandidateUrls(item, decrypted)`.
+  - `extension/src/content-script/autofill.ts`:
+    - Ensured `getDomain()` provides robust host fallbacks (`window.location.hostname || window.location.host || window.location.href`).
+- **Verification**:
+  - Automated unit test suite (`test_domain_matching.ts`) passed 100% of assertions (ports, paths, protocols, multi-domain lists, base domain ON vs OFF).
+  - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Extension build: `npm run build --prefix extension` compiled cleanly in webpack with 0 errors.
 
 ### ✅ What Was Done (Phase 16: Extension Brand Logo & Email/Username Subtitle Fix)
 - **Resolved Extension Brand Logo Not Showing in Suggestions Header**:

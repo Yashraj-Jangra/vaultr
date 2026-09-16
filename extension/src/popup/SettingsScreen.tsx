@@ -526,11 +526,11 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         </div>
 
         <div className="settings-row" style={{ marginTop: 4 }}>
-          <div>
-            <div className="settings-row-label">Match subdomains</div>
-            <div className="settings-row-sub">Suggest credentials across subdomains (e.g. abc.example.com on example.com)</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="settings-row-label">Match base domain</div>
+            <div className="settings-row-sub">Suggest credentials across all subdomains and paths of the base domain (e.g. login.example.com and example.com)</div>
           </div>
-          <label className="toggle">
+          <label className="toggle" style={{ flexShrink: 0 }}>
             <input
               type="checkbox"
               checked={subdomainMatching}

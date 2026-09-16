@@ -114,7 +114,7 @@ function showInPageToast(messageHtml: string, durationMs = 3500) {
 function getDomain(): string {
   try {
     if (!isWebPageUrl(window.location.href)) return "";
-    return window.location.hostname;
+    return window.location.hostname || window.location.host || window.location.href;
   } catch {
     return "";
   }
