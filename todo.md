@@ -1,4 +1,24 @@
-## Current Session: Mobile Stale Biometric Fix on Master Password Change (2026-09-18) · Branch: `dev`
+## Current Session: Extension Session Management (2026-09-18) · Branch: `dev`
+
+### ✅ What Was Done (Phase 21: Browser Extension Session Management & Device Revocation)
+- **Sessions & Devices Management in Browser Extension (`extension/src/popup/SettingsScreen.tsx`)**:
+  - Implemented `SessionData` interface, `relativeTime()`, and `formatDate()` helpers for session activity calculation.
+  - Added collapsible "Sessions & Devices" card inside the `SECURITY & TIMEOUTS` section (above Change Master Password), with live session count indicator.
+  - Implemented lazy loading: queries `GET /api/settings/sessions` on expand, with loading skeletons and inline refresh button (`RefreshCw`).
+  - Integrated full badge hierarchy matching web and mobile:
+    - `THIS DEVICE` (emerald badge) for current session
+    - `MOBILE APP` (violet badge) for mobile clients
+    - `MOBILE BROWSER` (amber badge) for mobile browsers
+    - `DESKTOP WEB` (neutral badge) for desktop browsers
+    - `BIOMETRICS` (emerald badge) for enrolled mobile biometric sessions
+    - `WINDOWS HELLO` (indigo badge) for desktop sessions
+  - Added device IP address (with `Globe` icon), relative last active time (with `Clock` icon), and creation date with city/country display.
+  - Implemented individual session revocation (`DELETE /api/settings/sessions/:id`) with real-time UI item removal and per-item spinner.
+  - Implemented bulk session revocation (`DELETE /api/settings/sessions`) with inline confirmation dialog to sign out all other devices at once.
+- **Verification**:
+  - Extension TypeScript check: `npx tsc --noEmit` in `extension/` passed with 0 errors.
+  - Extension Webpack production build: `npm run build --prefix extension` compiled cleanly with 0 errors.
+  - Root project TypeScript check: `npx tsc --noEmit` passed with 0 errors.
 
 ### ✅ What Was Done (Phase 20: Fix Mobile Stale Biometrics on Master Password Change)
 - **Root Cause Resolution**:

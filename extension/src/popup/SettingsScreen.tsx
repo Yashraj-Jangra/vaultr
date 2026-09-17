@@ -19,6 +19,13 @@ import {
   KeyRound,
   Copy,
   Check,
+  Monitor,
+  Smartphone,
+  Trash2,
+  RefreshCw,
+  Clock,
+  LogIn,
+  AlertCircle,
 } from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
 import {
@@ -35,6 +42,48 @@ interface SettingsScreenProps {
   accountInfo: AccountInfo;
   onUpdateServerUrl: (url: string) => Promise<void>;
   onLock: () => void;
+}
+
+interface SessionData {
+  sessionId: string;
+  isCurrent: boolean;
+  deviceName: string;
+  browser: string;
+  os: string;
+  isMobile?: boolean;
+  clientType?: "mobile_app" | "mobile_browser" | "desktop_web";
+  ipAddress: string | null;
+  country: string | null;
+  city: string | null;
+  lastActiveAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diffSec < 60) return "Just now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  } catch {
+    return "—";
+  }
+}
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function PasswordField({
@@ -125,6 +174,15 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [confirmPw, setConfirmPw] = useState("");
   const [pwChanging, setPwChanging] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  // Sessions & Devices state
+  const [showSessions, setShowSessions] = useState(false);
+  const [sessions, setSessions] = useState<SessionData[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState("");
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokingAll, setRevokingAll] = useState(false);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
 
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage) {
@@ -344,6 +402,362 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     } else {
       window.open(target, "_blank");
     }
+  };
+
+  const loadSessions = async () => {
+    const base = (serverUrl || "").replace(/\/+$/, "");
+    if (!base) return;
+    setSessionsLoading(true);
+    setSessionsError("");
+    try {
+      const res = await fetch(`${base}/api/settings/sessions`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Session expired. Please sign in again.");
+        }
+        throw new Error("Failed to load sessions");
+      }
+      const data = await res.json();
+      setSessions(data.sessions ?? []);
+    } catch (err: any) {
+      setSessionsError(err.message || "Could not load sessions");
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    const base = (serverUrl || "").replace(/\/+$/, "");
+    if (!base) return;
+    setRevokingId(sessionId);
+    setSessionsError("");
+    try {
+      const res = await fetch(`${base}/api/settings/sessions/${sessionId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to revoke session");
+      }
+      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+    } catch (err: any) {
+      setSessionsError(err.message || "Failed to revoke session");
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    const base = (serverUrl || "").replace(/\/+$/, "");
+    if (!base) return;
+    setConfirmRevokeAll(false);
+    setRevokingAll(true);
+    setSessionsError("");
+    try {
+      const res = await fetch(`${base}/api/settings/sessions`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to revoke other sessions");
+      }
+      await loadSessions();
+    } catch (err: any) {
+      setSessionsError(err.message || "Failed to sign out all other devices");
+    } finally {
+      setRevokingAll(false);
+    }
+  };
+
+  const otherSessions = sessions.filter((s) => !s.isCurrent);
+  const currentSession = sessions.find((s) => s.isCurrent);
+
+  const renderSessionCard = (s: SessionData) => {
+    const isMobileApp =
+      s.clientType === "mobile_app" ||
+      s.browser.toLowerCase().includes("vaultr mobile") ||
+      s.deviceName.toLowerCase().includes("vaultr mobile");
+    const isMobile =
+      s.isMobile ||
+      isMobileApp ||
+      s.os.toLowerCase().includes("iphone") ||
+      s.os.toLowerCase().includes("android") ||
+      s.os.toLowerCase().includes("mobile");
+
+    const isRevoking = revokingId === s.sessionId;
+    const location = [s.city, s.country].filter(Boolean).join(", ");
+
+    return (
+      <div
+        key={s.sessionId}
+        style={{
+          padding: "8px 10px",
+          borderRadius: 10,
+          background: s.isCurrent ? "rgba(16, 185, 129, 0.05)" : "#141416",
+          border: s.isCurrent ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid var(--border)",
+          display: "flex",
+          gap: 10,
+          alignItems: "flex-start",
+        }}
+      >
+        {/* Device Icon */}
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: s.isCurrent
+              ? "rgba(16, 185, 129, 0.15)"
+              : isMobileApp
+              ? "rgba(167, 139, 250, 0.15)"
+              : isMobile
+              ? "rgba(251, 191, 36, 0.15)"
+              : "rgba(255, 255, 255, 0.05)",
+          }}
+        >
+          {isMobile ? (
+            <Smartphone
+              size={16}
+              style={{
+                color: s.isCurrent ? "#34d399" : isMobileApp ? "#a78bfa" : "#fbbf24",
+              }}
+            />
+          ) : (
+            <Monitor
+              size={16}
+              style={{
+                color: s.isCurrent ? "#34d399" : "var(--neutral-400)",
+              }}
+            />
+          )}
+        </div>
+
+        {/* Info */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: s.isCurrent ? "#6ee7b7" : "var(--neutral-200)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 160,
+              }}
+              title={s.deviceName}
+            >
+              {s.deviceName}
+            </span>
+
+            {s.isCurrent && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(16, 185, 129, 0.15)",
+                  color: "#34d399",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <ShieldCheck size={9} /> THIS DEVICE
+              </span>
+            )}
+
+            {isMobileApp ? (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(167, 139, 250, 0.15)",
+                  color: "#c4b5fd",
+                  border: "1px solid rgba(167, 139, 250, 0.3)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Smartphone size={9} /> MOBILE APP
+              </span>
+            ) : isMobile ? (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(251, 191, 36, 0.15)",
+                  color: "#fcd34d",
+                  border: "1px solid rgba(251, 191, 36, 0.3)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Smartphone size={9} /> MOBILE BROWSER
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(255, 255, 255, 0.05)",
+                  color: "#a3a3a3",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Monitor size={9} /> DESKTOP WEB
+              </span>
+            )}
+
+            {isMobileApp ? (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(16, 185, 129, 0.15)",
+                  color: "#34d399",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Fingerprint size={9} /> BIOMETRICS
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(99, 102, 241, 0.15)",
+                  color: "#a5b4fc",
+                  border: "1px solid rgba(99, 102, 241, 0.3)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <ShieldCheck size={9} /> WINDOWS HELLO
+              </span>
+            )}
+          </div>
+
+          {/* Sub metadata */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+            {s.ipAddress && (
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontFamily: "monospace",
+                  color: "var(--neutral-400)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Globe size={10} style={{ color: "var(--neutral-500)" }} />
+                {s.ipAddress}
+              </span>
+            )}
+            <span
+              style={{
+                fontSize: 10.5,
+                color: "var(--neutral-500)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
+              <Clock size={10} style={{ color: "var(--neutral-600)" }} />
+              Active {relativeTime(s.lastActiveAt ?? s.createdAt)}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--neutral-600)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
+              <LogIn size={10} />
+              Signed in {formatDate(s.createdAt)}
+            </span>
+            {location && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "var(--neutral-500)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: 130,
+                }}
+                title={location}
+              >
+                · {location}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Revoke button */}
+        {!s.isCurrent && (
+          <button
+            type="button"
+            disabled={isRevoking || revokingAll}
+            onClick={() => handleRevokeSession(s.sessionId)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#f87171",
+              fontSize: 10.5,
+              fontWeight: 500,
+              cursor: isRevoking || revokingAll ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              padding: "3px 6px",
+              borderRadius: 5,
+              flexShrink: 0,
+              opacity: isRevoking ? 0.6 : 1,
+            }}
+            title="Revoke session"
+          >
+            {isRevoking ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+            {isRevoking ? "Revoking…" : "Revoke"}
+          </button>
+        )}
+      </div>
+    );
   };
 
   const initials = accountInfo.name
@@ -751,6 +1165,214 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
       {/* Security & Auto-Lock */}
       <div className="settings-section">
         <div className="settings-section-title">SECURITY & TIMEOUTS</div>
+
+        {/* Sessions & Devices Card */}
+        <div
+          style={{
+            padding: "12px",
+            background: "#0d0d0d",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              const next = !showSessions;
+              setShowSessions(next);
+              if (next && sessions.length === 0 && !sessionsLoading) {
+                loadSessions();
+              }
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+              <ShieldCheck size={14} style={{ color: "#38bdf8", flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                  Sessions & Devices
+                </div>
+                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
+                  {sessions.length > 0
+                    ? `${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`
+                    : "Manage active sign-ins & devices"}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                height: 26,
+                padding: "0 8px",
+                fontSize: 11,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                borderRadius: 6,
+                color: "var(--neutral-300)",
+                flexShrink: 0,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const next = !showSessions;
+                setShowSessions(next);
+                if (next && sessions.length === 0 && !sessionsLoading) {
+                  loadSessions();
+                }
+              }}
+            >
+              {showSessions ? "Hide" : "Show"}
+              {showSessions ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+          </div>
+
+          {showSessions && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Action bar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Active Sessions
+                  </span>
+                  <button
+                    type="button"
+                    onClick={loadSessions}
+                    disabled={sessionsLoading}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--neutral-500)",
+                      cursor: sessionsLoading ? "not-allowed" : "pointer",
+                      padding: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 4,
+                    }}
+                    title="Refresh sessions"
+                  >
+                    <RefreshCw size={11} className={sessionsLoading ? "animate-spin" : ""} />
+                  </button>
+                </div>
+
+                {otherSessions.length > 0 && !confirmRevokeAll && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRevokeAll(true)}
+                    disabled={revokingAll}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#f87171",
+                      fontSize: 10.5,
+                      fontWeight: 500,
+                      cursor: revokingAll ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "2px 4px",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <Trash2 size={11} />
+                    Sign out others ({otherSessions.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Confirm revoke all dialog */}
+              {confirmRevokeAll && (
+                <div
+                  style={{
+                    padding: "10px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    background: "rgba(239, 68, 68, 0.08)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <p style={{ fontSize: 11, color: "#fca5a5", lineHeight: 1.4, margin: 0 }}>
+                    Sign out from {otherSessions.length} other device{otherSessions.length !== 1 ? "s" : ""}?
+                  </p>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
+                      disabled={revokingAll}
+                      onClick={handleRevokeAllSessions}
+                    >
+                      {revokingAll ? (
+                        <>
+                          <Loader2 size={11} className="animate-spin" style={{ marginRight: 4 }} />
+                          Signing out…
+                        </>
+                      ) : (
+                        "Yes, sign out all"
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
+                      onClick={() => setConfirmRevokeAll(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Error state */}
+              {sessionsError && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: "rgba(239, 68, 68, 0.1)",
+                    border: "1px solid rgba(239, 68, 68, 0.25)",
+                    color: "#f87171",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <AlertCircle size={12} style={{ flexShrink: 0 }} />
+                  <span>{sessionsError}</span>
+                </div>
+              )}
+
+              {/* Loading skeleton */}
+              {sessionsLoading && sessions.length === 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ height: 48, borderRadius: 8, background: "#161618", opacity: 0.6 }} className="animate-pulse" />
+                  <div style={{ height: 48, borderRadius: 8, background: "#161618", opacity: 0.4 }} className="animate-pulse" />
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!sessionsLoading && sessions.length === 0 && !sessionsError && (
+                <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "var(--neutral-500)" }}>
+                  No active sessions found.
+                </div>
+              )}
+
+              {/* Session cards */}
+              {currentSession && renderSessionCard(currentSession)}
+              {otherSessions.map((s) => renderSessionCard(s))}
+            </div>
+          )}
+        </div>
 
         {/* Change Master Password Card */}
         <div
