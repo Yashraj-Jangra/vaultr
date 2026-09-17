@@ -1,4 +1,27 @@
-## Current Session: Windows Hello / Edge Passkey Fix & In-Page Autofill Suggestions (2026-09-18) · Branch: `dev`
+## Current Session: Change Master Password from Browser Extension (2026-09-18) · Branch: `dev`
+
+### ✅ What Was Done (Phase 19: Change Master Password in Browser Extension)
+- **Service Worker Master Password Re-Encryption Handler (`extension/src/background/service-worker.ts`)**:
+  - Implemented `CHANGE_MASTER_PASSWORD` message handler:
+    - Derives old AES-GCM key via PBKDF2 (`deriveKey(oldPassword, state.userId)`).
+    - Verifies old key by attempting decryption against active/trash vault items (rejecting incorrect passwords before modifying state).
+    - Derives new key (`deriveKey(newPassword, state.userId)`).
+    - Atomically re-encrypts all vault item blobs (both active and trash) client-side.
+    - Submits batch re-encryption to backend via `api.reencryptItems()`.
+    - Updates local in-memory session and `chrome.storage.session` with new master password.
+    - Decrypts all items to refresh memory caches (`state.decryptedItemsCache`, `item.unencryptedPayload`).
+    - Clears stale biometric credentials (`vaultr_biometric_enrolled`, `vaultr_biometric_blob`) to ensure old biometric wrappers don't attempt invalid decrypts.
+    - Updates `lastPasswordChangedAt` timestamp on the server profile (`/api/vault/profile`).
+- **Settings Screen Master Password UI (`extension/src/popup/SettingsScreen.tsx`, `extension/src/popup/popup.css`)**:
+  - Added collapsible "Change Master Password" card in the `SECURITY & TIMEOUTS` section.
+  - Implemented `PasswordField` component with show/hide password toggle (`Eye` / `EyeOff`) and monospace typography.
+  - Added validation checks (all fields required, new passwords match, minimum 8 characters, differs from current).
+  - Provided live status feedback: spinner with "Re-encrypting…", error banner, and success confirmation showing count of re-encrypted items.
+  - Added keyframe spin animations and `.spinner` / `.animate-spin` utilities to `popup.css`.
+- **Verification**:
+  - Unit test suite (`test_change_master_password.ts`) verified: key derivation, wrong password rejection, correct password re-encryption, 100% plaintext roundtrip accuracy, and failure of old key to decrypt new blobs.
+  - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Extension Webpack build: `npm run build --prefix extension` compiled cleanly with 0 errors.
 
 ### ✅ What Was Done (Phase 18: Windows Hello / Edge Passkey Fix & In-Page Autofill Suggestions)
 - **Resolved Microsoft Edge Passkey Conflict & Windows Hello Blocking**:

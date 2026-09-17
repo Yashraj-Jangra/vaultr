@@ -460,6 +460,106 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
 
+        case "CHANGE_MASTER_PASSWORD": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword || !state.userId) {
+            sendResponse({ error: "Vault is locked. Unlock first." });
+            break;
+          }
+
+          const { oldPassword, newPassword } = message;
+
+          if (!oldPassword || !newPassword) {
+            sendResponse({ error: "Please provide both current and new master passwords." });
+            break;
+          }
+          if (newPassword.length < 8) {
+            sendResponse({ error: "New master password must be at least 8 characters." });
+            break;
+          }
+          if (oldPassword === newPassword) {
+            sendResponse({ error: "New master password must differ from current master password." });
+            break;
+          }
+
+          try {
+            // 1. Derive old key and verify it against vault items
+            const oldKey = await deriveKey(oldPassword, state.userId);
+            const itemsWithBlob = state.items.filter((i) => i.encryptedBlob);
+            if (itemsWithBlob.length > 0) {
+              try {
+                const testRaw = await decrypt(oldKey, itemsWithBlob[0].encryptedBlob);
+                if (!testRaw) {
+                  sendResponse({ error: "Current master password is incorrect." });
+                  break;
+                }
+              } catch {
+                sendResponse({ error: "Current master password is incorrect." });
+                break;
+              }
+            } else if (state.masterPassword && state.masterPassword !== oldPassword) {
+              sendResponse({ error: "Current master password is incorrect." });
+              break;
+            }
+
+            // 2. Derive new key
+            const newKey = await deriveKey(newPassword, state.userId);
+
+            // 3. Re-encrypt all items (including trash)
+            const reEncrypted: Array<{ id: string; encryptedBlob: string }> = [];
+            for (const item of state.items) {
+              if (!item.encryptedBlob) continue;
+              const plain = await decrypt(oldKey, item.encryptedBlob);
+              const newBlob = await encrypt(newKey, plain);
+              reEncrypted.push({ id: item.id, encryptedBlob: newBlob });
+            }
+
+            // 4. Batch-write to server
+            if (reEncrypted.length > 0) {
+              const api = await getApiClient();
+              await api.reencryptItems(reEncrypted);
+            }
+
+            // 5. Update local state and in-memory session
+            for (const r of reEncrypted) {
+              const item = state.items.find((i) => i.id === r.id);
+              if (item) item.encryptedBlob = r.encryptedBlob;
+            }
+            state.masterPassword = newPassword;
+            state.decryptedItemsCache = {};
+
+            await chrome.storage.session.set({ vaultr_master_password: newPassword });
+
+            // 6. Refresh decrypted cache with new key
+            await decryptAllItems();
+
+            // 7. Reset biometric enrollment if enrolled since old key wrapped old password
+            if (typeof chrome !== "undefined" && chrome.storage?.local) {
+              await chrome.storage.local.remove(["vaultr_biometric_enrolled", "vaultr_biometric_blob"]);
+            }
+
+            // 8. Update lastPasswordChangedAt on server profile
+            const now = new Date().toISOString();
+            try {
+              const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+              await globalThis.fetch(`${cleanUrl}/api/vault/profile`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ lastPasswordChangedAt: now }),
+              });
+            } catch (e) {
+              console.warn("[Vaultr SW] Could not update profile timestamp:", e);
+            }
+
+            sendResponse({ success: true, count: reEncrypted.length });
+          } catch (err: any) {
+            console.error("[Vaultr SW] CHANGE_MASTER_PASSWORD error:", err);
+            sendResponse({ error: err?.message || "Failed to change master password." });
+          }
+          break;
+        }
+
         case "GET_ITEMS": {
           await tryRestoreSession();
           if (!state.isUnlocked) {

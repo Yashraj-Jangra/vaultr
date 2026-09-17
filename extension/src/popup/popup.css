@@ -1504,3 +1504,21 @@ textarea.form-input {
   gap: 6px;
 }
 
+/* ─── Spin Animations & Spinner ──────────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffffff;
+  animation: spin 0.8s linear infinite;
+}
+
+.animate-spin {
+  animation: spin 0.8s linear infinite;
+}
+

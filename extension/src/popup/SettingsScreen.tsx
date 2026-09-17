@@ -4,6 +4,10 @@ import {
   Info,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Loader2,
   BookOpen,
   History,
   Shield,
@@ -33,6 +37,62 @@ interface SettingsScreenProps {
   onLock: () => void;
 }
 
+function PasswordField({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <input
+        type={show ? "text" : "password"}
+        className="form-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{
+          width: "100%",
+          height: 36,
+          fontSize: 12,
+          paddingRight: 32,
+          background: "#0d0d0d",
+          borderRadius: 8,
+          fontFamily: show ? "inherit" : "monospace",
+        }}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShow(!show)}
+        style={{
+          position: "absolute",
+          right: 6,
+          top: "50%",
+          transform: "translateY(-50%)",
+          background: "none",
+          border: "none",
+          padding: 4,
+          cursor: "pointer",
+          color: "var(--neutral-500)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {show ? <EyeOff size={13} /> : <Eye size={13} />}
+      </button>
+    </div>
+  );
+}
+
 export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLock }: SettingsScreenProps) {
   const [url, setUrl] = useState(serverUrl);
   const [saved, setSaved] = useState(false);
@@ -57,6 +117,14 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [isEdgeBrowser, setIsEdgeBrowser] = useState(() => {
     return typeof navigator !== "undefined" && /Edg\//i.test(navigator.userAgent);
   });
+
+  // Change Master Password state
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwChanging, setPwChanging] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage) {
@@ -191,6 +259,63 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
       setBioError(err?.message || "Biometric enrollment failed");
     } finally {
       setBioEnrolling(false);
+    }
+  };
+
+  const handleChangeMasterPassword = async () => {
+    setPwMsg(null);
+    if (!oldPw || !newPw || !confirmPw) {
+      setPwMsg({ text: "Please fill in all password fields.", ok: false });
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwMsg({ text: "New master passwords do not match.", ok: false });
+      return;
+    }
+    if (newPw.length < 8) {
+      setPwMsg({ text: "New master password must be at least 8 characters.", ok: false });
+      return;
+    }
+    if (oldPw === newPw) {
+      setPwMsg({ text: "New master password must differ from current master password.", ok: false });
+      return;
+    }
+
+    setPwChanging(true);
+
+    if (typeof chrome !== "undefined" && chrome.runtime) {
+      chrome.runtime.sendMessage(
+        {
+          type: "CHANGE_MASTER_PASSWORD",
+          oldPassword: oldPw,
+          newPassword: newPw,
+        },
+        (res) => {
+          setPwChanging(false);
+          if (chrome.runtime.lastError) {
+            setPwMsg({
+              text: chrome.runtime.lastError.message || "Failed to communicate with background service.",
+              ok: false,
+            });
+            return;
+          }
+          if (res?.error) {
+            setPwMsg({ text: res.error, ok: false });
+          } else {
+            setPwMsg({
+              text: `Master password changed. ${res.count ?? 0} item(s) re-encrypted.`,
+              ok: true,
+            });
+            setOldPw("");
+            setNewPw("");
+            setConfirmPw("");
+            setBiometricsEnrolled(false);
+          }
+        }
+      );
+    } else {
+      setPwChanging(false);
+      setPwMsg({ text: "Extension runtime not available.", ok: false });
     }
   };
 
@@ -626,6 +751,142 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
       {/* Security & Auto-Lock */}
       <div className="settings-section">
         <div className="settings-section-title">SECURITY & TIMEOUTS</div>
+
+        {/* Change Master Password Card */}
+        <div
+          style={{
+            padding: "12px",
+            background: "#0d0d0d",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              setShowChangePw(!showChangePw);
+              setPwMsg(null);
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+              <KeyRound size={14} style={{ color: "#fbbf24", flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                  Change Master Password
+                </div>
+                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
+                  Re-encrypt vault blobs with a new key
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                height: 26,
+                padding: "0 8px",
+                fontSize: 11,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                borderRadius: 6,
+                color: "var(--neutral-300)",
+                flexShrink: 0,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowChangePw(!showChangePw);
+                setPwMsg(null);
+              }}
+            >
+              {showChangePw ? "Cancel" : "Change"}
+              {showChangePw ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+          </div>
+
+          {showChangePw && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+              <PasswordField
+                value={oldPw}
+                onChange={setOldPw}
+                placeholder="Current master password"
+                disabled={pwChanging}
+              />
+              <PasswordField
+                value={newPw}
+                onChange={setNewPw}
+                placeholder="New master password (min 8 chars)"
+                disabled={pwChanging}
+              />
+              <PasswordField
+                value={confirmPw}
+                onChange={setConfirmPw}
+                placeholder="Confirm new master password"
+                disabled={pwChanging}
+              />
+
+              {pwMsg && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: pwMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                    border: `1px solid ${pwMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                    color: pwMsg.ok ? "#10b981" : "#f87171",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  {pwMsg.ok ? <Check size={12} /> : <Info size={12} />}
+                  <span>{pwMsg.text}</span>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center" }}
+                  disabled={pwChanging}
+                  onClick={() => {
+                    setShowChangePw(false);
+                    setOldPw("");
+                    setNewPw("");
+                    setConfirmPw("");
+                    setPwMsg(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center", gap: 6 }}
+                  disabled={pwChanging || !oldPw || !newPw || !confirmPw}
+                  onClick={handleChangeMasterPassword}
+                >
+                  {pwChanging ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      Re-encrypting…
+                    </>
+                  ) : (
+                    "Update Password"
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="settings-row" style={{ marginBottom: 12 }}>
           <div>
