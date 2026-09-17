@@ -162,7 +162,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [bioError, setBioError] = useState("");
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [promptPassword, setPromptPassword] = useState("");
-  const [copiedSettings, setCopiedSettings] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isEdgeBrowser, setIsEdgeBrowser] = useState(() => {
     return typeof navigator !== "undefined" && /Edg\//i.test(navigator.userAgent);
   });
@@ -871,26 +871,26 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
               className="btn btn-ghost"
               style={{ flex: 1, height: 28, fontSize: 10, justifyContent: "center", gap: 4, padding: "0 8px" }}
               onClick={() => {
-                navigator.clipboard.writeText("chrome://settings/passkeys");
-                setCopiedSettings(true);
-                setTimeout(() => setCopiedSettings(false), 2000);
+                navigator.clipboard.writeText("chrome://password-manager/settings");
+                setCopiedKey("chrome_passkeys");
+                setTimeout(() => setCopiedKey(null), 2000);
               }}
             >
-              {copiedSettings ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-              {copiedSettings ? "Copied Chrome URL" : "Copy Chrome Link"}
+              {copiedKey === "chrome_passkeys" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+              {copiedKey === "chrome_passkeys" ? "Copied Chrome Link" : "Copy Chrome Link"}
             </button>
             <button
               type="button"
               className="btn btn-ghost"
               style={{ flex: 1, height: 28, fontSize: 10, justifyContent: "center", gap: 4, padding: "0 8px" }}
               onClick={() => {
-                navigator.clipboard.writeText("edge://settings/passwords");
-                setCopiedSettings(true);
-                setTimeout(() => setCopiedSettings(false), 2000);
+                navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
+                setCopiedKey("edge_passkeys");
+                setTimeout(() => setCopiedKey(null), 2000);
               }}
             >
-              {copiedSettings ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-              {copiedSettings ? "Copied Edge URL" : "Copy Edge Link"}
+              {copiedKey === "edge_passkeys" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+              {copiedKey === "edge_passkeys" ? "Copied Edge Link" : "Copy Edge Link"}
             </button>
           </div>
         </div>
@@ -1067,13 +1067,13 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
                   className="btn btn-ghost"
                   style={{ width: "100%", height: 26, fontSize: 10, justifyContent: "center", gap: 4 }}
                   onClick={() => {
-                    navigator.clipboard.writeText("edge://settings/passwords");
-                    setCopiedSettings(true);
-                    setTimeout(() => setCopiedSettings(false), 2000);
+                    navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
+                    setCopiedKey("edge_autofill");
+                    setTimeout(() => setCopiedKey(null), 2000);
                   }}
                 >
-                  {copiedSettings ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-                  {copiedSettings ? "Copied edge://settings/passwords" : "Copy edge://settings/passwords link"}
+                  {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+                  {copiedKey === "edge_autofill" ? "Copied edge://settings/autofill/passwords/settings" : "Copy edge://settings/autofill/passwords/settings link"}
                 </button>
               </div>
             )}
