@@ -1,4 +1,32 @@
-## Current Session: Change Master Password from Browser Extension (2026-09-18) · Branch: `dev`
+## Current Session: Mobile Stale Biometric Fix on Master Password Change (2026-09-18) · Branch: `dev`
+
+### ✅ What Was Done (Phase 20: Fix Mobile Stale Biometrics on Master Password Change)
+- **Root Cause Resolution**:
+  - Identified two-layer issue where remote password changes on Web/Extension updated `userProfiles.lastPasswordChangedAt`, but mobile never queried `/api/vault/profile` during biometric unlock or session synchronization.
+  - When biometric unlocked with stale password, `unlock()`'s catch block treated failed server item fetch as "offline mode", unlocking stale local cache and causing subsequent network/sync calls to report misleading "couldn't connect to server" error.
+- **Biometric Timestamp Association (`mobile/src/services/biometrics.ts`)**:
+  - Added `LAST_PW_CHANGED_KEY = "vaultr_last_pw_changed_at"`.
+  - Added `getStoredPasswordChangedAt()`, `setStoredPasswordChangedAt()`, and `clearStoredPasswordChangedAt()`.
+  - Updated `enrollBiometricPassword(masterPassword, lastPasswordChangedAt?)`, `updateBiometricPassword(newPassword, newTimestamp?)`, and `clearBiometricPassword()` to keep hardware SecureStore timestamps in sync with biometric credentials.
+- **Stale Detection & Cache Invalidation in VaultStore (`mobile/src/store/vaultStore.ts`)**:
+  - Added `lastPasswordChangedAt: string | null` to `VaultState` and initial store state.
+  - Augmented `syncUserProfile()` to query `/api/vault/profile` and cache `lastPasswordChangedAt`.
+  - Updated `unlock()` with `isBiometricUnlock?: boolean`:
+    - On biometric unlock, probes `/api/vault/profile` and compares `serverChangedAt` with `storedChangedAt`.
+    - If stale, immediately wipes biometric credential (`clearBiometricPassword()`), purges stale offline cache (`clearCachedVaultItems()`), wipes autofill store (`clearAutofillCredentials()`), and raises `STALE_BIOMETRIC`.
+    - In `decrypt()` validation, if biometric credential fails item decryption, proactively clears biometrics and throws `STALE_BIOMETRIC` to prevent infinite failure loops.
+    - Updated `signOutAccount()` to clear stored timestamps and reset `lastPasswordChangedAt`.
+- **Unlock Screen UX & Re-Enrollment Flow (`mobile/src/screens/UnlockScreen.tsx`)**:
+  - Added `hadBiometricsBeforeStale` state.
+  - When `STALE_BIOMETRIC` is intercepted: disables biometric button, switches unlock mode to password, presents clear explanation modal explaining the master password changed on another device.
+  - After successful master password unlock, displays an alert allowing one-tap biometric re-enrollment with the new master password.
+- **Mobile Password Change Server Sync (`mobile/src/screens/settings/AccountSettingsScreen.tsx`, `SecuritySettingsScreen.tsx`)**:
+  - Updated `AccountSettingsScreen.tsx`'s `handleMasterPasswordChange` to upload re-encrypted items via `reencryptAllItems()`, push `lastPasswordChangedAt` to `/api/vault/profile`, and store the updated timestamp in biometric storage.
+  - Updated `SecuritySettingsScreen.tsx`'s biometric enrollment toggle to capture and store current `lastPasswordChangedAt`.
+- **Verification**:
+  - Mobile TypeScript check (`npx tsc --noEmit` in `mobile`) passed with 0 errors.
+  - Root TypeScript check (`npx tsc --noEmit`) passed with 0 errors.
+  - Extension TypeScript check (`npx tsc --noEmit` in `extension`) passed with 0 errors.
 
 ### ✅ What Was Done (Phase 19: Change Master Password in Browser Extension)
 - **Service Worker Master Password Re-Encryption Handler (`extension/src/background/service-worker.ts`)**:

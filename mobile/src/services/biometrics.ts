@@ -8,6 +8,7 @@ import * as SecureStore from "expo-secure-store";
 
 const SECURE_KEY = "vaultr_master_password";
 const ENABLED_KEY = "vaultr_biometric_enabled";
+const LAST_PW_CHANGED_KEY = "vaultr_last_pw_changed_at";
 
 export interface BiometricAuthResult {
   success: boolean;
@@ -35,8 +36,40 @@ export async function isBiometricEnabled(): Promise<boolean> {
   }
 }
 
+/** Get the lastPasswordChangedAt timestamp associated with the enrolled biometric. */
+export async function getStoredPasswordChangedAt(): Promise<string | null> {
+  try {
+    return await SecureStore.getItemAsync(LAST_PW_CHANGED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Persist the lastPasswordChangedAt timestamp associated with the enrolled biometric. */
+export async function setStoredPasswordChangedAt(timestamp: string): Promise<void> {
+  try {
+    if (timestamp) {
+      await SecureStore.setItemAsync(LAST_PW_CHANGED_KEY, timestamp);
+    }
+  } catch (err) {
+    console.warn("[Biometrics] Failed to save password changed timestamp:", err);
+  }
+}
+
+/** Clear stored password changed timestamp. */
+export async function clearStoredPasswordChangedAt(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(LAST_PW_CHANGED_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 /** Confirm user biometric authentication & enroll master password into hardware secure store. */
-export async function enrollBiometricPassword(masterPassword: string): Promise<{ success: boolean; error?: string }> {
+export async function enrollBiometricPassword(
+  masterPassword: string,
+  lastPasswordChangedAt?: string | null
+): Promise<{ success: boolean; error?: string }> {
   try {
     if (!masterPassword) {
       return { success: false, error: "Vault must be unlocked with master password first." };
@@ -60,6 +93,11 @@ export async function enrollBiometricPassword(masterPassword: string): Promise<{
     // 2. Save master password to hardware SecureStore after successful verification
     await SecureStore.setItemAsync(SECURE_KEY, masterPassword);
     await SecureStore.setItemAsync(ENABLED_KEY, "true");
+    if (lastPasswordChangedAt) {
+      await SecureStore.setItemAsync(LAST_PW_CHANGED_KEY, lastPasswordChangedAt);
+    } else {
+      await SecureStore.deleteItemAsync(LAST_PW_CHANGED_KEY);
+    }
     return { success: true };
   } catch (err: any) {
     console.error("[Biometrics] Failed to enroll password:", err);
@@ -109,17 +147,21 @@ export async function clearBiometricPassword(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(SECURE_KEY);
     await SecureStore.setItemAsync(ENABLED_KEY, "false");
+    await SecureStore.deleteItemAsync(LAST_PW_CHANGED_KEY);
   } catch {
     // ignore
   }
 }
 
 /** Update stored master password when master password is changed in settings. */
-export async function updateBiometricPassword(newPassword: string): Promise<void> {
+export async function updateBiometricPassword(newPassword: string, newTimestamp?: string): Promise<void> {
   try {
     const enabled = await isBiometricEnabled();
     if (enabled && newPassword) {
       await SecureStore.setItemAsync(SECURE_KEY, newPassword);
+      if (newTimestamp) {
+        await SecureStore.setItemAsync(LAST_PW_CHANGED_KEY, newTimestamp);
+      }
     }
   } catch (err) {
     console.warn("[Biometrics] Failed to update stored master password:", err);

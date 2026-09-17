@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, encryptBinary, decryptBinary, NewVaultItemPayload, Template, DEFAULT_CARD_EASTER_EGGS } from "@vaultr/core";
 import { cacheVaultItems, getCachedVaultItems, clearCachedVaultItems } from "../services/sync";
-import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
+import { unlockWithBiometrics, clearBiometricPassword, getStoredPasswordChangedAt, setStoredPasswordChangedAt, clearStoredPasswordChangedAt } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
 import { syncAutofillCredentials, clearAutofillCredentials } from "../services/autofill";
 import { probeServerConnection, startConnectivityMonitor } from "../services/connectivity";
@@ -33,6 +33,7 @@ interface VaultState {
   selectedTemplate: string; // 'ALL', 'login', 'card', etc.
   customFolders: string[];
   cardEasterEggs: string[];
+  lastPasswordChangedAt: string | null;
 
   // Connectivity
   checkConnection: () => Promise<boolean>;
@@ -68,7 +69,7 @@ interface VaultState {
   syncUserProfile: () => Promise<void>;
 
   // Key / Lock actions
-  unlock: (masterPassword: string, customServerUrl?: string) => Promise<void>;
+  unlock: (masterPassword: string, customServerUrl?: string, isBiometricUnlock?: boolean) => Promise<void>;
   unlockWithBiometrics: () => Promise<boolean>;
   lock: () => void;
   fetchItems: () => Promise<void>;
@@ -169,6 +170,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   selectedTemplate: "ALL",
   customFolders: [],
   cardEasterEggs: DEFAULT_CARD_EASTER_EGGS,
+  lastPasswordChangedAt: null,
 
   fetchSiteConfig: async () => {
     try {
@@ -256,6 +258,24 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         };
         await saveAccountSession(accountToken, updatedUser, cleanUrl);
         set({ accountUser: updatedUser });
+      }
+
+      // Also fetch vault profile to sync lastPasswordChangedAt
+      try {
+        const profRes = await fetch(`${cleanUrl}/api/vault/profile`, {
+          headers: {
+            "Authorization": `Bearer ${accountToken}`,
+            "Cookie": `better-auth.session_token=${accountToken}`,
+          },
+        });
+        if (profRes.ok) {
+          const profData = await profRes.json();
+          if (profData?.lastPasswordChangedAt !== undefined) {
+            set({ lastPasswordChangedAt: profData.lastPasswordChangedAt });
+          }
+        }
+      } catch (err) {
+        console.warn("[VaultStore] Failed to fetch vault profile timestamp in syncUserProfile", err);
       }
     } catch (err) {
       // Network errors (offline) should be ignored, don't log out.
@@ -469,12 +489,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
     await clearAutofillCredentials();
     await clearBiometricPassword();
+    await clearStoredPasswordChangedAt();
     await clearAccountSession();
     get().lock();
     set({
       accountToken: null,
       accountUser: null,
       isAuthenticated: false,
+      lastPasswordChangedAt: null,
     });
   },
 
@@ -486,13 +508,64 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   setSelectedFolder: (selectedFolder: string) => { set({ selectedFolder }); },
   setSelectedTemplate: (selectedTemplate: string) => { set({ selectedTemplate }); },
 
-  unlock: async (masterPassword: string, customServerUrl?: string) => {
+  unlock: async (masterPassword: string, customServerUrl?: string, isBiometricUnlock?: boolean) => {
     set({ isLoading: true });
     try {
       const serverUrl = customServerUrl || get().serverUrl;
-      const { accountUser } = get();
+      const { accountUser, accountToken } = get();
       const salt = accountUser?.id || "vaultr_default_salt";
       const api = getApiClient(serverUrl);
+
+      // 🛡️ Proactive Stale Biometric Check:
+      // If unlocked via biometrics, verify server's lastPasswordChangedAt against local stored timestamp
+      if (isBiometricUnlock && accountToken && serverUrl) {
+        try {
+          const cleanUrl = serverUrl.replace(/\/+$/, "");
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3500);
+          const profRes = await fetch(`${cleanUrl}/api/vault/profile`, {
+            headers: {
+              "Authorization": `Bearer ${accountToken}`,
+              "Cookie": `better-auth.session_token=${accountToken}`,
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (profRes.ok) {
+            const profData = await profRes.json();
+            const serverChangedAt = profData?.lastPasswordChangedAt || null;
+            const storedChangedAt = await getStoredPasswordChangedAt();
+
+            let isStale = false;
+            if (serverChangedAt) {
+              if (!storedChangedAt) {
+                isStale = true;
+              } else {
+                const serverTime = new Date(serverChangedAt).getTime();
+                const storedTime = new Date(storedChangedAt).getTime();
+                if (serverTime > storedTime) {
+                  isStale = true;
+                }
+              }
+            }
+
+            if (isStale) {
+              console.warn("[VaultStore] Stale biometric detected! Password changed on server at:", serverChangedAt, "Stored at:", storedChangedAt);
+              await clearBiometricPassword();
+              if (accountUser?.id) {
+                await clearCachedVaultItems(accountUser.id);
+              }
+              await clearAutofillCredentials();
+              throw new Error("STALE_BIOMETRIC");
+            }
+          }
+        } catch (staleErr: any) {
+          if (staleErr?.message === "STALE_BIOMETRIC") {
+            throw staleErr;
+          }
+          // Network timeout or offline: proceed with standard unlock
+        }
+      }
 
       let isOnline = true;
 
@@ -545,6 +618,15 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         try {
           await decrypt(key, testItem.encryptedBlob);
         } catch (err) {
+          if (isBiometricUnlock) {
+            console.warn("[VaultStore] Biometric password failed to decrypt vault item. Clearing stale biometric.");
+            await clearBiometricPassword();
+            if (accountUser?.id) {
+              await clearCachedVaultItems(accountUser.id);
+            }
+            await clearAutofillCredentials();
+            throw new Error("STALE_BIOMETRIC");
+          }
           throw new Error("Incorrect master password.");
         }
       }
@@ -560,7 +642,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         serverUrl,
       });
 
-      // ⚡ Non-blocking: autofill sync after vault opens
+      // ⚡ Non-blocking: sync profile and autofill store
+      if (isOnline) {
+        get().syncUserProfile().catch(() => {});
+      }
       setTimeout(() => {
         syncAutofillStore();
       }, 0);
@@ -573,7 +658,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   unlockWithBiometrics: async () => {
     const res = await unlockWithBiometrics();
     if (!res.success || !res.password) return false;
-    await get().unlock(res.password);
+    await get().unlock(res.password, undefined, true);
     return true;
   },
 

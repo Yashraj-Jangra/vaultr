@@ -30,7 +30,7 @@ import { Lock, Shield, Eye, EyeOff, LogOut, Fingerprint } from "lucide-react-nat
 import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
-import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
+import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics, enrollBiometricPassword } from "../services/biometrics";
 import { isPinSet, getPinLength, verifyPinAndGetPassword } from "../services/pin";
 import { isAutofillUnlockPending, finishAutofillUnlock } from "../services/autofill";
 import { useResponsive } from "../utils/responsive";
@@ -72,6 +72,7 @@ export function UnlockScreen() {
   const [shakePin, setShakePin] = useState(false);
 
   const [biometricEnrolled, setBiometricEnrolled] = useState(false);
+  const [hadBiometricsBeforeStale, setHadBiometricsBeforeStale] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const shouldCompactForKeyboard = isKeyboardVisible && !isTablet;
@@ -121,14 +122,28 @@ export function UnlockScreen() {
         // before starting the expensive PBKDF2 key derivation.
         InteractionManager.runAfterInteractions(async () => {
           try {
-            await unlock(pw);
+            await unlock(pw, undefined, true);
             if (await isAutofillUnlockPending()) {
               await finishAutofillUnlock();
             }
           } catch (err: any) {
-            const msg = err?.message || "Incorrect master password.";
-            setUnlockError(msg);
-            vaultAlert.alert("Unlock Error", msg, undefined, { illustration: "cancel_k4w9" });
+            const isStale = err?.message === "STALE_BIOMETRIC" || err?.message?.includes("STALE_BIOMETRIC");
+            if (isStale) {
+              setBiometricEnrolled(false);
+              setHadBiometricsBeforeStale(true);
+              setUnlockMode("password");
+              setUnlockError("Master password changed on another device. Please unlock with your new password.");
+              vaultAlert.alert(
+                "Master Password Changed",
+                "Your master password was changed from another device. Please enter your new master password to unlock and re-enable biometrics.",
+                undefined,
+                { illustration: "security-on_3ykb", glowColor: "rgba(245, 158, 11, 0.15)" }
+              );
+            } else {
+              const msg = err?.message || "Incorrect master password.";
+              setUnlockError(msg);
+              vaultAlert.alert("Unlock Error", msg, undefined, { illustration: "cancel_k4w9" });
+            }
           } finally {
             setUnlocking(false);
           }
@@ -221,6 +236,38 @@ export function UnlockScreen() {
         await unlock(masterPassword);
         if (await isAutofillUnlockPending()) {
           await finishAutofillUnlock();
+        }
+
+        // If user had biometrics enabled before it was marked stale, prompt to re-enroll
+        if (hadBiometricsBeforeStale) {
+          const { lastPasswordChangedAt } = useVaultStore.getState();
+          vaultAlert.alert(
+            "Re-enable Biometric Unlock?",
+            "Would you like to re-enable Fingerprint / Face ID unlock with your new master password?",
+            [
+              { text: "Not Now", style: "cancel" },
+              {
+                text: "Enable",
+                onPress: async () => {
+                  try {
+                    const enrollRes = await enrollBiometricPassword(masterPassword, lastPasswordChangedAt);
+                    if (enrollRes.success) {
+                      setBiometricEnrolled(true);
+                      vaultAlert.alert(
+                        "Biometrics Re-enabled",
+                        "You can now use biometrics to unlock with your new master password.",
+                        undefined,
+                        { illustration: "security-on_3ykb", glowColor: "rgba(52, 211, 153, 0.12)" }
+                      );
+                    }
+                  } catch (e) {
+                    console.warn("Failed to re-enroll biometrics", e);
+                  }
+                },
+              },
+            ],
+            { illustration: "fingerprint_kdwq", glowColor: "rgba(52, 211, 153, 0.12)" }
+          );
         }
       } catch (err: any) {
         const msg = err?.message || "Incorrect password";

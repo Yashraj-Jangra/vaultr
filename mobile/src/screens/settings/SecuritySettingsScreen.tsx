@@ -74,7 +74,8 @@ export function SecuritySettingsScreen({ navigation }: any) {
         });
         return;
       }
-      const res = await enrollBiometricPassword(masterPassword);
+      const { lastPasswordChangedAt } = useVaultStore.getState();
+      const res = await enrollBiometricPassword(masterPassword, lastPasswordChangedAt);
       if (res.success) {
         setBiometricsEnabled(true);
         vaultAlert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!", undefined, {
