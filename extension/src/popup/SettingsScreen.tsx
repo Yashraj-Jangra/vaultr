@@ -26,6 +26,7 @@ import {
   Clock,
   LogIn,
   AlertCircle,
+  Maximize2,
 } from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
 import {
@@ -36,6 +37,28 @@ import {
   isPlatformAuthenticatorAvailable,
   enrollBiometricUnlock,
 } from "@vaultr/core";
+
+export type PopupWidth = "normal" | "wide" | "wider" | "extended";
+
+export const POPUP_WIDTH_MAP: Record<PopupWidth, number> = {
+  normal: 380,
+  wide: 460,
+  wider: 540,
+  extended: 620,
+};
+
+export function applyPopupWidth(width: PopupWidth | string) {
+  const px = POPUP_WIDTH_MAP[width as PopupWidth] || 380;
+  if (typeof document !== "undefined") {
+    if (document.documentElement) {
+      document.documentElement.style.width = `${px}px`;
+      document.documentElement.setAttribute("data-popup-width", String(width));
+    }
+    if (document.body) {
+      document.body.style.width = `${px}px`;
+    }
+  }
+}
 
 interface SettingsScreenProps {
   serverUrl: string;
@@ -184,6 +207,9 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [revokingAll, setRevokingAll] = useState(false);
   const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
 
+  // Popup Width state
+  const [popupWidth, setPopupWidth] = useState<PopupWidth>("normal");
+
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.get(
@@ -196,6 +222,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           "vaultr_biometric_enrolled",
           "vaultr_default_manager",
           "vaultr_autocopy_2fa",
+          "vaultr_popup_width",
         ],
         async (res) => {
           if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled);
@@ -206,6 +233,10 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           if (res.vaultr_biometric_enrolled !== undefined) setBiometricsEnrolled(res.vaultr_biometric_enrolled);
           if (res.vaultr_default_manager !== undefined) setBrowserOverrideActive(res.vaultr_default_manager);
           if (res.vaultr_autocopy_2fa !== undefined) setAutoCopy2fa(res.vaultr_autocopy_2fa);
+          if (res.vaultr_popup_width) {
+            setPopupWidth(res.vaultr_popup_width as PopupWidth);
+            applyPopupWidth(res.vaultr_popup_width as PopupWidth);
+          }
 
           const avail = await isPlatformAuthenticatorAvailable();
           setBiometricsSupported(avail);
@@ -384,6 +415,14 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     }
     if (typeof chrome !== "undefined" && chrome.runtime) {
       chrome.runtime.sendMessage({ type: "SET_AUTO_LOCK", minutes: val });
+    }
+  };
+
+  const handleWidthChange = (newWidth: PopupWidth) => {
+    setPopupWidth(newWidth);
+    applyPopupWidth(newWidth);
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_popup_width: newWidth });
     }
   };
 
@@ -1158,6 +1197,64 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
                 {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
               </kbd>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Display & Layout */}
+      <div className="settings-section">
+        <div className="settings-section-title">DISPLAY & APPEARANCE</div>
+
+        <div style={{ padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <div>
+              <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Maximize2 size={13} style={{ color: "#38bdf8" }} />
+                Popup Width
+              </div>
+              <div className="settings-row-sub">Choose your preferred extension window size</div>
+            </div>
+            <span style={{ fontSize: 10.5, fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, background: "rgba(56, 189, 248, 0.12)", padding: "2px 7px", borderRadius: 6 }}>
+              {POPUP_WIDTH_MAP[popupWidth]}px
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 10 }}>
+            {(
+              [
+                { id: "normal", label: "Normal", desc: "380px" },
+                { id: "wide", label: "Wide", desc: "460px" },
+                { id: "wider", label: "Wider", desc: "540px" },
+                { id: "extended", label: "Extended", desc: "620px" },
+              ] as const
+            ).map(({ id, label, desc }) => {
+              const active = popupWidth === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleWidthChange(id)}
+                  style={{
+                    padding: "8px 4px",
+                    borderRadius: 8,
+                    border: active ? "1px solid #38bdf8" : "1px solid var(--border)",
+                    background: active ? "rgba(56, 189, 248, 0.15)" : "#141416",
+                    color: active ? "#38bdf8" : "var(--neutral-400)",
+                    fontSize: 11,
+                    fontWeight: active ? 600 : 500,
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 3,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <span>{label}</span>
+                  <span style={{ fontSize: 9.5, opacity: 0.75, fontFamily: "monospace" }}>{desc}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

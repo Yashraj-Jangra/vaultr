@@ -45,9 +45,23 @@ body {
   font-size: 13px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
+  min-width: 380px;
   width: 380px;
   height: 560px;
   overflow: hidden;
+}
+
+html[data-popup-width="normal"], html[data-popup-width="normal"] body {
+  width: 380px;
+}
+html[data-popup-width="wide"], html[data-popup-width="wide"] body {
+  width: 460px;
+}
+html[data-popup-width="wider"], html[data-popup-width="wider"] body {
+  width: 540px;
+}
+html[data-popup-width="extended"], html[data-popup-width="extended"] body {
+  width: 620px;
 }
 
 /* Scrollbar */

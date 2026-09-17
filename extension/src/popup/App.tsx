@@ -3,7 +3,7 @@ import { VaultItem, isWebPageUrl } from "@vaultr/core";
 import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
-import { SettingsScreen } from "./SettingsScreen";
+import { SettingsScreen, applyPopupWidth } from "./SettingsScreen";
 import { NewEntryForm } from "./NewEntryForm";
 import { Shield, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
 import "./popup.css";
@@ -72,6 +72,14 @@ export function App() {
   }, [folders, items]);
 
   useEffect(() => {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.get(["vaultr_popup_width"], (res) => {
+        if (res?.vaultr_popup_width) {
+          applyPopupWidth(res.vaultr_popup_width);
+        }
+      });
+    }
+
     chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
       if (chrome.runtime.lastError) { setLoading(false); return; }
       if (res) {
