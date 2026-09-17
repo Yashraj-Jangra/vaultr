@@ -992,11 +992,6 @@ export function VaultScreen({
           </>
         )}
       </div>
-
-      {/* Floating Action Button */}
-      <button className="fab" onClick={onAddNew} title="Add secure entry">
-        <Plus size={20} />
-      </button>
     </div>
   );
 }

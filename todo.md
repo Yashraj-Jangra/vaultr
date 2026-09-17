@@ -15,6 +15,9 @@
   - Added device IP address (with `Globe` icon), relative last active time (with `Clock` icon), and creation date with city/country display.
   - Implemented individual session revocation (`DELETE /api/settings/sessions/:id`) with real-time UI item removal and per-item spinner.
   - Implemented bulk session revocation (`DELETE /api/settings/sessions`) with inline confirmation dialog to sign out all other devices at once.
+- **Extension UI Polish (`extension/src/popup/VaultScreen.tsx`, `extension/src/popup/popup.css`)**:
+  - Removed duplicate floating action button (`.fab`) from `VaultScreen.tsx` (the header already features a prominent `+ New` button).
+  - Cleaned up unused `.fab` CSS rule from `popup.css`.
 - **Verification**:
   - Extension TypeScript check: `npx tsc --noEmit` in `extension/` passed with 0 errors.
   - Extension Webpack production build: `npm run build --prefix extension` compiled cleanly with 0 errors.
