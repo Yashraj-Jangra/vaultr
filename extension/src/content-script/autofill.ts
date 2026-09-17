@@ -19,6 +19,7 @@ interface AutofillCredential {
   password?: string;
   totp?: string;
   hasTotp?: boolean;
+  matchedDomain?: string;
 }
 
 let activeDropdown: HTMLElement | null = null;
@@ -486,6 +487,12 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       min-width: 0 !important;
       flex: 1 !important;
     }
+    .name-row {
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      min-width: 0 !important;
+    }
     .name {
       font-weight: 600 !important;
       font-size: 13.5px !important;
@@ -493,6 +500,19 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
+    }
+    .domain-tag {
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      color: #38bdf8 !important;
+      background: rgba(56, 189, 248, 0.1) !important;
+      border: 1px solid rgba(56, 189, 248, 0.22) !important;
+      padding: 1px 5px !important;
+      border-radius: 4px !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+      line-height: 1.2 !important;
     }
     .sub {
       font-size: 11.5px !important;
@@ -586,15 +606,27 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
     const meta = document.createElement("div");
     meta.className = "meta";
 
+    const nameRow = document.createElement("div");
+    nameRow.className = "name-row";
+
     const nameEl = document.createElement("div");
     nameEl.className = "name";
     nameEl.textContent = cred.name;
+    nameRow.appendChild(nameEl);
+
+    if (cred.matchedDomain) {
+      const domainTag = document.createElement("span");
+      domainTag.className = "domain-tag";
+      domainTag.textContent = cred.matchedDomain;
+      domainTag.title = `Matched domain: ${cred.matchedDomain}`;
+      nameRow.appendChild(domainTag);
+    }
 
     const subEl = document.createElement("div");
     subEl.className = "sub";
     subEl.textContent = cred.username || "No username";
 
-    meta.appendChild(nameEl);
+    meta.appendChild(nameRow);
     meta.appendChild(subEl);
     item.appendChild(meta);
 

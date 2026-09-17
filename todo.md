@@ -1,4 +1,30 @@
-## Current Session: Extension Domain Matching & Settings Toggle Button Fix (2026-09-16) · Branch: `dev`
+## Current Session: Windows Hello / Edge Passkey Fix & In-Page Autofill Suggestions (2026-09-18) · Branch: `dev`
+
+### ✅ What Was Done (Phase 18: Windows Hello / Edge Passkey Fix & In-Page Autofill Suggestions)
+- **Resolved Microsoft Edge Passkey Conflict & Windows Hello Blocking**:
+  - `extension/src/background/service-worker.ts`:
+    - Added `isMicrosoftEdge()` detection.
+    - Stopped disabling `passwordSavingEnabled` on Microsoft Edge, which was previously disabling Microsoft Wallet and triggering Edge's *"To create a passkey, turn on Microsoft Password Manager"* block.
+    - Restored/cleared `passwordSavingEnabled` on Edge while preserving safe browser autofill suppression (`autofillAddressEnabled`, `autofillCreditCardEnabled`).
+  - `extension/src/popup/SettingsScreen.tsx`:
+    - Updated "Make VaultR Default Password Manager" card to detect Microsoft Edge and show tailored guidance.
+    - Provided one-click link/copy button for `edge://settings/passwords` so users can turn off "Offer to save passwords" in Edge without disabling Edge's passkey subsystem.
+- **Robust WebAuthn RP Entity for Platform Biometric Unlock (`packages/core/src/webauthn.ts`)**:
+  - Removed hardcoded fallback `"vaultr.local"` in `enrollBiometricUnlock`.
+  - Omitted `rp.id` in extension contexts per W3C WebAuthn Level 3 specification so the browser defaults to the extension origin host without throwing `SecurityError`.
+- **In-Page Autofill Dropdown Matched Domain Display**:
+  - `extension/src/background/service-worker.ts`:
+    - Added `matchedDomain` to `MatchedLogin` interface.
+    - Tracked `bestMatchedDomain` during multi-candidate scoring in `getLoginsForDomain()`.
+    - Passed `matchedDomain` in `GET_LOGINS_FOR_DOMAIN` response payload.
+  - `extension/src/content-script/autofill.ts`:
+    - Added `matchedDomain` to `AutofillCredential` interface.
+    - Added `.name-row` and `.domain-tag` styling to in-page dropdown CSS.
+    - Rendered the matched domain/subdomain tag alongside the item name in the dropdown below input fields so users can see which domain matched when an item has multiple URLs.
+- **Verification**:
+  - All domain matching tests passed 100% (`test_domain_matching.ts`).
+  - Root TypeScript check: `npx tsc --noEmit` passed with 0 errors.
+  - Webpack production build: `npm run build --prefix extension` succeeded cleanly with 0 errors.
 
 ### ✅ What Was Done (Phase 17: Extension Domain Matching & Settings Toggle Button Fix)
 - **Multi-Domain & Multi-URL Normalization in `@vaultr/core` (`packages/core/src/domain.ts`)**:

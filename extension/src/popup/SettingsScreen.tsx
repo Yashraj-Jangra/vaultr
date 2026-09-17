@@ -54,6 +54,9 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [promptPassword, setPromptPassword] = useState("");
   const [copiedSettings, setCopiedSettings] = useState(false);
+  const [isEdgeBrowser, setIsEdgeBrowser] = useState(() => {
+    return typeof navigator !== "undefined" && /Edg\//i.test(navigator.userAgent);
+  });
 
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage) {
@@ -90,6 +93,9 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
             setBrowserOverrideSupported(status.supported !== false);
             if (status.isControlled !== undefined) {
               setBrowserOverrideActive(status.isControlled);
+            }
+            if (status.isEdge !== undefined) {
+              setIsEdgeBrowser(status.isEdge);
             }
           }
         });
@@ -473,7 +479,11 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                  {browserOverrideActive
+                  {isEdgeBrowser
+                    ? browserOverrideActive
+                      ? "VaultR manages form autofill. On Microsoft Edge, Microsoft Wallet is kept active so Windows Hello passkeys continue working without conflict."
+                      : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
+                    : browserOverrideActive
                     ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
                     : "Turn off browser password prompts and let VaultR seamlessly autofill and manage logins."}
                 </div>
@@ -503,8 +513,29 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
               >
                 <Check size={12} style={{ color: "#10b981", flexShrink: 0 }} />
                 <span style={{ fontSize: 10.5, fontWeight: 600, color: "#10b981" }}>
-                  MANAGING BROWSER PASSWORD SETTING
+                  {isEdgeBrowser ? "MANAGING BROWSER AUTOFILL & PASSKEYS" : "MANAGING BROWSER PASSWORD SETTING"}
                 </span>
+              </div>
+            )}
+
+            {isEdgeBrowser && browserOverrideActive && (
+              <div style={{ marginTop: 8, padding: "8px 10px", background: "#18181b", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
+                  To silence Edge's &quot;Save password?&quot; banner without affecting Windows Hello passkeys, turn off &quot;Offer to save passwords&quot; in Edge:
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ width: "100%", height: 26, fontSize: 10, justifyContent: "center", gap: 4 }}
+                  onClick={() => {
+                    navigator.clipboard.writeText("edge://settings/passwords");
+                    setCopiedSettings(true);
+                    setTimeout(() => setCopiedSettings(false), 2000);
+                  }}
+                >
+                  {copiedSettings ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+                  {copiedSettings ? "Copied edge://settings/passwords" : "Copy edge://settings/passwords link"}
+                </button>
               </div>
             )}
           </div>

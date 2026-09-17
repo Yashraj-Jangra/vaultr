@@ -46,6 +46,16 @@ const state: ServiceWorkerState = {
   accountInfo: null,
 };
 
+function isMicrosoftEdge(): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (/Edg\//i.test(navigator.userAgent)) return true;
+  const brands = (navigator as any).userAgentData?.brands;
+  if (Array.isArray(brands)) {
+    return brands.some((b: any) => /Edge/i.test(b.brand));
+  }
+  return false;
+}
+
 // Initialize server URL from local storage and restore browser override
 chrome.storage.local.get(["vaultr_server_url", "autolock_minutes", "vaultr_default_manager"], (result) => {
   if (result.vaultr_server_url) {
@@ -53,14 +63,29 @@ chrome.storage.local.get(["vaultr_server_url", "autolock_minutes", "vaultr_defau
   }
   touchAutoLock(result.autolock_minutes || "15");
 
-  if (result.vaultr_default_manager && chrome.privacy?.services?.passwordSavingEnabled) {
-    chrome.privacy.services.passwordSavingEnabled.set({ value: false }, () => {});
-    if (chrome.privacy.services.autofillAddressEnabled) {
+  if (isMicrosoftEdge()) {
+    // In Microsoft Edge, disabling passwordSavingEnabled shuts down Microsoft Wallet / Passkey manager,
+    // which breaks Windows Hello and causes Edge to block WebAuthn with "To create a passkey, turn on Microsoft Password Manager".
+    // We clear passwordSavingEnabled so Windows Hello passkeys are never blocked.
+    if (chrome.privacy?.services?.passwordSavingEnabled) {
+      try {
+        chrome.privacy.services.passwordSavingEnabled.clear({}, () => {});
+      } catch {}
+    }
+  }
+
+  if (result.vaultr_default_manager) {
+    if (!isMicrosoftEdge() && chrome.privacy?.services?.passwordSavingEnabled) {
+      try {
+        chrome.privacy.services.passwordSavingEnabled.set({ value: false }, () => {});
+      } catch {}
+    }
+    if (chrome.privacy?.services?.autofillAddressEnabled) {
       try {
         chrome.privacy.services.autofillAddressEnabled.set({ value: false }, () => {});
       } catch {}
     }
-    if (chrome.privacy.services.autofillCreditCardEnabled) {
+    if (chrome.privacy?.services?.autofillCreditCardEnabled) {
       try {
         chrome.privacy.services.autofillCreditCardEnabled.set({ value: false }, () => {});
       } catch {}
@@ -200,6 +225,7 @@ export interface MatchedLogin {
   totp?: string;
   hasTotp?: boolean;
   score: number;
+  matchedDomain?: string;
 }
 
 async function decryptAllItems(): Promise<void> {
@@ -274,10 +300,12 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
 
     // Evaluate match score across all candidate URLs (picking highest score)
     let bestScore = 0;
+    let bestMatchedDomain = "";
     for (const cand of candidateUrls) {
       const score = calculateDomainMatchScore(cand, currentHost, allowSubdomains);
       if (score > bestScore) {
         bestScore = score;
+        bestMatchedDomain = extractDomainHost(cand) || cand;
       }
       if (bestScore === 3) break;
     }
@@ -303,6 +331,7 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
       totp: totpCode,
       hasTotp: !!decrypted.totpSecret,
       score: bestScore,
+      matchedDomain: bestMatchedDomain,
     });
   }
 
@@ -481,7 +510,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         case "GET_LOGINS_FOR_DOMAIN": {
           const matches = await getLoginsForDomain(message.domain);
           sendResponse({
-            logins: matches.map(({ id, name, domain, url, username, password, totp, hasTotp }) => ({
+            logins: matches.map(({ id, name, domain, url, username, password, totp, hasTotp, matchedDomain }) => ({
               id,
               name,
               domain,
@@ -490,14 +519,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
               password,
               totp,
               hasTotp,
+              matchedDomain,
             })),
           });
           break;
         }
 
         case "GET_BROWSER_OVERRIDE_STATUS": {
+          const isEdge = isMicrosoftEdge();
+          if (isEdge) {
+            // In Microsoft Edge, ensure passwordSavingEnabled is not locked false by extension
+            if (chrome.privacy?.services?.passwordSavingEnabled) {
+              chrome.privacy.services.passwordSavingEnabled.get({}, (details) => {
+                if (details?.levelOfControl === "controlled_by_this_extension" && details?.value === false) {
+                  try { chrome.privacy.services.passwordSavingEnabled.clear({}, () => {}); } catch {}
+                }
+              });
+            }
+            chrome.storage.local.get("vaultr_default_manager", (res) => {
+              sendResponse({
+                supported: true,
+                isControlled: !!res.vaultr_default_manager,
+                levelOfControl: res.vaultr_default_manager ? "controlled_by_this_extension" : "controllable_by_this_extension",
+                value: false,
+                isEdge: true,
+              });
+            });
+            break;
+          }
+
           if (!chrome.privacy?.services?.passwordSavingEnabled) {
-            sendResponse({ supported: false, isControlled: false, levelOfControl: "not_supported" });
+            sendResponse({ supported: false, isControlled: false, levelOfControl: "not_supported", isEdge });
             break;
           }
           chrome.privacy.services.passwordSavingEnabled.get({}, (details) => {
@@ -507,6 +559,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
               isControlled,
               levelOfControl: details?.levelOfControl,
               value: details?.value,
+              isEdge: false,
             });
           });
           break;
@@ -514,6 +567,39 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
         case "SET_BROWSER_OVERRIDE": {
           const enableOverride = !!message.enabled;
+          const isEdge = isMicrosoftEdge();
+
+          if (isEdge) {
+            // On Microsoft Edge: Do NOT touch passwordSavingEnabled.set({ value: false }) because that shuts down
+            // Microsoft Wallet and breaks Windows Hello passkeys.
+            // Always ensure passwordSavingEnabled is cleared, and safely manage autofill address/card.
+            if (chrome.privacy?.services?.passwordSavingEnabled) {
+              try {
+                chrome.privacy.services.passwordSavingEnabled.clear({}, () => {});
+              } catch {}
+            }
+            if (enableOverride) {
+              if (chrome.privacy?.services?.autofillAddressEnabled) {
+                try { chrome.privacy.services.autofillAddressEnabled.set({ value: false }, () => {}); } catch {}
+              }
+              if (chrome.privacy?.services?.autofillCreditCardEnabled) {
+                try { chrome.privacy.services.autofillCreditCardEnabled.set({ value: false }, () => {}); } catch {}
+              }
+              await chrome.storage.local.set({ vaultr_default_manager: true });
+              sendResponse({ success: true, isControlled: true, isEdge: true });
+            } else {
+              if (chrome.privacy?.services?.autofillAddressEnabled) {
+                try { chrome.privacy.services.autofillAddressEnabled.clear({}, () => {}); } catch {}
+              }
+              if (chrome.privacy?.services?.autofillCreditCardEnabled) {
+                try { chrome.privacy.services.autofillCreditCardEnabled.clear({}, () => {}); } catch {}
+              }
+              await chrome.storage.local.set({ vaultr_default_manager: false });
+              sendResponse({ success: true, isControlled: false, isEdge: true });
+            }
+            break;
+          }
+
           if (!chrome.privacy?.services?.passwordSavingEnabled) {
             sendResponse({ success: false, error: "Privacy API not supported in this browser" });
             break;
@@ -521,33 +607,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
           if (enableOverride) {
             chrome.privacy.services.passwordSavingEnabled.set({ value: false }, async () => {
-              if (chrome.privacy.services.autofillAddressEnabled) {
+              if (chrome.privacy?.services?.autofillAddressEnabled) {
                 try {
                   chrome.privacy.services.autofillAddressEnabled.set({ value: false }, () => {});
                 } catch {}
               }
-              if (chrome.privacy.services.autofillCreditCardEnabled) {
+              if (chrome.privacy?.services?.autofillCreditCardEnabled) {
                 try {
                   chrome.privacy.services.autofillCreditCardEnabled.set({ value: false }, () => {});
                 } catch {}
               }
               await chrome.storage.local.set({ vaultr_default_manager: true });
-              sendResponse({ success: true, isControlled: true });
+              sendResponse({ success: true, isControlled: true, isEdge: false });
             });
           } else {
             chrome.privacy.services.passwordSavingEnabled.clear({}, async () => {
-              if (chrome.privacy.services.autofillAddressEnabled) {
+              if (chrome.privacy?.services?.autofillAddressEnabled) {
                 try {
                   chrome.privacy.services.autofillAddressEnabled.clear({}, () => {});
                 } catch {}
               }
-              if (chrome.privacy.services.autofillCreditCardEnabled) {
+              if (chrome.privacy?.services?.autofillCreditCardEnabled) {
                 try {
                   chrome.privacy.services.autofillCreditCardEnabled.clear({}, () => {});
                 } catch {}
               }
               await chrome.storage.local.set({ vaultr_default_manager: false });
-              sendResponse({ success: true, isControlled: false });
+              sendResponse({ success: true, isControlled: false, isEdge: false });
             });
           }
           break;

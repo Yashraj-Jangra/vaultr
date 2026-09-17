@@ -383,10 +383,19 @@ export async function enrollBiometricUnlock(masterPassword: string): Promise<{
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const userId = crypto.getRandomValues(new Uint8Array(16));
 
+  const rp: { name: string; id?: string } = { name: "VaultR" };
+  const hostname = typeof window !== "undefined" ? window.location?.hostname : "";
+  const protocol = typeof window !== "undefined" ? window.location?.protocol : "";
+  // In extension origins (chrome-extension://, moz-extension://) or empty hostnames, omitting rp.id
+  // lets the browser automatically use the extension's origin without throwing SecurityError.
+  if (hostname && !protocol?.includes("extension") && hostname.includes(".")) {
+    rp.id = hostname;
+  }
+
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: "VaultR", id: window.location.hostname || "vaultr.local" },
+      rp,
       user: {
         id: userId,
         name: "vaultr-user",
