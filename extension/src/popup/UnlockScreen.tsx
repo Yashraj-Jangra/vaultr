@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Lock, LogIn, ExternalLink, Shield, Fingerprint } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Lock, ExternalLink, Shield, Fingerprint, Hash } from "lucide-react";
 import { unlockWithBiometrics, isPlatformAuthenticatorAvailable } from "@vaultr/core";
+import { PinPad } from "./PinPad";
+import {
+  isPinSet,
+  getPinLength,
+  verifyPinAndGetPassword,
+  clearPin,
+  checkStalePin,
+} from "../services/pin";
 
 interface UnlockScreenProps {
   serverUrl: string;
@@ -9,6 +17,7 @@ interface UnlockScreenProps {
 }
 
 export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenProps) {
+  const [unlockMode, setUnlockMode] = useState<"pin" | "password">("password");
   const [masterPassword, setMasterPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [bioLoading, setBioLoading] = useState(false);
@@ -18,24 +27,69 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
   const [shakeKey, setShakeKey] = useState(0);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
+  // PIN Unlock State
+  const [pinSet, setPinSet] = useState(false);
+  const [pinLength, setPinLength] = useState(4);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinShake, setPinShake] = useState(false);
+  const submittingPinRef = useRef(false);
+
   useEffect(() => {
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.get(["vaultr_biometric_enrolled", "vaultr_biometric_blob"], async (res) => {
-        if (res?.vaultr_biometric_enrolled && res?.vaultr_biometric_blob) {
-          const avail = await isPlatformAuthenticatorAvailable();
-          if (avail) {
-            setBiometricsEnrolled(true);
-            setBiometricBlob(res.vaultr_biometric_blob);
+    let mounted = true;
+
+    const init = async () => {
+      // Check biometrics
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.get(["vaultr_biometric_enrolled", "vaultr_biometric_blob"], async (res) => {
+          if (!mounted) return;
+          if (res?.vaultr_biometric_enrolled && res?.vaultr_biometric_blob) {
+            const avail = await isPlatformAuthenticatorAvailable();
+            if (avail && mounted) {
+              setBiometricsEnrolled(true);
+              setBiometricBlob(res.vaultr_biometric_blob);
+            }
           }
+        });
+      }
+
+      // Check PIN configuration
+      const hasPin = await isPinSet();
+      if (!mounted) return;
+
+      if (hasPin) {
+        const len = await getPinLength();
+        if (!mounted) return;
+        setPinLength(len);
+        setPinSet(true);
+        setUnlockMode("pin");
+
+        // Proactively check if remote password was changed on another device
+        if (serverUrl) {
+          checkStalePin(serverUrl).then((isStale) => {
+            if (!mounted) return;
+            if (isStale) {
+              setPinSet(false);
+              setUnlockMode("password");
+              setError("Your master password was changed on another device. PIN unlock has been cleared — please enter your new master password.");
+              setShakeKey((k) => k + 1);
+            }
+          });
         }
-      });
-    }
-  }, []);
+      }
+    };
+
+    init();
+    return () => {
+      mounted = false;
+    };
+  }, [serverUrl]);
 
   const handleBiometricUnlock = async () => {
     if (!biometricBlob || bioLoading || loading) return;
     setBioLoading(true);
     setError("");
+    setPinError("");
     try {
       const password = await unlockWithBiometrics(
         biometricBlob.credentialId,
@@ -46,11 +100,73 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
     } catch (err: any) {
       const msg = err?.message || "Biometric authentication failed";
       if (!msg.toLowerCase().includes("cancelled") && !msg.toLowerCase().includes("abort")) {
-        setError(msg);
-        setShakeKey((k) => k + 1);
+        if (unlockMode === "pin") {
+          setPinError(msg);
+          setPinShake(true);
+          setTimeout(() => setPinShake(false), 400);
+        } else {
+          setError(msg);
+          setShakeKey((k) => k + 1);
+        }
       }
     } finally {
       setBioLoading(false);
+    }
+  };
+
+  const handlePinSubmit = async (enteredPin: string) => {
+    if (submittingPinRef.current || loading || bioLoading) return;
+    submittingPinRef.current = true;
+    setLoading(true);
+    setPinError("");
+
+    try {
+      const res = await verifyPinAndGetPassword(enteredPin);
+      if (res.success && res.password) {
+        try {
+          await onUnlock(res.password);
+        } catch (err: any) {
+          const msg = err?.message || "Incorrect master password";
+          // If the decrypted password fails server or vault item decryption,
+          // the master password was changed on another device!
+          if (
+            msg.toLowerCase().includes("wrong") ||
+            msg.toLowerCase().includes("incorrect") ||
+            msg.toLowerCase().includes("password")
+          ) {
+            await clearPin();
+            setPinSet(false);
+            setUnlockMode("password");
+            setError("Your master password was changed on another device. PIN unlock has been cleared — please enter your new master password.");
+            setShakeKey((k) => k + 1);
+          } else {
+            setPinError(msg);
+            setPinShake(true);
+            setTimeout(() => setPinShake(false), 400);
+            setPin("");
+          }
+        }
+      } else {
+        if (res.lockedOut) {
+          setPinSet(false);
+          setUnlockMode("password");
+          setError(res.error || "Too many failed attempts. PIN unlock disabled.");
+          setShakeKey((k) => k + 1);
+        } else {
+          setPinError(res.error || "Incorrect PIN.");
+          setPinShake(true);
+          setTimeout(() => setPinShake(false), 400);
+          setPin("");
+        }
+      }
+    } catch (err: any) {
+      setPinError(err?.message || "PIN verification failed.");
+      setPinShake(true);
+      setTimeout(() => setPinShake(false), 400);
+      setPin("");
+    } finally {
+      setLoading(false);
+      submittingPinRef.current = false;
     }
   };
 
@@ -146,152 +262,224 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
   }
 
   return (
-    <div className="unlock-wrap">
-      {/* Decorative Grid & Glow matching site exactly */}
+    <div className="unlock-wrap" style={{ padding: unlockMode === "pin" ? "20px 24px 16px" : "32px 24px" }}>
+      {/* Decorative Grid & Glow matching site */}
       <div className="unlock-bg-grid" />
       <div className="unlock-bg-radial" />
 
       {/* Lock Halo Visual */}
-      <div className="lock-halo-wrap">
-        <div className="lock-halo" />
-        <div className={`lock-box${loading ? " unlocking" : ""}`}>
+      <div className="lock-halo-wrap" style={{ marginBottom: unlockMode === "pin" ? 10 : 20 }}>
+        <div className="lock-halo" style={unlockMode === "pin" ? { width: 70, height: 70 } : undefined} />
+        <div
+          className={`lock-box${loading ? " unlocking" : ""}`}
+          style={unlockMode === "pin" ? { width: 52, height: 52, borderRadius: 14 } : undefined}
+        >
           <img
             src="brand/vaultr-lock-dark-transparent.svg"
             alt="Vaultr Lock"
             style={{
-              width: 48,
-              height: 48,
+              width: unlockMode === "pin" ? 34 : 48,
+              height: unlockMode === "pin" ? 34 : 48,
               objectFit: "contain",
               opacity: loading ? 1 : 0.6,
-              transition: "all 0.3s ease"
+              transition: "all 0.3s ease",
             }}
           />
         </div>
       </div>
 
       {/* Header Info */}
-      <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8, opacity: 0.6 }}>
+      <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", marginBottom: unlockMode === "pin" ? 8 : 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6, opacity: 0.6 }}>
           <img
             src="brand/vaultr-full-dark-transparent.png"
             alt="Vaultr"
-            style={{ height: 20, width: "auto", objectFit: "contain" }}
+            style={{ height: 18, width: "auto", objectFit: "contain" }}
           />
         </div>
-        <h1 style={{ fontSize: 18, fontWeight: 600, color: "var(--neutral-100)", letterSpacing: "-0.025em" }}>
-          {loading ? "Decrypting vault…" : "Unlock your vault"}
+        <h1 style={{ fontSize: 17, fontWeight: 600, color: "var(--neutral-100)", letterSpacing: "-0.025em" }}>
+          {loading
+            ? "Decrypting vault…"
+            : unlockMode === "pin"
+            ? "Enter your PIN"
+            : "Unlock your vault"}
         </h1>
         {userEmail && (
-          <p style={{ fontSize: 12, color: "var(--neutral-500)", fontFamily: "monospace", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260, margin: "4px auto 0" }}>
+          <p style={{ fontSize: 11.5, color: "var(--neutral-500)", fontFamily: "monospace", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260, margin: "3px auto 0" }}>
             {userEmail}
           </p>
         )}
       </div>
 
-      {/* Inputs & Form */}
-      <div style={{ width: "100%", position: "relative", zIndex: 10 }}>
-        <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {error && (
-            <div className="alert-error animate-auth-form-in">
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0, marginTop: 4 }} />
-              <p style={{ fontSize: 12, color: "#f87171", margin: 0, lineHeight: 1.4, flex: 1 }}>{error}</p>
-            </div>
-          )}
+      {/* Body: PIN Pad or Password Form */}
+      {unlockMode === "pin" ? (
+        <div style={{ width: "100%", position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <PinPad
+            length={pinLength}
+            value={pin}
+            onChange={setPin}
+            onComplete={handlePinSubmit}
+            disabled={loading || bioLoading}
+            showBiometricButton={biometricsEnrolled}
+            onBiometricPress={handleBiometricUnlock}
+            errorMessage={pinError}
+            shake={pinShake}
+          />
 
-          {biometricsEnrolled && (
-            <div>
-              <button
-                type="button"
-                onClick={handleBiometricUnlock}
-                disabled={loading || bioLoading}
-                className="btn btn-primary"
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              marginTop: 10,
+              fontSize: 11.5,
+              color: "var(--neutral-400)",
+              height: 30,
+              padding: "0 12px",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+            onClick={() => {
+              setUnlockMode("password");
+              setError("");
+            }}
+          >
+            <Lock size={12} />
+            Use Master Password instead
+          </button>
+        </div>
+      ) : (
+        <div style={{ width: "100%", position: "relative", zIndex: 10 }}>
+          <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {error && (
+              <div className="alert-error animate-auth-form-in">
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0, marginTop: 4 }} />
+                <p style={{ fontSize: 12, color: "#f87171", margin: 0, lineHeight: 1.4, flex: 1 }}>{error}</p>
+              </div>
+            )}
+
+            {biometricsEnrolled && (
+              <div>
+                <button
+                  type="button"
+                  onClick={handleBiometricUnlock}
+                  disabled={loading || bioLoading}
+                  className="btn btn-primary"
+                  style={{
+                    width: "100%",
+                    height: 44,
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: "#f4f4f5",
+                    color: "#09090b",
+                    boxShadow: "0 2px 10px rgba(255,255,255,0.12)",
+                  }}
+                >
+                  {bioLoading ? (
+                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: "#09090b", borderTopColor: "transparent" }} />
+                  ) : (
+                    <>
+                      <Fingerprint size={16} />
+                      Unlock with Windows Hello / Touch ID
+                    </>
+                  )}
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 2px", opacity: 0.5 }}>
+                  <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                  <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "1px", color: "var(--neutral-400)", fontWeight: 600 }}>or master password</span>
+                  <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                </div>
+              </div>
+            )}
+
+            <div style={{ position: "relative" }}>
+              <input
+                type="password"
+                className="form-input"
+                value={masterPassword}
+                onChange={(e) => setMasterPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                placeholder="Master password"
+                autoFocus
+                disabled={loading}
                 style={{
                   width: "100%",
                   height: 44,
+                  paddingRight: 40,
+                  background: "#0d0d0d",
+                  border: "1px solid var(--border)",
                   borderRadius: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
+                  color: "var(--neutral-200)",
                   fontSize: 13,
-                  fontWeight: 600,
-                  background: "#f4f4f5",
-                  color: "#09090b",
-                  boxShadow: "0 2px 10px rgba(255,255,255,0.12)",
                 }}
-              >
-                {bioLoading ? (
-                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: "#09090b", borderTopColor: "transparent" }} />
-                ) : (
-                  <>
-                    <Fingerprint size={16} />
-                    Unlock with Windows Hello / Touch ID
-                  </>
-                )}
-              </button>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 2px", opacity: 0.5 }}>
-                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "1px", color: "var(--neutral-400)", fontWeight: 600 }}>or master password</span>
-                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              </div>
+              />
+              <Lock size={16} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-700)", pointerEvents: "none" }} />
             </div>
-          )}
 
-          <div style={{ position: "relative" }}>
-            <input
-              type="password"
-              className="form-input"
-              value={masterPassword}
-              onChange={(e) => setMasterPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              placeholder="Master password"
-              autoFocus
-              disabled={loading}
+            <button
+              onClick={() => handleSubmit()}
+              className="btn btn-primary"
+              disabled={!masterPassword || loading}
               style={{
                 width: "100%",
                 height: 44,
-                paddingRight: 40,
-                background: "#0d0d0d",
-                border: "1px solid var(--border)",
                 borderRadius: 12,
-                color: "var(--neutral-200)",
-                fontSize: 13
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                fontSize: 13,
+                fontWeight: 500,
               }}
-            />
-            <Lock size={16} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-700)", pointerEvents: "none" }} />
-          </div>
+            >
+              {loading ? (
+                <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+              ) : (
+                <>
+                  <Lock size={14} />
+                  Unlock vault
+                </>
+              )}
+            </button>
 
-          <button
-            onClick={() => handleSubmit()}
-            className="btn btn-primary"
-            disabled={!masterPassword || loading}
-            style={{
-              width: "100%",
-              height: 44,
-              borderRadius: 12,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              fontSize: 13,
-              fontWeight: 500
-            }}
-          >
-            {loading ? (
-              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-            ) : (
-              <>
-                <Lock size={14} />
-                Unlock vault
-              </>
+            {pinSet && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--neutral-400)",
+                  height: 32,
+                  padding: "0 12px",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+                onClick={() => {
+                  setUnlockMode("pin");
+                  setPin("");
+                  setPinError("");
+                }}
+              >
+                <Hash size={13} style={{ color: "#38bdf8" }} />
+                Use PIN Code instead
+              </button>
             )}
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Footer Links matching site */}
-      <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24, fontSize: 12, position: "relative", zIndex: 10 }}>
+      <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: unlockMode === "pin" ? 14 : 24, fontSize: 12, position: "relative", zIndex: 10 }}>
         <button
           onClick={openLoginPage}
           style={{ background: "none", border: "none", color: "var(--neutral-600)", cursor: "pointer", fontSize: 12 }}
