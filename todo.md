@@ -35,15 +35,16 @@
   - Wired vault lifecycle synchronization: updates all tab badges on unlock / item save / item delete / password update, and clears all badges on lock.
   - Injected `PAGE_LOADED` notification in `autofill.ts` to trigger badge refresh as soon as a page finishes loading.
   - Added "Show suggestions badge on icon" toggle in Settings under `AUTOFILL & DOMAINS` (`vaultr_show_badge_count`, default `true`).
-- **Extension Generator Colored Visuals & Scramble Animation (`extension/src/popup/CipherScrambleText.tsx`, `extension/src/popup/GeneratorScreen.tsx`)**:
+- **Extension Generator Colored Visuals & Scramble Animation (`extension/src/popup/CipherScrambleText.tsx`, `extension/src/popup/GeneratorScreen.tsx`, `extension/src/popup/NewEntryForm.tsx`)**:
   - Implemented `CipherScrambleText` with progressive decryption/scramble animation matching web and mobile apps (~22ms interval, left-to-right progressive unlocking with separator awareness).
-  - Added rich colorized character syntax highlighting:
+  - Added rich colorized character syntax highlighting across both main generator and inline New Entry dialog:
     - Uppercase (Sky `#38bdf8`, weight 600)
     - Lowercase (Soft light gray `#e4e4e7`, weight 400)
     - Digits (Amber `#fbbf24`, weight 700)
     - Symbols (Rose `#fb7185`, weight 700)
     - Separators (Amber `#fbbf24`, weight 700)
     - PIN (Amber `#fbbf24`, weight 700 with `0.22em` tracking)
+  - Integrated `CipherScrambleText` into `NewEntryForm.tsx`'s `PasswordGen` widget, replacing legacy monotone green text with full character colorization, scramble animation, segmented strength bar, regenerate spin transition, and copy feedback.
   - Added segmented strength gauge (4 pill bars with entropy bits, label, and crack time).
   - Added real-time character breakdown pills (counts of upper, lower, digits, symbols with colored indicators).
   - Added color legend bar explaining character classes with sample tokens.
