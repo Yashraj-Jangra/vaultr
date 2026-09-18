@@ -1262,16 +1262,51 @@ function normalizeCredentialId(id: string | undefined | null): string {
             const key = await deriveKey(state.masterPassword, state.userId);
             const api = await getApiClient();
 
-            // Look for existing login item matching this domain/RP
+            // Look for existing login item matching this domain/RP and username
             const cleanRp = rpId.toLowerCase();
-            const existingItem = state.items.find((item) => {
-              if (item.deletedAt) return false;
-              const tmpl = item.template || "login";
-              if (tmpl !== "login") return false;
-              const d = (item.domain || "").toLowerCase();
-              const n = (item.name || "").toLowerCase();
-              return d === cleanRp || d.includes(cleanRp) || cleanRp.includes(d) || n === cleanRp || n.includes(cleanRp);
-            });
+            const targetUser = (payload.user?.name || payload.user?.displayName || "").toLowerCase().trim();
+
+            let existingItem: VaultItem | undefined;
+
+            if (targetUser) {
+              for (const item of state.items) {
+                if (item.deletedAt) continue;
+                const tmpl = item.template || "login";
+                if (tmpl !== "login") continue;
+                const d = (item.domain || "").toLowerCase();
+                const n = (item.name || "").toLowerCase();
+                const rpMatch = d === cleanRp || d.includes(cleanRp) || cleanRp.includes(d) || n === cleanRp || n.includes(cleanRp);
+                if (!rpMatch) continue;
+
+                let p = state.decryptedItemsCache[item.id];
+                if (!p) {
+                  try {
+                    const raw = await decrypt(key, item.encryptedBlob);
+                    p = JSON.parse(raw);
+                    state.decryptedItemsCache[item.id] = p;
+                  } catch {
+                    continue;
+                  }
+                }
+                const itemUser = (p?.username || "").toLowerCase().trim();
+                if (itemUser === targetUser) {
+                  existingItem = item;
+                  break;
+                }
+              }
+            }
+
+            // Fallback for anonymous/unspecified user handles: match domain item with no username set
+            if (!existingItem && !targetUser) {
+              existingItem = state.items.find((item) => {
+                if (item.deletedAt) return false;
+                const tmpl = item.template || "login";
+                if (tmpl !== "login") return false;
+                const d = (item.domain || "").toLowerCase();
+                const n = (item.name || "").toLowerCase();
+                return d === cleanRp || d.includes(cleanRp) || cleanRp.includes(d) || n === cleanRp || n.includes(cleanRp);
+              });
+            }
 
             if (existingItem) {
               let existingPayload: any = state.decryptedItemsCache[existingItem.id];
