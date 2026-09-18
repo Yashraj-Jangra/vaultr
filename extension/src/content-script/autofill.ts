@@ -211,23 +211,39 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
     }
   }
 
-  // Auto-copy 2FA code to clipboard
-  if (cred.totp) {
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.get("vaultr_autocopy_2fa", (res) => {
-        if (res?.vaultr_autocopy_2fa !== false && cred.totp) {
-          try {
-            navigator.clipboard.writeText(cred.totp).then(() => {
-              showInPageToast(`2FA code copied: <span class="code">${cred.totp}</span>`);
-            }).catch(() => {
-              showInPageToast(`2FA code: <span class="code">${cred.totp}</span>`);
-            });
-          } catch {
+  // Auto-copy 2FA code to clipboard & auto-submit form if configured
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    chrome.storage.local.get(["vaultr_autocopy_2fa", "autofill_submit"], (res) => {
+      if (res?.vaultr_autocopy_2fa !== false && cred.totp) {
+        try {
+          navigator.clipboard.writeText(cred.totp).then(() => {
+            showInPageToast(`2FA code copied: <span class="code">${cred.totp}</span>`);
+          }).catch(() => {
             showInPageToast(`2FA code: <span class="code">${cred.totp}</span>`);
-          }
+          });
+        } catch {
+          showInPageToast(`2FA code: <span class="code">${cred.totp}</span>`);
         }
-      });
-    }
+      }
+
+      // Auto-submit login form if enabled and credentials were typed into a form
+      if (res?.autofill_submit !== false && cred.password) {
+        const form = focusedField.closest("form");
+        if (form) {
+          setTimeout(() => {
+            try {
+              if (typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+              } else {
+                form.submit();
+              }
+            } catch {
+              // Ignore submission block if form validation fails
+            }
+          }, 150);
+        }
+      }
+    });
   }
 }
 
@@ -918,23 +934,30 @@ document.addEventListener("focusin", (e) => {
   const isOtp = isOtpField(target);
   if (!isLogin && !isOtp) return;
 
-  lastFocusedField = target;
+  // Check if credential suggestion dropdown is enabled
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    chrome.storage.local.get("autofill_enabled", (settings) => {
+      if (settings?.autofill_enabled === false) return;
 
-  const domain = getDomain();
-  if (!domain) return;
+      lastFocusedField = target;
 
-  chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
-    if (chrome.runtime.lastError) return;
-    if (response?.logins?.length > 0) {
-      if (document.activeElement === target) {
-        if (isOtp) {
-          showOtpDropdown(target, response.logins);
-        } else {
-          showDropdown(target, response.logins);
+      const domain = getDomain();
+      if (!domain) return;
+
+      chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response?.logins?.length > 0) {
+          if (document.activeElement === target) {
+            if (isOtp) {
+              showOtpDropdown(target, response.logins);
+            } else {
+              showDropdown(target, response.logins);
+            }
+          }
         }
-      }
-    }
-  });
+      });
+    });
+  }
 }, true);
 
 // Handle autofill, copy TOTP, and password fill messages
@@ -1202,35 +1225,43 @@ function checkAndShowSavePrompt(username: string, password: string, domain: stri
     return;
   }
 
-  chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (res) => {
-    if (chrome.runtime.lastError) return;
-    const logins: AutofillCredential[] = res?.logins || [];
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    chrome.storage.local.get(["vaultr_prompt_save", "vaultr_prompt_update"], (prefs) => {
+      chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (res) => {
+        if (chrome.runtime.lastError) return;
+        const logins: AutofillCredential[] = res?.logins || [];
 
-    const matchingUser = logins.find(
-      (l) => l.username && username && l.username.toLowerCase() === username.toLowerCase()
-    );
+        const matchingUser = logins.find(
+          (l) => l.username && username && l.username.toLowerCase() === username.toLowerCase()
+        );
 
-    if (matchingUser) {
-      if (matchingUser.password && matchingUser.password === password) {
-        return;
-      }
-      showSaveOrUpdatePrompt({
-        mode: "update",
-        domain,
-        username: matchingUser.username || username,
-        password,
-        itemId: matchingUser.id,
-        itemName: matchingUser.name,
+        if (matchingUser) {
+          if (matchingUser.password && matchingUser.password === password) {
+            return;
+          }
+          if (prefs?.vaultr_prompt_update === false) return;
+
+          showSaveOrUpdatePrompt({
+            mode: "update",
+            domain,
+            username: matchingUser.username || username,
+            password,
+            itemId: matchingUser.id,
+            itemName: matchingUser.name,
+          });
+        } else {
+          if (prefs?.vaultr_prompt_save === false) return;
+
+          showSaveOrUpdatePrompt({
+            mode: "save",
+            domain,
+            username,
+            password,
+          });
+        }
       });
-    } else {
-      showSaveOrUpdatePrompt({
-        mode: "save",
-        domain,
-        username,
-        password,
-      });
-    }
-  });
+    });
+  }
 }
 
 function setupFormSubmitInterceptor() {
@@ -1248,8 +1279,22 @@ function setupFormSubmitInterceptor() {
   }, true);
 
   document.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement)?.closest('button[type="submit"], input[type="submit"], button:not([type])');
+    const targetEl = e.target as HTMLElement;
+    if (!targetEl || targetEl.closest("#vaultr-autofill-host, #vaultr-save-prompt-host, #vaultr-passkey-prompt-host")) {
+      return;
+    }
+
+    const btn = targetEl.closest('button[type="submit"], input[type="submit"], button:not([type])');
     if (!btn) return;
+
+    // Filter out eye / password reveal toggle buttons and cancel / close buttons
+    const btnText = (btn.textContent || "").toLowerCase();
+    const btnAria = (btn.getAttribute("aria-label") || "").toLowerCase();
+    const btnClass = (btn.className || "").toString().toLowerCase();
+    if (/eye|reveal|show|toggle|hide|cancel|close|back/.test(`${btnText} ${btnAria} ${btnClass}`)) {
+      return;
+    }
+
     const form = btn.closest("form");
     if (form) {
       const pwdInput = form.querySelector<HTMLInputElement>('input[type="password"]');
@@ -1261,7 +1306,8 @@ function setupFormSubmitInterceptor() {
       if (!domain) return;
       checkAndShowSavePrompt(username, password, domain);
     } else {
-      const pwd = document.querySelector<HTMLInputElement>('input[type="password"]');
+      const container = btn.closest("div, section, main, [role='dialog'], [role='form']");
+      const pwd = container?.querySelector<HTMLInputElement>('input[type="password"]');
       if (pwd && pwd.value.trim().length >= 4) {
         const usr = findUsernameField(pwd);
         checkAndShowSavePrompt(usr?.value || "", pwd.value, getDomain());
