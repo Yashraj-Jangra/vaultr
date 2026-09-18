@@ -1,4 +1,41 @@
-## Current Session: Extension Session Management (2026-09-18) · Branch: `dev`
+## Current Session: Extension Quick PIN Fast Re-Unlock & Security Hardening (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 22: Browser Extension Quick PIN Re-Unlock & Security Hardening)
+- **Extension PIN Key Derivation & Verification Service (`extension/src/services/pin.ts`)**:
+  - Implemented `setupPin()`, `verifyPinAndGetPassword()`, `isPinSet()`, `getPinLength()`, `getRemainingAttempts()`, `clearPin()`, and `checkStalePin()`.
+  - Used PBKDF2 with 100,000 iterations (HMAC-SHA256) and fresh 16-byte random salt per enrollment (`crypto.getRandomValues`) to derive an AES-256-GCM wrapping key.
+  - Encrypted master password using AES-256-GCM with unique 12-byte initialization vector, persisted securely into `chrome.storage.local`.
+  - Implemented strict brute-force rate-limiting: maximum 5 attempts with persistent counter across extension reloads. On 5th failed attempt, automatically wipes all stored PIN credentials and forces master password re-authentication.
+  - Implemented proactive remote master password change detection (`checkStalePin`): queries `/api/vault/profile` on unlock screen load and compares `lastPasswordChangedAt` against enrolled timestamp; preemptively clears stale PINs before user attempt.
+- **Service Worker Security Seals & Session Invalidation (`extension/src/background/service-worker.ts`)**:
+  - Extended `CHANGE_MASTER_PASSWORD` handler to automatically remove all PIN storage keys (`vaultr_pin_blob`, `vaultr_pin_enabled`, `vaultr_pin_failed_attempts`) alongside biometric blobs so changing master password never leaves obsolete PIN blobs.
+  - Added PIN credentials wipe to `tryRestoreSession()` when the `/api/me` session check fails (remote device logout or revoked session).
+- **Extension PinPad Keypad Component & Visual Styling (`extension/src/popup/PinPad.tsx`, `extension/src/popup/popup.css`)**:
+  - Built responsive numeric keypad featuring 10 circular keys (1-9, 0) with numbers and letter subtitles (ABC, DEF, etc.).
+  - Added Backspace key with clean SVG icon (auto-disabled when 0 digits entered).
+  - Integrated coexisting Biometric unlock shortcut button (fingerprint icon) on bottom-left when Windows Hello / Touch ID is enrolled.
+  - Added physical keyboard entry listener (`0`-`9`, `Backspace`) with scoped `keydown` lifecycle, modifier key bypassing, and event cleanup.
+  - Added dot indicators (4 or 6 dots based on configuration) with filled glow, error red glow, and horizontal shake animation (`@keyframes pin-shake`).
+  - Added hover and active press scaling micro-animations (`transform: scale(0.94)`).
+- **Extension Unlock Screen Integration (`extension/src/popup/UnlockScreen.tsx`)**:
+  - On mount, detects if PIN is set (`isPinSet()`) and sets initial mode to `"pin"`.
+  - Proactively checks `checkStalePin(serverUrl)`; if password was changed on another device, clears PIN and informs user: *"Your master password was changed on another device. PIN unlock has been cleared — please enter your new master password."*
+  - Handled decryption error fallback: if stored master password fails vault item decryption, automatically clears PIN and prompts for new master password.
+  - Added re-entrancy prevention guard (`submittingPinRef`) to eliminate double-submit races on quick typing.
+  - Added seamless switching between PIN mode and Master Password mode via *"Use Master Password instead"* and *"Use PIN Code instead"* actions.
+- **Settings Screen PIN Configuration & Management (`extension/src/popup/SettingsScreen.tsx`)**:
+  - Added "Quick PIN Unlock" card in the `SECURITY & TIMEOUTS` section with `Hash` icon, active status badge (`4-DIGIT ACTIVE` / `6-DIGIT ACTIVE`), and toggle switch.
+  - Added "Change PIN →" button when active.
+  - Built PIN Setup & Confirmation modal dialog:
+    - Verifies active master password (from session storage or inline prompt if session expired).
+    - Step 1: "Set Up Quick PIN" with 4/6 digit segmented pill length selector and live PinPad entry.
+    - Step 2: "Confirm Your PIN" requiring matching confirmation before persisting.
+  - Handled disable flow: turning off toggle removes PIN blob and resets counter with feedback notice.
+  - Handled master password change synchronization: resets `pinEnabled` in state when user updates master password in Settings.
+- **Verification**:
+  - Extension TypeScript check: `npx tsc --noEmit` in `extension/` passed with 0 errors.
+  - Extension Webpack production build: `npm run build` compiled cleanly with 0 errors.
+  - Root project TypeScript check: `npx tsc --noEmit` in `d:\Projects\_vaultr` passed with 0 errors.
 
 ### ✅ What Was Done (Phase 21: Browser Extension Session Management & Device Revocation)
 - **Sessions & Devices Management in Browser Extension (`extension/src/popup/SettingsScreen.tsx`)**:
