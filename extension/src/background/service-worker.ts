@@ -1103,16 +1103,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
 
           try {
-            const { id } = message;
+            const { id, permanent } = message;
             const api = await getApiClient();
-            await api.deleteItem(id);
 
-            state.items = state.items.filter((i) => i.id !== id);
+            if (permanent) {
+              await api.deleteItem(id);
+              state.items = state.items.filter((i) => i.id !== id);
+            } else {
+              const deletedAt = new Date().toISOString();
+              await api.updateItem(id, { deletedAt });
+              state.items = state.items.map((i) => (i.id === id ? { ...i, deletedAt } : i));
+            }
+
             delete state.decryptedItemsCache[id];
             updateAllTabBadges();
             sendResponse({ success: true });
           } catch (err: any) {
             sendResponse({ error: err?.message || "Failed to delete item" });
+          }
+          break;
+        }
+
+        case "RESTORE_ITEM": {
+          await tryRestoreSession();
+          if (!state.isUnlocked || !state.masterPassword) {
+            sendResponse({ error: "Vault is locked" });
+            return;
+          }
+
+          try {
+            const { id } = message;
+            const api = await getApiClient();
+            await api.updateItem(id, { deletedAt: null as any });
+            state.items = state.items.map((i) => (i.id === id ? { ...i, deletedAt: null as any } : i));
+            updateAllTabBadges();
+            sendResponse({ success: true });
+          } catch (err: any) {
+            sendResponse({ error: err?.message || "Failed to restore item" });
           }
           break;
         }
