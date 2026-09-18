@@ -336,6 +336,7 @@ export function App() {
           <div key="vault" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <VaultScreen
               items={items}
+              folders={folders}
               onDecryptItem={(blob) => handleDecryptItem(blob)}
               onAutofill={handleAutofill}
               onEditItem={handleEditTrigger}

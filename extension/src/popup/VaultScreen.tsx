@@ -20,6 +20,7 @@ type Template = "login" | "card" | "address" | "profile" | "note";
 
 interface VaultScreenProps {
   items: VaultItem[];
+  folders?: string[];
   onDecryptItem: (encryptedBlob: string, itemId?: string) => Promise<any>;
   onAutofill: (cred: { username?: string; password?: string }) => void;
   onEditItem: (item: VaultItem, decryptedPayload: any) => void;
@@ -775,6 +776,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
 export function VaultScreen({
   items,
+  folders: serverFolders,
   onDecryptItem,
   onAutofill,
   onEditItem,
@@ -829,16 +831,23 @@ export function VaultScreen({
     return items.filter((i) => !i.deletedAt);
   }, [items]);
 
-  // Extract unique folders from active items
+  // Extract unique folders combining server-defined custom folders and active items
   const folders = useMemo(() => {
     const set = new Set<string>();
+    if (serverFolders) {
+      for (const f of serverFolders) {
+        if (f && f.trim()) {
+          set.add(f.trim());
+        }
+      }
+    }
     for (const item of activeItems) {
       if (item.folder && item.folder.trim()) {
         set.add(item.folder.trim());
       }
     }
     return Array.from(set).sort();
-  }, [activeItems]);
+  }, [activeItems, serverFolders]);
 
   const filteredItems = useMemo(() => {
     let list = activeItems;
