@@ -163,20 +163,26 @@ async function tryRestoreSession(): Promise<boolean> {
 
     const api = await getApiClient();
     let userId = "";
+    let isSessionExplicitlyRevoked = false;
 
+    const cleanUrl = state.serverUrl.replace(/\/+$/, "");
     try {
-      const meRes = await globalThis.fetch(`${state.serverUrl}/api/me`, { credentials: "include" });
+      const meRes = await globalThis.fetch(`${cleanUrl}/api/me`, { credentials: "include" });
       if (meRes.ok) {
         const data = await meRes.json();
         state.accountInfo = { email: data.email, name: data.name, image: data.image };
         userId = data.id;
+      } else if (meRes.status === 401 || meRes.status === 403) {
+        isSessionExplicitlyRevoked = true;
       }
-    } catch {}
+    } catch {
+      // Network failure, offline, or transient error - do not treat as explicit session revocation
+    }
 
     if (!userId) {
-      // User logged out of device / web session expired
       lockVault();
-      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      // Only wipe persistent PIN credentials if the server explicitly confirmed the session was revoked
+      if (isSessionExplicitlyRevoked && typeof chrome !== "undefined" && chrome.storage?.local) {
         chrome.storage.local.remove([
           "vaultr_pin_blob",
           "vaultr_pin_enabled",
