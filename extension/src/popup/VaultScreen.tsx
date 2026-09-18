@@ -717,15 +717,17 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
               })()}
 
               {/* Entry Notes (Shared) */}
-              {decrypted.entryNotes && (
+              {item.template !== "note" && (decrypted.entryNotes || decrypted.note) && (
                 <div className="detail-section-group">
                   <div className="detail-section-title">PRIVATE NOTES</div>
                   <div className="detail-section-box" style={{ padding: "8px 10px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTES</span>
-                      <CopyBtn value={decrypted.entryNotes} />
+                      <CopyBtn value={decrypted.entryNotes || decrypted.note || ""} />
                     </div>
-                    <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
+                    <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                      {decrypted.entryNotes || decrypted.note}
+                    </p>
                   </div>
                 </div>
               )}
