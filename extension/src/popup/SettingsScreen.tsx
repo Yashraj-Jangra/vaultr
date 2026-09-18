@@ -27,6 +27,7 @@ import {
   LogIn,
   AlertCircle,
   Maximize2,
+  Hash,
 } from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
 import {
@@ -37,6 +38,13 @@ import {
   isPlatformAuthenticatorAvailable,
   enrollBiometricUnlock,
 } from "@vaultr/core";
+import { PinPad } from "./PinPad";
+import {
+  isPinSet,
+  getPinLength,
+  setupPin,
+  clearPin,
+} from "../services/pin";
 
 export type PopupWidth = "normal" | "wide" | "wider" | "extended";
 
@@ -220,6 +228,20 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   // Popup Width state
   const [popupWidth, setPopupWidth] = useState<PopupWidth>("normal");
 
+  // Quick PIN Unlock state
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [pinLength, setPinLength] = useState(4);
+  const [showPinSetupModal, setShowPinSetupModal] = useState(false);
+  const [pinSetupStep, setPinSetupStep] = useState<"prompt_password" | "choose_pin" | "confirm_pin">("choose_pin");
+  const [pinActivePassword, setPinActivePassword] = useState("");
+  const [pinPromptPw, setPinPromptPw] = useState("");
+  const [pinSetupLength, setPinSetupLength] = useState<4 | 6>(4);
+  const [pinSetupFirst, setPinSetupFirst] = useState("");
+  const [pinSetupConfirm, setPinSetupConfirm] = useState("");
+  const [pinModalError, setPinModalError] = useState("");
+  const [pinSetupSaving, setPinSetupSaving] = useState(false);
+  const [pinMsg, setPinMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.get(
@@ -252,6 +274,14 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
           const avail = await isPlatformAuthenticatorAvailable();
           setBiometricsSupported(avail);
+
+          const pinSet = await isPinSet();
+          setPinEnabled(pinSet);
+          if (pinSet) {
+            const len = await getPinLength();
+            setPinLength(len);
+            setPinSetupLength(len === 6 ? 6 : 4);
+          }
         }
       );
 
@@ -422,6 +452,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
             setNewPw("");
             setConfirmPw("");
             setBiometricsEnrolled(false);
+            setPinEnabled(false);
           }
         }
       );
@@ -446,6 +477,102 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     applyPopupWidth(newWidth);
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.set({ vaultr_popup_width: newWidth });
+    }
+  };
+
+  const handleTogglePin = async (enable: boolean) => {
+    setPinMsg(null);
+    if (!enable) {
+      await clearPin();
+      setPinEnabled(false);
+      setPinMsg({ text: "Quick PIN unlock has been disabled.", ok: true });
+      setTimeout(() => setPinMsg(null), 3000);
+      return;
+    }
+
+    let sessionPw = "";
+    if (typeof chrome !== "undefined" && chrome.storage?.session) {
+      const sess = await chrome.storage.session.get("vaultr_master_password");
+      sessionPw = sess?.vaultr_master_password || "";
+    }
+
+    if (sessionPw) {
+      setPinActivePassword(sessionPw);
+      setPinSetupStep("choose_pin");
+      setPinSetupFirst("");
+      setPinSetupConfirm("");
+      setPinModalError("");
+      setShowPinSetupModal(true);
+    } else {
+      setPinPromptPw("");
+      setPinModalError("");
+      setPinSetupStep("prompt_password");
+      setShowPinSetupModal(true);
+    }
+  };
+
+  const handleStartChangePin = async () => {
+    setPinMsg(null);
+    let sessionPw = "";
+    if (typeof chrome !== "undefined" && chrome.storage?.session) {
+      const sess = await chrome.storage.session.get("vaultr_master_password");
+      sessionPw = sess?.vaultr_master_password || "";
+    }
+
+    if (sessionPw) {
+      setPinActivePassword(sessionPw);
+      setPinSetupStep("choose_pin");
+      setPinSetupFirst("");
+      setPinSetupConfirm("");
+      setPinModalError("");
+      setShowPinSetupModal(true);
+    } else {
+      setPinPromptPw("");
+      setPinModalError("");
+      setPinSetupStep("prompt_password");
+      setShowPinSetupModal(true);
+    }
+  };
+
+  const handleVerifyPromptPassword = async () => {
+    if (!pinPromptPw) return;
+    setPinActivePassword(pinPromptPw);
+    setPinSetupStep("choose_pin");
+    setPinSetupFirst("");
+    setPinSetupConfirm("");
+    setPinModalError("");
+  };
+
+  const handleSaveNewPin = async (confirmedPin: string) => {
+    if (confirmedPin !== pinSetupFirst) {
+      setPinModalError("PINs do not match. Please try again.");
+      setPinSetupConfirm("");
+      return;
+    }
+
+    setPinSetupSaving(true);
+    setPinModalError("");
+
+    try {
+      const res = await setupPin(confirmedPin, pinActivePassword, serverUrl);
+      if (res.success) {
+        setPinEnabled(true);
+        setPinLength(pinSetupLength);
+        setShowPinSetupModal(false);
+        setPinSetupFirst("");
+        setPinSetupConfirm("");
+        setPinPromptPw("");
+        setPinMsg({ text: `Quick PIN configured successfully (${pinSetupLength} digits).`, ok: true });
+        setTimeout(() => setPinMsg(null), 3500);
+      } else {
+        setPinModalError(res.error || "Failed to configure PIN.");
+        setPinSetupConfirm("");
+      }
+    } catch (err: any) {
+      setPinModalError(err?.message || "Failed to configure PIN.");
+      setPinSetupConfirm("");
+    } finally {
+      setPinSetupSaving(false);
     }
   };
 
@@ -1056,6 +1183,220 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         </div>
       )}
 
+      {/* Quick PIN Setup / Change Modal */}
+      {showPinSetupModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.82)",
+            backdropFilter: "blur(8px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "#0d0d0d",
+              border: "1px solid var(--border)",
+              borderRadius: 18,
+              padding: "20px 18px 16px",
+              width: "100%",
+              maxWidth: 310,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-start", width: "100%" }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "rgba(56, 189, 248, 0.12)",
+                  border: "1px solid rgba(56, 189, 248, 0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Hash size={16} style={{ color: "#38bdf8" }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                  {pinSetupStep === "prompt_password"
+                    ? "Authorize PIN Setup"
+                    : pinSetupStep === "confirm_pin"
+                    ? "Confirm Your PIN"
+                    : pinEnabled
+                    ? "Change Quick PIN"
+                    : "Set Up Quick PIN"}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 1 }}>
+                  {pinSetupStep === "prompt_password"
+                    ? "Enter master password to proceed"
+                    : pinSetupStep === "confirm_pin"
+                    ? `Re-enter your ${pinSetupLength}-digit PIN`
+                    : `Choose a ${pinSetupLength}-digit PIN`}
+                </div>
+              </div>
+            </div>
+
+            {pinSetupStep === "prompt_password" && (
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+                <p style={{ fontSize: 11.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: 0 }}>
+                  Enter your master password once to configure PIN re-unlock on this browser.
+                </p>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={pinPromptPw}
+                  onChange={(e) => setPinPromptPw(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleVerifyPromptPassword()}
+                  placeholder="Master password"
+                  autoFocus
+                  style={{ width: "100%", height: 38, fontSize: 12 }}
+                />
+                {pinModalError && (
+                  <div style={{ fontSize: 11, color: "#f87171" }}>{pinModalError}</div>
+                )}
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ flex: 1, height: 34, fontSize: 11.5, justifyContent: "center" }}
+                    onClick={() => {
+                      setShowPinSetupModal(false);
+                      setPinPromptPw("");
+                      setPinModalError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ flex: 1, height: 34, fontSize: 11.5, justifyContent: "center" }}
+                    disabled={!pinPromptPw}
+                    onClick={handleVerifyPromptPassword}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pinSetupStep === "choose_pin" && (
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                {/* Length pills */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 2 }}>
+                  <button
+                    type="button"
+                    className={`type-pill ${pinSetupLength === 4 ? "active" : ""}`}
+                    onClick={() => {
+                      setPinSetupLength(4);
+                      setPinSetupFirst("");
+                      setPinModalError("");
+                    }}
+                    style={{ padding: "4px 10px", fontSize: 11 }}
+                  >
+                    4 Digits
+                  </button>
+                  <button
+                    type="button"
+                    className={`type-pill ${pinSetupLength === 6 ? "active" : ""}`}
+                    onClick={() => {
+                      setPinSetupLength(6);
+                      setPinSetupFirst("");
+                      setPinModalError("");
+                    }}
+                    style={{ padding: "4px 10px", fontSize: 11 }}
+                  >
+                    6 Digits
+                  </button>
+                </div>
+
+                <PinPad
+                  length={pinSetupLength}
+                  value={pinSetupFirst}
+                  onChange={setPinSetupFirst}
+                  onComplete={() => {
+                    setPinSetupStep("confirm_pin");
+                    setPinSetupConfirm("");
+                    setPinModalError("");
+                  }}
+                  errorMessage={pinModalError}
+                />
+
+                <div style={{ width: "100%", display: "flex", justifyContent: "center", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ height: 30, fontSize: 11, color: "var(--neutral-500)", padding: "0 14px" }}
+                    onClick={() => {
+                      setShowPinSetupModal(false);
+                      setPinSetupFirst("");
+                      setPinSetupConfirm("");
+                      setPinModalError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pinSetupStep === "confirm_pin" && (
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <PinPad
+                  length={pinSetupLength}
+                  value={pinSetupConfirm}
+                  onChange={setPinSetupConfirm}
+                  disabled={pinSetupSaving}
+                  onComplete={handleSaveNewPin}
+                  errorMessage={pinModalError}
+                />
+
+                <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ height: 30, fontSize: 11, color: "var(--neutral-400)", padding: "0 10px" }}
+                    onClick={() => {
+                      setPinSetupStep("choose_pin");
+                      setPinSetupConfirm("");
+                      setPinModalError("");
+                    }}
+                  >
+                    ← Change PIN
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ height: 30, fontSize: 11, color: "var(--neutral-500)", padding: "0 10px" }}
+                    onClick={() => {
+                      setShowPinSetupModal(false);
+                      setPinSetupFirst("");
+                      setPinSetupConfirm("");
+                      setPinModalError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Browser Integration & Autofill Preferences */}
       <div className="settings-section">
         <div className="settings-section-title">BROWSER INTEGRATION & AUTOFILL</div>
@@ -1505,6 +1846,103 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
               {/* Session cards */}
               {currentSession && renderSessionCard(currentSession)}
               {otherSessions.map((s) => renderSessionCard(s))}
+            </div>
+          )}
+        </div>
+
+        {/* Quick PIN Unlock Card */}
+        <div
+          style={{
+            padding: "12px",
+            background: "#0d0d0d",
+            border: `1px solid ${pinEnabled ? "rgba(56, 189, 248, 0.3)" : "var(--border)"}`,
+            borderRadius: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <Hash size={14} style={{ color: pinEnabled ? "#38bdf8" : "var(--neutral-400)" }} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                  Quick PIN Unlock
+                </span>
+                {pinEnabled && (
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      background: "rgba(56, 189, 248, 0.15)",
+                      color: "#38bdf8",
+                      border: "1px solid rgba(56, 189, 248, 0.3)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
+                  >
+                    <Check size={9} /> {pinLength}-DIGIT ACTIVE
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                {pinEnabled
+                  ? `Your ${pinLength}-digit PIN is active. Use it to quickly re-unlock your vault on this device.`
+                  : "Set a 4 or 6-digit PIN for lightning-fast PBKDF2 + AES-GCM vault re-unlock."}
+              </div>
+            </div>
+            <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+              <input
+                type="checkbox"
+                checked={pinEnabled}
+                onChange={(e) => handleTogglePin(e.target.checked)}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+
+          {pinEnabled && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{
+                  height: 28,
+                  padding: "0 10px",
+                  fontSize: 11,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  borderRadius: 6,
+                  color: "#38bdf8",
+                }}
+                onClick={handleStartChangePin}
+              >
+                Change PIN
+                <ChevronRight size={12} />
+              </button>
+            </div>
+          )}
+
+          {pinMsg && (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                fontWeight: 500,
+                padding: "6px 8px",
+                borderRadius: 6,
+                background: pinMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                border: `1px solid ${pinMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                color: pinMsg.ok ? "#10b981" : "#f87171",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {pinMsg.ok ? <Check size={12} /> : <Info size={12} />}
+              <span>{pinMsg.text}</span>
             </div>
           )}
         </div>
