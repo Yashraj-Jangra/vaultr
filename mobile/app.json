@@ -25,6 +25,16 @@
       ],
       "versionCode": 10
     },
+    "ios": {
+      "bundleIdentifier": "com.vaultr.mobile",
+      "buildNumber": "10",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow Vaultr to use Face ID to unlock your secure vault.",
+        "NSCameraUsageDescription": "Allow Vaultr to access camera to scan 2FA QR codes.",
+        "NSPhotoLibraryUsageDescription": "Allow Vaultr to access your photo library for vault attachments."
+      }
+    },
     "plugins": [
       [
         "expo-local-authentication",
