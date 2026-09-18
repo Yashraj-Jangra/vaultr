@@ -28,6 +28,8 @@ import {
   AlertCircle,
   Maximize2,
   Hash,
+  Palette,
+  Sparkles,
 } from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
 import {
@@ -82,6 +84,8 @@ interface SettingsScreenProps {
   accountInfo: AccountInfo;
   onUpdateServerUrl: (url: string) => Promise<void>;
   onLock: () => void;
+  currentTheme?: "dark" | "light" | "midnight";
+  onThemeChange?: (theme: "dark" | "light" | "midnight") => void;
 }
 
 interface SessionData {
@@ -152,8 +156,6 @@ function PasswordField({
           height: 36,
           fontSize: 12,
           paddingRight: 32,
-          background: "#0d0d0d",
-          borderRadius: 8,
           fontFamily: show ? "inherit" : "monospace",
         }}
       />
@@ -182,20 +184,34 @@ function PasswordField({
   );
 }
 
-export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLock }: SettingsScreenProps) {
-  const [url, setUrl] = useState(serverUrl);
-  const [saved, setSaved] = useState(false);
-  
-  const [autofillEnabled, setAutofillEnabled] = useState(true);
-  const [showBadgeCount, setShowBadgeCount] = useState(true);
-  const [subdomainMatching, setSubdomainMatching] = useState(true);
-  const [autofillSubmit, setAutofillSubmit] = useState(false);
-  const [autoLockMinutes, setAutoLockMinutes] = useState("15");
+export type SettingsTab = "autofill" | "security" | "themes" | "about";
 
+export function SettingsScreen({
+  serverUrl,
+  accountInfo,
+  onUpdateServerUrl,
+  onLock,
+  currentTheme = "dark",
+  onThemeChange,
+}: SettingsScreenProps) {
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("autofill");
+
+  // Autofill section state (all default ON)
+  const [autofillEnabled, setAutofillEnabled] = useState(true);
+  const [autofillSubmit, setAutofillSubmit] = useState(true);
+  const [autoCopy2fa, setAutoCopy2fa] = useState(true);
+  const [subdomainMatching, setSubdomainMatching] = useState(true);
+  const [promptSave, setPromptSave] = useState(true);
+  const [promptUpdate, setPromptUpdate] = useState(true);
   const [browserOverrideActive, setBrowserOverrideActive] = useState(false);
   const [browserOverrideSupported, setBrowserOverrideSupported] = useState(true);
-  const [autoCopy2fa, setAutoCopy2fa] = useState(true);
+  const [isEdgeBrowser, setIsEdgeBrowser] = useState(() => {
+    return typeof navigator !== "undefined" && /Edg\//i.test(navigator.userAgent);
+  });
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Security section state
+  const [autoLockMinutes, setAutoLockMinutes] = useState("15");
   const [passkeysEnabled, setPasskeysEnabled] = useState(true);
   const [biometricsSupported, setBiometricsSupported] = useState(false);
   const [biometricsEnrolled, setBiometricsEnrolled] = useState(false);
@@ -203,10 +219,6 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [bioError, setBioError] = useState("");
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [promptPassword, setPromptPassword] = useState("");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [isEdgeBrowser, setIsEdgeBrowser] = useState(() => {
-    return typeof navigator !== "undefined" && /Edg\//i.test(navigator.userAgent);
-  });
 
   // Change Master Password state
   const [showChangePw, setShowChangePw] = useState(false);
@@ -225,10 +237,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [revokingAll, setRevokingAll] = useState(false);
   const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
 
-  // Popup Width state
-  const [popupWidth, setPopupWidth] = useState<PopupWidth>("normal");
-
-  // Quick PIN Unlock state
+  // Quick PIN state
   const [pinEnabled, setPinEnabled] = useState(false);
   const [pinLength, setPinLength] = useState(4);
   const [showPinSetupModal, setShowPinSetupModal] = useState(false);
@@ -242,14 +251,28 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [pinSetupSaving, setPinSetupSaving] = useState(false);
   const [pinMsg, setPinMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+  // Themes & Appearance state (all default ON)
+  const [activeTheme, setActiveTheme] = useState<"dark" | "light" | "midnight">(currentTheme);
+  const [popupWidth, setPopupWidth] = useState<PopupWidth>("normal");
+  const [showBadgeCount, setShowBadgeCount] = useState(true);
+  const [showAnimations, setShowAnimations] = useState(true);
+
+  // About section state
+  const [url, setUrl] = useState(serverUrl);
+  const [saved, setSaved] = useState(false);
+
   useEffect(() => {
-    if (typeof chrome !== "undefined" && chrome.storage) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.get(
         [
           "autofill_enabled",
           "vaultr_show_badge_count",
           "vaultr_subdomain_matching",
           "autofill_submit",
+          "vaultr_prompt_save",
+          "vaultr_prompt_update",
+          "vaultr_show_animations",
+          "vaultr_theme",
           "autolock_minutes",
           "vaultr_passkeys_enabled",
           "vaultr_biometric_enrolled",
@@ -258,15 +281,35 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           "vaultr_popup_width",
         ],
         async (res) => {
-          if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled);
+          if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled !== false);
           if (res.vaultr_show_badge_count !== undefined) setShowBadgeCount(res.vaultr_show_badge_count !== false);
           if (res.vaultr_subdomain_matching !== undefined) setSubdomainMatching(res.vaultr_subdomain_matching !== false);
-          if (res.autofill_submit !== undefined) setAutofillSubmit(res.autofill_submit);
+          // Auto-submit form defaults to true
+          if (res.autofill_submit !== undefined) setAutofillSubmit(res.autofill_submit !== false);
+          else setAutofillSubmit(true);
+          // Prompt save & update default to true
+          if (res.vaultr_prompt_save !== undefined) setPromptSave(res.vaultr_prompt_save !== false);
+          if (res.vaultr_prompt_update !== undefined) setPromptUpdate(res.vaultr_prompt_update !== false);
+          // Show animations defaults to true
+          if (res.vaultr_show_animations !== undefined) {
+            const anim = res.vaultr_show_animations !== false;
+            setShowAnimations(anim);
+            if (!anim && typeof document !== "undefined") {
+              document.documentElement.setAttribute("data-animations", "disabled");
+            }
+          }
+          // Theme defaults to dark or stored theme
+          if (res.vaultr_theme) {
+            setActiveTheme(res.vaultr_theme);
+            if (typeof document !== "undefined") {
+              document.documentElement.setAttribute("data-theme", res.vaultr_theme);
+            }
+          }
           if (res.autolock_minutes !== undefined) setAutoLockMinutes(res.autolock_minutes);
           if (res.vaultr_passkeys_enabled !== undefined) setPasskeysEnabled(res.vaultr_passkeys_enabled);
           if (res.vaultr_biometric_enrolled !== undefined) setBiometricsEnrolled(res.vaultr_biometric_enrolled);
           if (res.vaultr_default_manager !== undefined) setBrowserOverrideActive(res.vaultr_default_manager);
-          if (res.vaultr_autocopy_2fa !== undefined) setAutoCopy2fa(res.vaultr_autocopy_2fa);
+          if (res.vaultr_autocopy_2fa !== undefined) setAutoCopy2fa(res.vaultr_autocopy_2fa !== false);
           if (res.vaultr_popup_width) {
             setPopupWidth(res.vaultr_popup_width as PopupWidth);
             applyPopupWidth(res.vaultr_popup_width as PopupWidth);
@@ -315,14 +358,14 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
   const handleToggleAutoCopy2fa = (enabled: boolean) => {
     setAutoCopy2fa(enabled);
-    if (typeof chrome !== "undefined" && chrome.storage) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.set({ vaultr_autocopy_2fa: enabled });
     }
   };
 
   const handleToggleAutofill = (enabled: boolean) => {
     setAutofillEnabled(enabled);
-    if (typeof chrome !== "undefined" && chrome.storage) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.set({ autofill_enabled: enabled });
     }
   };
@@ -340,614 +383,404 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
   const handleToggleSubdomainMatching = (enabled: boolean) => {
     setSubdomainMatching(enabled);
-    if (typeof chrome !== "undefined" && chrome.storage) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.set({ vaultr_subdomain_matching: enabled });
     }
   };
 
   const handleToggleSubmit = (enabled: boolean) => {
     setAutofillSubmit(enabled);
-    if (typeof chrome !== "undefined" && chrome.storage) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.set({ autofill_submit: enabled });
     }
   };
 
+  const handleTogglePromptSave = (enabled: boolean) => {
+    setPromptSave(enabled);
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_prompt_save: enabled });
+    }
+  };
+
+  const handleTogglePromptUpdate = (enabled: boolean) => {
+    setPromptUpdate(enabled);
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_prompt_update: enabled });
+    }
+  };
+
+  const handleToggleShowAnimations = (enabled: boolean) => {
+    setShowAnimations(enabled);
+    if (typeof document !== "undefined") {
+      if (enabled) {
+        document.documentElement.removeAttribute("data-animations");
+      } else {
+        document.documentElement.setAttribute("data-animations", "disabled");
+      }
+    }
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_show_animations: enabled });
+    }
+  };
+
+  const handleThemeSelect = (newTheme: "dark" | "light" | "midnight") => {
+    setActiveTheme(newTheme);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", newTheme);
+    }
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_theme: newTheme });
+    }
+    onThemeChange?.(newTheme);
+  };
+
   const handleTogglePasskeys = (enabled: boolean) => {
     setPasskeysEnabled(enabled);
-    if (typeof chrome !== "undefined" && chrome.storage) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.set({ vaultr_passkeys_enabled: enabled });
     }
   };
 
-  const handleToggleBiometrics = async (enabled: boolean) => {
-    setBioError("");
-    if (!enabled) {
-      if (typeof chrome !== "undefined" && chrome.storage) {
-        await chrome.storage.local.remove(["vaultr_biometric_enrolled", "vaultr_biometric_blob"]);
-      }
+  const handleToggleBiometrics = async (enrolled: boolean) => {
+    if (!enrolled) {
       setBiometricsEnrolled(false);
+      setBioError("");
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.set({ vaultr_biometric_enrolled: false, vaultr_biometric_cred_id: null });
+      }
       return;
     }
-
-    let pw = "";
-    if (typeof chrome !== "undefined" && chrome.storage?.session) {
-      const sess = await chrome.storage.session.get("vaultr_master_password");
-      pw = sess?.vaultr_master_password || "";
-    }
-
-    if (!pw) {
-      setShowPasswordPrompt(true);
-      return;
-    }
-
-    await executeBiometricEnrollment(pw);
+    setShowPasswordPrompt(true);
+    setPromptPassword("");
+    setBioError("");
   };
 
   const executeBiometricEnrollment = async (password: string) => {
     setBioEnrolling(true);
     setBioError("");
     try {
-      const blob = await enrollBiometricUnlock(password);
-      if (typeof chrome !== "undefined" && chrome.storage) {
+      const cred = await enrollBiometricUnlock(password);
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
         await chrome.storage.local.set({
           vaultr_biometric_enrolled: true,
-          vaultr_biometric_blob: blob,
+          vaultr_biometric_cred_id: cred.credentialId,
+          vaultr_biometric_blob: {
+            credentialId: cred.credentialId,
+            encryptedPassword: cred.encryptedPassword,
+            iv: cred.iv,
+          },
         });
       }
       setBiometricsEnrolled(true);
       setShowPasswordPrompt(false);
       setPromptPassword("");
     } catch (err: any) {
-      setBioError(err?.message || "Biometric enrollment failed");
+      setBioError(err?.message || "Biometric authentication failed or was cancelled.");
     } finally {
       setBioEnrolling(false);
     }
   };
 
-  const handleChangeMasterPassword = async () => {
-    setPwMsg(null);
-    if (!oldPw || !newPw || !confirmPw) {
-      setPwMsg({ text: "Please fill in all password fields.", ok: false });
-      return;
-    }
-    if (newPw !== confirmPw) {
-      setPwMsg({ text: "New master passwords do not match.", ok: false });
-      return;
-    }
-    if (newPw.length < 8) {
-      setPwMsg({ text: "New master password must be at least 8 characters.", ok: false });
-      return;
-    }
-    if (oldPw === newPw) {
-      setPwMsg({ text: "New master password must differ from current master password.", ok: false });
-      return;
-    }
-
-    setPwChanging(true);
-
-    if (typeof chrome !== "undefined" && chrome.runtime) {
-      chrome.runtime.sendMessage(
-        {
-          type: "CHANGE_MASTER_PASSWORD",
-          oldPassword: oldPw,
-          newPassword: newPw,
-        },
-        (res) => {
-          setPwChanging(false);
-          if (chrome.runtime.lastError) {
-            setPwMsg({
-              text: chrome.runtime.lastError.message || "Failed to communicate with background service.",
-              ok: false,
-            });
-            return;
-          }
-          if (res?.error) {
-            setPwMsg({ text: res.error, ok: false });
-          } else {
-            setPwMsg({
-              text: `Master password changed. ${res.count ?? 0} item(s) re-encrypted.`,
-              ok: true,
-            });
-            setOldPw("");
-            setNewPw("");
-            setConfirmPw("");
-            setBiometricsEnrolled(false);
-            setPinEnabled(false);
-          }
-        }
-      );
-    } else {
-      setPwChanging(false);
-      setPwMsg({ text: "Extension runtime not available.", ok: false });
-    }
-  };
-
-  const handleAutolockChange = (val: string) => {
-    setAutoLockMinutes(val);
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.set({ autolock_minutes: val });
-    }
-    if (typeof chrome !== "undefined" && chrome.runtime) {
-      chrome.runtime.sendMessage({ type: "SET_AUTO_LOCK", minutes: val });
-    }
-  };
-
-  const handleWidthChange = (newWidth: PopupWidth) => {
-    setPopupWidth(newWidth);
-    applyPopupWidth(newWidth);
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.set({ vaultr_popup_width: newWidth });
-    }
-  };
-
   const handleTogglePin = async (enable: boolean) => {
-    setPinMsg(null);
     if (!enable) {
-      await clearPin();
-      setPinEnabled(false);
-      setPinMsg({ text: "Quick PIN unlock has been disabled.", ok: true });
-      setTimeout(() => setPinMsg(null), 3000);
+      try {
+        await clearPin();
+        setPinEnabled(false);
+        setPinMsg({ text: "Quick PIN disabled.", ok: true });
+        setTimeout(() => setPinMsg(null), 3000);
+      } catch (err: any) {
+        setPinMsg({ text: err?.message || "Failed to clear PIN", ok: false });
+      }
       return;
     }
-
-    let sessionPw = "";
-    if (typeof chrome !== "undefined" && chrome.storage?.session) {
-      const sess = await chrome.storage.session.get("vaultr_master_password");
-      sessionPw = sess?.vaultr_master_password || "";
-    }
-
-    if (sessionPw) {
-      setPinActivePassword(sessionPw);
-      setPinSetupStep("choose_pin");
-      setPinSetupFirst("");
-      setPinSetupConfirm("");
-      setPinModalError("");
-      setShowPinSetupModal(true);
-    } else {
-      setPinPromptPw("");
-      setPinModalError("");
-      setPinSetupStep("prompt_password");
-      setShowPinSetupModal(true);
-    }
-  };
-
-  const handleStartChangePin = async () => {
-    setPinMsg(null);
-    let sessionPw = "";
-    if (typeof chrome !== "undefined" && chrome.storage?.session) {
-      const sess = await chrome.storage.session.get("vaultr_master_password");
-      sessionPw = sess?.vaultr_master_password || "";
-    }
-
-    if (sessionPw) {
-      setPinActivePassword(sessionPw);
-      setPinSetupStep("choose_pin");
-      setPinSetupFirst("");
-      setPinSetupConfirm("");
-      setPinModalError("");
-      setShowPinSetupModal(true);
-    } else {
-      setPinPromptPw("");
-      setPinModalError("");
-      setPinSetupStep("prompt_password");
-      setShowPinSetupModal(true);
-    }
-  };
-
-  const handleVerifyPromptPassword = async () => {
-    if (!pinPromptPw) return;
-    setPinActivePassword(pinPromptPw);
-    setPinSetupStep("choose_pin");
+    setPinSetupStep("prompt_password");
+    setPinPromptPw("");
+    setPinActivePassword("");
     setPinSetupFirst("");
     setPinSetupConfirm("");
     setPinModalError("");
+    setShowPinSetupModal(true);
   };
 
-  const handleSaveNewPin = async (confirmedPin: string) => {
-    if (confirmedPin !== pinSetupFirst) {
+  const handleVerifyPromptPassword = () => {
+    if (!pinPromptPw) {
+      setPinModalError("Master password is required.");
+      return;
+    }
+    setPinActivePassword(pinPromptPw);
+    setPinPromptPw("");
+    setPinModalError("");
+    setPinSetupStep("choose_pin");
+    setPinSetupFirst("");
+    setPinSetupConfirm("");
+  };
+
+  const handleSaveNewPin = async () => {
+    if (!pinSetupConfirm || pinSetupConfirm.length !== pinSetupLength) {
+      setPinModalError(`Please enter all ${pinSetupLength} digits.`);
+      return;
+    }
+    if (pinSetupFirst !== pinSetupConfirm) {
       setPinModalError("PINs do not match. Please try again.");
       setPinSetupConfirm("");
+      setPinSetupStep("choose_pin");
+      return;
+    }
+    if (!pinActivePassword) {
+      setPinModalError("Authorization expired. Please re-authorize.");
+      setPinSetupStep("prompt_password");
       return;
     }
 
     setPinSetupSaving(true);
     setPinModalError("");
-
     try {
-      const res = await setupPin(confirmedPin, pinActivePassword, serverUrl);
-      if (res.success) {
-        setPinEnabled(true);
-        setPinLength(pinSetupLength);
-        setShowPinSetupModal(false);
-        setPinSetupFirst("");
-        setPinSetupConfirm("");
-        setPinPromptPw("");
-        setPinMsg({ text: `Quick PIN configured successfully (${pinSetupLength} digits).`, ok: true });
-        setTimeout(() => setPinMsg(null), 3500);
-      } else {
-        setPinModalError(res.error || "Failed to configure PIN.");
-        setPinSetupConfirm("");
-      }
+      await setupPin(pinSetupConfirm, pinActivePassword);
+      setPinEnabled(true);
+      setPinLength(pinSetupLength);
+      setShowPinSetupModal(false);
+      setPinActivePassword("");
+      setPinSetupFirst("");
+      setPinSetupConfirm("");
+      setPinMsg({ text: `Quick PIN configured (${pinSetupLength} digits).`, ok: true });
+      setTimeout(() => setPinMsg(null), 3500);
     } catch (err: any) {
       setPinModalError(err?.message || "Failed to configure PIN.");
-      setPinSetupConfirm("");
     } finally {
       setPinSetupSaving(false);
     }
   };
 
+  const handleStartChangePin = () => {
+    setPinSetupStep("prompt_password");
+    setPinPromptPw("");
+    setPinActivePassword("");
+    setPinSetupFirst("");
+    setPinSetupConfirm("");
+    setPinModalError("");
+    setShowPinSetupModal(true);
+  };
+
+  const handleAutolockChange = (minutes: string) => {
+    setAutoLockMinutes(minutes);
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ autolock_minutes: minutes });
+      chrome.runtime?.sendMessage({ type: "SET_AUTOLOCK", minutes });
+    }
+  };
+
+  const handleWidthChange = (width: PopupWidth) => {
+    setPopupWidth(width);
+    applyPopupWidth(width);
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_popup_width: width });
+    }
+  };
+
   const handleSaveUrl = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!url) return;
     await onUpdateServerUrl(url);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   const openSite = (path = "") => {
-    const base = serverUrl.replace(/\/+$/, "");
-    const target = `${base}${path}`;
+    const cleanServer = serverUrl.replace(/\/+$/, "");
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    const targetUrl = path ? `${cleanServer}${cleanPath}` : cleanServer;
     if (typeof chrome !== "undefined" && chrome.tabs) {
-      chrome.tabs.create({ url: target });
+      chrome.tabs.create({ url: targetUrl });
     } else {
-      window.open(target, "_blank");
+      window.open(targetUrl, "_blank");
     }
   };
 
-  const loadSessions = async () => {
-    const base = (serverUrl || "").replace(/\/+$/, "");
-    if (!base) return;
+  const loadSessions = () => {
     setSessionsLoading(true);
     setSessionsError("");
-    try {
-      const res = await fetch(`${base}/api/settings/sessions`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Session expired. Please sign in again.");
-        }
-        throw new Error("Failed to load sessions");
-      }
-      const data = await res.json();
-      setSessions(data.sessions ?? []);
-    } catch (err: any) {
-      setSessionsError(err.message || "Could not load sessions");
-    } finally {
+    chrome.runtime.sendMessage({ type: "GET_SESSIONS" }, (res) => {
       setSessionsLoading(false);
-    }
+      if (chrome.runtime.lastError) {
+        setSessionsError("Could not connect to background service.");
+        return;
+      }
+      if (res?.error) {
+        setSessionsError(res.error);
+        return;
+      }
+      if (Array.isArray(res?.sessions)) {
+        setSessions(res.sessions);
+      }
+    });
   };
 
-  const handleRevokeSession = async (sessionId: string) => {
-    const base = (serverUrl || "").replace(/\/+$/, "");
-    if (!base) return;
+  const handleRevokeSession = (sessionId: string) => {
     setRevokingId(sessionId);
-    setSessionsError("");
-    try {
-      const res = await fetch(`${base}/api/settings/sessions/${sessionId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to revoke session");
+    chrome.runtime.sendMessage({ type: "REVOKE_SESSION", sessionId }, (res) => {
+      setRevokingId(null);
+      if (chrome.runtime.lastError || res?.error) {
+        setSessionsError(res?.error || "Failed to revoke session.");
+        return;
       }
       setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
-    } catch (err: any) {
-      setSessionsError(err.message || "Failed to revoke session");
-    } finally {
-      setRevokingId(null);
-    }
+    });
   };
 
-  const handleRevokeAllSessions = async () => {
-    const base = (serverUrl || "").replace(/\/+$/, "");
-    if (!base) return;
-    setConfirmRevokeAll(false);
+  const handleRevokeAllSessions = () => {
     setRevokingAll(true);
-    setSessionsError("");
-    try {
-      const res = await fetch(`${base}/api/settings/sessions`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to revoke other sessions");
-      }
-      await loadSessions();
-    } catch (err: any) {
-      setSessionsError(err.message || "Failed to sign out all other devices");
-    } finally {
+    chrome.runtime.sendMessage({ type: "REVOKE_ALL_SESSIONS" }, (res) => {
       setRevokingAll(false);
-    }
+      setConfirmRevokeAll(false);
+      if (chrome.runtime.lastError || res?.error) {
+        setSessionsError(res?.error || "Failed to revoke sessions.");
+        return;
+      }
+      setSessions((prev) => prev.filter((s) => s.isCurrent));
+    });
   };
 
-  const otherSessions = sessions.filter((s) => !s.isCurrent);
-  const currentSession = sessions.find((s) => s.isCurrent);
+  const handleChangeMasterPassword = () => {
+    if (!oldPw || !newPw || !confirmPw) return;
+    if (newPw !== confirmPw) {
+      setPwMsg({ text: "New passwords do not match.", ok: false });
+      return;
+    }
+    if (newPw.length < 8) {
+      setPwMsg({ text: "Password must be at least 8 characters.", ok: false });
+      return;
+    }
+    setPwChanging(true);
+    setPwMsg(null);
+    chrome.runtime.sendMessage(
+      { type: "CHANGE_MASTER_PASSWORD", oldPassword: oldPw, newPassword: newPw },
+      (res) => {
+        setPwChanging(false);
+        if (chrome.runtime.lastError) {
+          setPwMsg({ text: "Could not reach background service.", ok: false });
+          return;
+        }
+        if (res?.success) {
+          setPwMsg({ text: "Master password changed & vault re-encrypted successfully!", ok: true });
+          setOldPw("");
+          setNewPw("");
+          setConfirmPw("");
+        } else {
+          setPwMsg({ text: res?.error || "Failed to change master password.", ok: false });
+        }
+      }
+    );
+  };
 
-  const renderSessionCard = (s: SessionData) => {
-    const isMobileApp =
-      s.clientType === "mobile_app" ||
-      s.browser.toLowerCase().includes("vaultr mobile") ||
-      s.deviceName.toLowerCase().includes("vaultr mobile");
-    const isMobile =
-      s.isMobile ||
-      isMobileApp ||
-      s.os.toLowerCase().includes("iphone") ||
-      s.os.toLowerCase().includes("android") ||
-      s.os.toLowerCase().includes("mobile");
-
-    const isRevoking = revokingId === s.sessionId;
-    const location = [s.city, s.country].filter(Boolean).join(", ");
+  const renderSessionCard = (session: SessionData) => {
+    const isThisExtension = session.isCurrent;
+    const isBusy = revokingId === session.sessionId;
+    const isMob = session.isMobile || session.clientType === "mobile_app" || session.clientType === "mobile_browser";
 
     return (
       <div
-        key={s.sessionId}
+        key={session.sessionId}
         style={{
-          padding: "8px 10px",
+          padding: "10px 12px",
           borderRadius: 10,
-          background: s.isCurrent ? "rgba(16, 185, 129, 0.05)" : "#141416",
-          border: s.isCurrent ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid var(--border)",
+          border: isThisExtension ? "1px solid rgba(56, 189, 248, 0.4)" : "1px solid var(--border)",
+          background: isThisExtension ? "rgba(56, 189, 248, 0.05)" : "var(--surface)",
           display: "flex",
-          gap: 10,
           alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 10,
+          marginTop: 6,
         }}
       >
-        {/* Device Icon */}
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: s.isCurrent
-              ? "rgba(16, 185, 129, 0.15)"
-              : isMobileApp
-              ? "rgba(167, 139, 250, 0.15)"
-              : isMobile
-              ? "rgba(251, 191, 36, 0.15)"
-              : "rgba(255, 255, 255, 0.05)",
-          }}
-        >
-          {isMobile ? (
-            <Smartphone
-              size={16}
-              style={{
-                color: s.isCurrent ? "#34d399" : isMobileApp ? "#a78bfa" : "#fbbf24",
-              }}
-            />
-          ) : (
-            <Monitor
-              size={16}
-              style={{
-                color: s.isCurrent ? "#34d399" : "var(--neutral-400)",
-              }}
-            />
-          )}
-        </div>
-
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: s.isCurrent ? "#6ee7b7" : "var(--neutral-200)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: 160,
-              }}
-              title={s.deviceName}
-            >
-              {s.deviceName}
-            </span>
-
-            {s.isCurrent && (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "rgba(16, 185, 129, 0.15)",
-                  color: "#34d399",
-                  border: "1px solid rgba(16, 185, 129, 0.3)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <ShieldCheck size={9} /> THIS DEVICE
-              </span>
-            )}
-
-            {isMobileApp ? (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "rgba(167, 139, 250, 0.15)",
-                  color: "#c4b5fd",
-                  border: "1px solid rgba(167, 139, 250, 0.3)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Smartphone size={9} /> MOBILE APP
-              </span>
-            ) : isMobile ? (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "rgba(251, 191, 36, 0.15)",
-                  color: "#fcd34d",
-                  border: "1px solid rgba(251, 191, 36, 0.3)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Smartphone size={9} /> MOBILE BROWSER
-              </span>
-            ) : (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "rgba(255, 255, 255, 0.05)",
-                  color: "#a3a3a3",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Monitor size={9} /> DESKTOP WEB
-              </span>
-            )}
-
-            {isMobileApp ? (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "rgba(16, 185, 129, 0.15)",
-                  color: "#34d399",
-                  border: "1px solid rgba(16, 185, 129, 0.3)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Fingerprint size={9} /> BIOMETRICS
-              </span>
-            ) : (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "rgba(99, 102, 241, 0.15)",
-                  color: "#a5b4fc",
-                  border: "1px solid rgba(99, 102, 241, 0.3)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <ShieldCheck size={9} /> WINDOWS HELLO
-              </span>
-            )}
-          </div>
-
-          {/* Sub metadata */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
-            {s.ipAddress && (
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontFamily: "monospace",
-                  color: "var(--neutral-400)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Globe size={10} style={{ color: "var(--neutral-500)" }} />
-                {s.ipAddress}
-              </span>
-            )}
-            <span
-              style={{
-                fontSize: 10.5,
-                color: "var(--neutral-500)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 3,
-              }}
-            >
-              <Clock size={10} style={{ color: "var(--neutral-600)" }} />
-              Active {relativeTime(s.lastActiveAt ?? s.createdAt)}
-            </span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span
-              style={{
-                fontSize: 10,
-                color: "var(--neutral-600)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 3,
-              }}
-            >
-              <LogIn size={10} />
-              Signed in {formatDate(s.createdAt)}
-            </span>
-            {location && (
-              <span
-                style={{
-                  fontSize: 10,
-                  color: "var(--neutral-500)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: 130,
-                }}
-                title={location}
-              >
-                · {location}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Revoke button */}
-        {!s.isCurrent && (
-          <button
-            type="button"
-            disabled={isRevoking || revokingAll}
-            onClick={() => handleRevokeSession(s.sessionId)}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1, minWidth: 0 }}>
+          <div
             style={{
-              background: "none",
-              border: "none",
-              color: "#f87171",
-              fontSize: 10.5,
-              fontWeight: 500,
-              cursor: isRevoking || revokingAll ? "not-allowed" : "pointer",
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: isThisExtension ? "rgba(56, 189, 248, 0.15)" : "var(--surface-2)",
               display: "flex",
               alignItems: "center",
-              gap: 3,
-              padding: "3px 6px",
-              borderRadius: 5,
+              justifyContent: "center",
+              color: isThisExtension ? "#38bdf8" : "var(--neutral-400)",
               flexShrink: 0,
-              opacity: isRevoking ? 0.6 : 1,
+              marginTop: 1,
             }}
-            title="Revoke session"
           >
-            {isRevoking ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-            {isRevoking ? "Revoking…" : "Revoke"}
+            {isMob ? <Smartphone size={15} /> : <Monitor size={15} />}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)" }}>
+                {session.deviceName || session.browser || "Unknown Device"}
+              </span>
+              {isThisExtension && (
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: "rgba(56, 189, 248, 0.15)",
+                    color: "#38bdf8",
+                    border: "1px solid rgba(56, 189, 248, 0.3)",
+                  }}
+                >
+                  THIS EXTENSION
+                </span>
+              )}
+            </div>
+
+            <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span>{session.browser}</span>
+              {session.os && <span>· {session.os}</span>}
+              {session.city && session.country && (
+                <span>· {session.city}, {session.country}</span>
+              )}
+            </div>
+
+            <div style={{ fontSize: 10, color: "var(--neutral-500)", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <Clock size={10} /> {relativeTime(session.lastActiveAt)}
+              </span>
+              <span>Signed in {formatDate(session.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+
+        {!isThisExtension && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              height: 26,
+              padding: "0 8px",
+              fontSize: 10.5,
+              color: "#f87171",
+              borderColor: "rgba(239, 68, 68, 0.25)",
+              flexShrink: 0,
+            }}
+            disabled={isBusy || revokingAll}
+            onClick={() => handleRevokeSession(session.sessionId)}
+            title="Sign out this session"
+          >
+            {isBusy ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <>
+                <Trash2 size={11} />
+                <span>Revoke</span>
+              </>
+            )}
           </button>
         )}
       </div>
     );
   };
+
+  const currentSession = sessions.find((s) => s.isCurrent);
+  const otherSessions = sessions.filter((s) => !s.isCurrent);
 
   const initials = accountInfo.name
     ? accountInfo.name.slice(0, 2).toUpperCase()
@@ -956,201 +789,1210 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     : "VA";
 
   return (
-    <div className="screen-body" style={{ padding: "8px 16px" }}>
-
-      {/* Account Info - Circular Profile Avatar & Manage Account Button */}
-      <div className="settings-section">
-        <div className="settings-section-title">ACCOUNT</div>
+    <div className="settings-screen">
+      {/* Top Account Header Bar */}
+      <div className="settings-account-bar">
         <div
           onClick={() => openSite("/settings")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            padding: "8px 4px",
-            cursor: "pointer"
-          }}
+          className="settings-account-clickable"
+          title="Open Account Profile on VaultR"
         >
           {resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl) ? (
             <img
               src={resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl)!}
               alt=""
-              style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+              className="settings-account-avatar-img"
             />
           ) : (
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: "50%",
-                background: "#1c1c1e",
-                border: "1px solid var(--border)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 15,
-                fontWeight: 700,
-                color: "var(--neutral-200)",
-                flexShrink: 0,
-                letterSpacing: "-0.5px"
-              }}
-            >
+            <div className="settings-account-avatar-initials">
               {initials}
             </div>
           )}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div className="account-name" style={{ fontSize: 14, fontWeight: 600, color: "var(--neutral-100)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div className="settings-account-meta">
+            <div className="account-name">
               {accountInfo.name || accountInfo.email || "Vaultr User"}
             </div>
             {accountInfo.email && (
-              <div className="account-email" style={{ fontSize: 12, color: "var(--neutral-500)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+              <div className="account-email">
                 {accountInfo.email}
               </div>
             )}
           </div>
-          <ChevronRight size={16} style={{ color: "var(--neutral-600)", flexShrink: 0 }} />
+          <ChevronRight size={13} style={{ color: "var(--neutral-500)", flexShrink: 0 }} />
         </div>
 
         <button
           className="btn btn-ghost"
-          style={{ width: "100%", height: 36, justifyContent: "center", fontSize: 12, borderRadius: 10, marginTop: 10 }}
+          style={{ height: 28, padding: "0 8px", fontSize: 11, gap: 4, flexShrink: 0, borderRadius: 8 }}
           onClick={() => openSite("/settings")}
+          title="Manage Account on Vaultr"
         >
-          <ExternalLink size={13} style={{ marginRight: 4 }} />
-          Manage Account on Vaultr
+          <ExternalLink size={11} />
+          <span>Manage</span>
         </button>
       </div>
 
-      {/* Passkeys & Hardware Security */}
-      <div className="settings-section">
-        <div className="settings-section-title">PASSKEYS & HARDWARE SECURITY</div>
-
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Save and fill passkeys</div>
-            <div className="settings-row-sub">VaultR acts as browser passkey provider</div>
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={passkeysEnabled}
-              onChange={(e) => handleTogglePasskeys(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
+      {/* Main 2-Column Settings Container */}
+      <div className="settings-container">
+        {/* Left Folder Nav Rail */}
+        <div className="settings-nav">
+          <button
+            type="button"
+            className={`settings-nav-item ${activeSettingsTab === "autofill" ? "active" : ""}`}
+            onClick={() => setActiveSettingsTab("autofill")}
+            title="Autofill & Browser Integration"
+          >
+            <KeyRound size={17} />
+            <span>Autofill</span>
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${activeSettingsTab === "security" ? "active" : ""}`}
+            onClick={() => setActiveSettingsTab("security")}
+            title="Account Security & Access"
+          >
+            <ShieldCheck size={17} />
+            <span>Security</span>
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${activeSettingsTab === "themes" ? "active" : ""}`}
+            onClick={() => setActiveSettingsTab("themes")}
+            title="Themes & Appearance"
+          >
+            <Palette size={17} />
+            <span>Themes</span>
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${activeSettingsTab === "about" ? "active" : ""}`}
+            onClick={() => setActiveSettingsTab("about")}
+            title="About VaultR & Resources"
+          >
+            <Info size={17} />
+            <span>About</span>
+          </button>
         </div>
 
-        {/* Set as Default Passkey Provider card */}
-        <div style={{ marginTop: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-200)", display: "flex", alignItems: "center", gap: 6 }}>
-              <KeyRound size={13} style={{ color: "#38bdf8" }} />
-              Default Passkey Provider
-            </span>
-            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 6, background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8" }}>
-              Active
-            </span>
-          </div>
-          <p style={{ fontSize: 11, color: "var(--neutral-500)", lineHeight: 1.4, margin: "4px 0 8px" }}>
-            To configure VaultR as default in Chrome or Edge, visit browser passkey settings:
-          </p>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ flex: 1, height: 28, fontSize: 10, justifyContent: "center", gap: 4, padding: "0 8px" }}
-              onClick={() => {
-                navigator.clipboard.writeText("chrome://password-manager/settings");
-                setCopiedKey("chrome_passkeys");
-                setTimeout(() => setCopiedKey(null), 2000);
-              }}
-            >
-              {copiedKey === "chrome_passkeys" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-              {copiedKey === "chrome_passkeys" ? "Copied Chrome Link" : "Copy Chrome Link"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ flex: 1, height: 28, fontSize: 10, justifyContent: "center", gap: 4, padding: "0 8px" }}
-              onClick={() => {
-                navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
-                setCopiedKey("edge_passkeys");
-                setTimeout(() => setCopiedKey(null), 2000);
-              }}
-            >
-              {copiedKey === "edge_passkeys" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-              {copiedKey === "edge_passkeys" ? "Copied Edge Link" : "Copy Edge Link"}
-            </button>
-          </div>
-        </div>
+        {/* Right Scrollable Content Pane */}
+        <div className="settings-content-pane">
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 1: AUTOFILL & INTEGRATIONS
+             ══════════════════════════════════════════════════════════════════ */}
+          {activeSettingsTab === "autofill" && (
+            <>
+              <div className="settings-pane-header">
+                <div className="settings-pane-title">Autofill & Integration</div>
+                <div className="settings-pane-desc">Browser credentials capture, fill triggers and shortcuts</div>
+              </div>
 
-        {/* Biometric Unlock (Windows Hello / Touch ID) */}
-        {biometricsSupported && (
-          <div style={{ marginTop: 12 }}>
-            <div className="settings-row">
-              <div>
-                <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <Fingerprint size={13} style={{ color: "#34d399" }} />
-                  Windows Hello / Touch ID
+              {/* Make VaultR Default Password Manager card */}
+              {browserOverrideSupported && (
+                <div
+                  className="settings-card"
+                  style={{
+                    border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
+                    background: browserOverrideActive ? "rgba(16, 185, 129, 0.03)" : "var(--surface)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <ShieldCheck size={14} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8" }} />
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                          Set as Default Password Manager
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                        {isEdgeBrowser
+                          ? browserOverrideActive
+                            ? "VaultR manages form autofill. On Microsoft Edge, Microsoft Wallet is kept active so Windows Hello passkeys continue working without conflict."
+                            : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
+                          : browserOverrideActive
+                          ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
+                          : "Turn off browser password prompts and let VaultR seamlessly autofill and manage logins."}
+                      </div>
+                    </div>
+                    <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                      <input
+                        type="checkbox"
+                        checked={browserOverrideActive}
+                        onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
+                      />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
+
+                  {browserOverrideActive && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: "6px 10px",
+                        background: "rgba(16, 185, 129, 0.1)",
+                        border: "1px solid rgba(16, 185, 129, 0.2)",
+                        borderRadius: 8,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <Check size={12} style={{ color: "#10b981", flexShrink: 0 }} />
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: "#10b981" }}>
+                        {isEdgeBrowser ? "MANAGING BROWSER AUTOFILL & PASSKEYS" : "MANAGING BROWSER PASSWORD SETTING"}
+                      </span>
+                    </div>
+                  )}
+
+                  {isEdgeBrowser && browserOverrideActive && (
+                    <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                      <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
+                        To silence Edge's &quot;Save password?&quot; banner without affecting Windows Hello passkeys, turn off &quot;Offer to save passwords&quot; in Edge:
+                      </p>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ width: "100%", height: 26, fontSize: 10, justifyContent: "center", gap: 4 }}
+                        onClick={() => {
+                          navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
+                          setCopiedKey("edge_autofill");
+                          setTimeout(() => setCopiedKey(null), 2000);
+                        }}
+                      >
+                        {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+                        {copiedKey === "edge_autofill" ? "Copied edge://settings/autofill/passwords/settings" : "Copy edge://settings/autofill/passwords/settings link"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="settings-row-sub">Quick biometric vault re-unlock</div>
+              )}
+
+              {/* Suggest credentials */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Suggest credentials</div>
+                  <div className="settings-row-sub">Show VaultR dropdown popup on input fields</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={autofillEnabled}
+                    onChange={(e) => handleToggleAutofill(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
               </div>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={biometricsEnrolled}
-                  disabled={bioEnrolling}
-                  onChange={(e) => handleToggleBiometrics(e.target.checked)}
+
+              {/* Auto-submit form */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Auto-submit form</div>
+                  <div className="settings-row-sub">Automatically submit the login form after filling credentials</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={autofillSubmit}
+                    onChange={(e) => handleToggleSubmit(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+
+              {/* Auto-copy 2FA code on fill */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Auto-copy 2FA code</div>
+                  <div className="settings-row-sub">Copies one-time TOTP verification code to clipboard upon fill</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={autoCopy2fa}
+                    onChange={(e) => handleToggleAutoCopy2fa(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+
+              {/* Match base domain */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Match base domain</div>
+                  <div className="settings-row-sub">Suggest credentials across all subdomains (e.g. login.example.com)</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={subdomainMatching}
+                    onChange={(e) => handleToggleSubdomainMatching(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+
+              {/* Prompt to save new credentials */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Prompt to save passwords</div>
+                  <div className="settings-row-sub">Ask to save new logins entered into web forms</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={promptSave}
+                    onChange={(e) => handleTogglePromptSave(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+
+              {/* Prompt to update existing credentials */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Prompt to update passwords</div>
+                  <div className="settings-row-sub">Offer to update existing entries when password changes are detected</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={promptUpdate}
+                    onChange={(e) => handleTogglePromptUpdate(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+
+              {/* Keyboard Shortcuts Card */}
+              <div className="settings-card">
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 8, textTransform: "uppercase" }}>
+                  Keyboard Shortcuts
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Autofill credentials</span>
+                    <kbd style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
+                      {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
+                    </kbd>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Copy 2FA TOTP code</span>
+                    <kbd style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
+                      {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
+                    </kbd>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 2: ACCOUNT SECURITY & ACCESS
+             ══════════════════════════════════════════════════════════════════ */}
+          {activeSettingsTab === "security" && (
+            <>
+              <div className="settings-pane-header">
+                <div className="settings-pane-title">Account Security & Access</div>
+                <div className="settings-pane-desc">Biometrics, quick PIN, auto-lock timeouts and active devices</div>
+              </div>
+
+              {/* Biometric Unlock Card */}
+              {biometricsSupported && (
+                <div className="settings-card">
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <Fingerprint size={15} style={{ color: "#34d399" }} />
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                          Unlock with Biometrics
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                        {biometricsEnrolled
+                          ? "Windows Hello or Touch ID unlock is active on this browser."
+                          : "Use Windows Hello, Touch ID or system biometric key to unlock without typing your master password."}
+                      </div>
+                    </div>
+                    <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                      <input
+                        type="checkbox"
+                        checked={biometricsEnrolled}
+                        disabled={bioEnrolling}
+                        onChange={(e) => handleToggleBiometrics(e.target.checked)}
+                      />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
+
+                  {bioEnrolling && (
+                    <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className="spinner" style={{ width: 12, height: 12 }} />
+                      Authenticating with hardware device…
+                    </div>
+                  )}
+
+                  {bioError && (
+                    <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>
+                      {bioError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quick PIN Unlock Card */}
+              <div
+                className="settings-card"
+                style={{
+                  border: `1px solid ${pinEnabled ? "rgba(56, 189, 248, 0.3)" : "var(--border)"}`,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <Hash size={14} style={{ color: pinEnabled ? "#38bdf8" : "var(--neutral-400)" }} />
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                        Unlock with PIN
+                      </span>
+                      {pinEnabled && (
+                        <span
+                          style={{
+                            fontSize: 9.5,
+                            fontWeight: 700,
+                            padding: "1px 6px",
+                            borderRadius: 4,
+                            background: "rgba(56, 189, 248, 0.15)",
+                            color: "#38bdf8",
+                            border: "1px solid rgba(56, 189, 248, 0.3)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                          }}
+                        >
+                          <Check size={9} /> {pinLength}-DIGIT ACTIVE
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                      {pinEnabled
+                        ? `Your ${pinLength}-digit PIN is active. Use it to quickly re-unlock your vault on this device.`
+                        : "Set a 4 or 6-digit PIN for lightning-fast PBKDF2 + AES-GCM vault re-unlock."}
+                    </div>
+                  </div>
+                  <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                    <input
+                      type="checkbox"
+                      checked={pinEnabled}
+                      onChange={(e) => handleTogglePin(e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+
+                {pinEnabled && (
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{
+                        height: 26,
+                        padding: "0 10px",
+                        fontSize: 11,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        borderRadius: 6,
+                        color: "#38bdf8",
+                      }}
+                      onClick={handleStartChangePin}
+                    >
+                      Change PIN
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
+                )}
+
+                {pinMsg && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      background: pinMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                      border: `1px solid ${pinMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                      color: pinMsg.ok ? "#10b981" : "#f87171",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {pinMsg.ok ? <Check size={12} /> : <Info size={12} />}
+                    <span>{pinMsg.text}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-lock timeout */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Auto-lock timeout</div>
+                  <div className="settings-row-sub">Lock vault automatically after inactivity</div>
+                </div>
+                <select
+                  className="form-select"
+                  style={{ width: "auto", fontSize: 11.5, padding: "5px 10px", borderRadius: 8 }}
+                  value={autoLockMinutes}
+                  onChange={(e) => handleAutolockChange(e.target.value)}
+                >
+                  <option value="5">5 minutes</option>
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="60">1 hour</option>
+                  <option value="browser_close">On browser close</option>
+                  <option value="device_logout">On device logout</option>
+                  <option value="0">Never</option>
+                </select>
+              </div>
+
+              {/* Passkeys & Hardware Security */}
+              <div className="settings-card">
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <KeyRound size={14} style={{ color: "#38bdf8" }} />
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                        Passkeys & WebAuthn
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                      Save and autofill FIDO2/WebAuthn passkeys directly with VaultR
+                    </div>
+                  </div>
+                  <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                    <input
+                      type="checkbox"
+                      checked={passkeysEnabled}
+                      onChange={(e) => handleTogglePasskeys(e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Sessions & Devices Accordion */}
+              <div className="settings-card">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    const next = !showSessions;
+                    setShowSessions(next);
+                    if (next && sessions.length === 0 && !sessionsLoading) {
+                      loadSessions();
+                    }
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                    <Monitor size={14} style={{ color: "#38bdf8", flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                        Manage Sessions
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
+                        {sessions.length > 0
+                          ? `${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`
+                          : "Review and revoke active sign-ins"}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{
+                      height: 24,
+                      padding: "0 8px",
+                      fontSize: 10.5,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      borderRadius: 6,
+                      color: "var(--neutral-300)",
+                      flexShrink: 0,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next = !showSessions;
+                      setShowSessions(next);
+                      if (next && sessions.length === 0 && !sessionsLoading) {
+                        loadSessions();
+                      }
+                    }}
+                  >
+                    {showSessions ? "Hide" : "Show"}
+                    {showSessions ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  </button>
+                </div>
+
+                {showSessions && (
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--neutral-400)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Active Sessions
+                        </span>
+                        <button
+                          type="button"
+                          onClick={loadSessions}
+                          disabled={sessionsLoading}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--neutral-500)",
+                            cursor: sessionsLoading ? "not-allowed" : "pointer",
+                            padding: 2,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 4,
+                          }}
+                          title="Refresh sessions"
+                        >
+                          <RefreshCw size={11} className={sessionsLoading ? "animate-spin" : ""} />
+                        </button>
+                      </div>
+
+                      {otherSessions.length > 0 && !confirmRevokeAll && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevokeAll(true)}
+                          disabled={revokingAll}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#f87171",
+                            fontSize: 10.5,
+                            fontWeight: 500,
+                            cursor: revokingAll ? "not-allowed" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: "2px 4px",
+                            borderRadius: 4,
+                          }}
+                        >
+                          <Trash2 size={11} />
+                          Sign out others ({otherSessions.length})
+                        </button>
+                      )}
+                    </div>
+
+                    {confirmRevokeAll && (
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: 8,
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          background: "rgba(239, 68, 68, 0.08)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <p style={{ fontSize: 11, color: "#fca5a5", lineHeight: 1.4, margin: 0 }}>
+                          Sign out from {otherSessions.length} other device{otherSessions.length !== 1 ? "s" : ""}?
+                        </p>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
+                            disabled={revokingAll}
+                            onClick={handleRevokeAllSessions}
+                          >
+                            {revokingAll ? (
+                              <>
+                                <Loader2 size={11} className="animate-spin" style={{ marginRight: 4 }} />
+                                Signing out…
+                              </>
+                            ) : (
+                              "Yes, sign out all"
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
+                            onClick={() => setConfirmRevokeAll(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {sessionsError && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 500,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          background: "rgba(239, 68, 68, 0.1)",
+                          border: "1px solid rgba(239, 68, 68, 0.25)",
+                          color: "#f87171",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <AlertCircle size={12} style={{ flexShrink: 0 }} />
+                        <span>{sessionsError}</span>
+                      </div>
+                    )}
+
+                    {sessionsLoading && sessions.length === 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ height: 44, borderRadius: 8, background: "var(--surface-2)", opacity: 0.6 }} className="animate-pulse" />
+                        <div style={{ height: 44, borderRadius: 8, background: "var(--surface-2)", opacity: 0.4 }} className="animate-pulse" />
+                      </div>
+                    )}
+
+                    {!sessionsLoading && sessions.length === 0 && !sessionsError && (
+                      <div style={{ textAlign: "center", padding: "12px 0", fontSize: 11, color: "var(--neutral-500)" }}>
+                        No active sessions found.
+                      </div>
+                    )}
+
+                    {currentSession && renderSessionCard(currentSession)}
+                    {otherSessions.map((s) => renderSessionCard(s))}
+                  </div>
+                )}
+              </div>
+
+              {/* Change Master Password Accordion */}
+              <div className="settings-card">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setShowChangePw(!showChangePw);
+                    setPwMsg(null);
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                    <KeyRound size={14} style={{ color: "#fbbf24", flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
+                        Change Master Password
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
+                        Re-encrypt vault items with a new master key
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{
+                      height: 24,
+                      padding: "0 8px",
+                      fontSize: 10.5,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      borderRadius: 6,
+                      color: "var(--neutral-300)",
+                      flexShrink: 0,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowChangePw(!showChangePw);
+                      setPwMsg(null);
+                    }}
+                  >
+                    {showChangePw ? "Cancel" : "Change"}
+                    {showChangePw ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  </button>
+                </div>
+
+                {showChangePw && (
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <PasswordField
+                      value={oldPw}
+                      onChange={setOldPw}
+                      placeholder="Current master password"
+                      disabled={pwChanging}
+                    />
+                    <PasswordField
+                      value={newPw}
+                      onChange={setNewPw}
+                      placeholder="New master password (min 8 chars)"
+                      disabled={pwChanging}
+                    />
+                    <PasswordField
+                      value={confirmPw}
+                      onChange={setConfirmPw}
+                      placeholder="Confirm new master password"
+                      disabled={pwChanging}
+                    />
+
+                    {pwMsg && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 500,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          background: pwMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                          border: `1px solid ${pwMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                          color: pwMsg.ok ? "#10b981" : "#f87171",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        {pwMsg.ok ? <Check size={12} /> : <Info size={12} />}
+                        <span>{pwMsg.text}</span>
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center" }}
+                        disabled={pwChanging}
+                        onClick={() => {
+                          setShowChangePw(false);
+                          setOldPw("");
+                          setNewPw("");
+                          setConfirmPw("");
+                          setPwMsg(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center", gap: 6 }}
+                        disabled={pwChanging || !oldPw || !newPw || !confirmPw}
+                        onClick={handleChangeMasterPassword}
+                      >
+                        {pwChanging ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            Re-encrypting…
+                          </>
+                        ) : (
+                          "Update Password"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Lock Vault Button */}
+              <button
+                className="btn btn-danger"
+                style={{ width: "100%", height: 36, justifyContent: "center", borderRadius: 10, fontSize: 12, fontWeight: 500, marginTop: 4 }}
+                onClick={onLock}
+              >
+                <Lock size={13} style={{ marginRight: 4 }} />
+                Lock Vault Now
+              </button>
+            </>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 3: THEMES & APPEARANCE
+             ══════════════════════════════════════════════════════════════════ */}
+          {activeSettingsTab === "themes" && (
+            <>
+              <div className="settings-pane-header">
+                <div className="settings-pane-title">Themes & Appearance</div>
+                <div className="settings-pane-desc">Visual color schemes, extension window sizing & animations</div>
+              </div>
+
+              {/* Theme Picker */}
+              <div className="settings-card">
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Palette size={14} style={{ color: "#38bdf8" }} />
+                  Color Theme
+                </div>
+                <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 2 }}>
+                  Select your interface theme for the extension popup
+                </div>
+
+                <div className="theme-picker-grid">
+                  {/* Dark Theme */}
+                  <div
+                    className={`theme-card-option ${activeTheme === "dark" ? "active" : ""}`}
+                    onClick={() => handleThemeSelect("dark")}
+                  >
+                    <div className="theme-preview-swatch" style={{ background: "#0a0a0a" }}>
+                      <div className="theme-preview-dot" style={{ background: "#ffffff" }} />
+                    </div>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--neutral-100)" }}>Dark</div>
+                    <div style={{ fontSize: 9.5, color: "var(--neutral-500)" }}>Obsidian</div>
+                  </div>
+
+                  {/* Zinc Light Theme */}
+                  <div
+                    className={`theme-card-option ${activeTheme === "light" ? "active" : ""}`}
+                    onClick={() => handleThemeSelect("light")}
+                  >
+                    <div className="theme-preview-swatch" style={{ background: "#fafafa", borderColor: "#e4e4e7" }}>
+                      <div className="theme-preview-dot" style={{ background: "#09090b" }} />
+                    </div>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--neutral-100)" }}>Zinc Light</div>
+                    <div style={{ fontSize: 9.5, color: "var(--neutral-500)" }}>Crisp & Clean</div>
+                  </div>
+
+                  {/* Midnight Theme */}
+                  <div
+                    className={`theme-card-option ${activeTheme === "midnight" ? "active" : ""}`}
+                    onClick={() => handleThemeSelect("midnight")}
+                  >
+                    <div className="theme-preview-swatch" style={{ background: "#070a13", borderColor: "#1e293b" }}>
+                      <div className="theme-preview-dot" style={{ background: "#38bdf8" }} />
+                    </div>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--neutral-100)" }}>Midnight</div>
+                    <div style={{ fontSize: 9.5, color: "var(--neutral-500)" }}>Deep Slate</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Popup Window Size */}
+              <div className="settings-card">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <div>
+                    <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <Maximize2 size={13} style={{ color: "#38bdf8" }} />
+                      Extension Window Width
+                    </div>
+                    <div className="settings-row-sub">Choose your preferred extension viewport size</div>
+                  </div>
+                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, background: "rgba(56, 189, 248, 0.12)", padding: "2px 6px", borderRadius: 6 }}>
+                    {POPUP_SIZE_MAP[popupWidth].width} × {POPUP_SIZE_MAP[popupWidth].height}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 8 }}>
+                  {(
+                    [
+                      { id: "normal", label: "Normal", desc: "380px" },
+                      { id: "wide", label: "Wide", desc: "460px" },
+                      { id: "wider", label: "Wider", desc: "540px" },
+                      { id: "extended", label: "Extended", desc: "620px" },
+                    ] as const
+                  ).map(({ id, label, desc }) => {
+                    const active = popupWidth === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => handleWidthChange(id)}
+                        style={{
+                          padding: "6px 2px",
+                          borderRadius: 8,
+                          border: active ? "1px solid #38bdf8" : "1px solid var(--border)",
+                          background: active ? "rgba(56, 189, 248, 0.12)" : "var(--surface-2)",
+                          color: active ? "#38bdf8" : "var(--neutral-400)",
+                          fontSize: 10.5,
+                          fontWeight: active ? 600 : 500,
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 2,
+                          transition: "all 0.12s ease",
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span style={{ fontSize: 9, opacity: 0.75, fontFamily: "monospace" }}>{desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Show suggestions badge count on extension icon (all on by default) */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Show suggestions badge on icon</div>
+                  <div className="settings-row-sub">Display number of matching login suggestions on extension toolbar icon</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={showBadgeCount}
+                    onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+
+              {/* Show animations (all on by default) */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-label">Show animations</div>
+                  <div className="settings-row-sub">Enable smooth interface transitions and randomisation cipher scrambles</div>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={showAnimations}
+                    onChange={(e) => handleToggleShowAnimations(e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+            </>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 4: ABOUT VAULTR & RESOURCES
+             ══════════════════════════════════════════════════════════════════ */}
+          {activeSettingsTab === "about" && (
+            <>
+              {/* VaultR Wide Logo Branding Hero */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  padding: "18px 14px 16px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 14,
+                  gap: 8,
+                }}
+              >
+                <img
+                  src={activeTheme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
+                  alt="VaultR"
+                  style={{ height: 26, width: "auto", maxWidth: "80%", objectFit: "contain" }}
                 />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            {bioEnrolling && (
-              <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="spinner" style={{ width: 12, height: 12 }} />
-                Authenticating with hardware device…
+                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.35, maxWidth: 260 }}>
+                  Zero-Knowledge Password Management & Digital Security
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      background: "rgba(56, 189, 248, 0.12)",
+                      color: "#38bdf8",
+                      border: "1px solid rgba(56, 189, 248, 0.25)",
+                    }}
+                  >
+                    {VAULTR_EDITION}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      background: "var(--surface-2)",
+                      color: "var(--neutral-300)",
+                      border: "1px solid var(--border)",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    v{VAULTR_VERSION}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      background: "rgba(16, 185, 129, 0.12)",
+                      color: "#10b981",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
+                  >
+                    <Check size={10} /> Zero-Knowledge
+                  </span>
+                </div>
+                <div style={{ fontSize: 9.5, color: "var(--neutral-500)", fontFamily: "monospace", marginTop: 2 }}>
+                  Build {VAULTR_BUILD_NUMBER} · {VAULTR_CRYPTO_SPEC.algorithm}
+                </div>
               </div>
-            )}
 
-            {bioError && (
-              <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>
-                {bioError}
+              {/* Server Connection URL */}
+              <div className="settings-card">
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Globe size={13} style={{ color: "#38bdf8" }} />
+                  Server Connection
+                </div>
+                <div style={{ fontSize: 11, color: "var(--neutral-400)", marginBottom: 8 }}>
+                  VaultR sync backend server endpoint
+                </div>
+                <form onSubmit={handleSaveUrl}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://vaultr.yourdomain.com"
+                      style={{ flex: 1, height: 34, fontSize: 11.5 }}
+                    />
+                    <button
+                      type="submit"
+                      className={`btn btn-primary${saved ? " btn-success" : ""}`}
+                      style={{ height: 34, padding: "0 12px", fontSize: 11.5 }}
+                    >
+                      {saved ? "Saved" : "Save"}
+                    </button>
+                  </div>
+                </form>
+
+                <button
+                  className="btn btn-ghost"
+                  style={{ width: "100%", height: 32, justifyContent: "center", fontSize: 11.5, borderRadius: 8, marginTop: 8 }}
+                  onClick={() => openSite()}
+                >
+                  <Globe size={12} style={{ marginRight: 4 }} />
+                  Open Vaultr Web App
+                </button>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Documentation & Resources Links */}
+              <div className="settings-card">
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 6, textTransform: "uppercase" }}>
+                  Resources & Support
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
+                    onClick={() => openSite("/docs")}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <BookOpen size={13} style={{ color: "#38bdf8" }} />
+                      Documentation & Guides
+                    </span>
+                    <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
+                  </button>
+
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
+                    onClick={() => openSite("/changelog")}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <History size={13} style={{ color: "#fbbf24" }} />
+                      Release Notes & Changelog
+                    </span>
+                    <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
+                  </button>
+
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
+                    onClick={() => openSite("/security")}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <Shield size={13} style={{ color: "#34d399" }} />
+                      Security Architecture
+                    </span>
+                    <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
+                  </button>
+
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
+                    onClick={() => openSite("/privacy")}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <FileText size={13} style={{ color: "#a78bfa" }} />
+                      Privacy Policy & Terms
+                    </span>
+                    <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
+                  </button>
+
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
+                    onClick={() => openSite("/settings/support")}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <LifeBuoy size={13} style={{ color: "#f43f5e" }} />
+                      Help Desk & Support
+                    </span>
+                    <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
+                  </button>
+                </div>
+              </div>
+
+              {/* End-to-End Encrypted Footer */}
+              <div style={{ textAlign: "center", padding: "4px 0 8px", fontSize: 10, color: "var(--neutral-500)" }}>
+                VaultR Core · End-to-End Zero-Knowledge Encrypted
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          OVERLAY MODALS (Outside the scrollable content)
+         ══════════════════════════════════════════════════════════════════ */}
 
       {/* Password Prompt Modal for Biometrics Setup */}
       {showPasswordPrompt && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.8)",
-          backdropFilter: "blur(6px)",
-          zIndex: 100,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 16
-        }}>
-          <div style={{
-            background: "#0d0d0d",
-            border: "1px solid var(--border)",
-            borderRadius: 16,
-            padding: 18,
-            width: "100%",
-            maxWidth: 280,
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.8)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
             display: "flex",
-            flexDirection: "column",
-            gap: 12
-          }}>
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              padding: 18,
+              width: "100%",
+              maxWidth: 280,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Fingerprint size={18} style={{ color: "#34d399" }} />
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>Enable Biometric Unlock</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
+                Enable Biometric Unlock
+              </div>
             </div>
-            <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+            <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4, margin: 0 }}>
               Enter your master password once to authorize Windows Hello / Touch ID unlock.
             </p>
             <input
@@ -1166,7 +2008,10 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
               <button
                 className="btn btn-ghost"
                 style={{ flex: 1, height: 34, fontSize: 11, justifyContent: "center" }}
-                onClick={() => { setShowPasswordPrompt(false); setPromptPassword(""); }}
+                onClick={() => {
+                  setShowPasswordPrompt(false);
+                  setPromptPassword("");
+                }}
               >
                 Cancel
               </button>
@@ -1200,7 +2045,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         >
           <div
             style={{
-              background: "#0d0d0d",
+              background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: 18,
               padding: "20px 18px 16px",
@@ -1295,11 +2140,11 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
 
             {pinSetupStep === "choose_pin" && (
               <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                {/* Length pills */}
+                {/* Length selector pills */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 2 }}>
                   <button
                     type="button"
-                    className={`type-pill ${pinSetupLength === 4 ? "active" : ""}`}
+                    className={`folder-pill ${pinSetupLength === 4 ? "active" : ""}`}
                     onClick={() => {
                       setPinSetupLength(4);
                       setPinSetupFirst("");
@@ -1311,7 +2156,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
                   </button>
                   <button
                     type="button"
-                    className={`type-pill ${pinSetupLength === 6 ? "active" : ""}`}
+                    className={`folder-pill ${pinSetupLength === 6 ? "active" : ""}`}
                     onClick={() => {
                       setPinSetupLength(6);
                       setPinSetupFirst("");
@@ -1396,841 +2241,6 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
           </div>
         </div>
       )}
-
-      {/* Browser Integration & Autofill Preferences */}
-      <div className="settings-section">
-        <div className="settings-section-title">BROWSER INTEGRATION & AUTOFILL</div>
-
-        {/* Make VaultR Default Password Manager card */}
-        {browserOverrideSupported && (
-          <div
-            style={{
-              padding: "12px",
-              background: "#0d0d0d",
-              border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
-              borderRadius: 12,
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <ShieldCheck size={14} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8" }} />
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                    Make VaultR Default Password Manager
-                  </span>
-                </div>
-                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                  {isEdgeBrowser
-                    ? browserOverrideActive
-                      ? "VaultR manages form autofill. On Microsoft Edge, Microsoft Wallet is kept active so Windows Hello passkeys continue working without conflict."
-                      : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
-                    : browserOverrideActive
-                    ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
-                    : "Turn off browser password prompts and let VaultR seamlessly autofill and manage logins."}
-                </div>
-              </div>
-              <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
-                <input
-                  type="checkbox"
-                  checked={browserOverrideActive}
-                  onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
-                />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            {browserOverrideActive && (
-              <div
-                style={{
-                  marginTop: 8,
-                  padding: "6px 10px",
-                  background: "rgba(16, 185, 129, 0.1)",
-                  border: "1px solid rgba(16, 185, 129, 0.2)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <Check size={12} style={{ color: "#10b981", flexShrink: 0 }} />
-                <span style={{ fontSize: 10.5, fontWeight: 600, color: "#10b981" }}>
-                  {isEdgeBrowser ? "MANAGING BROWSER AUTOFILL & PASSKEYS" : "MANAGING BROWSER PASSWORD SETTING"}
-                </span>
-              </div>
-            )}
-
-            {isEdgeBrowser && browserOverrideActive && (
-              <div style={{ marginTop: 8, padding: "8px 10px", background: "#18181b", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
-                <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
-                  To silence Edge's &quot;Save password?&quot; banner without affecting Windows Hello passkeys, turn off &quot;Offer to save passwords&quot; in Edge:
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ width: "100%", height: 26, fontSize: 10, justifyContent: "center", gap: 4 }}
-                  onClick={() => {
-                    navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
-                    setCopiedKey("edge_autofill");
-                    setTimeout(() => setCopiedKey(null), 2000);
-                  }}
-                >
-                  {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-                  {copiedKey === "edge_autofill" ? "Copied edge://settings/autofill/passwords/settings" : "Copy edge://settings/autofill/passwords/settings link"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Suggest credentials</div>
-            <div className="settings-row-sub">Show Vaultr dropdown on fields</div>
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={autofillEnabled}
-              onChange={(e) => handleToggleAutofill(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        <div className="settings-row" style={{ marginTop: 4 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="settings-row-label">Show suggestions badge on icon</div>
-            <div className="settings-row-sub">Display number of matching logins on the extension icon</div>
-          </div>
-          <label className="toggle" style={{ flexShrink: 0 }}>
-            <input
-              type="checkbox"
-              checked={showBadgeCount}
-              onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        <div className="settings-row" style={{ marginTop: 4 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="settings-row-label">Match base domain</div>
-            <div className="settings-row-sub">Suggest credentials across all subdomains and paths of the base domain (e.g. login.example.com and example.com)</div>
-          </div>
-          <label className="toggle" style={{ flexShrink: 0 }}>
-            <input
-              type="checkbox"
-              checked={subdomainMatching}
-              onChange={(e) => handleToggleSubdomainMatching(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        <div className="settings-row" style={{ marginTop: 4 }}>
-          <div>
-            <div className="settings-row-label">Auto-copy 2FA code on fill</div>
-            <div className="settings-row-sub">Copies one-time TOTP code to clipboard</div>
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={autoCopy2fa}
-              onChange={(e) => handleToggleAutoCopy2fa(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        <div className="settings-row" style={{ marginTop: 4 }}>
-          <div>
-            <div className="settings-row-label">Auto-submit form</div>
-            <div className="settings-row-sub">Automatically submit form after fill</div>
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={autofillSubmit}
-              onChange={(e) => handleToggleSubmit(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        {/* Keyboard Shortcuts & Context Menu */}
-        <div style={{ marginTop: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 6, textTransform: "uppercase" }}>
-            Keyboard Shortcuts
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Autofill credentials</span>
-              <kbd style={{ padding: "2px 6px", fontSize: 10.5, fontFamily: "monospace", background: "#1c1c1e", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
-                {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
-              </kbd>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Copy 2FA code</span>
-              <kbd style={{ padding: "2px 6px", fontSize: 10.5, fontFamily: "monospace", background: "#1c1c1e", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
-                {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
-              </kbd>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Display & Layout */}
-      <div className="settings-section">
-        <div className="settings-section-title">DISPLAY & APPEARANCE</div>
-
-        <div style={{ padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div>
-              <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Maximize2 size={13} style={{ color: "#38bdf8" }} />
-                Popup Size
-              </div>
-              <div className="settings-row-sub">Choose your preferred extension window size</div>
-            </div>
-            <span style={{ fontSize: 10.5, fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, background: "rgba(56, 189, 248, 0.12)", padding: "2px 7px", borderRadius: 6 }}>
-              {POPUP_SIZE_MAP[popupWidth].width} × {POPUP_SIZE_MAP[popupWidth].height}px
-            </span>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 10 }}>
-            {(
-              [
-                { id: "normal", label: "Normal", desc: "380×560" },
-                { id: "wide", label: "Wide", desc: "460×560" },
-                { id: "wider", label: "Wider", desc: "540×560" },
-                { id: "extended", label: "Extended", desc: "620×600" },
-              ] as const
-            ).map(({ id, label, desc }) => {
-              const active = popupWidth === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => handleWidthChange(id)}
-                  style={{
-                    padding: "8px 4px",
-                    borderRadius: 8,
-                    border: active ? "1px solid #38bdf8" : "1px solid var(--border)",
-                    background: active ? "rgba(56, 189, 248, 0.15)" : "#141416",
-                    color: active ? "#38bdf8" : "var(--neutral-400)",
-                    fontSize: 11,
-                    fontWeight: active ? 600 : 500,
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 3,
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <span>{label}</span>
-                  <span style={{ fontSize: 9.5, opacity: 0.75, fontFamily: "monospace" }}>{desc}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Security & Auto-Lock */}
-      <div className="settings-section">
-        <div className="settings-section-title">SECURITY & TIMEOUTS</div>
-
-        {/* Sessions & Devices Card */}
-        <div
-          style={{
-            padding: "12px",
-            background: "#0d0d0d",
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            marginBottom: 12,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              cursor: "pointer",
-            }}
-            onClick={() => {
-              const next = !showSessions;
-              setShowSessions(next);
-              if (next && sessions.length === 0 && !sessionsLoading) {
-                loadSessions();
-              }
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-              <ShieldCheck size={14} style={{ color: "#38bdf8", flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                  Sessions & Devices
-                </div>
-                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
-                  {sessions.length > 0
-                    ? `${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`
-                    : "Manage active sign-ins & devices"}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{
-                height: 26,
-                padding: "0 8px",
-                fontSize: 11,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                borderRadius: 6,
-                color: "var(--neutral-300)",
-                flexShrink: 0,
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                const next = !showSessions;
-                setShowSessions(next);
-                if (next && sessions.length === 0 && !sessionsLoading) {
-                  loadSessions();
-                }
-              }}
-            >
-              {showSessions ? "Hide" : "Show"}
-              {showSessions ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
-          </div>
-
-          {showSessions && (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
-              {/* Action bar */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    Active Sessions
-                  </span>
-                  <button
-                    type="button"
-                    onClick={loadSessions}
-                    disabled={sessionsLoading}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--neutral-500)",
-                      cursor: sessionsLoading ? "not-allowed" : "pointer",
-                      padding: 2,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: 4,
-                    }}
-                    title="Refresh sessions"
-                  >
-                    <RefreshCw size={11} className={sessionsLoading ? "animate-spin" : ""} />
-                  </button>
-                </div>
-
-                {otherSessions.length > 0 && !confirmRevokeAll && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRevokeAll(true)}
-                    disabled={revokingAll}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#f87171",
-                      fontSize: 10.5,
-                      fontWeight: 500,
-                      cursor: revokingAll ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: "2px 4px",
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Trash2 size={11} />
-                    Sign out others ({otherSessions.length})
-                  </button>
-                )}
-              </div>
-
-              {/* Confirm revoke all dialog */}
-              {confirmRevokeAll && (
-                <div
-                  style={{
-                    padding: "10px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                    background: "rgba(239, 68, 68, 0.08)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  <p style={{ fontSize: 11, color: "#fca5a5", lineHeight: 1.4, margin: 0 }}>
-                    Sign out from {otherSessions.length} other device{otherSessions.length !== 1 ? "s" : ""}?
-                  </p>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
-                      disabled={revokingAll}
-                      onClick={handleRevokeAllSessions}
-                    >
-                      {revokingAll ? (
-                        <>
-                          <Loader2 size={11} className="animate-spin" style={{ marginRight: 4 }} />
-                          Signing out…
-                        </>
-                      ) : (
-                        "Yes, sign out all"
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
-                      onClick={() => setConfirmRevokeAll(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Error state */}
-              {sessionsError && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    background: "rgba(239, 68, 68, 0.1)",
-                    border: "1px solid rgba(239, 68, 68, 0.25)",
-                    color: "#f87171",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <AlertCircle size={12} style={{ flexShrink: 0 }} />
-                  <span>{sessionsError}</span>
-                </div>
-              )}
-
-              {/* Loading skeleton */}
-              {sessionsLoading && sessions.length === 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ height: 48, borderRadius: 8, background: "#161618", opacity: 0.6 }} className="animate-pulse" />
-                  <div style={{ height: 48, borderRadius: 8, background: "#161618", opacity: 0.4 }} className="animate-pulse" />
-                </div>
-              )}
-
-              {/* Empty state */}
-              {!sessionsLoading && sessions.length === 0 && !sessionsError && (
-                <div style={{ textAlign: "center", padding: "14px 0", fontSize: 11, color: "var(--neutral-500)" }}>
-                  No active sessions found.
-                </div>
-              )}
-
-              {/* Session cards */}
-              {currentSession && renderSessionCard(currentSession)}
-              {otherSessions.map((s) => renderSessionCard(s))}
-            </div>
-          )}
-        </div>
-
-        {/* Quick PIN Unlock Card */}
-        <div
-          style={{
-            padding: "12px",
-            background: "#0d0d0d",
-            border: `1px solid ${pinEnabled ? "rgba(56, 189, 248, 0.3)" : "var(--border)"}`,
-            borderRadius: 12,
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <Hash size={14} style={{ color: pinEnabled ? "#38bdf8" : "var(--neutral-400)" }} />
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                  Quick PIN Unlock
-                </span>
-                {pinEnabled && (
-                  <span
-                    style={{
-                      fontSize: 9.5,
-                      fontWeight: 700,
-                      padding: "1px 6px",
-                      borderRadius: 4,
-                      background: "rgba(56, 189, 248, 0.15)",
-                      color: "#38bdf8",
-                      border: "1px solid rgba(56, 189, 248, 0.3)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 3,
-                    }}
-                  >
-                    <Check size={9} /> {pinLength}-DIGIT ACTIVE
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                {pinEnabled
-                  ? `Your ${pinLength}-digit PIN is active. Use it to quickly re-unlock your vault on this device.`
-                  : "Set a 4 or 6-digit PIN for lightning-fast PBKDF2 + AES-GCM vault re-unlock."}
-              </div>
-            </div>
-            <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
-              <input
-                type="checkbox"
-                checked={pinEnabled}
-                onChange={(e) => handleTogglePin(e.target.checked)}
-              />
-              <span className="toggle-slider" />
-            </label>
-          </div>
-
-          {pinEnabled && (
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{
-                  height: 28,
-                  padding: "0 10px",
-                  fontSize: 11,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  borderRadius: 6,
-                  color: "#38bdf8",
-                }}
-                onClick={handleStartChangePin}
-              >
-                Change PIN
-                <ChevronRight size={12} />
-              </button>
-            </div>
-          )}
-
-          {pinMsg && (
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 11,
-                fontWeight: 500,
-                padding: "6px 8px",
-                borderRadius: 6,
-                background: pinMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
-                border: `1px solid ${pinMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
-                color: pinMsg.ok ? "#10b981" : "#f87171",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              {pinMsg.ok ? <Check size={12} /> : <Info size={12} />}
-              <span>{pinMsg.text}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Change Master Password Card */}
-        <div
-          style={{
-            padding: "12px",
-            background: "#0d0d0d",
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            marginBottom: 12,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              cursor: "pointer",
-            }}
-            onClick={() => {
-              setShowChangePw(!showChangePw);
-              setPwMsg(null);
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-              <KeyRound size={14} style={{ color: "#fbbf24", flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                  Change Master Password
-                </div>
-                <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
-                  Re-encrypt vault blobs with a new key
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{
-                height: 26,
-                padding: "0 8px",
-                fontSize: 11,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                borderRadius: 6,
-                color: "var(--neutral-300)",
-                flexShrink: 0,
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowChangePw(!showChangePw);
-                setPwMsg(null);
-              }}
-            >
-              {showChangePw ? "Cancel" : "Change"}
-              {showChangePw ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
-          </div>
-
-          {showChangePw && (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
-              <PasswordField
-                value={oldPw}
-                onChange={setOldPw}
-                placeholder="Current master password"
-                disabled={pwChanging}
-              />
-              <PasswordField
-                value={newPw}
-                onChange={setNewPw}
-                placeholder="New master password (min 8 chars)"
-                disabled={pwChanging}
-              />
-              <PasswordField
-                value={confirmPw}
-                onChange={setConfirmPw}
-                placeholder="Confirm new master password"
-                disabled={pwChanging}
-              />
-
-              {pwMsg && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    background: pwMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
-                    border: `1px solid ${pwMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
-                    color: pwMsg.ok ? "#10b981" : "#f87171",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  {pwMsg.ok ? <Check size={12} /> : <Info size={12} />}
-                  <span>{pwMsg.text}</span>
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center" }}
-                  disabled={pwChanging}
-                  onClick={() => {
-                    setShowChangePw(false);
-                    setOldPw("");
-                    setNewPw("");
-                    setConfirmPw("");
-                    setPwMsg(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center", gap: 6 }}
-                  disabled={pwChanging || !oldPw || !newPw || !confirmPw}
-                  onClick={handleChangeMasterPassword}
-                >
-                  {pwChanging ? (
-                    <>
-                      <Loader2 size={12} className="animate-spin" />
-                      Re-encrypting…
-                    </>
-                  ) : (
-                    "Update Password"
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="settings-row" style={{ marginBottom: 12 }}>
-          <div>
-            <div className="settings-row-label">Auto-lock timeout</div>
-            <div className="settings-row-sub">Lock vault automatically</div>
-          </div>
-          <select
-            className="form-select"
-            style={{ width: "auto", fontSize: 12, padding: "6px 10px", background: "#0d0d0d", borderRadius: 10 }}
-            value={autoLockMinutes}
-            onChange={(e) => handleAutolockChange(e.target.value)}
-          >
-            <option value="5">5 minutes</option>
-            <option value="15">15 minutes</option>
-            <option value="30">30 minutes</option>
-            <option value="60">1 hour</option>
-            <option value="browser_close">On browser close</option>
-            <option value="device_logout">On device logout</option>
-            <option value="0">Never</option>
-          </select>
-        </div>
-
-        <button
-          className="btn btn-danger"
-          style={{ width: "100%", height: 38, justifyContent: "center", borderRadius: 10, fontSize: 12, fontWeight: 500 }}
-          onClick={onLock}
-        >
-          <Lock size={13} style={{ marginRight: 4 }} />
-          Lock Vault Now
-        </button>
-      </div>
-
-      {/* Server Connection */}
-      <div className="settings-section">
-        <div className="settings-section-title">SERVER CONNECTION</div>
-        <form onSubmit={handleSaveUrl}>
-          <div className="form-group" style={{ marginBottom: 8 }}>
-            <div className="server-input-row" style={{ display: "flex", gap: 6 }}>
-              <input
-                type="text"
-                className="form-input"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://vaultr.yourdomain.com"
-                style={{ flex: 1, height: 38, fontSize: 12, background: "#0d0d0d", borderRadius: 10 }}
-              />
-              <button
-                type="submit"
-                className={`btn btn-primary${saved ? " btn-success" : ""}`}
-                style={{ height: 38, padding: "0 14px", borderRadius: 10, fontSize: 12 }}
-              >
-                {saved ? "Saved" : "Save"}
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <button
-          className="btn btn-ghost"
-          style={{ width: "100%", height: 36, justifyContent: "center", fontSize: 12, borderRadius: 10, marginTop: 4 }}
-          onClick={() => openSite()}
-        >
-          <Globe size={12} style={{ marginRight: 4 }} />
-          Open Vaultr Web App
-        </button>
-      </div>
-
-      {/* Resources & Information Deep Links */}
-      <div className="settings-section">
-        <div className="settings-section-title">VAULTR 2026 RESOURCES</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <button
-            className="btn btn-ghost"
-            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
-            onClick={() => openSite("/docs")}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <BookOpen size={13} style={{ color: "#38bdf8" }} />
-              Documentation & Guides
-            </span>
-            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
-          </button>
-
-          <button
-            className="btn btn-ghost"
-            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
-            onClick={() => openSite("/changelog")}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <History size={13} style={{ color: "#fbbf24" }} />
-              Release Notes & Changelog
-            </span>
-            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
-          </button>
-
-          <button
-            className="btn btn-ghost"
-            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
-            onClick={() => openSite("/security")}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Shield size={13} style={{ color: "#34d399" }} />
-              Security Architecture
-            </span>
-            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
-          </button>
-
-          <button
-            className="btn btn-ghost"
-            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
-            onClick={() => openSite("/privacy")}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <FileText size={13} style={{ color: "#a78bfa" }} />
-              Privacy Policy & Terms
-            </span>
-            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
-          </button>
-
-          <button
-            className="btn btn-ghost"
-            style={{ width: "100%", height: 34, justifyContent: "space-between", fontSize: 12, padding: "0 10px", borderRadius: 8 }}
-            onClick={() => openSite("/settings/support")}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <LifeBuoy size={13} style={{ color: "#f43f5e" }} />
-              Help Desk & Support
-            </span>
-            <ExternalLink size={11} style={{ color: "var(--neutral-600)" }} />
-          </button>
-        </div>
-      </div>
-
-      {/* About Badge Card */}
-      <div className="settings-section" style={{ borderBottom: "none", paddingTop: 10, paddingBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: "#0d0d0d", border: "1px solid var(--border)", borderRadius: 12 }}>
-          <ShieldCheck size={16} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} />
-          <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <strong style={{ color: "var(--neutral-200)" }}>{VAULTR_EDITION} Extension</strong>
-              <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--neutral-500)" }}>v{VAULTR_VERSION}</span>
-            </div>
-            <span style={{ fontSize: 10, color: "var(--neutral-500)", display: "block", marginTop: 2 }}>
-              Build {VAULTR_BUILD_NUMBER} · AES-256-GCM Zero-Knowledge
-            </span>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }

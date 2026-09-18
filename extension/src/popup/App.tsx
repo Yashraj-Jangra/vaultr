@@ -50,6 +50,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>("vault");
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<AccountInfo>({});
+  const [theme, setTheme] = useState<"dark" | "light" | "midnight">("dark");
 
   // Overlay forms
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
@@ -73,9 +74,20 @@ export function App() {
 
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.get(["vaultr_popup_width"], (res) => {
+      chrome.storage.local.get(["vaultr_popup_width", "vaultr_theme", "vaultr_show_animations"], (res) => {
         if (res?.vaultr_popup_width) {
           applyPopupWidth(res.vaultr_popup_width);
+        }
+        if (res?.vaultr_theme) {
+          setTheme(res.vaultr_theme);
+          document.documentElement.setAttribute("data-theme", res.vaultr_theme);
+        } else {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+        if (res?.vaultr_show_animations === false) {
+          document.documentElement.setAttribute("data-animations", "disabled");
+        } else {
+          document.documentElement.removeAttribute("data-animations");
         }
       });
     }
@@ -148,6 +160,16 @@ export function App() {
         resolve();
       });
     });
+
+  const handleThemeChange = (newTheme: "dark" | "light" | "midnight") => {
+    setTheme(newTheme);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", newTheme);
+    }
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_theme: newTheme });
+    }
+  };
 
   const handleDecryptItem = (encryptedBlobOrItem: string | { id?: string; encryptedBlob?: string }, itemId?: string): Promise<any> =>
     new Promise((resolve, reject) => {
@@ -277,7 +299,7 @@ export function App() {
       <div className="header">
         <div className="header-brand">
           <img
-            src="brand/vaultr-full-dark-transparent.png"
+            src={theme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
             alt="Vaultr"
             style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
           />
@@ -328,6 +350,8 @@ export function App() {
             accountInfo={accountInfo}
             onUpdateServerUrl={handleUpdateServerUrl}
             onLock={handleLock}
+            currentTheme={theme}
+            onThemeChange={handleThemeChange}
           />
         )}
 

@@ -1,4 +1,44 @@
-## Current Session: Extension Quick PIN Fast Re-Unlock & Security Hardening (2026-09-19) · Branch: `dev`
+## Current Session: Extension Settings Redesign & Segregation (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 23: Browser Extension Settings Redesign & Segregation)
+- **Folder / Side-Nav Architecture (`extension/src/popup/SettingsScreen.tsx`, `extension/src/popup/popup.css`)**:
+  - Re-architected the settings page from a 2,200+ line flat scroll into a responsive, two-column layout with a 58px left vertical nav rail (`settings-nav`) and independent scrollable content area (`settings-content-pane`).
+  - Added persistent top Account bar displaying user avatar (image or two-letter uppercase initials), account display name, email address, and direct "Manage" button deep-linking to the web app settings.
+  - Implemented 4 segregated sections with dedicated icons and active glow indicators:
+    1. `🔑 Autofill` — Credential autofill, prompts, shortcuts & browser overrides
+    2. `🛡️ Security` — Biometric unlock, quick PIN, auto-lock timeout, passkeys, session management, change master password & lock vault
+    3. `🎨 Themes` — Visual theme selector, extension popup window sizing, badge count & animation toggles
+    4. `ℹ️ About` — VaultR wide logo branding hero, edition/build specifications, server connection & resource links
+- **Autofill Section with Default-ON Preferences**:
+  - Configured all autofill toggles to default `true` using `res.key !== false` guard pattern.
+  - Retained "Set as Default Password Manager" card with Edge-specific suppressions and settings deep-links.
+  - Grouped "Suggest credentials", "Auto-submit form" (now default ON), "Auto-copy 2FA code", and "Match base domain".
+  - Added new "Prompt to save passwords" (`vaultr_prompt_save`, default ON) and "Prompt to update passwords" (`vaultr_prompt_update`, default ON) settings.
+  - Grouped Keyboard Shortcuts card (`⌘/Ctrl + Shift + L` for autofill, `⌘/Ctrl + Shift + T` for TOTP copy).
+- **Account Security Section Organization**:
+  - Preserved biometric enrollment (Windows Hello / Touch ID) with hardware detection and password auth modal.
+  - Preserved Quick PIN Unlock with length selection (4 or 6 digits) and full multi-step setup modal (`PinPad`).
+  - Grouped Auto-lock timeout dropdown (5m, 15m, 30m, 1h, on browser close, on device logout, never).
+  - Preserved Passkeys & Hardware Security toggle.
+  - Grouped Sessions & Devices accordion with real-time session listing, device badges, single revocation, and bulk sign-out dialog.
+  - Grouped Change Master Password accordion with re-encryption worker integration.
+  - Added prominent full-width "Lock Vault Now" danger button.
+- **Themes & Appearance Section & New Light Theme (`extension/src/popup/popup.css`, `extension/src/popup/App.tsx`, `extension/src/popup/index.tsx`)**:
+  - Added new **Zinc Light** theme (`html[data-theme="light"]`) with light background (`#fafafa`), crisp cards (`#ffffff`), zinc borders (`#e4e4e7`), and dark high-contrast typography (`#09090b`).
+  - Added **Midnight** theme (`html[data-theme="midnight"]`) with deep slate tones (`#070a13`).
+  - Created 3-card theme picker grid with live color preview swatches and active indicator badges.
+  - Retained 4-option popup window sizing grid (Normal 380px, Wide 460px, Wider 540px, Extended 620px).
+  - Moved "Show suggestions badge on icon" toggle here from Autofill (default ON).
+  - Added "Show animations" toggle (`vaultr_show_animations`, default ON) with instant CSS disabling rule (`html[data-animations="disabled"]`).
+  - Connected pre-mount theme loading in `index.tsx` and reactive theme state in `App.tsx` with automatic logo switching (`vaultr-full-light-transparent.png` vs `vaultr-full-dark-transparent.png`).
+- **About Section with Wide Logo Branding**:
+  - Built centered branding hero showcasing the full VaultR wide logo, tagline, edition badge, version pill, zero-knowledge verification badge, and build specification (`VAULTR_CRYPTO_SPEC.algorithm`).
+  - Retained server connection URL input, save action, and "Open VaultR Web App" button.
+  - Grouped official resource deep-links (Documentation, Changelog, Security, Privacy, Support).
+- **Verification**:
+  - `npx tsc --noEmit` in `extension/`: 0 errors.
+  - `npm run build` in `extension/`: compiled production assets cleanly in 17s.
+  - `npx tsc --noEmit` in root `d:\Projects\_vaultr`: 0 errors.
 
 ### ✅ What Was Done (Phase 22: Browser Extension Quick PIN Re-Unlock & Security Hardening)
 - **Extension PIN Key Derivation & Verification Service (`extension/src/services/pin.ts`)**:
