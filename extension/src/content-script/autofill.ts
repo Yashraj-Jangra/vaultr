@@ -1264,11 +1264,35 @@ function checkAndShowSavePrompt(username: string, password: string, domain: stri
   }
 }
 
+function findTargetPasswordField(container: Element): HTMLInputElement | null {
+  const pwds = Array.from(container.querySelectorAll<HTMLInputElement>('input[type="password"]')).filter(
+    (el) => el.offsetParent !== null && !el.disabled && el.value.trim().length >= 4
+  );
+  if (pwds.length === 0) return null;
+  if (pwds.length === 1) return pwds[0];
+
+  // On multi-password forms (Change Password / Reset Password), prioritize the new password field
+  const newPwd = pwds.find((p) => {
+    const ac = (p.getAttribute("autocomplete") || "").toLowerCase();
+    const idName = `${p.id} ${p.name} ${p.placeholder}`.toLowerCase();
+    return ac === "new-password" || (/new.*pass/i.test(idName) && !/confirm/i.test(idName));
+  });
+  if (newPwd) return newPwd;
+
+  // If 3 fields exist (Current Password, New Password, Confirm Password), the 2nd is the new password
+  if (pwds.length >= 3) {
+    return pwds[1];
+  }
+
+  // If 2 fields exist (New Password, Confirm Password), the 1st is the new password
+  return pwds[0];
+}
+
 function setupFormSubmitInterceptor() {
   document.addEventListener("submit", (e) => {
     const form = e.target as HTMLFormElement;
     if (!form || form.tagName !== "FORM") return;
-    const pwdInput = form.querySelector<HTMLInputElement>('input[type="password"]');
+    const pwdInput = findTargetPasswordField(form);
     if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
     const userInput = findUsernameField(pwdInput);
     const username = userInput?.value || "";
@@ -1297,7 +1321,7 @@ function setupFormSubmitInterceptor() {
 
     const form = btn.closest("form");
     if (form) {
-      const pwdInput = form.querySelector<HTMLInputElement>('input[type="password"]');
+      const pwdInput = findTargetPasswordField(form);
       if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
       const userInput = findUsernameField(pwdInput);
       const username = userInput?.value || "";
@@ -1307,7 +1331,7 @@ function setupFormSubmitInterceptor() {
       checkAndShowSavePrompt(username, password, domain);
     } else {
       const container = btn.closest("div, section, main, [role='dialog'], [role='form']");
-      const pwd = container?.querySelector<HTMLInputElement>('input[type="password"]');
+      const pwd = container ? findTargetPasswordField(container) : null;
       if (pwd && pwd.value.trim().length >= 4) {
         const usr = findUsernameField(pwd);
         checkAndShowSavePrompt(usr?.value || "", pwd.value, getDomain());
