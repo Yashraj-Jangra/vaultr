@@ -31,7 +31,7 @@ import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
 import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics, enrollBiometricPassword } from "../services/biometrics";
-import { isPinSet, getPinLength, verifyPinAndGetPassword } from "../services/pin";
+import { isPinSet, getPinLength, verifyPinAndGetPassword, clearPin } from "../services/pin";
 import { isAutofillUnlockPending, finishAutofillUnlock } from "../services/autofill";
 import { useResponsive } from "../utils/responsive";
 import { PinPad } from "../components/PinPad";
@@ -291,9 +291,25 @@ export function UnlockScreen() {
         try {
           const res = await verifyPinAndGetPassword(enteredPin);
           if (res.success && res.password) {
-            await unlock(res.password);
-            if (await isAutofillUnlockPending()) {
-              await finishAutofillUnlock();
+            try {
+              await unlock(res.password);
+              if (await isAutofillUnlockPending()) {
+                await finishAutofillUnlock();
+              }
+            } catch (unlockErr: any) {
+              // Master password was changed from another device; PIN-cached password is stale
+              await clearPin();
+              setPinEnrolled(false);
+              setPinValue("");
+              setUnlockMode("password");
+              const alertMsg = "Your master password was changed from another device. Your PIN has been reset. Please enter your new master password.";
+              setUnlockError(alertMsg);
+              vaultAlert.alert(
+                "Master Password Changed",
+                alertMsg,
+                undefined,
+                { illustration: "security-on_3ykb", glowColor: "rgba(245, 158, 11, 0.15)" }
+              );
             }
           } else {
             setPinValue("");
