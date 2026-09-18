@@ -1535,6 +1535,79 @@ function normalizeCredentialId(id: string | undefined | null): string {
           break;
         }
 
+        case "GET_SESSIONS": {
+          await tryRestoreSession();
+          if (!state.isUnlocked) {
+            sendResponse({ error: "Vault is locked" });
+            break;
+          }
+          try {
+            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const res = await globalThis.fetch(`${cleanUrl}/api/settings/sessions`, {
+              credentials: "include",
+            });
+            if (res.ok) {
+              const data = await res.json();
+              sendResponse({ sessions: data.sessions || [] });
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              sendResponse({ error: errData.error || "Failed to load active sessions" });
+            }
+          } catch (err: any) {
+            sendResponse({ error: err?.message || "Failed to load active sessions" });
+          }
+          break;
+        }
+
+        case "REVOKE_SESSION": {
+          await tryRestoreSession();
+          if (!state.isUnlocked) {
+            sendResponse({ error: "Vault is locked" });
+            break;
+          }
+          try {
+            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const sid = encodeURIComponent(message.sessionId || "");
+            const res = await globalThis.fetch(`${cleanUrl}/api/settings/sessions/${sid}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (res.ok) {
+              sendResponse({ success: true });
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              sendResponse({ error: errData.error || "Failed to revoke session" });
+            }
+          } catch (err: any) {
+            sendResponse({ error: err?.message || "Failed to revoke session" });
+          }
+          break;
+        }
+
+        case "REVOKE_ALL_SESSIONS": {
+          await tryRestoreSession();
+          if (!state.isUnlocked) {
+            sendResponse({ error: "Vault is locked" });
+            break;
+          }
+          try {
+            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const res = await globalThis.fetch(`${cleanUrl}/api/settings/sessions`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (res.ok) {
+              sendResponse({ success: true });
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              sendResponse({ error: errData.error || "Failed to revoke sessions" });
+            }
+          } catch (err: any) {
+            sendResponse({ error: err?.message || "Failed to revoke sessions" });
+          }
+          break;
+        }
+
         case "UPDATE_BADGES": {
           await updateAllTabBadges();
           sendResponse({ success: true });
