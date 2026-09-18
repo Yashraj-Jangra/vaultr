@@ -306,7 +306,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!cryptoKey || autoLockMinutes === 0) { clearTimers(); return; }
     resetIdleTimer();
     const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;
-    const handleActivity = () => resetIdleTimer();
+    let lastActivity = 0;
+    const handleActivity = () => {
+      const now = Date.now();
+      if (now - lastActivity < 2000) return;
+      lastActivity = now;
+      resetIdleTimer();
+    };
     ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }));
     return () => {
       ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, handleActivity));
