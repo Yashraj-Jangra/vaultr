@@ -27,6 +27,14 @@
   - Implemented dynamic popup resizing via `applyPopupWidth()` modifying `document.documentElement` and `document.body` dimensions in real-time.
   - Persisted user selection to `chrome.storage.local` (`vaultr_popup_width`) with pre-render initialization in `index.tsx` to eliminate layout shift on subsequent opens.
   - Added `data-popup-width` attribute and matching CSS rules in `popup.css`.
+- **Extension Icon Autofill Suggestion Counter & Settings Toggle (`extension/manifest.json`, `extension/src/background/service-worker.ts`, `extension/src/content-script/autofill.ts`, `extension/src/popup/SettingsScreen.tsx`)**:
+  - Added `"tabs"` permission to `extension/manifest.json` enabling URL discovery on tab updates and active tab switching.
+  - Implemented badge calculation in `service-worker.ts` with `getMatchingLoginsCount(url)` computing real-time matching login counts per domain.
+  - Displayed tab-specific action badge: count (`1`, `2`, `99+`) with Vaultr blue background (`#2563eb`) and white text. Automatically hides when vault is locked, on internal browser URLs, when 0 logins match, or when toggled off.
+  - Added real-time tab listeners: `chrome.tabs.onUpdated` and `chrome.tabs.onActivated` for seamless updates on navigation and tab switching.
+  - Wired vault lifecycle synchronization: updates all tab badges on unlock / item save / item delete / password update, and clears all badges on lock.
+  - Injected `PAGE_LOADED` notification in `autofill.ts` to trigger badge refresh as soon as a page finishes loading.
+  - Added "Show suggestions badge on icon" toggle in Settings under `AUTOFILL & DOMAINS` (`vaultr_show_badge_count`, default `true`).
 - **Verification**:
   - Extension TypeScript check: `npx tsc --noEmit` in `extension/` passed with 0 errors.
   - Extension Webpack production build: `npm run build` compiled cleanly with 0 errors.

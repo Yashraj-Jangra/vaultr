@@ -121,6 +121,20 @@ function getDomain(): string {
   }
 }
 
+// Notify service worker that page loaded to update suggestion count badge on extension icon
+try {
+  if (typeof window !== "undefined" && isWebPageUrl(window.location.href)) {
+    const pageDomain = getDomain();
+    if (pageDomain) {
+      chrome.runtime?.sendMessage?.({ type: "PAGE_LOADED", url: window.location.href, domain: pageDomain }, () => {
+        if (chrome.runtime?.lastError) {
+          // Ignored if worker is waking up
+        }
+      });
+    }
+  }
+} catch {}
+
 /** Dispatch React-compatible input events so frameworks (React/Vue/Angular) pick up changes */
 function nativeInputValueSetter(input: HTMLInputElement, value: string) {
   try {

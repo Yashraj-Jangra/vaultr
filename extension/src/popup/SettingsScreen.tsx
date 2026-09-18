@@ -179,6 +179,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
   const [saved, setSaved] = useState(false);
   
   const [autofillEnabled, setAutofillEnabled] = useState(true);
+  const [showBadgeCount, setShowBadgeCount] = useState(true);
   const [subdomainMatching, setSubdomainMatching] = useState(true);
   const [autofillSubmit, setAutofillSubmit] = useState(false);
   const [autoLockMinutes, setAutoLockMinutes] = useState("15");
@@ -224,6 +225,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
       chrome.storage.local.get(
         [
           "autofill_enabled",
+          "vaultr_show_badge_count",
           "vaultr_subdomain_matching",
           "autofill_submit",
           "autolock_minutes",
@@ -235,6 +237,7 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
         ],
         async (res) => {
           if (res.autofill_enabled !== undefined) setAutofillEnabled(res.autofill_enabled);
+          if (res.vaultr_show_badge_count !== undefined) setShowBadgeCount(res.vaultr_show_badge_count !== false);
           if (res.vaultr_subdomain_matching !== undefined) setSubdomainMatching(res.vaultr_subdomain_matching !== false);
           if (res.autofill_submit !== undefined) setAutofillSubmit(res.autofill_submit);
           if (res.autolock_minutes !== undefined) setAutoLockMinutes(res.autolock_minutes);
@@ -291,6 +294,17 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
     setAutofillEnabled(enabled);
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.set({ autofill_enabled: enabled });
+    }
+  };
+
+  const handleToggleShowBadgeCount = (enabled: boolean) => {
+    setShowBadgeCount(enabled);
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_show_badge_count: enabled }, () => {
+        chrome.runtime?.sendMessage?.({ type: "UPDATE_BADGES" }, () => {
+          if (chrome.runtime?.lastError) {}
+        });
+      });
     }
   };
 
@@ -1138,6 +1152,21 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
               type="checkbox"
               checked={autofillEnabled}
               onChange={(e) => handleToggleAutofill(e.target.checked)}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+
+        <div className="settings-row" style={{ marginTop: 4 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="settings-row-label">Show suggestions badge on icon</div>
+            <div className="settings-row-sub">Display number of matching logins on the extension icon</div>
+          </div>
+          <label className="toggle" style={{ flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={showBadgeCount}
+              onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
             />
             <span className="toggle-slider" />
           </label>

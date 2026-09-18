@@ -124,6 +124,7 @@ function lockVault() {
   chrome.storage.session.remove(["vaultr_master_password"]);
   chrome.storage.local.remove(["autolock_expiry"]);
   chrome.alarms.clear("vaultr_autolock");
+  clearAllBadges();
 }
 
 async function getApiClient(): Promise<VaultrApiClient> {
@@ -207,6 +208,7 @@ async function tryRestoreSession(): Promise<boolean> {
 
     await decryptAllItems();
     await touchAutoLock(lockSetting);
+    updateAllTabBadges();
     return true;
   } catch (err) {
     console.error("[Vaultr SW] Session restoration failed:", err);
@@ -339,9 +341,133 @@ async function getLoginsForDomain(domain?: string): Promise<MatchedLogin[]> {
   return matches;
 }
 
+// ─── Autofill Suggestions Count Badge ─────────────────────────────────────────
+
+async function isBadgeCountEnabled(): Promise<boolean> {
+  try {
+    const res = await chrome.storage.local.get("vaultr_show_badge_count");
+    if (res?.vaultr_show_badge_count !== undefined) {
+      return res.vaultr_show_badge_count !== false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function getMatchingLoginsCount(url: string): Promise<number> {
+  if (!state.isUnlocked || !url || !isWebPageUrl(url)) return 0;
+  const currentHost = extractDomainHost(url);
+  if (!currentHost || isInternalBrowserHost(currentHost)) return 0;
+
+  let allowSubdomains = true;
+  try {
+    const storageRes = await chrome.storage.local.get("vaultr_subdomain_matching");
+    if (storageRes?.vaultr_subdomain_matching !== undefined) {
+      allowSubdomains = storageRes.vaultr_subdomain_matching !== false;
+    }
+  } catch {}
+
+  let key: any = null;
+  let matchCount = 0;
+
+  for (const item of state.items) {
+    if (item.deletedAt) continue;
+    const template = item.template || "login";
+    if (template !== "login") continue;
+
+    let decrypted = state.decryptedItemsCache[item.id];
+    if (!decrypted) {
+      if (!state.masterPassword) continue;
+      if (!key) {
+        key = await deriveKey(state.masterPassword, state.userId || "");
+      }
+      try {
+        const raw = await decrypt(key, item.encryptedBlob);
+        decrypted = JSON.parse(raw) as DecryptedLoginPayload;
+        state.decryptedItemsCache[item.id] = decrypted;
+      } catch {
+        continue;
+      }
+    }
+
+    if (!decrypted.username && !decrypted.password) continue;
+
+    const candidateUrls = extractItemCandidateUrls(item, decrypted);
+    if (candidateUrls.length === 0) continue;
+
+    for (const cand of candidateUrls) {
+      const score = calculateDomainMatchScore(cand, currentHost, allowSubdomains);
+      if (score > 0) {
+        matchCount++;
+        break;
+      }
+    }
+  }
+
+  return matchCount;
+}
+
+async function updateTabBadge(tabId: number, url?: string) {
+  if (!tabId || tabId < 0) return;
+  try {
+    const enabled = await isBadgeCountEnabled();
+    if (!enabled || !state.isUnlocked || !url || !isWebPageUrl(url)) {
+      chrome.action.setBadgeText({ tabId, text: "" });
+      return;
+    }
+
+    const count = await getMatchingLoginsCount(url);
+    const badgeText = count > 0 ? (count > 99 ? "99+" : String(count)) : "";
+
+    chrome.action.setBadgeText({ tabId, text: badgeText });
+    chrome.action.setBadgeBackgroundColor({ tabId, color: "#2563eb" });
+    if (chrome.action.setBadgeTextColor) {
+      chrome.action.setBadgeTextColor({ tabId, color: "#ffffff" });
+    }
+  } catch {
+    // Ignore errors for closed or privileged tabs
+  }
+}
+
+async function updateAllTabBadges() {
+  try {
+    const enabled = await isBadgeCountEnabled();
+    if (!enabled || !state.isUnlocked) {
+      clearAllBadges();
+      return;
+    }
+
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id && tab.url) {
+        updateTabBadge(tab.id, tab.url);
+      }
+    }
+  } catch (err) {
+    console.warn("[Vaultr SW] updateAllTabBadges error:", err);
+  }
+}
+
+function clearAllBadges() {
+  try {
+    chrome.action.setBadgeText({ text: "" });
+    chrome.tabs.query({}, (tabs) => {
+      if (chrome.runtime.lastError || !tabs) return;
+      for (const tab of tabs) {
+        if (tab.id) {
+          try {
+            chrome.action.setBadgeText({ tabId: tab.id, text: "" });
+          } catch {}
+        }
+      }
+    });
+  } catch {}
+}
+
 // ─── Message Handler ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
       switch (message.type) {
@@ -442,6 +568,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           state.isUnlocked = true;
 
           await decryptAllItems();
+          updateAllTabBadges();
 
           // Save password strictly to in-memory session storage (destroyed when browser closes)
           await chrome.storage.session.set({ vaultr_master_password: masterPassword });
@@ -609,6 +736,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
         case "GET_LOGINS_FOR_DOMAIN": {
           const matches = await getLoginsForDomain(message.domain);
+          if (sender.tab?.id) {
+            updateTabBadge(sender.tab.id, sender.tab.url || message.domain);
+          }
           sendResponse({
             logins: matches.map(({ id, name, domain, url, username, password, totp, hasTotp, matchedDomain }) => ({
               id,
@@ -767,6 +897,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             newItem.unencryptedPayload = payload;
             state.items.unshift(newItem);
             state.decryptedItemsCache[newItem.id] = payload;
+            updateAllTabBadges();
             sendResponse({ success: true, item: newItem });
           } catch (err: any) {
             sendResponse({ error: err?.message || "Failed to save login" });
@@ -801,6 +932,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             const idx = state.items.findIndex((i) => i.id === itemId);
             if (idx !== -1) state.items[idx] = updatedItem;
             state.decryptedItemsCache[itemId] = updatedPayload;
+            updateAllTabBadges();
             sendResponse({ success: true, item: updatedItem });
           } catch (err: any) {
             sendResponse({ error: err?.message || "Failed to update password" });
@@ -869,6 +1001,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             newItem.unencryptedPayload = message.payload;
             state.items.unshift(newItem);
             state.decryptedItemsCache[newItem.id] = message.payload;
+            updateAllTabBadges();
             sendResponse({ success: true, item: newItem });
           } catch (err: any) {
             console.error("[Vaultr SW] SAVE_ITEM error:", err);
@@ -909,7 +1042,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             const index = state.items.findIndex((i) => i.id === id);
             if (index !== -1) state.items[index] = updatedItem;
             state.decryptedItemsCache[id] = payload;
-
+            updateAllTabBadges();
             sendResponse({ success: true, item: updatedItem });
           } catch (err: any) {
             console.error("[Vaultr SW] UPDATE_ITEM error:", err);
@@ -957,7 +1090,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
             state.items = state.items.filter((i) => i.id !== id);
             delete state.decryptedItemsCache[id];
-
+            updateAllTabBadges();
             sendResponse({ success: true });
           } catch (err: any) {
             sendResponse({ error: err?.message || "Failed to delete item" });
@@ -1372,6 +1505,23 @@ function normalizeCredentialId(id: string | undefined | null): string {
           break;
         }
 
+        case "PAGE_LOADED": {
+          if (sender.tab?.id) {
+            const url = message.url || sender.tab.url;
+            if (url) {
+              updateTabBadge(sender.tab.id, url);
+            }
+          }
+          sendResponse({ success: true });
+          break;
+        }
+
+        case "UPDATE_BADGES": {
+          await updateAllTabBadges();
+          sendResponse({ success: true });
+          break;
+        }
+
         default:
           sendResponse({ error: "Unknown message type" });
       }
@@ -1416,10 +1566,47 @@ function setupContextMenus() {
 
 chrome.runtime.onInstalled.addListener(() => {
   setupContextMenus();
+  tryRestoreSession().then(() => updateAllTabBadges());
 });
 
 chrome.runtime.onStartup?.addListener(() => {
   setupContextMenus();
+  tryRestoreSession().then(() => updateAllTabBadges());
+});
+
+// Tab listeners to maintain autofill suggestions badge on extension icon
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete" || changeInfo.url) {
+    const url = changeInfo.url || tab.url;
+    if (url) {
+      updateTabBadge(tabId, url);
+    }
+  }
+});
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab?.id && tab.url) {
+      updateTabBadge(tab.id, tab.url);
+    }
+  } catch {}
+});
+
+// React immediately when badge preference or domain matching toggles change
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local") {
+    if (changes.vaultr_show_badge_count !== undefined) {
+      const isEnabled = changes.vaultr_show_badge_count.newValue !== false;
+      if (!isEnabled) {
+        clearAllBadges();
+      } else {
+        updateAllTabBadges();
+      }
+    } else if (changes.vaultr_subdomain_matching !== undefined) {
+      updateAllTabBadges();
+    }
+  }
 });
 
 chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
