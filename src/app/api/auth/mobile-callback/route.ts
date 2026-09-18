@@ -119,7 +119,14 @@ export async function GET(req: NextRequest) {
     const appUrl = isValidAppUrl ? rawAppUrl : "vaultr://auth-callback";
 
     const joiner = appUrl.includes("?") ? "&" : "?";
-    const deepLink = `${appUrl}${joiner}token=${encodeURIComponent(token)}&id=${encodeURIComponent(userId)}`;
+    const queryParts = [
+      `token=${encodeURIComponent(token)}`,
+      `id=${encodeURIComponent(userId)}`,
+    ];
+    if (email) queryParts.push(`email=${encodeURIComponent(email)}`);
+    if (name) queryParts.push(`name=${encodeURIComponent(name)}`);
+    if (avatarUrl) queryParts.push(`avatarUrl=${encodeURIComponent(avatarUrl)}`);
+    const deepLink = `${appUrl}${joiner}${queryParts.join("&")}`;
 
     const html = `<!DOCTYPE html>
 <html>
