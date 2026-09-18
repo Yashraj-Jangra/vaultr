@@ -53,15 +53,19 @@ body {
 
 html[data-popup-width="normal"], html[data-popup-width="normal"] body {
   width: 380px;
+  height: 560px;
 }
 html[data-popup-width="wide"], html[data-popup-width="wide"] body {
   width: 460px;
+  height: 560px;
 }
 html[data-popup-width="wider"], html[data-popup-width="wider"] body {
   width: 540px;
+  height: 560px;
 }
 html[data-popup-width="extended"], html[data-popup-width="extended"] body {
   width: 620px;
+  height: 600px;
 }
 
 /* Scrollbar */

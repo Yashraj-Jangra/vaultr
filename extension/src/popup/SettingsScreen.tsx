@@ -40,6 +40,13 @@ import {
 
 export type PopupWidth = "normal" | "wide" | "wider" | "extended";
 
+export const POPUP_SIZE_MAP: Record<PopupWidth, { width: number; height: number }> = {
+  normal: { width: 380, height: 560 },
+  wide: { width: 460, height: 560 },
+  wider: { width: 540, height: 560 },
+  extended: { width: 620, height: 600 },
+};
+
 export const POPUP_WIDTH_MAP: Record<PopupWidth, number> = {
   normal: 380,
   wide: 460,
@@ -48,14 +55,16 @@ export const POPUP_WIDTH_MAP: Record<PopupWidth, number> = {
 };
 
 export function applyPopupWidth(width: PopupWidth | string) {
-  const px = POPUP_WIDTH_MAP[width as PopupWidth] || 380;
+  const size = POPUP_SIZE_MAP[width as PopupWidth] || POPUP_SIZE_MAP.normal;
   if (typeof document !== "undefined") {
     if (document.documentElement) {
-      document.documentElement.style.width = `${px}px`;
+      document.documentElement.style.width = `${size.width}px`;
+      document.documentElement.style.height = `${size.height}px`;
       document.documentElement.setAttribute("data-popup-width", String(width));
     }
     if (document.body) {
-      document.body.style.width = `${px}px`;
+      document.body.style.width = `${size.width}px`;
+      document.body.style.height = `${size.height}px`;
     }
   }
 }
@@ -1210,22 +1219,22 @@ export function SettingsScreen({ serverUrl, accountInfo, onUpdateServerUrl, onLo
             <div>
               <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Maximize2 size={13} style={{ color: "#38bdf8" }} />
-                Popup Width
+                Popup Size
               </div>
               <div className="settings-row-sub">Choose your preferred extension window size</div>
             </div>
             <span style={{ fontSize: 10.5, fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, background: "rgba(56, 189, 248, 0.12)", padding: "2px 7px", borderRadius: 6 }}>
-              {POPUP_WIDTH_MAP[popupWidth]}px
+              {POPUP_SIZE_MAP[popupWidth].width} × {POPUP_SIZE_MAP[popupWidth].height}px
             </span>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 10 }}>
             {(
               [
-                { id: "normal", label: "Normal", desc: "380px" },
-                { id: "wide", label: "Wide", desc: "460px" },
-                { id: "wider", label: "Wider", desc: "540px" },
-                { id: "extended", label: "Extended", desc: "620px" },
+                { id: "normal", label: "Normal", desc: "380×560" },
+                { id: "wide", label: "Wide", desc: "460×560" },
+                { id: "wider", label: "Wider", desc: "540×560" },
+                { id: "extended", label: "Extended", desc: "620×600" },
               ] as const
             ).map(({ id, label, desc }) => {
               const active = popupWidth === id;

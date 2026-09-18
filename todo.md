@@ -21,14 +21,15 @@
   - Updated Edge password & autofill settings URLs from deprecated `edge://settings/passwords` to `edge://settings/autofill/passwords/settings`.
   - Updated Chrome passkey settings URL to `chrome://password-manager/settings`.
   - Enhanced copied state tracking (`copiedKey`) so copying individual URLs displays isolated feedback per button.
-- **Extension Width Configuration (`extension/src/popup/SettingsScreen.tsx`, `extension/src/popup/App.tsx`, `extension/src/popup/index.tsx`, `extension/src/popup/popup.css`)**:
-  - Added new `DISPLAY & APPEARANCE` settings section with responsive segmented options: `Normal` (380px), `Wide` (460px), `Wider` (540px), and `Extended` (620px).
-  - Implemented dynamic popup resizing via `applyPopupWidth()` modifying `document.documentElement` and `document.body` widths in real-time.
+- **Extension Window Size Configuration (`extension/src/popup/SettingsScreen.tsx`, `extension/src/popup/App.tsx`, `extension/src/popup/index.tsx`, `extension/src/popup/popup.css`, `extension/public/popup.html`)**:
+  - Added new `DISPLAY & APPEARANCE` settings section with responsive segmented options: `Normal` (380×560), `Wide` (460×560), `Wider` (540×560), and `Extended` (620×600).
+  - Increased height to 600px (Chromium's maximum permitted extension popup height) specifically for `Extended` mode to maximize screen real estate.
+  - Implemented dynamic popup resizing via `applyPopupWidth()` modifying `document.documentElement` and `document.body` dimensions in real-time.
   - Persisted user selection to `chrome.storage.local` (`vaultr_popup_width`) with pre-render initialization in `index.tsx` to eliminate layout shift on subsequent opens.
   - Added `data-popup-width` attribute and matching CSS rules in `popup.css`.
 - **Verification**:
   - Extension TypeScript check: `npx tsc --noEmit` in `extension/` passed with 0 errors.
-  - Extension Webpack production build: `npm run build --prefix extension` compiled cleanly with 0 errors.
+  - Extension Webpack production build: `npm run build` compiled cleanly with 0 errors.
   - Root project TypeScript check: `npx tsc --noEmit` passed with 0 errors.
 
 ### ✅ What Was Done (Phase 20: Fix Mobile Stale Biometrics on Master Password Change)
