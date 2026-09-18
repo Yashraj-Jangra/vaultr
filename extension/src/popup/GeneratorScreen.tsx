@@ -305,6 +305,7 @@ export function GeneratorScreen() {
             <button
               type="button"
               onClick={copy}
+              className={copied ? "animate-pop" : ""}
               style={{
                 display: "flex",
                 alignItems: "center",

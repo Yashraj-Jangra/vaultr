@@ -1,4 +1,37 @@
-## Current Session: Extension Settings Redesign & Segregation (2026-09-19) · Branch: `dev`
+## Current Session: Extension Smooth Animations & Motion Polish (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 24: Smooth Animations Throughout the Extension)
+- **Mobile-Quality Motion System (`extension/src/popup/popup.css`)**:
+  - Designed and implemented a cohesive GPU-accelerated motion system with spring easing (`cubic-bezier(0.16, 1, 0.3, 1)`):
+    - `@keyframes screen-enter`: 0.24s fade + subtle translateY(8px) entrance for top-level screens.
+    - `@keyframes slide-in-right`: 0.22s directional slide + fade from right for folder drill-downs.
+    - `@keyframes slide-in-left`: 0.22s directional slide + fade from left when returning to root list.
+    - `@keyframes list-item-in`: staggered reveal with CSS custom property `--i` (26ms delay multiplier per item, capped at 12).
+    - `@keyframes slide-up`: 0.28s spring slide-up from bottom for New Entry & Edit overlays.
+    - `@keyframes pop`: snappy 0.24s scale-pop feedback for copy checkmark and interactive confirmations.
+    - `@keyframes nav-underline`: animated 24px wide underline transition on bottom navigation tab selection.
+  - Enhanced micro-transitions with spring physics:
+    - `.toggle-slider::before`: spring transition on knob travel (`0.22s cubic-bezier(0.16, 1, 0.3, 1)`) + active scale-down for tactile feedback.
+    - `.settings-folder-back-btn`: spring hover nudge (`translateX(-2px)`) and active press (`scale(0.94)`).
+    - `.mobile-settings-row`: smooth background color + spring press feedback (`scale(0.985)`) + icon zoom on hover (`scale(1.05)`).
+    - `.theme-card-option`: hover lift (`translateY(-2px)`) and active press feedback (`scale(0.97)`).
+    - `.item-row`: smooth hover fade + active press feedback (`scale(0.99)`).
+  - 100% gated by the existing `html[data-animations="disabled"] * { animation: none !important; transition: none !important; }` global guard tied to the "Show animations" setting.
+- **Settings Screen Transitions (`extension/src/popup/SettingsScreen.tsx`)**:
+  - Added directional state management (`animDir`, `animKey`) with `navigateToFolder` and `navigateBack`.
+  - Applied `.animate-slide-right` on folder entrance and `.animate-slide-left` on returning to root list.
+  - Applied `.animate-list-item` with staggered `--i` delays across root settings folder rows and sub-folder card sections.
+- **Tab & Overlay Transitions (`extension/src/popup/App.tsx`)**:
+  - Wrapped Vault, Generator, and Settings screens in `.animate-screen-enter` containers keyed by active tab for buttery tab switching.
+  - Applied `.animate-slide-up` to New Entry & Edit item slide-up overlays.
+- **Vault & Generator Screen Polish (`extension/src/popup/VaultScreen.tsx`, `extension/src/popup/GeneratorScreen.tsx`, `extension/src/popup/UnlockScreen.tsx`)**:
+  - Applied staggered `.animate-list-item` to Vault credentials list items.
+  - Added `.animate-pop` to Copy button checkmarks across Vault items and password generator.
+  - Applied `.animate-screen-enter` to the UnlockScreen container for smooth popup launch.
+- **Verification**:
+  - `npx tsc --noEmit` in `extension/`: 0 errors.
+  - `npm run build` in `extension/`: 0 errors (webpack compiled clean).
+  - Root `npx tsc --noEmit`: 0 errors.
 
 ### ✅ What Was Done (Phase 23: Browser Extension Settings Redesign & Segregation)
 - **Mobile-Style Folder Architecture & Header Polish (`extension/src/popup/SettingsScreen.tsx`, `extension/src/popup/popup.css`)**:

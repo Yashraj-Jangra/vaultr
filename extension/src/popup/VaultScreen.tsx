@@ -142,7 +142,7 @@ function CopyBtn({ value }: { value: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="detail-action-btn"
+      className={`detail-action-btn${copied ? " animate-pop" : ""}`}
       title="Copy value"
     >
       {copied ? <Check size={12} style={{ color: "#10b981" }} /> : <Copy size={12} />}
@@ -304,9 +304,10 @@ interface ItemRowProps {
   onDelete: (id: string) => Promise<void>;
   onToggleFavorite?: (id: string) => void;
   isCurrentSiteMatch?: boolean;
+  index?: number;
 }
 
-function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavorite, isCurrentSiteMatch }: ItemRowProps) {
+function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavorite, isCurrentSiteMatch, index }: ItemRowProps) {
   const [decrypted, setDecrypted] = useState<any>(item.unencryptedPayload || null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -407,7 +408,10 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
   }, [isLogin, item.template, payload]);
 
   return (
-    <div className={`item-container${expanded ? " expanded" : ""}`}>
+    <div
+      className={`item-container${expanded ? " expanded" : ""} animate-list-item`}
+      style={{ "--i": Math.min(index ?? 0, 12) } as React.CSSProperties}
+    >
       {/* Main Row */}
       <div
         className="item-row"
@@ -945,10 +949,11 @@ export function VaultScreen({
               <span>{activeTabDomain}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {matchedItems.map((item) => (
+              {matchedItems.map((item, idx) => (
                 <ItemRow
                   key={`match-${item.id}`}
                   item={item}
+                  index={idx}
                   onDecrypt={onDecryptItem}
                   onAutofill={onAutofill}
                   onEdit={onEditItem}
@@ -976,10 +981,11 @@ export function VaultScreen({
               <div className="section-label">All Items</div>
             )}
             <div className="items-list">
-              {shownItems.map((item) => (
+              {shownItems.map((item, idx) => (
                 <ItemRow
                   key={item.id}
                   item={item}
+                  index={idx}
                   onDecrypt={onDecryptItem}
                   onAutofill={onAutofill}
                   onEdit={onEditItem}

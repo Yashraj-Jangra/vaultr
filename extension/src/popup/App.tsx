@@ -333,31 +333,42 @@ export function App() {
       {/* Main Tabs Container */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
         {activeTab === "vault" && (
-          <VaultScreen
-            items={items}
-            onDecryptItem={(blob) => handleDecryptItem(blob)}
-            onAutofill={handleAutofill}
-            onEditItem={handleEditTrigger}
-            onDeleteItem={handleDeleteItem}
-            onToggleFavorite={handleToggleFavorite}
-            onAddNew={() => setIsNewEntryOpen(true)}
-          />
+          <div key="vault" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <VaultScreen
+              items={items}
+              onDecryptItem={(blob) => handleDecryptItem(blob)}
+              onAutofill={handleAutofill}
+              onEditItem={handleEditTrigger}
+              onDeleteItem={handleDeleteItem}
+              onToggleFavorite={handleToggleFavorite}
+              onAddNew={() => setIsNewEntryOpen(true)}
+            />
+          </div>
         )}
-        {activeTab === "generator" && <GeneratorScreen />}
+        {activeTab === "generator" && (
+          <div key="generator" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <GeneratorScreen />
+          </div>
+        )}
         {activeTab === "settings" && (
-          <SettingsScreen
-            serverUrl={serverUrl}
-            accountInfo={accountInfo}
-            onUpdateServerUrl={handleUpdateServerUrl}
-            onLock={handleLock}
-            currentTheme={theme}
-            onThemeChange={handleThemeChange}
-          />
+          <div key="settings" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <SettingsScreen
+              serverUrl={serverUrl}
+              accountInfo={accountInfo}
+              onUpdateServerUrl={handleUpdateServerUrl}
+              onLock={handleLock}
+              currentTheme={theme}
+              onThemeChange={handleThemeChange}
+            />
+          </div>
         )}
 
         {/* Slide-up overlays */}
         {(isNewEntryOpen || editingItem) && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div
+            className="animate-slide-up"
+            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}
+          >
             <ErrorBoundary>
               <NewEntryForm
                 folders={combinedFolders}

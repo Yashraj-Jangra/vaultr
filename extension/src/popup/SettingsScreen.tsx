@@ -197,6 +197,20 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   // Folder state: null means root mobile folder list; otherwise the active folder view
   const [activeFolder, setActiveFolder] = useState<SettingsTab | null>(null);
+  const [animDir, setAnimDir] = useState<"right" | "left" | null>(null);
+  const [animKey, setAnimKey] = useState(0);
+
+  const navigateToFolder = (folder: SettingsTab) => {
+    setAnimDir("right");
+    setAnimKey((k) => k + 1);
+    setActiveFolder(folder);
+  };
+
+  const navigateBack = () => {
+    setAnimDir("left");
+    setAnimKey((k) => k + 1);
+    setActiveFolder(null);
+  };
 
   // Autofill section state (all default ON)
   const [autofillEnabled, setAutofillEnabled] = useState(true);
@@ -796,7 +810,11 @@ export function SettingsScreen({
           VIEW A: ROOT FOLDERS LIST (Simple folder layout like in mobile)
          ════════════════════════════════════════════════════════════════════ */}
       {activeFolder === null ? (
-        <div className="screen-body" style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div
+          key={`root-${animKey}`}
+          className={`screen-body ${animDir === "left" ? "animate-slide-left" : "animate-screen-enter"}`}
+          style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 14 }}
+        >
           {/* Account Profile Header - Minimal, No Div Box, Bigger Avatar */}
           <div
             onClick={() => openSite("/settings")}
@@ -862,8 +880,9 @@ export function SettingsScreen({
             <div className="mobile-settings-group">
               {/* Folder 1: Autofill */}
               <div
-                className="mobile-settings-row"
-                onClick={() => setActiveFolder("autofill")}
+                className="mobile-settings-row animate-list-item"
+                style={{ "--i": 0 } as React.CSSProperties}
+                onClick={() => navigateToFolder("autofill")}
               >
                 <div className="mobile-settings-icon-wrap" style={{ background: "rgba(56, 189, 248, 0.12)", color: "#38bdf8" }}>
                   <KeyRound size={17} />
@@ -879,8 +898,9 @@ export function SettingsScreen({
 
               {/* Folder 2: Account Security */}
               <div
-                className="mobile-settings-row"
-                onClick={() => setActiveFolder("security")}
+                className="mobile-settings-row animate-list-item"
+                style={{ "--i": 1 } as React.CSSProperties}
+                onClick={() => navigateToFolder("security")}
               >
                 <div className="mobile-settings-icon-wrap" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10b981" }}>
                   <ShieldCheck size={17} />
@@ -896,8 +916,9 @@ export function SettingsScreen({
 
               {/* Folder 3: Themes & Appearance */}
               <div
-                className="mobile-settings-row"
-                onClick={() => setActiveFolder("themes")}
+                className="mobile-settings-row animate-list-item"
+                style={{ "--i": 2 } as React.CSSProperties}
+                onClick={() => navigateToFolder("themes")}
               >
                 <div className="mobile-settings-icon-wrap" style={{ background: "rgba(168, 85, 247, 0.12)", color: "#a855f7" }}>
                   <Palette size={17} />
@@ -913,8 +934,9 @@ export function SettingsScreen({
 
               {/* Folder 4: About VaultR */}
               <div
-                className="mobile-settings-row"
-                onClick={() => setActiveFolder("about")}
+                className="mobile-settings-row animate-list-item"
+                style={{ "--i": 3 } as React.CSSProperties}
+                onClick={() => navigateToFolder("about")}
               >
                 <div className="mobile-settings-icon-wrap" style={{ background: "rgba(245, 158, 11, 0.12)", color: "#f59e0b" }}>
                   <Info size={17} />
@@ -1021,7 +1043,7 @@ export function SettingsScreen({
             <button
               type="button"
               className="settings-folder-back-btn"
-              onClick={() => setActiveFolder(null)}
+              onClick={navigateBack}
               title="Back to Settings"
             >
               <ChevronLeft size={17} />
@@ -1036,18 +1058,23 @@ export function SettingsScreen({
           </div>
 
           {/* Full-width scrollable folder contents */}
-          <div className="screen-body" style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div
+            key={`folder-${activeFolder}-${animKey}`}
+            className={`screen-body ${animDir === "right" ? "animate-slide-right" : "animate-screen-enter"}`}
+            style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 12 }}
+          >
             {/* ─── FOLDER: AUTOFILL ─── */}
             {activeFolder === "autofill" && (
               <>
                 {/* Make VaultR Default Password Manager card */}
                 {browserOverrideSupported && (
                   <div
-                    className="settings-card"
+                    className="settings-card animate-list-item"
                     style={{
+                      "--i": 0,
                       border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
                       background: browserOverrideActive ? "rgba(16, 185, 129, 0.03)" : "var(--surface)",
-                    }}
+                    } as React.CSSProperties}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ flex: 1 }}>
@@ -1121,7 +1148,7 @@ export function SettingsScreen({
                 )}
 
                 {/* Autofill Preferences Group */}
-                <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                <div className="settings-card animate-list-item" style={{ "--i": 1, padding: 0, overflow: "hidden" } as React.CSSProperties}>
                   {/* Suggest credentials */}
                   <div className="settings-row">
                     <div>
@@ -1230,7 +1257,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Keyboard Shortcuts Card */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 2 } as React.CSSProperties}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 8, textTransform: "uppercase" }}>
                     Keyboard Shortcuts
                   </div>
@@ -1257,7 +1284,7 @@ export function SettingsScreen({
               <>
                 {/* Biometric Unlock Card */}
                 {biometricsSupported && (
-                  <div className="settings-card">
+                  <div className="settings-card animate-list-item" style={{ "--i": 0 } as React.CSSProperties}>
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -1300,10 +1327,11 @@ export function SettingsScreen({
 
                 {/* Quick PIN Unlock Card */}
                 <div
-                  className="settings-card"
+                  className="settings-card animate-list-item"
                   style={{
+                    "--i": 1,
                     border: `1px solid ${pinEnabled ? "rgba(56, 189, 248, 0.3)" : "var(--border)"}`,
-                  }}
+                  } as React.CSSProperties}
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                     <div style={{ flex: 1 }}>
@@ -1393,7 +1421,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Auto-lock timeout Card */}
-                <div className="settings-card" style={{ padding: "10px 14px" }}>
+                <div className="settings-card animate-list-item" style={{ "--i": 2, padding: "10px 14px" } as React.CSSProperties}>
                   <div className="settings-row" style={{ padding: 0 }}>
                     <div>
                       <div className="settings-row-label">Auto-lock timeout</div>
@@ -1417,7 +1445,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Passkeys & Hardware Security */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 3 } as React.CSSProperties}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -1442,7 +1470,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Sessions & Devices Accordion */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 4 } as React.CSSProperties}>
                   <div
                     style={{
                       display: "flex",
@@ -1636,7 +1664,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Change Master Password Accordion */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 5 } as React.CSSProperties}>
                   <div
                     style={{
                       display: "flex",
@@ -1765,8 +1793,8 @@ export function SettingsScreen({
 
                 {/* Lock Vault Button */}
                 <button
-                  className="btn btn-danger"
-                  style={{ width: "100%", height: 36, justifyContent: "center", borderRadius: 10, fontSize: 12, fontWeight: 500, marginTop: 4 }}
+                  className="btn btn-danger animate-list-item"
+                  style={{ width: "100%", height: 36, justifyContent: "center", borderRadius: 10, fontSize: 12, fontWeight: 500, marginTop: 4, "--i": 6 } as React.CSSProperties}
                   onClick={onLock}
                 >
                   <Lock size={13} style={{ marginRight: 4 }} />
@@ -1779,7 +1807,7 @@ export function SettingsScreen({
             {activeFolder === "themes" && (
               <>
                 {/* Theme Picker */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 0 } as React.CSSProperties}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)", display: "flex", alignItems: "center", gap: 6 }}>
                     <Palette size={14} style={{ color: "#38bdf8" }} />
                     Color Theme
@@ -1828,7 +1856,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Popup Window Size */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 1 } as React.CSSProperties}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                     <div>
                       <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1882,7 +1910,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Interface Toggles Card */}
-                <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                <div className="settings-card animate-list-item" style={{ "--i": 2, padding: 0, overflow: "hidden" } as React.CSSProperties}>
                   {/* Show suggestions badge count on extension icon */}
                   <div className="settings-row">
                     <div>
@@ -1925,7 +1953,9 @@ export function SettingsScreen({
               <>
                 {/* VaultR Wide Logo Branding Hero */}
                 <div
+                  className="settings-card animate-list-item"
                   style={{
+                    "--i": 0,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -1935,7 +1965,7 @@ export function SettingsScreen({
                     border: "1px solid var(--border)",
                     borderRadius: 14,
                     gap: 8,
-                  }}
+                  } as React.CSSProperties}
                 >
                   <img
                     src={activeTheme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
@@ -1996,7 +2026,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Server Connection URL */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 1 } as React.CSSProperties}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                     <Globe size={13} style={{ color: "#38bdf8" }} />
                     Server Connection
@@ -2035,7 +2065,7 @@ export function SettingsScreen({
                 </div>
 
                 {/* Documentation & Resources Links */}
-                <div className="settings-card">
+                <div className="settings-card animate-list-item" style={{ "--i": 2 } as React.CSSProperties}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 6, textTransform: "uppercase" }}>
                     Resources & Support
                   </div>

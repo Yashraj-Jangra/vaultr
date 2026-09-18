@@ -262,7 +262,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
   }
 
   return (
-    <div className="unlock-wrap" style={{ padding: unlockMode === "pin" ? "20px 24px 16px" : "32px 24px" }}>
+    <div className="unlock-wrap animate-screen-enter" style={{ padding: unlockMode === "pin" ? "20px 24px 16px" : "32px 24px" }}>
       {/* Decorative Grid & Glow matching site */}
       <div className="unlock-bg-grid" />
       <div className="unlock-bg-radial" />
