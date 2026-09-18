@@ -1,3 +1,37 @@
+## Current Session: Medium Severity Issues & Edge Cases (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 26: Medium Severity Ecosystem Issues & Parity Hardening)
+- **Fix 1 — Trailing Slash Normalization in Extension Service Worker (`extension/src/background/service-worker.ts`)**:
+  - Created centralized `normalizeServerUrl(url)` and `getServerBaseUrl()` helpers that trim and strip trailing slashes.
+  - Normalized `state.serverUrl` on startup, in `SET_SERVER_URL`, and in `getApiClient()`, preventing duplicate slashes (`//api/me`, `//api/vault/folders`) that break reverse proxies.
+  - *Commit*: `aa16eab` (`🌐 normalize extension server url and strip trailing slashes`)
+- **Fix 2 — Custom Empty Folders in Extension Vault Filter (`extension/src/popup/App.tsx`, `extension/src/popup/VaultScreen.tsx`)**:
+  - Passed server custom folders array (`folders`) from `App.tsx` down to `VaultScreen`.
+  - Merged server-defined custom folders with item-derived folders into a unified, deduplicated, sorted list so empty folders created on Web/Mobile appear in the extension filter.
+  - *Commit*: `67a8494` (`✨ show custom server folders in extension vault filter`)
+- **Fix 3 — Imported & Legacy Notes Display Parity (`extension/src/popup/VaultScreen.tsx`)**:
+  - Updated the private notes section for non-note templates (`login`, `card`, `address`, `profile`) to check `decrypted.entryNotes || decrypted.note`.
+  - Enables immediate viewing and copying of notes imported from Bitwarden/1Password or created in mobile where `payload.note` is used.
+  - *Commit*: `582fa0c` (`🎨 display imported and legacy notes for non-note items in extension`)
+- **Fix 4 — Session Storage & Idle Timer Throttling (`src/hooks/useVaultSession.ts`, `src/context/VaultContext.tsx`)**:
+  - Throttled `refreshVaultSession` writes in `useVaultSession.ts` to at most once per 30 seconds unless forced, eliminating synchronous serialization overhead.
+  - Throttled activity event handling (`mousemove`, `keydown`, `scroll`, etc.) in `VaultContext.tsx` to at most once every 2 seconds, preventing main-thread stuttering during cursor navigation.
+  - *Commit*: `e07a9b9` (`⚡ throttle session storage refreshes and idle activity events`)
+- **Fix 5 — Extension Runtime lastError Warning Suppression (`extension/src/popup/App.tsx`)**:
+  - Added `if (chrome.runtime.lastError) return;` across all `chrome.runtime.sendMessage` and `chrome.tabs.sendMessage` callbacks in the popup.
+  - Completely silenced `Unchecked runtime.lastError: The message port closed before a response was received` console warnings on popup dismissal.
+  - *Commit*: `2d18d92` (`🩹 guard chrome runtime lastError across extension popup callbacks`)
+- **Fix 6 — Mobile Remote Password Change Stale PIN Fallback (`mobile/src/screens/UnlockScreen.tsx`)**:
+  - Wrapped `unlock(res.password)` in a dedicated try/catch inside `handlePinSubmit`.
+  - When PIN decryption succeeds with an obsolete master password changed remotely, automatically clears the stale PIN via `clearPin()`, switches to `"password"` unlock mode, and displays an informative alert to the user.
+  - *Commit*: `9df37b9` (`📱 add stale pin detection and password fallback on mobile`)
+- **Fix 7 — Accurate Password Target Selection on Change-Password Forms (`extension/src/content-script/autofill.ts`)**:
+  - Implemented `findTargetPasswordField()` to detect `autocomplete="new-password"` or analyze field position in 3-field change-password forms (Old, New, Confirm).
+  - Ensures password save and update prompts capture the newly entered password rather than the old/current password.
+  - *Commit*: `4d6b683` (`🧩 detect new password field accurately on change password forms`)
+
+---
+
 ## Current Session: Critical Ecosystem Bug Fixes & Hardening (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 25: Critical Ecosystem Bug Fixes & Parity Hardening)
