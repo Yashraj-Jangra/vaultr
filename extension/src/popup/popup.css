@@ -1078,7 +1078,7 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 4px 2px;
+  padding: 10px 14px;
 }
 
 .settings-row > div:first-child {
@@ -1087,15 +1087,23 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
 }
 
 .settings-row-label {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  color: var(--neutral-200);
+  color: var(--neutral-100);
+  letter-spacing: -0.01em;
 }
 
 .settings-row-sub {
   font-size: 11px;
-  color: var(--neutral-600);
+  color: var(--neutral-400);
   margin-top: 2px;
+  line-height: 1.35;
+}
+
+.settings-row-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 14px;
 }
 
 /* ─── SVG Lock Screen Halo & Align ────────────────────────────────────────── */
@@ -1860,6 +1868,106 @@ textarea.form-input {
   white-space: nowrap;
   margin-top: 1px;
 }
+
+/* ─── Mobile-Style Settings Folders & Header ─────────────────────────────── */
+
+.mobile-settings-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.mobile-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.mobile-settings-row:hover {
+  background: var(--surface-2);
+}
+
+.mobile-settings-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mobile-settings-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-settings-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-100);
+}
+
+.mobile-settings-sub {
+  font-size: 11px;
+  color: var(--neutral-400);
+  margin-top: 1px;
+  line-height: 1.35;
+}
+
+.mobile-settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 14px;
+}
+
+.settings-folder-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.settings-folder-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--neutral-400);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.settings-folder-back-btn:hover {
+  background: var(--surface-2);
+  color: var(--neutral-100);
+  border-color: var(--border-hover);
+}
+
+.settings-folder-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neutral-100);
+  letter-spacing: -0.01em;
+  text-align: center;
+  flex: 1;
+}
+
 
 .settings-container {
   display: flex;
