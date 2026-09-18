@@ -8,6 +8,8 @@ import { userProfiles } from "@/db/schema";
 import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+import { deleteAvatar, deleteAllUserAttachments } from "@/lib/storage";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ uid: string }> }  // Next.js 16 — dynamic params are Promises
@@ -65,7 +67,13 @@ export async function PATCH(
         return NextResponse.json({ success: true, message: "All active sessions revoked" });
 
       case "delete":
-        // Better Auth admin delete — removes user + all their sessions
+        // 1. Purge user avatar and encrypted file attachments from MinIO S3 before deleting database records
+        await Promise.all([
+          deleteAvatar(uid).catch(() => {}),
+          deleteAllUserAttachments(uid).catch(() => {}),
+        ]);
+
+        // 2. Better Auth admin delete — removes user + cascades to db tables (vault_items, attachments rows, sessions)
         await auth.api.removeUser({
           body: {
             userId: uid,
