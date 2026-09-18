@@ -1,3 +1,16 @@
+## Current Session: iOS Configuration & Cross-Platform Parity (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 27: iOS Target Configuration & Lifecycle Resilience)
+- **iOS Manifest & EAS Configuration (`mobile/app.json`, `mobile/eas.json`)**:
+  - Added `"ios"` section to `mobile/app.json` with required `bundleIdentifier: "com.vaultr.mobile"`, `buildNumber: "10"`, `supportsTablet: true`, and complete permission strings (`NSFaceIDUsageDescription`, `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`).
+  - Added iOS simulator build profile to `mobile/eas.json` under `preview` (`"ios": { "simulator": true }`) and App Store distribution profile under `production`.
+- **iOS Face ID Auto-Lock Infinite Loop Prevention (`mobile/src/services/autoLock.ts`)**:
+  - Updated `AppState` change listener to only register `lastBackgroundTimestamp` when transitioning to true `"background"`.
+  - Excluded transitional `"inactive"` state, preventing iOS Face ID / system prompt presentations from triggering an immediate lock loop when auto-lock timeout is set to "Immediate".
+  - *Commit*: `c857f4c` (`📱 configure ios bundle target and fix immediate autolock on ios`)
+
+---
+
 ## Current Session: Medium Severity Issues & Edge Cases (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 26: Medium Severity Ecosystem Issues & Parity Hardening)
