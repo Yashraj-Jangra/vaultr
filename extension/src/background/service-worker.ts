@@ -176,6 +176,13 @@ async function tryRestoreSession(): Promise<boolean> {
     if (!userId) {
       // User logged out of device / web session expired
       lockVault();
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.remove([
+          "vaultr_pin_blob",
+          "vaultr_pin_enabled",
+          "vaultr_pin_failed_attempts",
+        ]).catch(() => {});
+      }
       return false;
     }
 
@@ -660,9 +667,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // 6. Refresh decrypted cache with new key
             await decryptAllItems();
 
-            // 7. Reset biometric enrollment if enrolled since old key wrapped old password
+            // 7. Reset biometric & PIN enrollment if enrolled since old key wrapped old password
             if (typeof chrome !== "undefined" && chrome.storage?.local) {
-              await chrome.storage.local.remove(["vaultr_biometric_enrolled", "vaultr_biometric_blob"]);
+              await chrome.storage.local.remove([
+                "vaultr_biometric_enrolled",
+                "vaultr_biometric_blob",
+                "vaultr_pin_blob",
+                "vaultr_pin_enabled",
+                "vaultr_pin_failed_attempts",
+              ]);
             }
 
             // 8. Update lastPasswordChangedAt on server profile
