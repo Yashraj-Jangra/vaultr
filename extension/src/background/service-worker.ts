@@ -26,6 +26,17 @@ import {
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
 
+function normalizeServerUrl(url?: string | null): string {
+  if (!url || typeof url !== "string") return DEFAULT_SERVER_URL;
+  const trimmed = url.trim();
+  if (!trimmed) return DEFAULT_SERVER_URL;
+  return trimmed.replace(/\/+$/, "");
+}
+
+function getServerBaseUrl(): string {
+  return normalizeServerUrl(state.serverUrl);
+}
+
 interface ServiceWorkerState {
   serverUrl: string;
   masterPassword: string | null;
@@ -59,7 +70,7 @@ function isMicrosoftEdge(): boolean {
 // Initialize server URL from local storage and restore browser override
 chrome.storage.local.get(["vaultr_server_url", "autolock_minutes", "vaultr_default_manager"], (result) => {
   if (result.vaultr_server_url) {
-    state.serverUrl = result.vaultr_server_url;
+    state.serverUrl = normalizeServerUrl(result.vaultr_server_url);
   }
   touchAutoLock(result.autolock_minutes || "15");
 
@@ -129,7 +140,7 @@ function lockVault() {
 
 async function getApiClient(): Promise<VaultrApiClient> {
   const { vaultr_server_url } = await chrome.storage.local.get("vaultr_server_url");
-  return new VaultrApiClient({ baseUrl: vaultr_server_url || DEFAULT_SERVER_URL });
+  return new VaultrApiClient({ baseUrl: normalizeServerUrl(vaultr_server_url || state.serverUrl) });
 }
 
 // Helper to restore session from in-memory session storage if valid
@@ -489,15 +500,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await tryRestoreSession();
           sendResponse({
             isUnlocked: state.isUnlocked,
-            serverUrl: state.serverUrl,
+            serverUrl: getServerBaseUrl(),
             itemCount: state.items.length,
           });
           break;
         }
 
         case "SET_SERVER_URL": {
-          state.serverUrl = message.serverUrl;
-          await chrome.storage.local.set({ vaultr_server_url: message.serverUrl });
+          const clean = normalizeServerUrl(message.serverUrl);
+          state.serverUrl = clean;
+          await chrome.storage.local.set({ vaultr_server_url: clean });
           sendResponse({ success: true });
           break;
         }
@@ -526,7 +538,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // Fetch account info from the server to get user ID for salt
           let userId = "";
           try {
-            const accountRes = await globalThis.fetch(`${state.serverUrl}/api/me`, {
+            const cleanUrl = getServerBaseUrl();
+            const accountRes = await globalThis.fetch(`${cleanUrl}/api/me`, {
               credentials: "include",
             });
             if (accountRes.ok) {
@@ -1152,7 +1165,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
           try {
             const api = await getApiClient();
-            const res = await globalThis.fetch(`${state.serverUrl}/api/vault/folders`, { credentials: "include" });
+            const cleanUrl = getServerBaseUrl();
+            const res = await globalThis.fetch(`${cleanUrl}/api/vault/folders`, { credentials: "include" });
             if (res.ok) {
               const data = await res.json();
               sendResponse({ folders: data.folders || [] });
@@ -1604,7 +1618,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
             break;
           }
           try {
-            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const cleanUrl = getServerBaseUrl();
             const res = await globalThis.fetch(`${cleanUrl}/api/settings/sessions`, {
               credentials: "include",
             });
@@ -1628,7 +1642,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
             break;
           }
           try {
-            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const cleanUrl = getServerBaseUrl();
             const sid = encodeURIComponent(message.sessionId || "");
             const res = await globalThis.fetch(`${cleanUrl}/api/settings/sessions/${sid}`, {
               method: "DELETE",
@@ -1653,7 +1667,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
             break;
           }
           try {
-            const cleanUrl = state.serverUrl.replace(/\/+$/, "");
+            const cleanUrl = getServerBaseUrl();
             const res = await globalThis.fetch(`${cleanUrl}/api/settings/sessions`, {
               method: "DELETE",
               credentials: "include",
