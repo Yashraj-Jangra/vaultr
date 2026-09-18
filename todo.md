@@ -1,3 +1,39 @@
+## Current Session: Critical Ecosystem Bug Fixes & Hardening (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 25: Critical Ecosystem Bug Fixes & Parity Hardening)
+- **Fix 1 — Extension PIN Wipe Protection (`extension/src/background/service-worker.ts`)**:
+  - Guarded `tryRestoreSession()` against wiping stored PIN data on transient network errors, timeouts, or temporary offline status.
+  - Ensured credentials (`vaultr_pin_blob`, `vaultr_pin_enabled`, `vaultr_pin_failed_attempts`) are only cleared when the server explicitly returns an HTTP 401 or 403 unauthorized response.
+  - *Commit*: `dd54977` (`🛡️ prevent pin wipe on transient network errors in extension`)
+- **Fix 2 — Active Sessions Management in Extension (`extension/src/background/service-worker.ts`)**:
+  - Implemented missing background message handlers for `GET_SESSIONS`, `REVOKE_SESSION`, and `REVOKE_ALL_SESSIONS`.
+  - Wired handlers to `/api/settings/sessions`, enabling the extension's Account Security UI to fetch active sessions, revoke individual client sessions, and revoke all other sessions.
+  - *Commit*: `dd123d1` (`🌐 add active sessions management handlers to extension service worker`)
+- **Fix 3 — Mobile OAuth Callback User Profile Metadata (`src/app/api/auth/mobile-callback/route.ts`)**:
+  - Appended user profile fields (`email`, `name`, `avatarUrl`) as query parameters to the mobile app redirect URL scheme (`vaultr://auth/callback`).
+  - Allows `mobile/src/store/vaultStore.ts` to immediately populate user profile metadata upon Google / OAuth login without requiring an extra roundtrip fetch.
+  - *Commit*: `1713612` (`📱 include user profile metadata in mobile oauth callback deep link`)
+- **Fix 4 — Passkey Account Overwrite Guard (`extension/src/background/service-worker.ts`)**:
+  - Enforced dual domain and username (`targetUser`) matching in `WEBAUTHN_CREATE` before updating an existing vault item with newly registered passkey credentials.
+  - Prevents secondary or separate accounts under the same domain from overwriting the primary user's vault entry.
+  - *Commit*: `99afd1c` (`🔑 prevent passkey account overwrite for matching domain`)
+- **Fix 5 — Content Script Autofill Preferences & Form Auto-Submit (`extension/src/content-script/autofill.ts`)**:
+  - Added form auto-submission logic in `fillCredential()` respecting the `autofill_submit` setting with a 150ms delay for framework state reconciliation.
+  - Verified `autofill_enabled` setting before showing suggestion dropdowns on focus.
+  - Verified `vaultr_prompt_save` and `vaultr_prompt_update` settings before displaying credential capture overlays.
+  - Filtered out eye/reveal toggle buttons and cancel/close buttons in submit click detection.
+  - *Commit*: `806be91` (`🧩 enforce autofill preferences and auto-submit in content script`)
+- **Fix 6 — Admin User Deletion S3 Storage Purge (`src/app/api/admin/users/[uid]/route.ts`, `src/lib/storage.ts`)**:
+  - Added `deleteAvatar(uid)` and `deleteAllUserAttachments(uid)` to the admin user deletion route before removing Better Auth user records.
+  - Enhanced `deleteAvatar` in `src/lib/storage.ts` to delete all objects by user prefix from `AVATAR_BUCKET`, preventing orphaned S3 blobs.
+  - *Commit*: `8239be4` (`🗄️ purge s3 attachments and avatar when admin deletes user`)
+- **Fix 7 — Extension Soft-Delete / Trash Parity (`extension/src/background/service-worker.ts`)**:
+  - Aligned `DELETE_ITEM` in the extension with Web and Mobile by soft-deleting items to Trash (`deletedAt: ISO timestamp`) via `api.updateItem(id, { deletedAt })`.
+  - Added support for permanent deletion (`permanent: true`) and added `RESTORE_ITEM` message handler.
+  - *Commit*: `2c8e1e2` (`♻️ align extension item deletion with vault trash parity`)
+
+---
+
 ## Current Session: Extension Smooth Animations & Motion Polish (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 24: Smooth Animations Throughout the Extension)
