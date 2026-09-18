@@ -108,11 +108,13 @@ export function App() {
 
   const fetchItems = () => {
     chrome.runtime.sendMessage({ type: "GET_ITEMS" }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.items) {
         setItems(res.items);
       }
     });
     chrome.runtime.sendMessage({ type: "GET_FOLDERS" }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.folders) {
         const mappedFolders = res.folders.map((f: any) => typeof f === "string" ? f : f.name);
         setFolders(mappedFolders);
@@ -122,6 +124,7 @@ export function App() {
 
   const fetchAccountInfo = () => {
     chrome.runtime.sendMessage({ type: "GET_ACCOUNT_INFO" }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.account) {
         setAccountInfo(res.account);
       }
@@ -131,6 +134,10 @@ export function App() {
   const handleUnlock = (password: string): Promise<void> =>
     new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: "UNLOCK", masterPassword: password }, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || "Failed to communicate with extension"));
+          return;
+        }
         if (res?.success) {
           setIsUnlocked(true);
           fetchItems();
@@ -144,6 +151,7 @@ export function App() {
 
   const handleLock = () => {
     chrome.runtime.sendMessage({ type: "LOCK" }, () => {
+      if (chrome.runtime.lastError) return;
       setIsUnlocked(false);
       setItems([]);
       setFolders([]);
@@ -156,6 +164,10 @@ export function App() {
   const handleUpdateServerUrl = (url: string): Promise<void> =>
     new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: "SET_SERVER_URL", serverUrl: url }, () => {
+        if (chrome.runtime.lastError) {
+          resolve();
+          return;
+        }
         setServerUrl(url);
         resolve();
       });
@@ -184,6 +196,10 @@ export function App() {
       }
 
       chrome.runtime.sendMessage({ type: "DECRYPT_ITEM", encryptedBlob: blob, itemId: id }, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || "Failed to decrypt item"));
+          return;
+        }
         const payload = res?.decrypted ?? res?.payload;
         if (payload) {
           resolve(payload);
@@ -195,9 +211,12 @@ export function App() {
 
   const handleAutofill = (cred: { username?: string; password?: string }) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) return;
       if (!tabs[0]?.id || !tabs[0]?.url) return;
       if (!isWebPageUrl(tabs[0].url)) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred });
+      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
+        void chrome.runtime.lastError;
+      });
     });
     window.close();
   };
@@ -218,6 +237,10 @@ export function App() {
 
     return new Promise<void>((resolve, reject) => {
       chrome.runtime.sendMessage(msg, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || "Failed to save item"));
+          return;
+        }
         if (res?.success) {
           fetchItems();
           setIsNewEntryOpen(false);
@@ -233,6 +256,10 @@ export function App() {
   const handleDeleteItem = async (id: string) => {
     return new Promise<void>((resolve) => {
       chrome.runtime.sendMessage({ type: "DELETE_ITEM", id }, () => {
+        if (chrome.runtime.lastError) {
+          resolve();
+          return;
+        }
         fetchItems();
         resolve();
       });
@@ -285,6 +312,7 @@ export function App() {
       prev.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
     );
     chrome.runtime.sendMessage({ type: "TOGGLE_FAVORITE", id }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.success) {
         fetchItems();
       }
