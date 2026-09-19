@@ -295,13 +295,13 @@ export default function AccountSettingsPage() {
     }).catch(console.error);
   }, [user]);
 
-  const handleUnlink = async (accountId: string) => {
+  const handleUnlink = async (accountId: string, providerId?: string) => {
     if (accounts.length <= 1) {
       setProviderMsg({ text: "Can't unlink — this is your only sign-in method.", ok: false });
       return;
     }
     try {
-      const result = await authClient.unlinkAccount({ accountId });
+      const result = await authClient.unlinkAccount({ accountId, providerId } as any);
       if (result.error) throw new Error(result.error.message);
       setProviderMsg({ text: "Provider unlinked.", ok: true });
       const res = await authClient.listAccounts();
@@ -491,7 +491,7 @@ export default function AccountSettingsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => canUnlink && handleUnlink(p.accountId)}
+                      onClick={() => canUnlink && handleUnlink(p.id, p.providerId)}
                       disabled={!canUnlink}
                       className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors bg-red-950/20 px-3 py-1.5 rounded-md border border-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!canUnlink ? "Cannot unlink your only sign-in method" : undefined}
