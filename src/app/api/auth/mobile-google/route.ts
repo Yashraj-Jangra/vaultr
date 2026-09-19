@@ -6,6 +6,7 @@ import { user as userTable, session as sessionTable, account as accountTable, us
 import { eq, and } from "drizzle-orm";
 import { toPublicUrl } from "@/lib/storage";
 import { getClientIp } from "@/lib/getClientIp";
+import { trackSession } from "@/lib/sessionMeta";
 import { randomUUID, randomBytes } from "crypto";
 import { z } from "zod";
 
@@ -277,6 +278,9 @@ export async function POST(req: NextRequest) {
       ipAddress: getClientIp(req) || "127.0.0.1",
       userAgent: req.headers.get("user-agent") || "VaultrMobile/1.0",
     });
+
+    // Eagerly track device metadata for the new session
+    trackSession(sessionId, targetUserId, req).catch(() => {});
 
     return NextResponse.json({
       success: true,

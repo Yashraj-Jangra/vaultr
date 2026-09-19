@@ -16,6 +16,8 @@ import { toBase64Url } from "@vaultr/core";
 export interface AuthProviderConfig {
   googleEnabled: boolean;
   googleClientId?: string;
+  googleIosClientId?: string;
+  googleAndroidClientId?: string;
 }
 
 export interface GoogleAuthUser {
@@ -52,6 +54,8 @@ export async function getAuthProviderConfig(serverUrl: string): Promise<AuthProv
     return {
       googleEnabled: Boolean(data?.googleEnabled),
       googleClientId: data?.googleClientId,
+      googleIosClientId: data?.googleIosClientId,
+      googleAndroidClientId: data?.googleAndroidClientId,
     };
   } catch (err) {
     console.warn("[GoogleAuth] Failed to fetch auth-providers config:", err);
@@ -114,10 +118,14 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
 
   // 1. Discover server Google OAuth configuration
   const config = await getAuthProviderConfig(cleanServerUrl);
-  if (!config.googleEnabled || !config.googleClientId) {
+  const clientId =
+    (Platform.OS === "ios" ? config.googleIosClientId : config.googleAndroidClientId) ||
+    config.googleClientId;
+
+  if (!config.googleEnabled || !clientId) {
     return {
       success: false,
-      error: "Google Sign-In is not enabled on this VaultR server.",
+      error: "Google Sign-In is not enabled or configured on this VaultR server.",
     };
   }
 
@@ -129,7 +137,7 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const redirectUri = Linking.createURL("auth-callback");
 
   const authParams = new URLSearchParams({
-    client_id: config.googleClientId,
+    client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code id_token",
     scope: "openid profile email",

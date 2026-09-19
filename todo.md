@@ -16,6 +16,16 @@
 - **Mobile Auth Store & Dynamic Screen Wiring (`mobile/src/store/vaultStore.ts`, `mobile/src/screens/AuthScreen.tsx`)**:
   - Updated `signInWithGoogle` in `vaultStore.ts` to call `performNativeGoogleAuth` and persist the resulting session token and `AccountUser`.
   - Added `isGoogleEnabled` state and dynamic query to `AuthScreen.tsx`, gracefully hiding the Google sign-in button if self-hosted servers do not have Google OAuth configured.
+- **Verification, Edge Cases & Route Cleanup**:
+  - Removed obsolete web-based deep link handler `handleAuthRedirectUrl` from `App.tsx` and `vaultStore.ts`.
+  - Deleted legacy Next.js web proxy routes `mobile-start` and `mobile-callback`.
+  - Extended dynamic discovery endpoint (`GET /api/config/auth-providers`) to detect and return platform-specific client IDs (`googleIosClientId`, `googleAndroidClientId`).
+  - Updated `mobile/src/services/googleAuth.ts` to pick the platform client ID (iOS / Android) with fallback to web client ID.
+  - Added eager `trackSession` invocation to `POST /api/auth/mobile-google` so new mobile sessions appear with full device/IP metadata in `SessionsScreen.tsx` immediately.
+  - Sanitized server URL inputs with `.trim()` in `vaultStore.ts` and parameterized platform OS User-Agent header in `SessionsScreen.tsx`.
+  - Confirmed Bearer token generation successfully integrates with `SessionsScreen.tsx` for cross-device revocation.
+  - Confirmed Google accounts are correctly inserted with `google` provider ID in the `account` table, aligning perfectly with Web UI's OAuth linkage.
+  - Passed all TypeScript (`tsc --noEmit`) compiler checks in both `d:\Projects\_vaultr` and `mobile/`.
 
 ---
 

@@ -10,10 +10,14 @@ import { NextResponse } from "next/server";
  */
 export async function GET() {
   const googleClientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-  const googleEnabled = googleClientId.length > 0;
+  const googleIosClientId = (process.env.GOOGLE_IOS_CLIENT_ID || "").trim();
+  const googleAndroidClientId = (process.env.GOOGLE_ANDROID_CLIENT_ID || "").trim();
+  const googleEnabled = Boolean(googleClientId || googleIosClientId || googleAndroidClientId);
 
   return NextResponse.json({
     googleEnabled,
-    googleClientId: googleEnabled ? googleClientId : undefined,
+    googleClientId: googleClientId || undefined,
+    googleIosClientId: googleIosClientId || undefined,
+    googleAndroidClientId: googleAndroidClientId || undefined,
   });
 }

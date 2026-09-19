@@ -384,7 +384,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   signInWithGoogle: async (url) => {
     set({ isLoading: true });
     try {
-      const cleanUrl = (url || get().serverUrl).replace(/\/+$/, "");
+      const cleanUrl = (url || get().serverUrl).trim().replace(/\/+$/, "");
       const res = await performNativeGoogleAuth(cleanUrl);
 
       if (!res.success) {

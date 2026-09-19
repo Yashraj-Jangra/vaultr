@@ -96,7 +96,7 @@ export function SessionsScreen({ navigation }: any) {
   const getHeaders = useCallback(() => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "User-Agent": "VaultrMobile/1.0 (Android)",
+      "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
     };
     if (accountToken) {
       headers["Authorization"] = `Bearer ${accountToken}`;
