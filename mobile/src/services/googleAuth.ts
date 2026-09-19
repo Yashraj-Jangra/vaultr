@@ -134,17 +134,28 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const nonceBytes = Crypto.getRandomBytes(16);
   const nonce = toBase64Url(nonceBytes);
 
-  const redirectUri = Linking.createURL("auth-callback");
+  const appRedirectUri = Linking.createURL("auth-callback");
+  const isPlatformSpecificClient = Boolean(
+    (Platform.OS === "ios" && config.googleIosClientId) ||
+    (Platform.OS === "android" && config.googleAndroidClientId)
+  );
+
+  // If using a native iOS/Android client ID, Google allows native URI schemes.
+  // If using a Web Client ID, Google requires an HTTPS redirect URI, so we route through the server's bounce endpoint.
+  const googleRedirectUri = isPlatformSpecificClient
+    ? appRedirectUri
+    : `${cleanServerUrl}/api/auth/mobile-callback`;
 
   const authParams = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri,
+    redirect_uri: googleRedirectUri,
     response_type: "code id_token",
     scope: "openid profile email",
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
     nonce,
     prompt: "select_account",
+    state: appRedirectUri,
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${authParams.toString()}`;
@@ -152,7 +163,7 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   // 3. Open native Google account picker directly
   let authResult: WebBrowser.WebBrowserAuthSessionResult;
   try {
-    authResult = await WebBrowser.openAuthSessionAsync(googleAuthUrl, redirectUri);
+    authResult = await WebBrowser.openAuthSessionAsync(googleAuthUrl, appRedirectUri);
   } catch (err: any) {
     return {
       success: false,
@@ -181,7 +192,7 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   try {
     const exchangePayload = idToken
       ? { idToken }
-      : { code, redirectUri, codeVerifier };
+      : { code, redirectUri: googleRedirectUri, codeVerifier };
 
     const exchangeRes = await fetch(`${cleanServerUrl}/api/auth/mobile-google`, {
       method: "POST",
