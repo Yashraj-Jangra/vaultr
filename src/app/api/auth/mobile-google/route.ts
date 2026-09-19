@@ -61,16 +61,30 @@ export async function POST(req: NextRequest) {
       idToken = parsed.data.idToken;
     } else {
       const { code, redirectUri, codeVerifier } = parsed.data;
-      const serverGoogleClientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-      const serverGoogleClientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
+      const isNativeIos = redirectUri.startsWith("com.googleusercontent.apps.");
+      const isNativeAndroid = redirectUri.startsWith("exp://") || (!redirectUri.startsWith("http://") && !redirectUri.startsWith("https://"));
+
+      const effectiveClientId = isNativeIos
+        ? (process.env.GOOGLE_IOS_CLIENT_ID || "").trim()
+        : isNativeAndroid && process.env.GOOGLE_ANDROID_CLIENT_ID
+          ? (process.env.GOOGLE_ANDROID_CLIENT_ID || "").trim()
+          : (process.env.GOOGLE_CLIENT_ID || "").trim();
 
       const params = new URLSearchParams({
         code,
-        client_id: serverGoogleClientId,
-        client_secret: serverGoogleClientSecret,
+        client_id: effectiveClientId,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
       });
+
+      // Public clients (iOS/Android native apps) do not use client_secret
+      if (!isNativeIos && !isNativeAndroid) {
+        const serverGoogleClientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
+        if (serverGoogleClientSecret) {
+          params.append("client_secret", serverGoogleClientSecret);
+        }
+      }
+
       if (codeVerifier) {
         params.append("code_verifier", codeVerifier);
       }

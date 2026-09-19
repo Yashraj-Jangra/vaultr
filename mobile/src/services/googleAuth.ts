@@ -35,10 +35,13 @@ export interface GoogleAuthResult {
   error?: string;
 }
 
+export const DEFAULT_GOOGLE_CLIENT_ID = "178311275102-ph0shfc0dhs7cfnefre0q4bue6h0knvp.apps.googleusercontent.com";
+export const DEFAULT_GOOGLE_IOS_CLIENT_ID = "178311275102-mev6chejj5km00h2br8ij0m8jig58flr.apps.googleusercontent.com";
+
 /** Fetch auth provider configuration dynamically from connected VaultR server */
 export async function getAuthProviderConfig(serverUrl: string): Promise<AuthProviderConfig> {
+  const cleanUrl = serverUrl.trim().replace(/\/+$/, "");
   try {
-    const cleanUrl = serverUrl.trim().replace(/\/+$/, "");
     const res = await fetch(`${cleanUrl}/api/config/auth-providers`, {
       headers: {
         "Accept": "application/json",
@@ -46,20 +49,28 @@ export async function getAuthProviderConfig(serverUrl: string): Promise<AuthProv
       },
     });
 
-    if (!res.ok) {
-      return { googleEnabled: false };
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        googleEnabled: data?.googleEnabled !== false,
+        googleClientId: data?.googleClientId || DEFAULT_GOOGLE_CLIENT_ID,
+        googleIosClientId: data?.googleIosClientId || DEFAULT_GOOGLE_IOS_CLIENT_ID,
+        googleAndroidClientId: data?.googleAndroidClientId,
+      };
     }
 
-    const data = await res.json();
     return {
-      googleEnabled: Boolean(data?.googleEnabled),
-      googleClientId: data?.googleClientId,
-      googleIosClientId: data?.googleIosClientId,
-      googleAndroidClientId: data?.googleAndroidClientId,
+      googleEnabled: true,
+      googleClientId: DEFAULT_GOOGLE_CLIENT_ID,
+      googleIosClientId: DEFAULT_GOOGLE_IOS_CLIENT_ID,
     };
   } catch (err) {
-    console.warn("[GoogleAuth] Failed to fetch auth-providers config:", err);
-    return { googleEnabled: false };
+    console.warn(`[GoogleAuth] Network error reaching ${cleanUrl}/api/config/auth-providers:`, err);
+    return {
+      googleEnabled: true,
+      googleClientId: DEFAULT_GOOGLE_CLIENT_ID,
+      googleIosClientId: DEFAULT_GOOGLE_IOS_CLIENT_ID,
+    };
   }
 }
 
@@ -113,6 +124,11 @@ async function generatePkce(): Promise<{ codeVerifier: string; codeChallenge: st
  * Executes independent native Google Authentication against the server.
  * Connects directly to accounts.google.com and exchanges token with /api/auth/mobile-google.
  */
+function getReversedClientId(clientId: string): string {
+  const prefix = clientId.trim().split(".apps.googleusercontent.com")[0];
+  return `com.googleusercontent.apps.${prefix}`;
+}
+
 export async function performNativeGoogleAuth(serverUrl: string): Promise<GoogleAuthResult> {
   const cleanServerUrl = serverUrl.trim().replace(/\/+$/, "");
 
@@ -121,17 +137,20 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const appRedirectUri = Linking.createURL("auth-callback");
   const isExpoGo = appRedirectUri.startsWith("exp://");
 
-  // In Expo Go, the precompiled App Store container cannot register custom native URL schemes,
-  // so it uses the Web Client ID paired with the server's HTTPS bounce callback.
-  // In standalone/custom builds (com.vaultr.mobile), native iOS/Android client IDs are used directly.
-  const isPlatformSpecificClient = !isExpoGo && Boolean(
-    (Platform.OS === "ios" && config.googleIosClientId) ||
-    (Platform.OS === "android" && config.googleAndroidClientId)
-  );
+  let clientId = config.googleClientId;
+  let googleRedirectUri = `${cleanServerUrl}/api/auth/mobile-callback`;
+  let expectedCallbackUri = appRedirectUri;
 
-  const clientId = isPlatformSpecificClient
-    ? (Platform.OS === "ios" ? config.googleIosClientId : config.googleAndroidClientId) || config.googleClientId
-    : config.googleClientId;
+  if (Platform.OS === "ios" && config.googleIosClientId) {
+    clientId = config.googleIosClientId;
+    const reversedScheme = getReversedClientId(config.googleIosClientId);
+    googleRedirectUri = `${reversedScheme}:/oauth2redirect`;
+    expectedCallbackUri = googleRedirectUri;
+  } else if (Platform.OS === "android" && config.googleAndroidClientId && !isExpoGo) {
+    clientId = config.googleAndroidClientId;
+    googleRedirectUri = appRedirectUri;
+    expectedCallbackUri = appRedirectUri;
+  }
 
   if (!config.googleEnabled || !clientId) {
     return {
@@ -145,20 +164,17 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const nonceBytes = Crypto.getRandomBytes(16);
   const nonce = toBase64Url(nonceBytes);
 
-  const googleRedirectUri = isPlatformSpecificClient
-    ? appRedirectUri
-    : `${cleanServerUrl}/api/auth/mobile-callback`;
-
+  const isNativeIos = Platform.OS === "ios" && Boolean(config.googleIosClientId);
   const authParams = new URLSearchParams({
     client_id: clientId,
     redirect_uri: googleRedirectUri,
-    response_type: "code id_token",
+    response_type: isNativeIos ? "code" : "code id_token",
     scope: "openid profile email",
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
     nonce,
     prompt: "select_account",
-    state: appRedirectUri,
+    ...(expectedCallbackUri !== googleRedirectUri ? { state: expectedCallbackUri } : {}),
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${authParams.toString()}`;
@@ -166,7 +182,7 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   // 3. Open native Google account picker directly
   let authResult: WebBrowser.WebBrowserAuthSessionResult;
   try {
-    authResult = await WebBrowser.openAuthSessionAsync(googleAuthUrl, appRedirectUri);
+    authResult = await WebBrowser.openAuthSessionAsync(googleAuthUrl, expectedCallbackUri);
   } catch (err: any) {
     return {
       success: false,
@@ -193,8 +209,35 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
 
   // 5. Exchange credentials with VaultR backend API directly
   try {
-    const exchangePayload = idToken
-      ? { idToken }
+    let resolvedIdToken = idToken;
+
+    // If Google returned authorization code, attempt direct PKCE exchange
+    if (!resolvedIdToken && code) {
+      try {
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            code,
+            code_verifier: codeVerifier,
+            grant_type: "authorization_code",
+            redirect_uri: googleRedirectUri,
+          }).toString(),
+        });
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          if (tokenData.id_token) {
+            resolvedIdToken = tokenData.id_token;
+          }
+        }
+      } catch {
+        // Fall back to server exchange if client token exchange fails
+      }
+    }
+
+    const exchangePayload = resolvedIdToken
+      ? { idToken: resolvedIdToken }
       : { code, redirectUri: googleRedirectUri, codeVerifier };
 
     const exchangeRes = await fetch(`${cleanServerUrl}/api/auth/mobile-google`, {
