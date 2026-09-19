@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyUserToken } from "@/lib/auth/verifyUser";
 import { db } from "@/db";
 import { vaultItems, userProfiles } from "@/db/schema";
-import { eq, and, isNotNull, sql, or, like, isNull } from "drizzle-orm";
+import { eq, and, isNotNull, sql, or, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 const CreateFolderSchema = z.object({
@@ -206,7 +206,7 @@ export async function PATCH(req: NextRequest) {
           eq(vaultItems.userId, user.id),
           or(
             eq(vaultItems.folder, from),
-            like(vaultItems.folder, `${fromPrefix}%`)
+            sql<boolean>`starts_with(${vaultItems.folder}, ${fromPrefix})`
           )
         )
       )
@@ -264,7 +264,7 @@ export async function DELETE(req: NextRequest) {
           eq(vaultItems.userId, user.id),
           or(
             eq(vaultItems.folder, name),
-            like(vaultItems.folder, `${namePrefix}%`)
+            sql<boolean>`starts_with(${vaultItems.folder}, ${namePrefix})`
           )
         )
       )
