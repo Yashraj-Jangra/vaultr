@@ -51,7 +51,8 @@
       ],
       "expo-asset",
       "expo-web-browser",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store"
     ]
   }
 }

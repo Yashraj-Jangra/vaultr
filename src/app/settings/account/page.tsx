@@ -282,7 +282,7 @@ export default function AccountSettingsPage() {
   };
 
   // Providers
-  const [accounts, setAccounts] = useState<{ id: string; providerId: string; email?: string }[]>([]);
+  const [accounts, setAccounts] = useState<{ id: string; accountId: string; providerId: string }[]>([]);
   const [providerMsg, setProviderMsg] = useState({ text: "", ok: true });
   const [linkStep, setLinkStep] = useState<0 | 1 | 2>(0); // 0 = idle, 1 = sending OTP, 2 = verify OTP & set password
   const [linkOtpStr, setLinkOtpStr] = useState("");
@@ -291,21 +291,21 @@ export default function AccountSettingsPage() {
   useEffect(() => {
     if (!user) return;
     authClient.listAccounts().then(res => {
-      if (res.data) setAccounts(res.data.map(acc => ({ id: acc.id, providerId: acc.providerId, email: acc.accountId ?? undefined })));
+      if (res.data) setAccounts(res.data.map(acc => ({ id: acc.id, accountId: acc.accountId, providerId: acc.providerId })));
     }).catch(console.error);
   }, [user]);
 
-  const handleUnlink = async (providerId: string) => {
+  const handleUnlink = async (accountId: string) => {
     if (accounts.length <= 1) {
       setProviderMsg({ text: "Can't unlink — this is your only sign-in method.", ok: false });
       return;
     }
     try {
-      const result = await authClient.unlinkAccount({ providerId });
+      const result = await authClient.unlinkAccount({ accountId });
       if (result.error) throw new Error(result.error.message);
       setProviderMsg({ text: "Provider unlinked.", ok: true });
       const res = await authClient.listAccounts();
-      if (res.data) setAccounts(res.data.map(acc => ({ id: acc.id, providerId: acc.providerId, email: acc.accountId ?? undefined })));
+      if (res.data) setAccounts(res.data.map(acc => ({ id: acc.id, accountId: acc.accountId, providerId: acc.providerId })));
     } catch (err) {
       setProviderMsg({ text: (err as Error).message, ok: false });
     }
@@ -356,7 +356,7 @@ export default function AccountSettingsPage() {
       setLinkPassStr("");
       
       const accRes = await authClient.listAccounts();
-      if (accRes.data) setAccounts(accRes.data.map(acc => ({ id: acc.id, providerId: acc.providerId, email: acc.accountId ?? undefined })));
+      if (accRes.data) setAccounts(accRes.data.map(acc => ({ id: acc.id, accountId: acc.accountId, providerId: acc.providerId })));
     } catch (err) {
       setProviderMsg({ text: (err as Error).message, ok: false });
     }
@@ -486,12 +486,12 @@ export default function AccountSettingsPage() {
                       <span className={`inline-flex items-center text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded border ${meta.color}`}>
                         {meta.label}
                       </span>
-                      {(p.email || (p.providerId === "credential" && user?.email)) && (
-                        <p className="text-[13px] text-neutral-300 font-medium">{p.email || user?.email}</p>
+                      {p.providerId === "credential" && user?.email && (
+                        <p className="text-[13px] text-neutral-300 font-medium">{user.email}</p>
                       )}
                     </div>
                     <button
-                      onClick={() => canUnlink && handleUnlink(p.providerId)}
+                      onClick={() => canUnlink && handleUnlink(p.accountId)}
                       disabled={!canUnlink}
                       className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors bg-red-950/20 px-3 py-1.5 rounded-md border border-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!canUnlink ? "Cannot unlink your only sign-in method" : undefined}
