@@ -4,6 +4,14 @@ apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -112,15 +120,30 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            def releaseStoreFile = project.findProperty('VAULTR_RELEASE_STORE_FILE') ?: localProperties.getProperty('VAULTR_RELEASE_STORE_FILE') ?: 'vaultr-release.keystore'
+            def keystoreFile = file(releaseStoreFile)
+            if (keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword(project.findProperty('VAULTR_RELEASE_STORE_PASSWORD') ?: localProperties.getProperty('VAULTR_RELEASE_STORE_PASSWORD') ?: 'vaultr-secure-release-2026')
+                keyAlias(project.findProperty('VAULTR_RELEASE_KEY_ALIAS') ?: localProperties.getProperty('VAULTR_RELEASE_KEY_ALIAS') ?: 'vaultr')
+                keyPassword(project.findProperty('VAULTR_RELEASE_KEY_PASSWORD') ?: localProperties.getProperty('VAULTR_RELEASE_KEY_PASSWORD') ?: 'vaultr-secure-release-2026')
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            def releaseStoreFile = project.findProperty('VAULTR_RELEASE_STORE_FILE') ?: localProperties.getProperty('VAULTR_RELEASE_STORE_FILE') ?: 'vaultr-release.keystore'
+            if (file(releaseStoreFile).exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

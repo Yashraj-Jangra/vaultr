@@ -1,3 +1,33 @@
+## Current Session: Android Private Release Keystore & Signing Setup (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 31: Private Release Keystore & Standalone Signing Pipeline)
+- **Private Keystore Generation (`vaultr-release.keystore`)**:
+  - Generated a dedicated 2048-bit RSA PKCS12 release keystore valid for 10,000 days (~2054) via Java 17 `keytool`.
+  - Configured distinguished name credentials (`CN=VaultR, OU=VaultR Security, O=VaultR`).
+  - Isolated from version control via `.gitignore` (`*.keystore`).
+- **Gradle Release Signing Pipeline Configuration (`mobile/android/app/build.gradle`)**:
+  - Configured `signingConfigs.release` reading keystore file and credentials from `local.properties` (or Gradle properties), with dynamic fallback to `debug` if absent.
+  - Dynamically switches `buildTypes.release` to `signingConfigs.release` whenever `vaultr-release.keystore` is present.
+  - Stored local credentials in `mobile/android/local.properties` (git-ignored, zero secret leaks).
+  - Validated configuration via `app:validateSigningRelease` $\rightarrow$ `BUILD SUCCESSFUL`.
+- **Standalone Production APK Re-Compilation & Verification**:
+  - Re-compiled the standalone release APK via `./gradlew assembleRelease --no-daemon` in 1m 15s.
+  - Verified APK signature using Android SDK `apksigner verify --verbose --print-certs`:
+    - Scheme: APK Signature Scheme v2 (`true`).
+    - Signer: `CN=VaultR, OU=VaultR Security, O=VaultR`.
+    - Certificate SHA-256: `afea71eef4b2d94f7e957f2a4aa8e899703487d0fea48a86cec19ddf66c3f5e5`.
+- **Device Staging**:
+  - Cleaned up previous debug-signed installation on connected phone (`192.168.1.41:40811`).
+  - Staged signed release APK to device's `/sdcard/Download/vaultr-v0.2.10-release.apk` for easy on-device installation.
+- **Code Quality & DoD Verification**:
+  - `npx tsc --noEmit` on root and `mobile/` both pass with zero errors.
+
+### 📋 What's Planned Next
+- Complete installation of the new release APK on the device (via Downloads or ADB).
+- Verify Google OAuth, Master Password unlock, and biometrics.
+
+---
+
 ## Current Session: Android Final Standalone Release Build (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 30: Final Standalone Release APK Compilation & Deployment)
