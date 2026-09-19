@@ -38,22 +38,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 export default function App() {
   useEffect(() => {
     initAutoLockService();
-
-    // Deep link listener for OAuth redirects (e.g. vaultr://auth-callback?token=...)
-    const handleDeepLink = (event: { url: string }) => {
-      if (event.url && (event.url.includes("auth-callback") || event.url.includes("token="))) {
-        useVaultStore.getState().handleAuthRedirectUrl(event.url);
-      }
-    };
-
-    Linking.getInitialURL().then((url) => {
-      if (url && (url.includes("auth-callback") || url.includes("token="))) {
-        useVaultStore.getState().handleAuthRedirectUrl(url);
-      }
-    });
-
-    const sub = Linking.addEventListener("url", handleDeepLink);
-    return () => sub.remove();
   }, []);
 
   return (

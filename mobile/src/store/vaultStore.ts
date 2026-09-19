@@ -64,7 +64,6 @@ interface VaultState {
   signInAccount: (email: string, password: string, url: string) => Promise<void>;
   registerAccount: (name: string, username: string, email: string, password: string, url: string) => Promise<void>;
   signInWithGoogle: (serverUrl?: string) => Promise<void>;
-  handleAuthRedirectUrl: (url: string) => Promise<boolean>;
   updateAccountUser: (updates: Partial<AccountUser>) => Promise<void>;
   signOutAccount: () => Promise<void>;
   syncUserProfile: () => Promise<void>;
@@ -379,44 +378,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     } catch (err: any) {
       set({ isLoading: false });
       throw err;
-    }
-  },
-
-  handleAuthRedirectUrl: async (incomingUrl: string) => {
-    try {
-      if (!incomingUrl) return false;
-      const queryStr = incomingUrl.includes("?") ? incomingUrl.split("?")[1] : "";
-      const params = new URLSearchParams(queryStr);
-      const token = params.get("token");
-      const id = params.get("id");
-      const email = params.get("email");
-      const name = params.get("name");
-      const rawImage = params.get("image") || params.get("avatarUrl") || undefined;
-      const image = rawImage ? decodeURIComponent(rawImage) : undefined;
-
-      if (token && id) {
-        const { serverUrl } = get();
-        const user: AccountUser = {
-          id,
-          email: email || "",
-          name: name || "User",
-          image: image,
-          avatarUrl: image,
-        };
-        await saveAccountSession(token, user, serverUrl);
-        set({
-          accountToken: token,
-          accountUser: user,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        get().syncUserProfile().catch(() => {});
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.warn("[VaultStore] Error processing auth redirect URL:", e);
-      return false;
     }
   },
 
