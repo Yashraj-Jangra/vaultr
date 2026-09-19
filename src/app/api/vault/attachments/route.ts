@@ -17,6 +17,7 @@ import { randomUUID } from "crypto";
 
 const MAX_FILE_BYTES      = 25 * 1024 * 1024; // 25 MB (encrypted blob)
 const MAX_PER_VAULT_ITEM  = 10;               // max attachments per entry
+const DEFAULT_QUOTA_BYTES = 100 * 1024 * 1024;
 
 // ─── POST /api/vault/attachments ─────────────────────────────────────────────
 
@@ -57,12 +58,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const targetVaultItemId = vaultItemId;
+    const storedEncryptedName = encryptedName;
 
     // ── Vault item ownership check ────────────────────────────────────────────
     const [item] = await db
       .select({ id: vaultItems.id })
       .from(vaultItems)
-      .where(and(eq(vaultItems.id, vaultItemId), eq(vaultItems.userId, user.id)))
+      .where(and(eq(vaultItems.id, targetVaultItemId), eq(vaultItems.userId, user.id)))
       .limit(1);
 
     if (!item) {
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
       .from(vaultAttachments)
       .where(
         and(
-          eq(vaultAttachments.vaultItemId, vaultItemId),
+          eq(vaultAttachments.vaultItemId, targetVaultItemId),
           eq(vaultAttachments.userId, user.id)
         )
       );
@@ -96,6 +99,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Storage quota check ───────────────────────────────────────────────────
+    // Profiles created by older clients may not have a companion row yet.
+    // Ensure one exists so quota reservation can always be an atomic UPDATE.
+    await db
+      .insert(userProfiles)
+      .values({ userId: user.id })
+      .onConflictDoNothing({ target: userProfiles.userId });
+
     const [profile] = await db
       .select({
         usedBytes:  userProfiles.storageUsedBytes,
@@ -106,7 +116,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     const usedBytes  = profile?.usedBytes  ?? 0;
-    const quotaBytes = profile?.quotaBytes ?? 104_857_600;
+    const quotaBytes = profile?.quotaBytes ?? DEFAULT_QUOTA_BYTES;
 
     if (usedBytes + size > quotaBytes) {
       const remainingMB = ((quotaBytes - usedBytes) / 1024 / 1024).toFixed(1);
@@ -122,60 +132,61 @@ export async function POST(req: NextRequest) {
 
     let s3Key: string | null = null;
     try {
-      s3Key = await uploadAttachment(
+      const uploadedS3Key = await uploadAttachment(
         user.id,
-        vaultItemId,
+        targetVaultItemId,
         attachmentId,
         buffer,
         mimeType
       );
+      s3Key = uploadedS3Key;
 
-      // Re-check quota immediately before DB insertion to mitigate TOCTOU race
-      const [freshProfile] = await db
-        .select({
-          usedBytes: userProfiles.storageUsedBytes,
-          quotaBytes: userProfiles.storageQuotaBytes,
-        })
-        .from(userProfiles)
-        .where(eq(userProfiles.userId, user.id))
-        .limit(1);
+      // Reserve quota and create the attachment row atomically. The conditional
+      // UPDATE serializes concurrent uploads for the same profile, so only the
+      // uploads that still fit can commit.
+      const attachment = await db.transaction(async (tx) => {
+        const [reserved] = await tx
+          .update(userProfiles)
+          .set({
+            storageUsedBytes: sql`COALESCE(${userProfiles.storageUsedBytes}, 0) + ${size}`,
+          })
+          .where(
+            and(
+              eq(userProfiles.userId, user.id),
+              sql`COALESCE(${userProfiles.storageUsedBytes}, 0) + ${size} <= COALESCE(${userProfiles.storageQuotaBytes}, ${DEFAULT_QUOTA_BYTES})`
+            )
+          )
+          .returning({ userId: userProfiles.userId });
 
-      const latestUsed = freshProfile?.usedBytes ?? 0;
-      const latestQuota = freshProfile?.quotaBytes ?? 104_857_600;
+        if (!reserved) {
+          return null;
+        }
 
-      if (latestUsed + size > latestQuota) {
-        await deleteAttachment(s3Key);
-        const remainingMB = Math.max(0, (latestQuota - latestUsed) / 1024 / 1024).toFixed(1);
+        const [created] = await tx
+          .insert(vaultAttachments)
+          .values({
+            id:            attachmentId,
+            vaultItemId:   targetVaultItemId,
+            userId:        user.id,
+            encryptedName: storedEncryptedName,
+            mimeType,
+            sizeBytes:     size,
+            s3Key:          uploadedS3Key,
+          })
+          .returning();
+
+        return created;
+      });
+
+      if (!attachment) {
+        await deleteAttachment(uploadedS3Key);
+        s3Key = null;
+        const remainingMB = Math.max(0, (quotaBytes - usedBytes) / 1024 / 1024).toFixed(1);
         return NextResponse.json(
           { error: `Storage quota exceeded. You have ${remainingMB} MB remaining.` },
           { status: 413 }
         );
       }
-
-      // ── Insert DB row ─────────────────────────────────────────────────────────
-      const [attachment] = await db
-        .insert(vaultAttachments)
-        .values({
-          id:            attachmentId,
-          vaultItemId,
-          userId:        user.id,
-          encryptedName,
-          mimeType,
-          sizeBytes:     size,
-          s3Key,
-        })
-        .returning();
-
-      // ── Increment storageUsedBytes ────────────────────────────────────────────
-      await db
-        .insert(userProfiles)
-        .values({ userId: user.id, storageUsedBytes: size })
-        .onConflictDoUpdate({
-          target: userProfiles.userId,
-          set: {
-            storageUsedBytes: sql`${userProfiles.storageUsedBytes} + ${size}`,
-          },
-        });
 
       return NextResponse.json({ attachment }, { status: 201 });
     } catch (uploadOrDbErr) {
