@@ -23,11 +23,11 @@
         "USE_FINGERPRINT",
         "CAMERA"
       ],
-      "versionCode": 10
+      "versionCode": 11
     },
     "ios": {
       "bundleIdentifier": "com.vaultr.mobile",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "supportsTablet": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Allow Vaultr to use Face ID to unlock your secure vault.",
