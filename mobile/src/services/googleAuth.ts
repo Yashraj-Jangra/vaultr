@@ -118,9 +118,20 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
 
   // 1. Discover server Google OAuth configuration
   const config = await getAuthProviderConfig(cleanServerUrl);
-  const clientId =
-    (Platform.OS === "ios" ? config.googleIosClientId : config.googleAndroidClientId) ||
-    config.googleClientId;
+  const appRedirectUri = Linking.createURL("auth-callback");
+  const isExpoGo = appRedirectUri.startsWith("exp://");
+
+  // In Expo Go, the precompiled App Store container cannot register custom native URL schemes,
+  // so it uses the Web Client ID paired with the server's HTTPS bounce callback.
+  // In standalone/custom builds (com.vaultr.mobile), native iOS/Android client IDs are used directly.
+  const isPlatformSpecificClient = !isExpoGo && Boolean(
+    (Platform.OS === "ios" && config.googleIosClientId) ||
+    (Platform.OS === "android" && config.googleAndroidClientId)
+  );
+
+  const clientId = isPlatformSpecificClient
+    ? (Platform.OS === "ios" ? config.googleIosClientId : config.googleAndroidClientId) || config.googleClientId
+    : config.googleClientId;
 
   if (!config.googleEnabled || !clientId) {
     return {
@@ -134,14 +145,6 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const nonceBytes = Crypto.getRandomBytes(16);
   const nonce = toBase64Url(nonceBytes);
 
-  const appRedirectUri = Linking.createURL("auth-callback");
-  const isPlatformSpecificClient = Boolean(
-    (Platform.OS === "ios" && config.googleIosClientId) ||
-    (Platform.OS === "android" && config.googleAndroidClientId)
-  );
-
-  // If using a native iOS/Android client ID, Google allows native URI schemes.
-  // If using a Web Client ID, Google requires an HTTPS redirect URI, so we route through the server's bounce endpoint.
   const googleRedirectUri = isPlatformSpecificClient
     ? appRedirectUri
     : `${cleanServerUrl}/api/auth/mobile-callback`;
