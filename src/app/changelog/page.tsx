@@ -33,11 +33,26 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.11",
+    codename: "Passkeys, Standalone Release & Quick PIN Ecosystem",
+    date: "September 19, 2026",
+    tagline: "FIDO2 WebAuthn Passkeys across Web, Android & Extension, Standalone Hermes Release Pipeline, Quick PIN & Extension Redesign",
+    isLatest: true,
+    changes: [
+      { type: "security", text: "FIDO2 WebAuthn Passkeys: End-to-end passkey creation and assertion across Web, Browser Extension, and native Android 14+ Credential Manager." },
+      { type: "mobile", text: "Standalone Production Android Build: Offline Hermes bytecode pre-compilation, native C++ architecture linking, and private keystore release signing." },
+      { type: "security", text: "Quick PIN Fast Unlock: 4/6-digit Quick PIN with PBKDF2 key derivation, lockout defense, and cipher scramble animation across Extension and Mobile." },
+      { type: "extension", text: "Browser Extension Redesign: Sectioned sidebar settings, 600px extended height, adjustable width, and mobile-style transition animations." },
+      { type: "fix", text: "Mobile Google OAuth Resolution: RFC 1918 private LAN IP normalization to localhost via reverse proxy on Android and reversed client ID PKCE scheme on iOS." },
+      { type: "extension", text: "In-Extension Master Password Change: Direct master password rotation with zero-knowledge vault re-encryption directly inside the extension popup." },
+      { type: "fix", text: "Admin Cascading Purge: Automatic S3 cleanup of orphaned file attachments and user avatars upon account deletion." },
+    ],
+  },
+  {
     version: "v0.2.10",
     codename: "Card Back Realism, Tactile Dialogs & Brand Geometry",
     date: "September 12, 2026",
     tagline: "Realistic Physical Card Backs, Apple-Grade Modal Motion, Action-Prioritized Dialogs & Calibrated Launcher Assets",
-    isLatest: true,
     changes: [
       { type: "feature", text: "Authentic Credit Card Back Face: Lifelike signature strip, authorized signature label, CVV box, realistic contactless wave symbol, and easter-egg banking micro-text." },
       { type: "feature", text: "Tactile Dialog Architecture: Re-engineered confirmation dialogs with clear action hierarchy (solid red top action container, subordinated dark cancel container)." },

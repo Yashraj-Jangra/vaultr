@@ -1,3 +1,28 @@
+## Current Session: Version Bump to v0.2.11 (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 32: Universal Version Bump to v0.2.11 & Manifest Synchronization)
+- **Canonical Version Source of Truth Updated (`packages/core/src/version.ts`)**:
+  - `VAULTR_VERSION = "0.2.11"`, `VAULTR_MOBILE_VERSION = "0.2.11"`, `VAULTR_BUILD_NUMBER = "2026.09.19"`.
+- **Synchronized Manifests Across All Workspaces**:
+  - `package.json` $\rightarrow$ `"version": "0.2.11"`.
+  - `packages/core/package.json` $\rightarrow$ `"version": "0.2.11"`.
+  - `mobile/package.json` $\rightarrow$ `"version": "0.2.11"`.
+  - `mobile/app.json` $\rightarrow$ `"version": "0.2.11"`.
+  - `mobile/android/app/build.gradle` $\rightarrow$ `versionCode 11`, `versionName "0.2.11"`.
+  - `extension/package.json` $\rightarrow$ `"version": "0.2.11"`.
+  - `extension/manifest.json` $\rightarrow$ `"version": "0.2.11"`.
+- **Changelog Updated (`src/app/changelog/page.tsx`)**:
+  - Added release notes for `v0.2.11` ("Passkeys, Standalone Release & Quick PIN Ecosystem") marked as latest.
+- **Pre-Commit Type Gate & DoD Verification**:
+  - Root `npx tsc --noEmit` passed with 0 errors.
+  - Mobile `npx tsc --noEmit` passed with 0 errors.
+
+### 📋 What's Planned Next
+- Open and merge GitHub PR from `dev` into `main`.
+- Final testing on device and production staging.
+
+---
+
 ## Current Session: Android Private Release Keystore & Signing Setup (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 31: Private Release Keystore & Standalone Signing Pipeline)
