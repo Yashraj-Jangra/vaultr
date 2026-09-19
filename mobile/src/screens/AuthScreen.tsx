@@ -96,6 +96,12 @@ export function AuthScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (serverUrl && (!serverInput || serverInput === "https://vaultr.cvweb.qzz.io")) {
+      setServerInput(serverUrl);
+    }
+  }, [serverUrl]);
+
+  useEffect(() => {
     let isMounted = true;
     const checkGoogleAuth = async () => {
       const targetUrl = serverInput.trim() || serverUrl;

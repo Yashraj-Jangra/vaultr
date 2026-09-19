@@ -5,7 +5,7 @@ import { unlockWithBiometrics, clearBiometricPassword, getStoredPasswordChangedA
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
 import { syncAutofillCredentials, clearAutofillCredentials } from "../services/autofill";
 import { probeServerConnection, startConnectivityMonitor } from "../services/connectivity";
-import { Platform } from "react-native";
+import { Platform, NativeModules } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
@@ -153,6 +153,21 @@ function getApiClient(overrideServerUrl?: string): VaultrApiClient {
   });
 }
 
+export function getDefaultServerUrl(): string {
+  if (__DEV__) {
+    try {
+      const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL;
+      if (typeof scriptURL === "string") {
+        const host = scriptURL.split("://")[1]?.split("/")[0]?.split(":")[0];
+        if (host && host !== "localhost" && host !== "127.0.0.1") {
+          return `http://${host}:3000`;
+        }
+      }
+    } catch {}
+  }
+  return "https://vaultr.cvweb.qzz.io";
+}
+
 export const useVaultStore = create<VaultState>((set, get) => ({
   accountUser: null,
   accountToken: null,
@@ -164,7 +179,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   isUnlocked: false,
   isLoading: false,
   isOnline: true,
-  serverUrl: "https://vaultr.cvweb.qzz.io",
+  serverUrl: getDefaultServerUrl(),
   searchQuery: "",
   selectedFolder: "ALL",
   selectedTemplate: "ALL",
