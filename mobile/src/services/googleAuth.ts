@@ -129,6 +129,24 @@ function getReversedClientId(clientId: string): string {
   return `com.googleusercontent.apps.${prefix}`;
 }
 
+/**
+ * Normalizes redirect URI to prevent Google's RFC 1918 private IP rejection.
+ * Google OAuth strictly blocks private LAN IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+ * with "device_name and device_id are required for private IP".
+ * On Android with ADB reverse (or emulator loopback), rewrites private IP to localhost.
+ */
+function getSafeGoogleRedirectUri(serverUrl: string): string {
+  const cleanUrl = serverUrl.trim().replace(/\/+$/, "");
+  try {
+    const parsed = new URL(cleanUrl);
+    const isPrivateIp = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(parsed.hostname);
+    if (isPrivateIp) {
+      return `http://localhost:${parsed.port || "3000"}/api/auth/mobile-callback`;
+    }
+  } catch {}
+  return `${cleanUrl}/api/auth/mobile-callback`;
+}
+
 export async function performNativeGoogleAuth(serverUrl: string): Promise<GoogleAuthResult> {
   const cleanServerUrl = serverUrl.trim().replace(/\/+$/, "");
 
@@ -138,7 +156,7 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const isExpoGo = appRedirectUri.startsWith("exp://");
 
   let clientId = config.googleClientId;
-  let googleRedirectUri = `${cleanServerUrl}/api/auth/mobile-callback`;
+  let googleRedirectUri = getSafeGoogleRedirectUri(cleanServerUrl);
   let expectedCallbackUri = appRedirectUri;
 
   if (Platform.OS === "ios" && config.googleIosClientId) {
@@ -164,11 +182,10 @@ export async function performNativeGoogleAuth(serverUrl: string): Promise<Google
   const nonceBytes = Crypto.getRandomBytes(16);
   const nonce = toBase64Url(nonceBytes);
 
-  const isNativeIos = Platform.OS === "ios" && Boolean(config.googleIosClientId);
   const authParams = new URLSearchParams({
     client_id: clientId,
     redirect_uri: googleRedirectUri,
-    response_type: isNativeIos ? "code" : "code id_token",
+    response_type: "code",
     scope: "openid profile email",
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
