@@ -1,33 +1,36 @@
-## Current Session: Independent Mobile Google OAuth & Dynamic Server Discovery (2026-09-19) · Branch: `dev`
+## Current Session: Android Standalone APK Build & Cross-Platform OAuth Hardening (2026-09-19) · Branch: `dev`
 
-### ✅ What Was Done (Phase 28: Independent Mobile Google OAuth & Dynamic Server Discovery)
-- **Public Auth Provider Discovery Endpoint (`src/app/api/config/auth-providers/route.ts`)**:
-  - Implemented `GET /api/config/auth-providers` discovery route returning `{ googleEnabled, googleClientId }`.
-  - Enables mobile and native clients to dynamically detect whether social authentication is configured on the active VaultR server (including self-hosted instances).
-- **Direct Mobile Google Token Exchange Route (`src/app/api/auth/mobile-google/route.ts`)**:
-  - Implemented `POST /api/auth/mobile-google` accepting either direct Google `idToken` or PKCE authorization `code`.
-  - Validates issuer (`accounts.google.com`), token expiry, audience against `GOOGLE_CLIENT_ID`, and verified email status.
-  - Automatically provisions or links user, account, and user profiles with standard quota (100MB).
-  - Issues a fresh 7-day bearer session in the `session` table with client IP and mobile User-Agent tracking.
-- **Native Expo Google Authentication Service (`mobile/src/services/googleAuth.ts`)**:
-  - Created `performNativeGoogleAuth(serverUrl)` using `WebBrowser.openAuthSessionAsync` directly against Google OAuth (`https://accounts.google.com/o/oauth2/v2/auth`).
-  - Implemented cryptographic PKCE generation (`generatePkce`) using `expo-crypto` and `@vaultr/core`'s `toBase64Url`.
-  - Decoupled mobile login from web frontend pages (`/api/auth/mobile-start` and `/api/auth/mobile-callback`), eliminating browser redirect chains, state mismatch cookies, and web popup flashes.
-- **Mobile Auth Store & Dynamic Screen Wiring (`mobile/src/store/vaultStore.ts`, `mobile/src/screens/AuthScreen.tsx`)**:
-  - Updated `signInWithGoogle` in `vaultStore.ts` to call `performNativeGoogleAuth` and persist the resulting session token and `AccountUser`.
-  - Added `isGoogleEnabled` state and dynamic query to `AuthScreen.tsx`, gracefully hiding the Google sign-in button if self-hosted servers do not have Google OAuth configured.
-- **Verification, Edge Cases & Route Cleanup**:
-  - Removed obsolete web-based deep link handler `handleAuthRedirectUrl` from `App.tsx` and `vaultStore.ts`.
-  - Deleted legacy Next.js web proxy routes `mobile-start` and `mobile-callback`.
-  - Extended dynamic discovery endpoint (`GET /api/config/auth-providers`) to detect and return platform-specific client IDs (`googleIosClientId`, `googleAndroidClientId`).
-  - Updated `mobile/src/services/googleAuth.ts` to pick the platform client ID (iOS / Android) with fallback to web client ID.
-  - Added eager `trackSession` invocation to `POST /api/auth/mobile-google` so new mobile sessions appear with full device/IP metadata in `SessionsScreen.tsx` immediately.
-  - Sanitized server URL inputs with `.trim()` in `vaultStore.ts` and parameterized platform OS User-Agent header in `SessionsScreen.tsx`.
-  - Confirmed Bearer token generation successfully integrates with `SessionsScreen.tsx` for cross-device revocation.
-  - Confirmed Google accounts are correctly inserted with `google` provider ID in the `account` table, aligning perfectly with Web UI's OAuth linkage.
-  - Passed all TypeScript (`tsc --noEmit`) compiler checks in both `d:\Projects\_vaultr` and `mobile/`.
+### ✅ What Was Done (Phase 29: Standalone Android Compilation & Private IP OAuth Resolution)
+- **Private IP Rejection Root Cause Fix (`mobile/src/services/googleAuth.ts`, `src/app/api/auth/mobile-google/route.ts`)**:
+  - Identified root cause of Google `Error 400: invalid_request (device_id and device_name are required for private IP)`: Google OAuth strictly prohibits RFC 1918 private LAN IPs (`192.168.x.x`, `10.x.x.x`) in redirect URIs.
+  - Implemented `getSafeGoogleRedirectUri(serverUrl)`: automatically normalizes LAN IP addresses to `http://localhost:3000/api/auth/mobile-callback` when running on Android with ADB reverse port forwarding.
+  - For iOS native clients, implemented `getReversedClientId(clientId)` routing via Apple's native `ASWebAuthenticationSession` scheme (`com.googleusercontent.apps.<prefix>:/oauth2redirect`) with PKCE, completely eliminating web bounce redirects on iOS.
+  - Standardized OAuth `response_type` to `"code"` with PKCE code challenges, ensuring credentials pass through HTTP 302 redirects without hash fragment loss.
+  - Updated backend `POST /api/auth/mobile-google` to dynamically select the appropriate client ID and conditionally omit `client_secret` for public native clients.
+- **Wireless ADB Reverse Proxy Setup**:
+  - Configured ADB reverse port forwarding for the connected Android device (`192.168.1.41:40811`):
+    - Port `8081` $\rightarrow$ Metro bundler
+    - Port `3000` $\rightarrow$ Next.js server & [`src/proxy.ts`](file:///d:/Projects/_vaultr/src/proxy.ts)
+    - Port `9005` $\rightarrow$ MinIO S3 storage
+- **Standalone Android APK Compilation & Deployment**:
+  - Configured Android SDK location (`sdk.dir`) and Java 17 environment for Gradle 9.3.1.
+  - Successfully compiled the standalone debug APK (`D:\Projects\_vaultr\mobile\android\app\build\outputs\apk\debug\app-debug.apk`, 277MB) via `./gradlew assembleDebug`.
+  - Streamed, verified, and installed `com.vaultr.mobile` onto the connected device via ADB.
+  - Launched `com.vaultr.mobile/.MainActivity` in the foreground on the phone.
+  - Preserved all native Android services (`VaultrAutofillService`, `VaultrCredentialProviderService`, `VaultrAccessibilityService`, `VaultrTileService`, `AutofillSearchActivity`, `PasskeyAuthActivity`).
+- **Workspace Scripts Alignment (`mobile/package.json`)**:
+  - Updated mobile workspace scripts to use `expo start --go` for development and reserved `build:android` / `build:ios` for native runs.
+- **Code Quality & DoD Verification**:
+  - Verified `npx tsc --noEmit` and `mobile/tsconfig.json` compile with zero errors.
+  - Working tree is clean and commits are structured with standard emojis.
+
+### 📋 What's Planned Next
+- Verify Google Sign-In and Master Password vault unlock on the newly installed standalone Android APK.
+- Test biometric Face ID / Fingerprint enrollment inside the standalone build (`USE_BIOMETRIC`, `USE_FINGERPRINT`).
+- Test Android 14+ Credential Provider & system autofill sheet integration with the backend vault API.
 
 ---
+
 
 ## Current Session: iOS Configuration & Cross-Platform Parity (2026-09-19) · Branch: `dev`
 
