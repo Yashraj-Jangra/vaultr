@@ -57,6 +57,7 @@ import {
   CreditCard,
   Folder,
   Tag,
+  KeyRound,
 } from "lucide-react-native";
 
 type Props = StackScreenProps<RootStackParamList, "ItemDetail">;
@@ -302,6 +303,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             username={payload?.username}
             url={payload?.url || item.domain}
             domain={item.domain || payload?.url}
+            isPasskey={payload?.isPasskey || (item as any).isPasskey || item.tags?.includes("passkey")}
             cardholderName={payload?.cardholderName || payload?.cardName}
             cardName={payload?.cardName || payload?.cardholderName}
             cardNumber={payload?.cardNumber}
@@ -341,7 +343,10 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       {/* Live 2FA TOTP Code */}
       {payload && (payload.totpSecret || payload.totp_secret) ? (
         <View style={{ gap: 6 }}>
-          <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Key size={13} color="#c084fc" />
+            <Text style={styles.sectionHeaderLabel}>AUTHENTICATOR</Text>
+          </View>
           <TotpCode secret={payload.totpSecret || payload.totp_secret} name={item.name} />
         </View>
       ) : null}
@@ -375,6 +380,34 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                     hasDivider={false}
                   />
                 ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Passkey Status Card */}
+          {(payload.isPasskey || (item as any).isPasskey || item.tags?.includes("passkey") || payload.passkeyCredentialId) && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionHeaderLabel}>PASSKEY</Text>
+              <View style={styles.passkeyCard}>
+                <View style={styles.passkeyCardLeft}>
+                  <KeyRound size={26} color="#38bdf8" />
+                  <View style={styles.passkeyInfoCol}>
+                    <Text style={styles.passkeyTitleText}>Passkey Configured</Text>
+                    <Text style={styles.passkeyDateText}>
+                      {payload.passkeyCreatedAt
+                        ? `Configured • ${new Date(payload.passkeyCreatedAt).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}`
+                        : "Configured for passwordless sign-in"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.passkeyStatusBadge}>
+                  <View style={styles.passkeyStatusDot} />
+                  <Text style={styles.passkeyStatusText}>ACTIVE</Text>
+                </View>
               </View>
             </View>
           )}
@@ -1586,5 +1619,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  passkeyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.2)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  passkeyCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flex: 1,
+  },
+  passkeyInfoCol: {
+    flex: 1,
+    gap: 2,
+  },
+  passkeyTitleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#f4f4f5",
+  },
+  passkeyDateText: {
+    fontSize: 12,
+    color: "#a1a1aa",
+  },
+  passkeyStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+  },
+  passkeyStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#10b981",
+  },
+  passkeyStatusText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#34d399",
+    letterSpacing: 0.6,
+  },
 });
+
 

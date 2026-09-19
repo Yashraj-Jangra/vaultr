@@ -7,6 +7,7 @@ module.exports = {
     popup: "./src/popup/index.tsx",
     background: "./src/background/service-worker.ts",
     autofill: "./src/content-script/autofill.ts",
+    "webauthn-page": "./src/content-script/webauthn-page.ts",
   },
   output: {
     path: path.resolve(__dirname, "dist"),
@@ -43,6 +44,7 @@ module.exports = {
         { from: "manifest.json", to: "manifest.json" },
         { from: "../public/icons", to: "icons" },
         { from: "../public/brand", to: "brand" },
+        { from: "../public/brand/vaultr-full-dark-transparent.png", to: "brand/logo-dark.png" },
         { from: "../public/illustrations", to: "illustrations" },
         { from: "../public/logos", to: "logos" },
       ],

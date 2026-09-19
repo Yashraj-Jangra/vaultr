@@ -5,9 +5,9 @@
 
 import React, { useMemo, useState, useRef } from "react";
 import { StyleSheet, Text, View, Image, TouchableOpacity, Vibration } from "react-native";
-import Svg, { Path, Circle, Ellipse, Line, Defs, LinearGradient, RadialGradient, G, Stop, Polygon, Rect } from "react-native-svg";
+import Svg, { Path, Circle, Ellipse, Line, Defs, LinearGradient, RadialGradient, G, Stop, Polygon, Rect, ClipPath } from "react-native-svg";
 import { Template } from "@vaultr/core";
-import { Globe, User, FileText, MapPin, Check } from "lucide-react-native";
+import { Globe, User, FileText, MapPin, Check, KeyRound, Key } from "lucide-react-native";
 import Animated, { FadeInUp, FadeOut } from "react-native-reanimated";
 import { resolveDomain } from "@vaultr/core";
 import { Interactive3DCard } from "./Interactive3DCard";
@@ -31,6 +31,8 @@ export interface ItemPreviewCardProps {
   username?: string;
   url?: string;
   domain?: string;
+  isPasskey?: boolean;
+  hasTotp?: boolean;
   // Card fields
   cardholderName?: string;
   cardNumber?: string;
@@ -729,7 +731,7 @@ function CreditCardVisual({
 
 // ── 4. Login Keycard with SiteIcon ───────────────────────────────────────────
 
-function LoginKeycardVisual({ name, username, url, domain, onCopy }: ItemPreviewCardProps) {
+function LoginKeycardVisual({ name, username, url, domain, isPasskey, hasTotp, onCopy }: ItemPreviewCardProps) {
   const [faviconError, setFaviconError] = React.useState(false);
 
   const effectiveDomain = useMemo(() => {
@@ -758,25 +760,51 @@ function LoginKeycardVisual({ name, username, url, domain, onCopy }: ItemPreview
     : null;
 
   return (
-    <View style={[login.container]}>
-      {/* 1:1 Web gradient surface */}
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Defs>
-          <LinearGradient id="loginGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#1a1a20" />
-            <Stop offset="100%" stopColor="#0d0d10" />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#loginGrad)" rx={CARD_RADIUS} ry={CARD_RADIUS} />
-      </Svg>
-
-      {/* Ambient glow */}
-      <View style={login.glow} pointerEvents="none" />
+    <View style={login.container}>
+      {/* 1:1 Web gradient surface & ambient glow in SVG */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="loginSurfaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#1a1a22" />
+              <Stop offset="100%" stopColor="#0b0b0e" />
+            </LinearGradient>
+            <RadialGradient id="loginTopRightGlow" cx="300" cy="20" r="100" gradientUnits="userSpaceOnUse">
+              <Stop offset="0%" stopColor="#f59e0b" stopOpacity={0.08} />
+              <Stop offset="50%" stopColor="#f59e0b" stopOpacity={0.02} />
+              <Stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+            </RadialGradient>
+            <ClipPath id="loginCardClip">
+              <Rect x={0} y={0} width={320} height={200} rx={16} ry={16} />
+            </ClipPath>
+          </Defs>
+          {/* Base card surface */}
+          <Rect x={0} y={0} width={320} height={200} fill="url(#loginSurfaceGrad)" rx={16} ry={16} />
+          {/* Ambient top-right warm glow orb clipped to card bounds */}
+          <Circle cx={300} cy={20} r={100} fill="url(#loginTopRightGlow)" clipPath="url(#loginCardClip)" />
+          {/* Crisp inset border */}
+          <Rect x={0.5} y={0.5} width={319} height={199} rx={16} ry={16} fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth={1} />
+        </Svg>
+      </View>
 
       {/* Top Row: Label + Site Favicon */}
       <View style={login.topRow}>
         <View style={login.headerLeft}>
-          <Text style={login.cardTag}>ACCESS KEYCARD</Text>
+          <View style={login.tagRow}>
+            <Text style={login.cardTag}>ACCESS KEYCARD</Text>
+            {isPasskey && (
+              <View style={login.passkeyBadge}>
+                <KeyRound size={9} color="#38bdf8" />
+                <Text style={login.passkeyBadgeText}>PASSKEY</Text>
+              </View>
+            )}
+            {hasTotp && (
+              <View style={login.totpBadge}>
+                <Key size={9} color="#a78bfa" />
+                <Text style={login.totpBadgeText}>2FA</Text>
+              </View>
+            )}
+          </View>
           <Text style={login.title} numberOfLines={1}>{name || "Untitled Login"}</Text>
         </View>
         {/* Site favicon or fallback Globe */}
@@ -819,17 +847,44 @@ function LoginKeycardVisual({ name, username, url, domain, onCopy }: ItemPreview
 function NotePaperVisual({ name, note }: ItemPreviewCardProps) {
   return (
     <View style={note_.container}>
-      {/* Top amber multi-stop gradient bar (exact match to Web from-yellow-600 via-yellow-500 to-yellow-600) */}
-      <Svg width="100%" height={5} style={{ position: "absolute", top: 0, left: 0, right: 0 }} pointerEvents="none">
-        <Defs>
-          <LinearGradient id="noteGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor="#ca8a04" />
-            <Stop offset="50%" stopColor="#eab308" />
-            <Stop offset="100%" stopColor="#ca8a04" />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height={5} fill="url(#noteGoldGrad)" />
-      </Svg>
+      {/* 1:1 Web Note Paper Surface & Curved Top Amber Bar */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="noteGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor="#ca8a04" />
+              <Stop offset="50%" stopColor="#eab308" />
+              <Stop offset="100%" stopColor="#ca8a04" />
+            </LinearGradient>
+            <LinearGradient id="noteSurfaceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#141417" />
+              <Stop offset="100%" stopColor="#0d0d0f" />
+            </LinearGradient>
+            <ClipPath id="noteCardClip">
+              <Rect x={0} y={0} width={320} height={200} rx={16} ry={16} />
+            </ClipPath>
+          </Defs>
+          {/* Base card surface */}
+          <Rect x={0} y={0} width={320} height={200} fill="url(#noteSurfaceGrad)" rx={16} ry={16} />
+
+          {/* Top golden accent bar: 5px high, perfectly clipped to top 16px corner curves */}
+          <Rect x={0} y={0} width={320} height={5} fill="url(#noteGoldGrad)" clipPath="url(#noteCardClip)" />
+
+          {/* Subtle background confidential watermark graphic */}
+          <G opacity={0.06} clipPath="url(#noteCardClip)">
+            <Path
+              d="M230,120 L290,120 C293,120 295,122 295,125 L295,170 C295,173 293,175 290,175 L230,175 C227,175 225,173 225,170 L225,125 C225,122 227,120 230,120 Z"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth={1.5}
+            />
+            <Path d="M225,125 L260,150 L295,125" fill="none" stroke="#ffffff" strokeWidth={1.5} />
+          </G>
+
+          {/* Crisp inset border */}
+          <Rect x={0.5} y={0.5} width={319} height={199} rx={16} ry={16} fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth={1} />
+        </Svg>
+      </View>
 
       <View style={note_.bodyWrap}>
         <View style={note_.header}>
@@ -858,6 +913,44 @@ function AddressLabelVisual({
 
   return (
     <View style={addr.container}>
+      {/* 1:1 Web Address Label Surface with hardware-accelerated Dashed Border in SVG */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="addrSurfaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#101116" />
+              <Stop offset="100%" stopColor="#0a0a0d" />
+            </LinearGradient>
+            <ClipPath id="addrCardClip">
+              <Rect x={0} y={0} width={320} height={200} rx={16} ry={16} />
+            </ClipPath>
+          </Defs>
+          {/* Base card surface */}
+          <Rect x={0} y={0} width={320} height={200} fill="url(#addrSurfaceGrad)" rx={16} ry={16} />
+
+          {/* Decorative subtle world postal route lines */}
+          <G opacity={0.06} clipPath="url(#addrCardClip)">
+            <Path d="M20,150 Q100,50 200,90 T300,40" fill="none" stroke="#38bdf8" strokeWidth={1.2} strokeDasharray="4,4" />
+            <Circle cx={200} cy={90} r={3} fill="#38bdf8" />
+            <Circle cx={300} cy={40} r={3} fill="#38bdf8" />
+          </G>
+
+          {/* Crisp, non-glitching dashed rounded border in SVG */}
+          <Rect
+            x={1.5}
+            y={1.5}
+            width={317}
+            height={197}
+            rx={15}
+            ry={15}
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.16)"
+            strokeWidth={1.5}
+            strokeDasharray="6,4"
+          />
+        </Svg>
+      </View>
+
       {/* Stamp box */}
       <View style={addr.stampBox}>
         <Globe size={13} color="#737373" />
@@ -883,21 +976,39 @@ function AddressLabelVisual({
 function ProfileBadgeVisual({ name, fullName = "", email = "", phone = "", dob, idNumber = "" }: ItemPreviewCardProps) {
   return (
     <View style={prof.container}>
-      {/* 1:1 Web gradient surface from-[#111115] to-[#070709] + Left accent gradient bar */}
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Defs>
-          <LinearGradient id="profileGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor="#111115" />
-            <Stop offset="100%" stopColor="#070709" />
-          </LinearGradient>
-          <LinearGradient id="accentBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor="#a78bfa" />
-            <Stop offset="100%" stopColor="#7c3aed" />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#profileGrad)" rx={CARD_RADIUS} ry={CARD_RADIUS} />
-        <Rect x={0} y={0} width={4} height="100%" fill="url(#accentBarGrad)" />
-      </Svg>
+      {/* 1:1 Web gradient surface & curved left accent bar */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox="0 0 320 200" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="profileSurfaceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#121217" />
+              <Stop offset="100%" stopColor="#07070a" />
+            </LinearGradient>
+            <LinearGradient id="profileAccentBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#a78bfa" />
+              <Stop offset="100%" stopColor="#7c3aed" />
+            </LinearGradient>
+            <ClipPath id="profileCardClip">
+              <Rect x={0} y={0} width={320} height={200} rx={16} ry={16} />
+            </ClipPath>
+          </Defs>
+          {/* Base card surface */}
+          <Rect x={0} y={0} width={320} height={200} fill="url(#profileSurfaceGrad)" rx={16} ry={16} />
+
+          {/* Left accent bar: 4px wide, perfectly clipped to left 16px corner curves */}
+          <Rect x={0} y={0} width={4} height={200} fill="url(#profileAccentBarGrad)" clipPath="url(#profileCardClip)" />
+
+          {/* Subtle background security emblem watermark */}
+          <G opacity={0.06} clipPath="url(#profileCardClip)">
+            <Circle cx={270} cy={150} r={40} fill="none" stroke="#a78bfa" strokeWidth={1} />
+            <Circle cx={270} cy={150} r={28} fill="none" stroke="#a78bfa" strokeWidth={1} strokeDasharray="4,3" />
+            <Path d="M270,122 L270,178 M242,150 L298,150" stroke="#a78bfa" strokeWidth={0.8} />
+          </G>
+
+          {/* Crisp inset border */}
+          <Rect x={0.5} y={0.5} width={319} height={199} rx={16} ry={16} fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth={1} />
+        </Svg>
+      </View>
 
       {/* Top: Title + Chip */}
       <View style={prof.topRow}>
@@ -1009,17 +1120,12 @@ const login = StyleSheet.create({
     width: "100%",
     aspectRatio: CARD_ASPECT,
     borderRadius: CARD_RADIUS,
-    borderWidth: 1,
-    borderColor: "#1e1e24",
+    borderWidth: 0,
     backgroundColor: "#0d0d10",
     padding: 20,
     justifyContent: "space-between",
     overflow: "hidden",
     position: "relative",
-  },
-  glow: {
-    position: "absolute", top: -24, right: -24, width: 120, height: 120,
-    borderRadius: 60, backgroundColor: "rgba(255,255,255,0.04)",
   },
   topRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12,
@@ -1028,6 +1134,47 @@ const login = StyleSheet.create({
     flex: 1,
   },
   cardTag: { fontSize: 9, fontWeight: "800", color: "#737373", letterSpacing: 1.5, textTransform: "uppercase" },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  passkeyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3.5,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.3)",
+  },
+  passkeyBadgeText: {
+    fontSize: 7.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "#38bdf8",
+    letterSpacing: 0.5,
+  },
+  totpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3.5,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: "rgba(167, 139, 250, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(167, 139, 250, 0.3)",
+  },
+  totpBadgeText: {
+    fontSize: 7.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: "#a78bfa",
+    letterSpacing: 0.5,
+  },
   title: { fontSize: 17, fontWeight: "700", color: "#ffffff", marginTop: 4 },
   faviconBox: {
     width: 48,
@@ -1061,8 +1208,7 @@ const note_ = StyleSheet.create({
     width: "100%",
     aspectRatio: CARD_ASPECT,
     borderRadius: CARD_RADIUS,
-    borderWidth: 1,
-    borderColor: "#222226",
+    borderWidth: 0,
     backgroundColor: "#111113",
     overflow: "hidden",
     position: "relative",
@@ -1070,7 +1216,6 @@ const note_ = StyleSheet.create({
     padding: 20,
     paddingTop: 22,
   },
-  topBar: { position: "absolute", top: 0, left: 0, right: 0, height: 4, backgroundColor: "#ca8a04" },
   bodyWrap: { flex: 1, marginTop: 4 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8, borderBottomWidth: 1, borderBottomColor: "#222226", paddingBottom: 6 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 7, flex: 1, marginRight: 8 },
@@ -1085,9 +1230,7 @@ const addr = StyleSheet.create({
     width: "100%",
     aspectRatio: CARD_ASPECT,
     borderRadius: CARD_RADIUS,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#22242b",
+    borderWidth: 0,
     backgroundColor: "#0d0e12",
     overflow: "hidden",
     position: "relative",
@@ -1114,15 +1257,13 @@ const prof = StyleSheet.create({
     width: "100%",
     aspectRatio: CARD_ASPECT,
     borderRadius: CARD_RADIUS,
-    borderWidth: 1,
-    borderColor: "#23232a",
-    backgroundColor: "#0f0f13",
+    borderWidth: 0,
+    backgroundColor: "#07070a",
     overflow: "hidden",
     position: "relative",
     padding: 20,
     justifyContent: "space-between",
   },
-  accentBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: "#ffffff" },
   topRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tag: { fontSize: 8.5, fontFamily: "monospace", fontWeight: "800", color: "#737373", letterSpacing: 1.5, textTransform: "uppercase" },
   name: { fontSize: 15, fontWeight: "700", color: "#ffffff", marginTop: 2 },

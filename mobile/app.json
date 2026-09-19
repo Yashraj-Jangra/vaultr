@@ -3,7 +3,7 @@
     "name": "Vaultr",
     "slug": "vaultr-mobile",
     "scheme": "vaultr",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "orientation": "portrait",
     "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
@@ -24,6 +24,16 @@
         "CAMERA"
       ],
       "versionCode": 10
+    },
+    "ios": {
+      "bundleIdentifier": "com.vaultr.mobile",
+      "buildNumber": "10",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow Vaultr to use Face ID to unlock your secure vault.",
+        "NSCameraUsageDescription": "Allow Vaultr to access camera to scan 2FA QR codes.",
+        "NSPhotoLibraryUsageDescription": "Allow Vaultr to access your photo library for vault attachments."
+      }
     },
     "plugins": [
       [

@@ -30,9 +30,11 @@ import { Lock, Shield, Eye, EyeOff, LogOut, Fingerprint } from "lucide-react-nat
 import Svg, { Pattern, Rect, Line } from "react-native-svg";
 import { useVaultStore } from "../store/vaultStore";
 import { Illustration } from "../components/Illustration";
-import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics } from "../services/biometrics";
+import { isBiometricAvailable, isBiometricEnabled, unlockWithBiometrics, enrollBiometricPassword } from "../services/biometrics";
+import { isPinSet, getPinLength, verifyPinAndGetPassword, clearPin } from "../services/pin";
 import { isAutofillUnlockPending, finishAutofillUnlock } from "../services/autofill";
 import { useResponsive } from "../utils/responsive";
+import { PinPad } from "../components/PinPad";
 
 function GridBackground() {
   return (
@@ -51,6 +53,7 @@ function GridBackground() {
 const { width } = Dimensions.get("window");
 
 type UnlockView = "main" | "forgot" | "why";
+type UnlockMode = "pin" | "password";
 
 export function UnlockScreen() {
   const { accountUser, unlock, lock, signOutAccount } = useVaultStore();
@@ -61,7 +64,15 @@ export function UnlockScreen() {
   const [unlockError, setUnlockError] = useState("");
   const [currentView, setCurrentView] = useState<UnlockView>("main");
 
+  const [unlockMode, setUnlockMode] = useState<UnlockMode>("password");
+  const [pinEnrolled, setPinEnrolled] = useState(false);
+  const [pinLength, setPinLength] = useState(4);
+  const [pinValue, setPinValue] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [shakePin, setShakePin] = useState(false);
+
   const [biometricEnrolled, setBiometricEnrolled] = useState(false);
+  const [hadBiometricsBeforeStale, setHadBiometricsBeforeStale] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const shouldCompactForKeyboard = isKeyboardVisible && !isTablet;
@@ -111,14 +122,28 @@ export function UnlockScreen() {
         // before starting the expensive PBKDF2 key derivation.
         InteractionManager.runAfterInteractions(async () => {
           try {
-            await unlock(pw);
+            await unlock(pw, undefined, true);
             if (await isAutofillUnlockPending()) {
               await finishAutofillUnlock();
             }
           } catch (err: any) {
-            const msg = err?.message || "Incorrect master password.";
-            setUnlockError(msg);
-            vaultAlert.alert("Unlock Error", msg, undefined, { illustration: "cancel_k4w9" });
+            const isStale = err?.message === "STALE_BIOMETRIC" || err?.message?.includes("STALE_BIOMETRIC");
+            if (isStale) {
+              setBiometricEnrolled(false);
+              setHadBiometricsBeforeStale(true);
+              setUnlockMode("password");
+              setUnlockError("Master password changed on another device. Please unlock with your new password.");
+              vaultAlert.alert(
+                "Master Password Changed",
+                "Your master password was changed from another device. Please enter your new master password to unlock and re-enable biometrics.",
+                undefined,
+                { illustration: "security-on_3ykb", glowColor: "rgba(245, 158, 11, 0.15)" }
+              );
+            } else {
+              const msg = err?.message || "Incorrect master password.";
+              setUnlockError(msg);
+              vaultAlert.alert("Unlock Error", msg, undefined, { illustration: "cancel_k4w9" });
+            }
           } finally {
             setUnlocking(false);
           }
@@ -151,6 +176,14 @@ export function UnlockScreen() {
 
     // Check if biometric hardware is supported AND actively enrolled
     (async () => {
+      const pinSet = await isPinSet();
+      if (pinSet) {
+        const len = await getPinLength();
+        setPinEnrolled(true);
+        setPinLength(len);
+        setUnlockMode("pin");
+      }
+
       const supported = await isBiometricAvailable();
       if (supported) {
         const enabled = await isBiometricEnabled();
@@ -204,6 +237,38 @@ export function UnlockScreen() {
         if (await isAutofillUnlockPending()) {
           await finishAutofillUnlock();
         }
+
+        // If user had biometrics enabled before it was marked stale, prompt to re-enroll
+        if (hadBiometricsBeforeStale) {
+          const { lastPasswordChangedAt } = useVaultStore.getState();
+          vaultAlert.alert(
+            "Re-enable Biometric Unlock?",
+            "Would you like to re-enable Fingerprint / Face ID unlock with your new master password?",
+            [
+              { text: "Not Now", style: "cancel" },
+              {
+                text: "Enable",
+                onPress: async () => {
+                  try {
+                    const enrollRes = await enrollBiometricPassword(masterPassword, lastPasswordChangedAt);
+                    if (enrollRes.success) {
+                      setBiometricEnrolled(true);
+                      vaultAlert.alert(
+                        "Biometrics Re-enabled",
+                        "You can now use biometrics to unlock with your new master password.",
+                        undefined,
+                        { illustration: "security-on_3ykb", glowColor: "rgba(52, 211, 153, 0.12)" }
+                      );
+                    }
+                  } catch (e) {
+                    console.warn("Failed to re-enroll biometrics", e);
+                  }
+                },
+              },
+            ],
+            { illustration: "fingerprint_kdwq", glowColor: "rgba(52, 211, 153, 0.12)" }
+          );
+        }
       } catch (err: any) {
         const msg = err?.message || "Incorrect password";
         setUnlockError(msg.includes("decrypt") ? "Incorrect master password." : msg);
@@ -212,6 +277,65 @@ export function UnlockScreen() {
         setUnlocking(false);
       }
     });
+  };
+
+  const handlePinSubmit = async (enteredPin: string) => {
+    if (unlocking) return;
+    setUnlocking(true);
+    setPinError("");
+    setShakePin(false);
+
+    // Yield slightly so the final dot spring pop animation finishes rendering before PBKDF2 runs
+    setTimeout(() => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const res = await verifyPinAndGetPassword(enteredPin);
+          if (res.success && res.password) {
+            try {
+              await unlock(res.password);
+              if (await isAutofillUnlockPending()) {
+                await finishAutofillUnlock();
+              }
+            } catch (unlockErr: any) {
+              // Master password was changed from another device; PIN-cached password is stale
+              await clearPin();
+              setPinEnrolled(false);
+              setPinValue("");
+              setUnlockMode("password");
+              const alertMsg = "Your master password was changed from another device. Your PIN has been reset. Please enter your new master password.";
+              setUnlockError(alertMsg);
+              vaultAlert.alert(
+                "Master Password Changed",
+                alertMsg,
+                undefined,
+                { illustration: "security-on_3ykb", glowColor: "rgba(245, 158, 11, 0.15)" }
+              );
+            }
+          } else {
+            setPinValue("");
+            setShakePin(true);
+            setTimeout(() => setShakePin(false), 500);
+            if (res.lockedOut) {
+              setPinEnrolled(false);
+              setUnlockMode("password");
+              setUnlockError(res.error || "Too many failed attempts. PIN has been disabled.");
+              vaultAlert.alert("PIN Disabled", res.error || "PIN has been disabled after 5 failed attempts.", undefined, {
+                illustration: "cancel_k4w9",
+              });
+            } else {
+              setPinError(res.error || "Incorrect PIN");
+            }
+          }
+        } catch (err: any) {
+          setPinValue("");
+          setShakePin(true);
+          setTimeout(() => setShakePin(false), 500);
+          setPinError(err?.message || "Failed to verify PIN");
+        } finally {
+          setUnlocking(false);
+        }
+      });
+    }, 80);
   };
 
   const animatedMainStyle = useAnimatedStyle(() => ({
@@ -279,7 +403,7 @@ export function UnlockScreen() {
           resizeMode="contain"
         />
         <Text style={[styles.title, shouldCompactForKeyboard && { fontSize: 16 }]}>
-          {unlocking ? "Decrypting vault…" : "Unlock your vault"}
+          {unlocking ? "Decrypting vault…" : unlockMode === "pin" ? "Enter your PIN" : "Unlock your vault"}
         </Text>
         <Text style={styles.emailHint} numberOfLines={1}>
           {accountUser?.email || ""}
@@ -295,95 +419,153 @@ export function UnlockScreen() {
           </View>
         ) : null}
 
-        {/* Password input */}
-        <View style={styles.inputWrap}>
-          <TextInput
-            key={showPassword ? "pw_shown" : "pw_hidden"}
-            style={styles.input}
-            value={masterPassword}
-            onChangeText={setMasterPassword}
-            placeholder="Master password"
-            placeholderTextColor="#404040"
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!unlocking}
-            returnKeyType="done"
-            onSubmitEditing={handleUnlock}
-          />
-          <TouchableOpacity
-            style={styles.inputIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            {showPassword
-              ? <EyeOff size={15} color="#525252" />
-              : <Eye size={15} color="#525252" />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Actions row: Full-width Unlock button */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
-            onPress={handleUnlock}
-            disabled={!masterPassword || unlocking}
-            activeOpacity={0.85}
-          >
-            {unlocking ? (
-              <ActivityIndicator size="small" color="#09090b" />
-            ) : (
-              <>
-                <Lock size={14} color="#09090b" />
-                <Text style={styles.unlockBtnText}>Unlock vault</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer links: Below action row */}
-        <View style={[styles.footerRow, shouldCompactForKeyboard && { marginTop: 12 }]}>
-          <TouchableOpacity onPress={() => setCurrentView("forgot")}>
-            <Text style={styles.footerLink}>Forgot password?</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.footerWhyBtn}
-            onPress={() => setCurrentView("why")}
-          >
-            <Shield size={13} color="#525252" />
-            <Text style={styles.footerLink}>Why is this needed?</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Flagship In-Display Fingerprint Sensor — Middle Centered with Breathing Animation (Only when enrolled & keyboard closed) */}
-        {biometricEnrolled && !shouldCompactForKeyboard ? (
-          <View style={styles.biometricContainer}>
-            <TouchableOpacity
-              onPress={handleBiometricUnlock}
+        {unlockMode === "pin" ? (
+          <View style={{ alignItems: "center", width: "100%" }}>
+            <PinPad
+              length={pinLength}
+              value={pinValue}
+              onChange={(val) => {
+                setPinValue(val);
+                if (pinError) setPinError("");
+              }}
+              onComplete={handlePinSubmit}
               disabled={unlocking}
-              activeOpacity={0.7}
-              style={styles.biometricTouch}
-            >
-              {/* Outer breathing halo */}
-              <Animated.View style={[styles.biometricHalo, animatedFpHaloStyle]} />
+              showBiometricButton={biometricEnrolled}
+              onBiometricPress={handleBiometricUnlock}
+              errorMessage={pinError}
+              shake={shakePin}
+            />
 
-              {/* Inner glowing ring */}
-              <Animated.View style={[styles.biometricRing, animatedFpRingStyle]} />
-
-              {/* Fingerprint Icon Container */}
-              <View style={styles.biometricIconBox}>
-                <Fingerprint size={48} color="#ffffff" strokeWidth={1.75} />
+            {unlocking && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+                <ActivityIndicator size="small" color="#fafafa" />
+                <Text style={{ color: "#a1a1aa", fontSize: 12 }}>Decrypting vault…</Text>
               </View>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+            )}
 
-        {!isKeyboardVisible ? (
-          <View style={styles.signOutWrap}>
-            <TouchableOpacity onPress={signOutAccount}>
-              <Text style={styles.signOutText}>Sign out instead</Text>
-            </TouchableOpacity>
+            <View style={[styles.footerRow, { marginTop: 22 }]}>
+              <TouchableOpacity
+                onPress={() => {
+                  setUnlockMode("password");
+                  setPinValue("");
+                  setPinError("");
+                }}
+              >
+                <Text style={styles.footerLink}>Use Master Password</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.signOutWrap}>
+              <TouchableOpacity onPress={signOutAccount}>
+                <Text style={styles.signOutText}>Sign out instead</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        ) : null}
+        ) : (
+          <>
+            {/* Password input */}
+            <View style={styles.inputWrap}>
+              <TextInput
+                key={showPassword ? "pw_shown" : "pw_hidden"}
+                style={styles.input}
+                value={masterPassword}
+                onChangeText={setMasterPassword}
+                placeholder="Master password"
+                placeholderTextColor="#404040"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!unlocking}
+                returnKeyType="done"
+                onSubmitEditing={handleUnlock}
+              />
+              <TouchableOpacity
+                style={styles.inputIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword
+                  ? <EyeOff size={15} color="#525252" />
+                  : <Eye size={15} color="#525252" />}
+              </TouchableOpacity>
+            </View>
+
+            {/* Actions row: Full-width Unlock button */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.unlockBtn, (!masterPassword || unlocking) && styles.unlockBtnDisabled]}
+                onPress={handleUnlock}
+                disabled={!masterPassword || unlocking}
+                activeOpacity={0.85}
+              >
+                {unlocking ? (
+                  <ActivityIndicator size="small" color="#09090b" />
+                ) : (
+                  <>
+                    <Lock size={14} color="#09090b" />
+                    <Text style={styles.unlockBtnText}>Unlock vault</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {pinEnrolled && (
+              <TouchableOpacity
+                style={{ alignItems: "center", marginTop: 14 }}
+                onPress={() => {
+                  setUnlockMode("pin");
+                  setUnlockError("");
+                }}
+              >
+                <Text style={[styles.footerLink, { color: "#fafafa", fontWeight: "600" }]}>Use PIN Code instead</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Footer links: Below action row */}
+            <View style={[styles.footerRow, shouldCompactForKeyboard && { marginTop: 12 }]}>
+              <TouchableOpacity onPress={() => setCurrentView("forgot")}>
+                <Text style={styles.footerLink}>Forgot password?</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.footerWhyBtn}
+                onPress={() => setCurrentView("why")}
+              >
+                <Shield size={13} color="#525252" />
+                <Text style={styles.footerLink}>Why is this needed?</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Flagship In-Display Fingerprint Sensor — Middle Centered with Breathing Animation (Only when enrolled & keyboard closed) */}
+            {biometricEnrolled && !shouldCompactForKeyboard ? (
+              <View style={styles.biometricContainer}>
+                <TouchableOpacity
+                  onPress={handleBiometricUnlock}
+                  disabled={unlocking}
+                  activeOpacity={0.7}
+                  style={styles.biometricTouch}
+                >
+                  {/* Outer breathing halo */}
+                  <Animated.View style={[styles.biometricHalo, animatedFpHaloStyle]} />
+
+                  {/* Inner glowing ring */}
+                  <Animated.View style={[styles.biometricRing, animatedFpRingStyle]} />
+
+                  {/* Fingerprint Icon Container */}
+                  <View style={styles.biometricIconBox}>
+                    <Fingerprint size={48} color="#ffffff" strokeWidth={1.75} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {!isKeyboardVisible ? (
+              <View style={styles.signOutWrap}>
+                <TouchableOpacity onPress={signOutAccount}>
+                  <Text style={styles.signOutText}>Sign out instead</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </>
+        )}
       </View>
     </Animated.View>
   );

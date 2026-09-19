@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
 import {
-  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, KeyRound, Star
+  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, Key, KeyRound, Star, RefreshCw, Copy, Check
 } from "lucide-react";
-import { VaultItem, detectCardBrand } from "@vaultr/core";
+import { VaultItem, detectCardBrand, generateRandom, scorePassword } from "@vaultr/core";
+import { CipherScrambleText } from "./CipherScrambleText";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
@@ -50,6 +51,16 @@ export interface DecryptedPayload {
   customFields?: { key: string; value: string }[];
   totpSecret?: string;
   entryNotes?: string;
+  // passkey
+  isPasskey?: boolean;
+  passkeyRpId?: string;
+  passkeyCredentialId?: string;
+  passkeyUserHandle?: string;
+  passkeyPrivateKey?: string;
+  passkeySignCount?: number;
+  passkeyTransports?: string[];
+  passkeyCreatedAt?: string;
+  passkeyLastUsedAt?: string;
 }
 
 interface NewEntryFormProps {
@@ -77,88 +88,250 @@ interface NewEntryFormProps {
 
 // ─── Password Generator Widget ───────────────────────────────────────────────
 
-function generatePassword(len: number, upper: boolean, lower: boolean, nums: boolean, syms: boolean): string {
-  const U = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const L = "abcdefghijklmnopqrstuvwxyz";
-  const N = "0123456789";
-  const S = "!@#$%^&*-_=+";
-  let pool = "";
-  if (upper) pool += U;
-  if (lower) pool += L;
-  if (nums) pool += N;
-  if (syms) pool += S;
-  if (!pool) return "";
-  const arr = new Uint32Array(len);
-  window.crypto.getRandomValues(arr);
-  return Array.from(arr).map(v => pool[v % pool.length]).join("");
-}
-
 function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
   const [len, setLen] = useState(20);
   const [upper, setUpper] = useState(true);
   const [lower, setLower] = useState(true);
   const [nums, setNums] = useState(true);
-  const [syms, setSyms] = useState(false);
+  const [syms, setSyms] = useState(true);
   const [seed, setSeed] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
 
   const pw = useMemo(
-    () => generatePassword(len, upper, lower, nums, syms),
+    () =>
+      generateRandom({
+        length: len,
+        useLower: lower,
+        useUpper: upper,
+        useDigits: nums,
+        useSymbols: syms,
+        pronounceable: false,
+        minUpper: upper ? 1 : 0,
+        minDigits: nums ? 1 : 0,
+        minSymbols: syms ? 1 : 0,
+        exclude: "",
+      }),
     [len, upper, lower, nums, syms, seed]
   );
 
+  const strength = useMemo(() => scorePassword(pw), [pw]);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!pw) return;
+    navigator.clipboard.writeText(pw).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleRegen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSeed((s) => s + 1);
+    setIsSpinning(true);
+    setTimeout(() => setIsSpinning(false), 500);
+  };
+
   return (
-    <div style={{ padding: 10, background: "var(--neutral-900)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)" }}>Password Generator</span>
-        <button
-          type="button"
-          onClick={() => setSeed(s => s + 1)}
-          className="btn btn-ghost"
-          style={{ padding: "2px 6px", fontSize: 10 }}
-        >
-          Regenerate
-        </button>
-      </div>
-
-      <div style={{ fontFamily: "monospace", fontSize: 13, background: "#000", padding: "6px 10px", borderRadius: 6, color: "#10b981", wordBreak: "break-all" }}>
-        {pw}
-      </div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, color: "var(--neutral-400)" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={upper} onChange={e => setUpper(e.target.checked)} /> A-Z
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={lower} onChange={e => setLower(e.target.checked)} /> a-z
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={nums} onChange={e => setNums(e.target.checked)} /> 0-9
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="checkbox" checked={syms} onChange={e => setSyms(e.target.checked)} /> !@#
-        </label>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 10, color: "var(--neutral-500)" }}>Length: {len}</span>
-        <input
-          type="range"
-          min={8}
-          max={64}
-          value={len}
-          onChange={e => setLen(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onUse(pw)}
-        className="btn btn-ghost"
-        style={{ padding: "6px", fontSize: 11, justifyContent: "center" }}
+    <div
+      style={{
+        padding: "10px 12px",
+        background: "#0d0d0f",
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+        marginBottom: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        boxShadow: "0 6px 20px -4px rgba(0, 0, 0, 0.5)",
+      }}
+    >
+      {/* Output Row with Inline Actions */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 6,
+          background: "#070709",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: 8,
+          padding: "7px 10px",
+          minHeight: 40,
+        }}
       >
-        Use Password
-      </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <CipherScrambleText
+            value={pw}
+            mode="random"
+            size="sm"
+            triggerKey={seed}
+            animate={true}
+          />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+          {/* Regenerate Button */}
+          <button
+            type="button"
+            onClick={handleRegen}
+            style={{
+              width: 24,
+              height: 24,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+              border: "none",
+              borderRadius: 6,
+              color: "var(--neutral-400)",
+              cursor: "pointer",
+            }}
+            title="Regenerate"
+          >
+            <RefreshCw
+              size={12}
+              style={{
+                color: "#38bdf8",
+                transform: isSpinning ? "rotate(360deg)" : "rotate(0deg)",
+                transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            />
+          </button>
+
+          {/* Copy Button */}
+          <button
+            type="button"
+            onClick={handleCopy}
+            style={{
+              width: 24,
+              height: 24,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+              border: "none",
+              borderRadius: 6,
+              color: copied ? "#10b981" : "var(--neutral-400)",
+              cursor: "pointer",
+            }}
+            title="Copy password"
+          >
+            {copied ? <Check size={12} style={{ color: "#10b981" }} /> : <Copy size={12} />}
+          </button>
+
+          {/* Use Button */}
+          <button
+            type="button"
+            onClick={() => onUse(pw)}
+            style={{
+              padding: "3px 8px",
+              fontSize: 10.5,
+              fontWeight: 600,
+              background: "#f4f4f5",
+              color: "#09090b",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              marginLeft: 2,
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            Use
+          </button>
+        </div>
+      </div>
+
+      {/* Slim Segmented Strength Bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 1px" }}>
+        <div style={{ display: "flex", gap: 3, flex: 1, height: 3 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                borderRadius: 9999,
+                background: i <= strength.score ? strength.color : "rgba(255, 255, 255, 0.08)",
+                transition: "background 0.3s ease",
+              }}
+            />
+          ))}
+        </div>
+        <span
+          style={{
+            fontSize: 9.5,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            color: strength.color,
+            flexShrink: 0,
+          }}
+        >
+          {strength.label || "—"}
+        </span>
+      </div>
+
+      {/* Controls Row: Length Slider & Character Toggles */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 10.5, color: "var(--neutral-300)", fontFamily: "monospace", fontWeight: 600, minWidth: 48 }}>
+            Len: {len}
+          </span>
+          <input
+            type="range"
+            min={8}
+            max={64}
+            value={len}
+            onChange={(e) => {
+              setLen(Number(e.target.value));
+              setSeed((s) => s + 1);
+            }}
+            style={{ flex: 1, accentColor: "#38bdf8", cursor: "pointer", height: 4 }}
+          />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {(
+            [
+              { label: "A–Z", color: "#38bdf8", val: upper, set: setUpper },
+              { label: "a–z", color: "#e4e4e7", val: lower, set: setLower },
+              { label: "0–9", color: "#fbbf24", val: nums, set: setNums },
+              { label: "!@#", color: "#fb7185", val: syms, set: setSyms },
+            ] as const
+          ).map(({ label, color, val, set }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                const checkedCount = [upper, lower, nums, syms].filter(Boolean).length;
+                if (val && checkedCount <= 1) return;
+                set(!val);
+                setSeed((s) => s + 1);
+              }}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                padding: "3px 4px",
+                borderRadius: 6,
+                fontSize: 9.5,
+                fontFamily: "monospace",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                background: val ? "rgba(255, 255, 255, 0.08)" : "#070709",
+                border: val ? "1px solid rgba(255, 255, 255, 0.18)" : "1px solid var(--border)",
+                color: val ? "var(--neutral-200)" : "var(--neutral-600)",
+              }}
+            >
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: val ? color : "var(--neutral-700)" }} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -269,6 +442,20 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
         totpSecret: totpSecret.trim(),
         passwordHistory: history.length > 0 ? history : undefined,
       });
+
+      if (initialData?.payload?.isPasskey) {
+        Object.assign(payload, {
+          isPasskey: true,
+          passkeyRpId: initialData.payload.passkeyRpId,
+          passkeyCredentialId: initialData.payload.passkeyCredentialId,
+          passkeyUserHandle: initialData.payload.passkeyUserHandle,
+          passkeyPrivateKey: initialData.payload.passkeyPrivateKey,
+          passkeySignCount: initialData.payload.passkeySignCount,
+          passkeyTransports: initialData.payload.passkeyTransports,
+          passkeyCreatedAt: initialData.payload.passkeyCreatedAt,
+          passkeyLastUsedAt: initialData.payload.passkeyLastUsedAt,
+        });
+      }
     }
     if (template === "card") {
       let expMonth = "";
@@ -302,6 +489,9 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
     if (template === "note") Object.assign(payload, { note });
 
     const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
+    if (initialData?.payload?.isPasskey && !parsedTags.includes("passkey")) {
+      parsedTags.push("passkey");
+    }
 
     try {
       await onSave(name.trim(), template, activeFolder, parsedTags, payload, initialData?.id, favorite);
@@ -481,11 +671,13 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
 
             {!showTotpField ? (
               <button type="button" onClick={() => setShowTotpField(true)} className="btn btn-ghost" style={{ fontSize: 11, padding: "6px 10px", width: "fit-content" }}>
-                <Plus size={12} style={{ marginRight: 4 }} /> Add 2FA Secret
+                <Key size={12} style={{ color: "#c084fc", marginRight: 4 }} /> Add 2FA Secret
               </button>
             ) : (
               <div className="form-group">
-                <span className="form-label">2FA Key</span>
+                <span className="form-label" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Key size={12} style={{ color: "#c084fc" }} /> 2FA Key
+                </span>
                 <div style={{ position: "relative" }}>
                   <input
                     type="text"
@@ -497,6 +689,22 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
                   />
                   <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 9, fontWeight: 700, color: "var(--neutral-600)", background: "var(--neutral-900)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 4px" }}>TOTP</div>
                 </div>
+              </div>
+            )}
+
+            {initialData?.payload?.isPasskey && (
+              <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: 5 }}>
+                    <KeyRound size={12} color="#38bdf8" /> PASSKEY ENROLLED
+                  </span>
+                  <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
+                    {initialData.payload.passkeyRpId || "FIDO2"}
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                  This login item has an active passkey credential linked for instant WebAuthn sign-in.
+                </p>
               </div>
             )}
           </div>

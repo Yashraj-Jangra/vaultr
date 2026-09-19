@@ -20,6 +20,7 @@ import {
   PatternOptions,
 } from "@vaultr/core";
 import * as Clipboard from "expo-clipboard";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { copyToClipboardWithAutoClear } from "../services/clipboard";
 import { colors } from "../theme/colors";
 import { CustomSwitch } from "../components/CustomSwitch";
@@ -31,10 +32,25 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { Wand2, Copy, Check, RefreshCw, History } from "lucide-react-native";
+import { Wand2, Copy, Check, RefreshCw, History, Trash2 } from "lucide-react-native";
 import { useResponsive } from "../utils/responsive";
 
 type Mode = "random" | "passphrase" | "pin" | "pattern";
+
+const GENERATOR_HISTORY_KEY = "@vaultr_generator_history_v1";
+
+function getModeColor(m: Mode): string {
+  switch (m) {
+    case "pin":
+      return "#fbbf24";
+    case "passphrase":
+      return "#38bdf8";
+    case "pattern":
+      return "#c084fc";
+    default:
+      return "#a1a1aa";
+  }
+}
 
 interface HistoryEntry {
   id: string;
@@ -145,9 +161,12 @@ function CipherScrambleOutput({
 
   if (!value) return <Text style={{ color: "#525252" }}>—</Text>;
 
+  const fontSize = value.length > 36 ? 16 : value.length > 24 ? 17.5 : 19;
+  const lineHeight = value.length > 36 ? 24 : value.length > 24 ? 25 : 27;
+
   if (mode === "pin") {
     return (
-      <Text style={[styles.outputText, { color: "#fbbf24", letterSpacing: 4 }]}>
+      <Text style={[styles.outputText, { color: "#fbbf24", letterSpacing: 4, fontSize, lineHeight }]}>
         {displayChars.map((item, i) => (
           <Text
             key={i}
@@ -165,7 +184,7 @@ function CipherScrambleOutput({
 
   if (mode === "passphrase") {
     return (
-      <Text style={[styles.outputText, { color: "#7dd3fc" }]}>
+      <Text style={[styles.outputText, { color: "#7dd3fc", fontSize, lineHeight }]}>
         {displayChars.map((item, i) => (
           <Text
             key={i}
@@ -182,7 +201,7 @@ function CipherScrambleOutput({
   }
 
   return (
-    <Text style={styles.outputText}>
+    <Text style={[styles.outputText, { fontSize, lineHeight }]}>
       {displayChars.map((item, i) => {
         const cls = classifyChar(item.char);
         const color = CHAR_COLOR[cls];
@@ -263,8 +282,30 @@ export function GeneratorScreen() {
 
   // Copy state
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Load history from AsyncStorage on mount
+  useEffect(() => {
+    AsyncStorage.getItem(GENERATOR_HISTORY_KEY)
+      .then((raw) => {
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setHistory(parsed);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Sync history to AsyncStorage
+  useEffect(() => {
+    if (history.length > 0) {
+      AsyncStorage.setItem(GENERATOR_HISTORY_KEY, JSON.stringify(history.slice(0, 30))).catch(() => {});
+    }
+  }, [history]);
 
   // Generate current password
   const currentPassword = useMemo(() => {
@@ -304,6 +345,31 @@ export function GeneratorScreen() {
 
   const strength = useMemo(() => scorePassword(currentPassword), [currentPassword]);
 
+  // Auto-record newly generated password in history (whenever length, mode, or seed changes)
+  useEffect(() => {
+    if (!currentPassword) return;
+
+    const timer = setTimeout(() => {
+      setHistory((prev) => {
+        // Avoid duplicate consecutive entries
+        if (prev.length > 0 && prev[0].value === currentPassword) {
+          return prev;
+        }
+        return [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            value: currentPassword,
+            mode,
+            strength,
+          },
+          ...prev.slice(0, 29),
+        ];
+      });
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [currentPassword, mode, strength]);
+
   // Character counts
   const charCounts = useMemo(() => {
     let lower = 0, upper = 0, digit = 0, symbol = 0;
@@ -317,16 +383,10 @@ export function GeneratorScreen() {
     return { lower, upper, digit, symbol };
   }, [currentPassword]);
 
-  // Regenerate manual trigger & push to history
+  // Regenerate manual trigger
   const handleRegenerate = useCallback(() => {
     setSeed((s) => s + 1);
-    if (currentPassword) {
-      setHistory((prev) => [
-        { id: String(Date.now()), value: currentPassword, mode, strength },
-        ...prev.slice(0, 19),
-      ]);
-    }
-  }, [currentPassword, mode, strength]);
+  }, []);
 
   const handleCopy = async (val?: string) => {
     const textToCopy = val || currentPassword;
@@ -335,6 +395,18 @@ export function GeneratorScreen() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleCopyHistory = async (id: string, val: string) => {
+    if (!val) return;
+    await copyToClipboardWithAutoClear(val);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1800);
+  };
+
+  const handleClearHistory = useCallback(async () => {
+    setHistory([]);
+    await AsyncStorage.removeItem(GENERATOR_HISTORY_KEY).catch(() => {});
+  }, []);
 
   const { isSplitView } = useResponsive();
 
@@ -359,13 +431,13 @@ export function GeneratorScreen() {
       {/* ── Generated Password Output Display Card ── */}
       <View style={styles.outputCard}>
         <View style={styles.outputBox}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.outputDisplayWrapper}>
             <CipherScrambleOutput
               value={currentPassword}
               mode={mode}
               triggerKey={seed}
             />
-          </ScrollView>
+          </View>
 
           <View style={styles.actionRow}>
             <AnimatedRegenerateButton onPress={handleRegenerate} />
@@ -652,26 +724,95 @@ export function GeneratorScreen() {
       )}
 
       {/* ── Recent History Panel ── */}
-      {(showHistory || isSplitView) && history.length > 0 && (
-        <View style={styles.historyCard}>
-          <Text style={styles.historyTitle}>Recent Passwords ({history.length})</Text>
-          {history.map((h) => (
-            <TouchableOpacity
-              key={h.id}
-              style={styles.historyRow}
-              onPress={() => handleCopy(h.value)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.historyValue} numberOfLines={1}>
-                  {h.value}
-                </Text>
-                <Text style={styles.historyMeta}>
-                  {h.mode.toUpperCase()} • {h.strength.entropy} bits
-                </Text>
-              </View>
-              <Copy size={16} color="#71717a" />
-            </TouchableOpacity>
-          ))}
+      {(showHistory || isSplitView) && (
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <View style={styles.historyHeaderLeft}>
+              <History size={15} color="#a1a1aa" />
+              <Text style={styles.historyTitle}>Password History</Text>
+              {history.length > 0 && (
+                <View style={styles.historyCountBadge}>
+                  <Text style={styles.historyCountText}>{history.length}</Text>
+                </View>
+              )}
+            </View>
+            {history.length > 0 && (
+              <TouchableOpacity
+                onPress={handleClearHistory}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.historyClearBtn}
+                activeOpacity={0.7}
+              >
+                <Trash2 size={13} color="#71717a" />
+                <Text style={styles.historyClearText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {history.length === 0 ? (
+            <View style={styles.historyEmpty}>
+              <Text style={styles.historyEmptyText}>No passwords generated yet</Text>
+            </View>
+          ) : (
+            <View style={styles.historyList}>
+              {history.map((h, index) => {
+                const isCopied = copiedId === h.id;
+                const isCurrent = index === 0;
+                return (
+                  <React.Fragment key={h.id}>
+                    <TouchableOpacity
+                      style={styles.historyRow}
+                      onPress={() => handleCopyHistory(h.id, h.value)}
+                      activeOpacity={0.65}
+                    >
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text
+                            style={styles.historyValue}
+                            numberOfLines={1}
+                            ellipsizeMode="middle"
+                          >
+                            {h.value}
+                          </Text>
+                          {isCurrent && (
+                            <View style={styles.latestBadge}>
+                              <Text style={styles.latestBadgeText}>CURRENT</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.historyMetaRow}>
+                          <Text style={[styles.historyModeTag, { color: getModeColor(h.mode) }]}>
+                            {h.mode.toUpperCase()}
+                          </Text>
+                          <Text style={styles.historyMetaDot}>•</Text>
+                          <Text style={styles.historyMeta}>
+                            {h.strength.entropy} bits
+                          </Text>
+                          <Text style={styles.historyMetaDot}>•</Text>
+                          <Text style={[styles.historyStrengthLabel, { color: h.strength.color }]}>
+                            {h.strength.label}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.historyCopyAction}>
+                        {isCopied ? (
+                          <View style={styles.historyCopiedPill}>
+                            <Check size={12} color="#34d399" />
+                            <Text style={styles.historyCopiedText}>Copied</Text>
+                          </View>
+                        ) : (
+                          <Copy size={15} color="#71717a" />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    {index < history.length - 1 && <View style={styles.historyDivider} />}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -821,9 +962,15 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
   },
+  outputDisplayWrapper: {
+    width: "100%",
+    justifyContent: "center",
+    paddingVertical: 2,
+  },
   outputText: {
     fontFamily: "monospace",
     fontSize: 19,
+    lineHeight: 27,
     fontWeight: "700",
   },
   actionRow: {
@@ -1029,42 +1176,140 @@ const styles = StyleSheet.create({
     color: "#f4f4f5",
   },
 
-  // History Card
-  historyCard: {
+  // History Section
+  historySection: {
     backgroundColor: "#111111",
     borderWidth: 1,
     borderColor: "#1c1c1e",
     borderRadius: 16,
     padding: 16,
-    gap: 10,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  historyHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   historyTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: "#f4f4f5",
-    marginBottom: 4,
+  },
+  historyCountBadge: {
+    backgroundColor: "#1c1c1e",
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+  },
+  historyCountText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#a1a1aa",
+    fontFamily: "monospace",
+  },
+  historyClearBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+  },
+  historyClearText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#71717a",
+  },
+  historyList: {
+    // No div clutter, pure clean minimal list
   },
   historyRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0d0d0d",
-    borderWidth: 1,
-    borderColor: "#1f1f1f",
-    borderRadius: 10,
-    padding: 12,
-    gap: 10,
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    gap: 12,
+  },
+  historyDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   historyValue: {
     fontFamily: "monospace",
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: "600",
     color: "#f4f4f5",
+    letterSpacing: 0.3,
+  },
+  latestBadge: {
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.3)",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  latestBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#38bdf8",
+    letterSpacing: 0.5,
+  },
+  historyMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  historyModeTag: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  historyMetaDot: {
+    fontSize: 8,
+    color: "#3f3f46",
   },
   historyMeta: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "600",
     color: "#71717a",
-    marginTop: 2,
+  },
+  historyStrengthLabel: {
+    fontSize: 10.5,
+    fontWeight: "700",
+  },
+  historyCopyAction: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingLeft: 4,
+  },
+  historyCopiedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(52, 211, 153, 0.12)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  historyCopiedText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#34d399",
+  },
+  historyEmpty: {
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyEmptyText: {
+    fontSize: 12.5,
+    color: "#52525b",
   },
   patternInput: {
     backgroundColor: "#0d0d0d",

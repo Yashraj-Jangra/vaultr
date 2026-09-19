@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, encryptBinary, decryptBinary, NewVaultItemPayload, Template, DEFAULT_CARD_EASTER_EGGS } from "@vaultr/core";
 import { cacheVaultItems, getCachedVaultItems, clearCachedVaultItems } from "../services/sync";
-import { unlockWithBiometrics, clearBiometricPassword } from "../services/biometrics";
+import { unlockWithBiometrics, clearBiometricPassword, getStoredPasswordChangedAt, setStoredPasswordChangedAt, clearStoredPasswordChangedAt } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
 import { syncAutofillCredentials, clearAutofillCredentials } from "../services/autofill";
 import { probeServerConnection, startConnectivityMonitor } from "../services/connectivity";
-import { Platform } from "react-native";
+import { Platform, NativeModules } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
@@ -13,6 +13,7 @@ import * as Linking from 'expo-linking';
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { uint8ArrayToBase64, base64ToUint8Array } from "../utils/base64";
+import { performNativeGoogleAuth } from "../services/googleAuth";
 
 interface VaultState {
   // Auth state
@@ -33,6 +34,7 @@ interface VaultState {
   selectedTemplate: string; // 'ALL', 'login', 'card', etc.
   customFolders: string[];
   cardEasterEggs: string[];
+  lastPasswordChangedAt: string | null;
 
   // Connectivity
   checkConnection: () => Promise<boolean>;
@@ -62,13 +64,12 @@ interface VaultState {
   signInAccount: (email: string, password: string, url: string) => Promise<void>;
   registerAccount: (name: string, username: string, email: string, password: string, url: string) => Promise<void>;
   signInWithGoogle: (serverUrl?: string) => Promise<void>;
-  handleAuthRedirectUrl: (url: string) => Promise<boolean>;
   updateAccountUser: (updates: Partial<AccountUser>) => Promise<void>;
   signOutAccount: () => Promise<void>;
   syncUserProfile: () => Promise<void>;
 
   // Key / Lock actions
-  unlock: (masterPassword: string, customServerUrl?: string) => Promise<void>;
+  unlock: (masterPassword: string, customServerUrl?: string, isBiometricUnlock?: boolean) => Promise<void>;
   unlockWithBiometrics: () => Promise<boolean>;
   lock: () => void;
   fetchItems: () => Promise<void>;
@@ -152,6 +153,21 @@ function getApiClient(overrideServerUrl?: string): VaultrApiClient {
   });
 }
 
+export function getDefaultServerUrl(): string {
+  if (__DEV__) {
+    try {
+      const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL;
+      if (typeof scriptURL === "string") {
+        const host = scriptURL.split("://")[1]?.split("/")[0]?.split(":")[0];
+        if (host && host !== "localhost" && host !== "127.0.0.1") {
+          return `http://${host}:3000`;
+        }
+      }
+    } catch {}
+  }
+  return "https://vaultr.cvweb.qzz.io";
+}
+
 export const useVaultStore = create<VaultState>((set, get) => ({
   accountUser: null,
   accountToken: null,
@@ -163,12 +179,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   isUnlocked: false,
   isLoading: false,
   isOnline: true,
-  serverUrl: "https://vaultr.cvweb.qzz.io",
+  serverUrl: getDefaultServerUrl(),
   searchQuery: "",
   selectedFolder: "ALL",
   selectedTemplate: "ALL",
   customFolders: [],
   cardEasterEggs: DEFAULT_CARD_EASTER_EGGS,
+  lastPasswordChangedAt: null,
 
   fetchSiteConfig: async () => {
     try {
@@ -256,6 +273,24 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         };
         await saveAccountSession(accountToken, updatedUser, cleanUrl);
         set({ accountUser: updatedUser });
+      }
+
+      // Also fetch vault profile to sync lastPasswordChangedAt
+      try {
+        const profRes = await fetch(`${cleanUrl}/api/vault/profile`, {
+          headers: {
+            "Authorization": `Bearer ${accountToken}`,
+            "Cookie": `better-auth.session_token=${accountToken}`,
+          },
+        });
+        if (profRes.ok) {
+          const profData = await profRes.json();
+          if (profData?.lastPasswordChangedAt !== undefined) {
+            set({ lastPasswordChangedAt: profData.lastPasswordChangedAt });
+          }
+        }
+      } catch (err) {
+        console.warn("[VaultStore] Failed to fetch vault profile timestamp in syncUserProfile", err);
       }
     } catch (err) {
       // Network errors (offline) should be ignored, don't log out.
@@ -361,68 +396,39 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
   },
 
-  handleAuthRedirectUrl: async (incomingUrl: string) => {
-    try {
-      if (!incomingUrl) return false;
-      const queryStr = incomingUrl.includes("?") ? incomingUrl.split("?")[1] : "";
-      const params = new URLSearchParams(queryStr);
-      const token = params.get("token");
-      const id = params.get("id");
-      const email = params.get("email");
-      const name = params.get("name");
-      const rawImage = params.get("image") || params.get("avatarUrl") || undefined;
-      const image = rawImage ? decodeURIComponent(rawImage) : undefined;
-
-      if (token && id) {
-        const { serverUrl } = get();
-        const user: AccountUser = {
-          id,
-          email: email || "",
-          name: name || "User",
-          image: image,
-          avatarUrl: image,
-        };
-        await saveAccountSession(token, user, serverUrl);
-        set({
-          accountToken: token,
-          accountUser: user,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        get().syncUserProfile().catch(() => {});
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.warn("[VaultStore] Error processing auth redirect URL:", e);
-      return false;
-    }
-  },
-
   signInWithGoogle: async (url) => {
     set({ isLoading: true });
     try {
-      const cleanUrl = (url || get().serverUrl).replace(/\/+$/, "");
-      const redirectUri = Linking.createURL("auth-callback");
-      const authStartUrl = `${cleanUrl}/api/auth/mobile-start?provider=google&appUrl=${encodeURIComponent(redirectUri)}`;
+      const cleanUrl = (url || get().serverUrl).trim().replace(/\/+$/, "");
+      const res = await performNativeGoogleAuth(cleanUrl);
 
-      // Open auth session in Custom Tabs directly starting from the server endpoint
-      // This guarantees state cookies are set directly inside the browser context, eliminating state_mismatch.
-      const authResult = await WebBrowser.openAuthSessionAsync(authStartUrl, redirectUri);
-
-      // Handle direct return from openAuthSessionAsync
-      if (authResult.type === "success" && authResult.url) {
-        const handled = await get().handleAuthRedirectUrl(authResult.url);
-        if (handled) return;
-      }
-
-      // If deep link listener already authenticated user during browser dismissal
-      if (get().isAuthenticated) {
+      if (!res.success) {
         set({ isLoading: false });
+        if (res.error && res.error !== "cancel") {
+          throw new Error(res.error);
+        }
         return;
       }
 
-      set({ isLoading: false });
+      if (res.token && res.user) {
+        const user: AccountUser = {
+          id: res.user.id,
+          email: res.user.email,
+          name: res.user.name,
+          image: res.user.image || res.user.avatarUrl || undefined,
+          avatarUrl: res.user.avatarUrl || res.user.image || undefined,
+        };
+        await saveAccountSession(res.token, user, cleanUrl);
+        set({
+          accountToken: res.token,
+          accountUser: user,
+          isAuthenticated: true,
+          serverUrl: cleanUrl,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
     } catch (err: any) {
       set({ isLoading: false });
       throw err;
@@ -469,12 +475,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
     await clearAutofillCredentials();
     await clearBiometricPassword();
+    await clearStoredPasswordChangedAt();
     await clearAccountSession();
     get().lock();
     set({
       accountToken: null,
       accountUser: null,
       isAuthenticated: false,
+      lastPasswordChangedAt: null,
     });
   },
 
@@ -486,13 +494,64 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   setSelectedFolder: (selectedFolder: string) => { set({ selectedFolder }); },
   setSelectedTemplate: (selectedTemplate: string) => { set({ selectedTemplate }); },
 
-  unlock: async (masterPassword: string, customServerUrl?: string) => {
+  unlock: async (masterPassword: string, customServerUrl?: string, isBiometricUnlock?: boolean) => {
     set({ isLoading: true });
     try {
       const serverUrl = customServerUrl || get().serverUrl;
-      const { accountUser } = get();
+      const { accountUser, accountToken } = get();
       const salt = accountUser?.id || "vaultr_default_salt";
       const api = getApiClient(serverUrl);
+
+      // 🛡️ Proactive Stale Biometric Check:
+      // If unlocked via biometrics, verify server's lastPasswordChangedAt against local stored timestamp
+      if (isBiometricUnlock && accountToken && serverUrl) {
+        try {
+          const cleanUrl = serverUrl.replace(/\/+$/, "");
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3500);
+          const profRes = await fetch(`${cleanUrl}/api/vault/profile`, {
+            headers: {
+              "Authorization": `Bearer ${accountToken}`,
+              "Cookie": `better-auth.session_token=${accountToken}`,
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (profRes.ok) {
+            const profData = await profRes.json();
+            const serverChangedAt = profData?.lastPasswordChangedAt || null;
+            const storedChangedAt = await getStoredPasswordChangedAt();
+
+            let isStale = false;
+            if (serverChangedAt) {
+              if (!storedChangedAt) {
+                isStale = true;
+              } else {
+                const serverTime = new Date(serverChangedAt).getTime();
+                const storedTime = new Date(storedChangedAt).getTime();
+                if (serverTime > storedTime) {
+                  isStale = true;
+                }
+              }
+            }
+
+            if (isStale) {
+              console.warn("[VaultStore] Stale biometric detected! Password changed on server at:", serverChangedAt, "Stored at:", storedChangedAt);
+              await clearBiometricPassword();
+              if (accountUser?.id) {
+                await clearCachedVaultItems(accountUser.id);
+              }
+              await clearAutofillCredentials();
+              throw new Error("STALE_BIOMETRIC");
+            }
+          }
+        } catch (staleErr: any) {
+          if (staleErr?.message === "STALE_BIOMETRIC") {
+            throw staleErr;
+          }
+          // Network timeout or offline: proceed with standard unlock
+        }
+      }
 
       let isOnline = true;
 
@@ -545,6 +604,15 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         try {
           await decrypt(key, testItem.encryptedBlob);
         } catch (err) {
+          if (isBiometricUnlock) {
+            console.warn("[VaultStore] Biometric password failed to decrypt vault item. Clearing stale biometric.");
+            await clearBiometricPassword();
+            if (accountUser?.id) {
+              await clearCachedVaultItems(accountUser.id);
+            }
+            await clearAutofillCredentials();
+            throw new Error("STALE_BIOMETRIC");
+          }
           throw new Error("Incorrect master password.");
         }
       }
@@ -560,7 +628,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         serverUrl,
       });
 
-      // ⚡ Non-blocking: autofill sync after vault opens
+      // ⚡ Non-blocking: sync profile and autofill store
+      if (isOnline) {
+        get().syncUserProfile().catch(() => {});
+      }
       setTimeout(() => {
         syncAutofillStore();
       }, 0);
@@ -573,7 +644,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   unlockWithBiometrics: async () => {
     const res = await unlockWithBiometrics();
     if (!res.success || !res.password) return false;
-    await get().unlock(res.password);
+    await get().unlock(res.password, undefined, true);
     return true;
   },
 
@@ -1178,7 +1249,8 @@ async function syncAutofillStore() {
     try {
       const raw = await decrypt(cryptoKey, item.encryptedBlob);
       const p = JSON.parse(raw);
-      if (p.username || p.password) {
+      const isPasskey = Boolean(p.isPasskey || p.passkeyCredentialId || item.isPasskey || item.tags?.includes("passkey"));
+      if (p.username || p.password || isPasskey) {
         const rawUrls: string[] = [];
         if (p.url && typeof p.url === "string") rawUrls.push(p.url);
         if (item.domain && typeof item.domain === "string") rawUrls.push(item.domain);
@@ -1195,6 +1267,13 @@ async function syncAutofillStore() {
           username: p.username || "",
           password: p.password || "",
           urls: Array.from(new Set(rawUrls)).filter(Boolean),
+          isPasskey,
+          passkeyRpId: p.passkeyRpId || item.domain || "",
+          passkeyCredentialId: p.passkeyCredentialId || "",
+          passkeyUserHandle: p.passkeyUserHandle || "",
+          passkeyPrivateKey: p.passkeyPrivateKey || "",
+          passkeySignCount: p.passkeySignCount || 0,
+          passkeyTransports: Array.isArray(p.passkeyTransports) ? p.passkeyTransports : ["internal"],
         });
       }
     } catch {}

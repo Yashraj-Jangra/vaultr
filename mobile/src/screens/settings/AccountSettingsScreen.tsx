@@ -20,7 +20,6 @@ import * as FileSystem from "expo-file-system/legacy";
 import { getAvatarUri } from "../../utils/avatar";
 import {
   User,
-  KeyRound,
   Lock,
   ArrowLeft,
   CheckCircle2,
@@ -353,6 +352,10 @@ export function AccountSettingsScreen({ navigation }: any) {
           newDerivedKey
         );
 
+        // Upload re-encrypted blobs to server
+        const { reencryptAllItems } = useVaultStore.getState();
+        await reencryptAllItems(reEncrypted);
+
         const updated = items.map((item) => {
           const matched = reEncrypted.find((r) => r.id === item.id);
           return matched ? { ...item, encryptedBlob: matched.encryptedBlob } : item;
@@ -371,9 +374,30 @@ export function AccountSettingsScreen({ navigation }: any) {
         useVaultStore.setState({ masterPassword: newMasterPw, cryptoKey: newDerivedKey });
       }
 
+      // Update lastPasswordChangedAt on server profile and store
+      const now = new Date().toISOString();
+      try {
+        const { serverUrl, accountToken } = useVaultStore.getState();
+        if (serverUrl && accountToken) {
+          const cleanUrl = serverUrl.replace(/\/+$/, "");
+          await fetch(`${cleanUrl}/api/vault/profile`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${accountToken}`,
+              "Cookie": `better-auth.session_token=${accountToken}`,
+            },
+            body: JSON.stringify({ lastPasswordChangedAt: now }),
+          });
+        }
+      } catch (err) {
+        console.warn("[AccountSettings] Failed to update lastPasswordChangedAt on server", err);
+      }
+      useVaultStore.setState({ lastPasswordChangedAt: now });
+
       // Update biometrics storage if enabled (F-14)
       const { updateBiometricPassword } = await import("../../services/biometrics");
-      await updateBiometricPassword(newMasterPw);
+      await updateBiometricPassword(newMasterPw, now);
 
       vaultAlert.alert("Success", "Master password updated and all items re-encrypted successfully!", undefined, { illustration: "security-on_3ykb", glowColor: "rgba(52, 211, 153, 0.12)" });
       setCurrentMasterPw("");
@@ -654,7 +678,7 @@ export function AccountSettingsScreen({ navigation }: any) {
         {/* ── Section 5: Vault Master Password ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <KeyRound size={18} color="#fbbf24" />
+            <Lock size={18} color="#fbbf24" />
             <Text style={styles.cardTitle}>Vault Master Password</Text>
           </View>
           <Text style={styles.cardDesc}>

@@ -42,6 +42,19 @@
           android:resource="@xml/autofill_service_config" />
     </service>
 
+    <!-- Vaultr Credential Provider (Android 14+ Passkey & Credential Manager) -->
+    <service
+        android:name=".autofill.VaultrCredentialProviderService"
+        android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.service.credentials.CredentialProviderService" />
+      </intent-filter>
+      <meta-data
+          android:name="android.credentials.provider"
+          android:resource="@xml/credential_provider_config" />
+    </service>
+
     <!-- Vaultr Accessibility Fallback Service -->
     <service
         android:name=".autofill.VaultrAccessibilityService"
@@ -73,6 +86,14 @@
         android:taskAffinity=""
         android:excludeFromRecents="true"
         android:windowSoftInputMode="adjustResize|stateHidden"
+        android:exported="true" />
+
+    <!-- Vaultr Passkey & Credential Manager Authentication Bridge Activity -->
+    <activity
+        android:name=".autofill.PasskeyAuthActivity"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar"
+        android:taskAffinity=""
+        android:excludeFromRecents="true"
         android:exported="true" />
   </application>
 </manifest>

@@ -7,7 +7,7 @@ import {
   X, Lock, CreditCard, FileText, User, Wand2, Plus, Minus,
   RefreshCw, Copy, Check, Folder, Shield, Eye, EyeOff,
   Globe, ShieldAlert, ShieldCheck, Hash, StickyNote,
-  MapPin, ChevronRight, Clock, Download, Trash, Paperclip, UploadCloud
+  MapPin, ChevronRight, Clock, Download, Trash, Paperclip, UploadCloud, Key, KeyRound
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/Input";
@@ -38,6 +38,15 @@ export interface DecryptedPayload {
   customFields?: { key: string; value: string; type?: "text" | "hidden" }[];
   fields?: { id?: string; name: string; value: string; type?: "text" | "hidden" }[];
   totpSecret?: string; entryNotes?: string; passwordHistory?: string[]; payload?: string;
+  isPasskey?: boolean;
+  passkeyRpId?: string;
+  passkeyCredentialId?: string;
+  passkeyUserHandle?: string;
+  passkeyPrivateKey?: string;
+  passkeySignCount?: number;
+  passkeyTransports?: string[];
+  passkeyCreatedAt?: string;
+  passkeyLastUsedAt?: string;
   [key: string]: any;
 }
 
@@ -898,6 +907,18 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   });
   const addCustomField = () => setCustomFields(p => [...p, { id: crypto.randomUUID(), key: "", value: "", type: "text" }]);
 
+  // Passkey fields (login only)
+  const [isPasskey,           setIsPasskey]           = useState(!!initialData?.payload?.isPasskey);
+  const [passkeyRpId,         setPasskeyRpId]         = useState(initialData?.payload?.passkeyRpId ?? "");
+  const [passkeyCredentialId, setPasskeyCredentialId] = useState(initialData?.payload?.passkeyCredentialId ?? "");
+  const [passkeyUserHandle,   setPasskeyUserHandle]   = useState(initialData?.payload?.passkeyUserHandle ?? "");
+  const [passkeyPrivateKey,   setPasskeyPrivateKey]   = useState(initialData?.payload?.passkeyPrivateKey ?? "");
+  const [passkeySignCount,    setPasskeySignCount]    = useState<number | undefined>(initialData?.payload?.passkeySignCount);
+  const [passkeyTransports,   setPasskeyTransports]   = useState<string[] | undefined>(initialData?.payload?.passkeyTransports);
+  const [passkeyCreatedAt,    setPasskeyCreatedAt]    = useState<string | undefined>(initialData?.payload?.passkeyCreatedAt);
+  const [passkeyLastUsedAt,   setPasskeyLastUsedAt]   = useState<string | undefined>(initialData?.payload?.passkeyLastUsedAt);
+  const [showLinkPasskeyDialog, setShowLinkPasskeyDialog] = useState(false);
+
   const { config } = useSiteConfig();
   const eggs = useMemo(() => {
     const configured = config?.cardEasterEggs || [];
@@ -983,10 +1004,32 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
           type: f.type === "hidden" ? "hidden" : "text",
         })));
       }
+
+      // Passkey sync
+      setIsPasskey(!!p.isPasskey);
+      setPasskeyRpId(p.passkeyRpId ?? "");
+      setPasskeyCredentialId(p.passkeyCredentialId ?? "");
+      setPasskeyUserHandle(p.passkeyUserHandle ?? "");
+      setPasskeyPrivateKey(p.passkeyPrivateKey ?? "");
+      setPasskeySignCount(p.passkeySignCount);
+      setPasskeyTransports(p.passkeyTransports);
+      setPasskeyCreatedAt(p.passkeyCreatedAt);
+      setPasskeyLastUsedAt(p.passkeyLastUsedAt);
+      setShowLinkPasskeyDialog(false);
     } else {
       setFolder(defaultFolder || currentNavFolder || "");
       setTemplate(defaultTemplate || "login");
       setFallbackIndex(null);
+      setIsPasskey(false);
+      setPasskeyRpId("");
+      setPasskeyCredentialId("");
+      setPasskeyUserHandle("");
+      setPasskeyPrivateKey("");
+      setPasskeySignCount(undefined);
+      setPasskeyTransports(undefined);
+      setPasskeyCreatedAt(undefined);
+      setPasskeyLastUsedAt(undefined);
+      setShowLinkPasskeyDialog(false);
     }
   }, [open, initialData, defaultTemplate, defaultFolder, currentNavFolder, eggs]);
 
@@ -1031,6 +1074,15 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
         urls: v.length > 0 ? v : undefined,
         totpSecret: totpSecret.trim() || undefined,
         passwordHistory: history.length > 0 ? history : undefined,
+        isPasskey: isPasskey || undefined,
+        passkeyRpId: isPasskey ? (passkeyRpId || undefined) : undefined,
+        passkeyCredentialId: isPasskey ? (passkeyCredentialId || undefined) : undefined,
+        passkeyUserHandle: isPasskey ? (passkeyUserHandle || undefined) : undefined,
+        passkeyPrivateKey: isPasskey ? (passkeyPrivateKey || undefined) : undefined,
+        passkeySignCount: isPasskey ? passkeySignCount : undefined,
+        passkeyTransports: isPasskey ? passkeyTransports : undefined,
+        passkeyCreatedAt: isPasskey ? passkeyCreatedAt : undefined,
+        passkeyLastUsedAt: isPasskey ? passkeyLastUsedAt : undefined,
       });
     } else if (template === "card") {
       // Normalize 2-digit year to 4-digit on save
@@ -1129,7 +1181,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
     }
 
     setSaving(false);
-  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, cardBrand, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave, pendingFiles, encryptData, config]);
+  }, [name, template, activeFolder, customFields, entryNotes, urls, username, password, totpSecret, cardName, cardNumber, cardBrand, expiryMonth, expiryYear, cvv, pin, line1, line2, city, stateVal, zip, country, fullName, dob, idNumber, profEmail, phone, note, tags, initialData, onSave, pendingFiles, encryptData, config, isPasskey, passkeyRpId, passkeyCredentialId, passkeyUserHandle, passkeyPrivateKey, passkeySignCount, passkeyTransports, passkeyCreatedAt, passkeyLastUsedAt]);
 
   // Load attachments if editing
   useEffect(() => {
@@ -1232,12 +1284,12 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
           <div>
             {!showTotp ? (
               <button type="button" onClick={() => setShowTotp(true)} className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors cursor-pointer py-1">
-                <Plus className="w-3 h-3" /> Add 2FA / TOTP secret
+                <Key className="w-3.5 h-3.5 text-purple-400" /> Add 2FA / TOTP secret
               </button>
             ) : (
               <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
                 <div className="flex items-center justify-between mb-3">
-                  <FieldLabel>Authenticator / TOTP Secret</FieldLabel>
+                  <FieldLabel className="flex items-center gap-1.5"><Key className="w-3.5 h-3.5 text-purple-400" /> Authenticator / TOTP Secret</FieldLabel>
                   <button type="button" onClick={() => { setShowTotp(false); setTotpSecret(""); }} className="text-[10px] text-[var(--fg-muted)] hover:text-red-400 transition-colors cursor-pointer">Remove</button>
                 </div>
                 <SecretInput value={totpSecret} onChange={e => setTotpSecret(e.target.value)} placeholder="Paste Base32 setup key…" className="font-mono" />
@@ -1258,6 +1310,129 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               setCustomFields={setCustomFields}
               onAdd={addCustomField}
             />
+
+            {/* Passkey Section in Split View */}
+            <div className="pt-4 border-t border-[var(--border)] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                  Passkey Credential
+                </span>
+                {isPasskey && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPasskey(false);
+                      setPasskeyRpId("");
+                      setPasskeyCredentialId("");
+                      setPasskeyUserHandle("");
+                      setPasskeyPrivateKey("");
+                      setPasskeySignCount(undefined);
+                    }}
+                    className="text-[10px] text-red-400 hover:underline cursor-pointer"
+                  >
+                    Unlink passkey
+                  </button>
+                )}
+              </div>
+
+              {isPasskey ? (
+                <div className="p-3.5 rounded-xl border border-sky-900/40 bg-sky-950/20 space-y-2">
+                  <div className="flex items-center gap-2 text-[12px] font-medium text-sky-300">
+                    <KeyRound className="w-4 h-4 text-sky-400" />
+                    <span>Linked FIDO2 Passkey</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-neutral-300 pt-1">
+                    <div>
+                      <span className="text-neutral-500">RP ID: </span>
+                      {passkeyRpId || "WebAuthn"}
+                    </div>
+                    {passkeySignCount !== undefined && (
+                      <div>
+                        <span className="text-neutral-500">Sign Count: </span>
+                        {passkeySignCount}
+                      </div>
+                    )}
+                    {passkeyCredentialId && (
+                      <div className="col-span-2 truncate">
+                        <span className="text-neutral-500">Credential ID: </span>
+                        {passkeyCredentialId.slice(0, 24)}…
+                      </div>
+                    )}
+                    {passkeyCreatedAt && (
+                      <div className="col-span-2 text-neutral-400">
+                        <span className="text-neutral-500">Created: </span>
+                        {new Date(passkeyCreatedAt).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {!showLinkPasskeyDialog ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkPasskeyDialog(true)}
+                      className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)] hover:text-amber-400 transition-colors cursor-pointer py-1"
+                    >
+                      <Plus className="w-3 h-3" /> Link a passkey
+                    </button>
+                  ) : (
+                    <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-medium text-neutral-200">Link Passkey to this Login</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowLinkPasskeyDialog(false)}
+                          className="text-neutral-500 hover:text-neutral-300"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-neutral-400">
+                        Passkeys attach directly to this login. Specify the Relying Party ID (domain):
+                      </p>
+                      <Input
+                        value={passkeyRpId}
+                        onChange={e => setPasskeyRpId(e.target.value)}
+                        placeholder="e.g. github.com"
+                        className="text-[12px]"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-xs py-1 px-2.5"
+                          onClick={() => setShowLinkPasskeyDialog(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          className="text-xs py-1 px-2.5"
+                          onClick={() => {
+                            setIsPasskey(true);
+                            if (!passkeyRpId.trim() && urls[0]) {
+                              try {
+                                setPasskeyRpId(new URL(urls[0].startsWith("http") ? urls[0] : `https://${urls[0]}`).hostname);
+                              } catch {}
+                            }
+                            if (!passkeyCredentialId) {
+                              setPasskeyCredentialId(crypto.randomUUID());
+                            }
+                            setPasskeyCreatedAt(new Date().toISOString());
+                            setShowLinkPasskeyDialog(false);
+                          }}
+                        >
+                          Link Passkey
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -1536,7 +1711,7 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
           {showTotp || totpSecret ? (
             <div className="col-span-1 md:col-span-2 p-4 rounded-xl border border-[var(--border)] bg-[var(--bg)]">
               <div className="flex items-center justify-between mb-2">
-                <FieldLabel>TOTP Setup Key</FieldLabel>
+                <FieldLabel className="flex items-center gap-1.5"><Key className="w-3.5 h-3.5 text-purple-400" /> TOTP Setup Key</FieldLabel>
                 <button type="button" onClick={() => { setShowTotp(false); setTotpSecret(""); }} className="text-[10px] text-red-400">Remove</button>
               </div>
               <SecretInput value={totpSecret} onChange={e => setTotpSecret(e.target.value)} placeholder="Base32 Key" className="font-mono" />
@@ -1544,11 +1719,54 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             </div>
           ) : (
             <div className="col-span-1 md:col-span-2">
-              <button type="button" onClick={() => setShowTotp(true)} className="text-[10px] text-[var(--accent)] hover:underline cursor-pointer">
-                + Add 2FA Authenticator Key
+              <button type="button" onClick={() => setShowTotp(true)} className="text-[10px] text-[var(--accent)] hover:underline cursor-pointer flex items-center gap-1.5">
+                <Key className="w-3 h-3 text-purple-400" /> Add 2FA Authenticator Key
               </button>
             </div>
           )}
+
+          {/* Passkey Section */}
+          <div className="col-span-1 md:col-span-2 pt-2 border-t border-[var(--border)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                Passkey Credential
+              </span>
+              {isPasskey && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPasskey(false);
+                    setPasskeyRpId("");
+                    setPasskeyCredentialId("");
+                    setPasskeyUserHandle("");
+                    setPasskeyPrivateKey("");
+                  }}
+                  className="text-[10px] text-red-400 hover:underline cursor-pointer"
+                >
+                  Unlink
+                </button>
+              )}
+            </div>
+
+            {isPasskey ? (
+              <div className="p-3 rounded-xl border border-sky-900/40 bg-sky-950/20 text-[11px] font-mono text-neutral-300 space-y-1">
+                <div className="text-sky-300 font-sans font-medium flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-sky-400" /> Linked FIDO2 Passkey
+                </div>
+                <div><span className="text-neutral-500">RP ID: </span>{passkeyRpId || "WebAuthn"}</div>
+                {passkeyCredentialId && <div className="truncate"><span className="text-neutral-500">Credential ID: </span>{passkeyCredentialId.slice(0, 24)}…</div>}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowLinkPasskeyDialog(true)}
+                className="text-[10px] text-[var(--accent)] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> Link a Passkey
+              </button>
+            )}
+          </div>
         </div>
       );
     }

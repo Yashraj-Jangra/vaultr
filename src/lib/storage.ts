@@ -199,12 +199,25 @@ export async function uploadAvatar(
   return `/api/avatars/${key}`;
 }
 
-/**
- * Delete a user's avatar.
- */
 export async function deleteAvatar(userId: string, extension = "webp"): Promise<void> {
-  const key = `${userId}/avatar.${extension}`;
-  await s3.send(new DeleteObjectCommand({ Bucket: AVATAR_BUCKET, Key: key }));
+  try {
+    const prefix = `${userId}/`;
+    const listed = await s3.send(
+      new ListObjectsV2Command({ Bucket: AVATAR_BUCKET, Prefix: prefix })
+    );
+
+    const keys = (listed.Contents ?? []).map((obj) => obj.Key).filter(Boolean) as string[];
+    if (keys.length > 0) {
+      await Promise.all(
+        keys.map((k) => s3.send(new DeleteObjectCommand({ Bucket: AVATAR_BUCKET, Key: k })))
+      );
+    } else {
+      const key = `${userId}/avatar.${extension}`;
+      await s3.send(new DeleteObjectCommand({ Bucket: AVATAR_BUCKET, Key: key }));
+    }
+  } catch {
+    // Catch silently if bucket or objects do not exist
+  }
 }
 
 // ─── Attachments ──────────────────────────────────────────────────────────────

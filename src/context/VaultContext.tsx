@@ -33,6 +33,7 @@ export interface VaultItem {
   lastAccessedAt?: string;
   favorite?: boolean;
   hasTotp?: boolean;
+  isPasskey?: boolean;
   tags?: string[];
   deletedAt?: string | null;
 }
@@ -104,6 +105,7 @@ function rowToItem(row: Record<string, unknown>): VaultItem {
     lastAccessedAt: lastAccessedAt ? new Date(lastAccessedAt as string | Date).toISOString() : undefined,
     favorite:       (row.favorite ?? false) as boolean,
     hasTotp:        (row.has_totp ?? row.hasTotp ?? false) as boolean,
+    isPasskey:      ((row.tags as string[])?.includes("passkey") || (row.is_passkey ?? row.isPasskey ?? false)) as boolean,
     tags:           (row.tags ?? []) as string[],
     deletedAt:      deletedAt ? new Date(deletedAt as string | Date).toISOString() : null,
   };
@@ -304,7 +306,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!cryptoKey || autoLockMinutes === 0) { clearTimers(); return; }
     resetIdleTimer();
     const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;
-    const handleActivity = () => resetIdleTimer();
+    let lastActivity = 0;
+    const handleActivity = () => {
+      const now = Date.now();
+      if (now - lastActivity < 2000) return;
+      lastActivity = now;
+      resetIdleTimer();
+    };
     ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }));
     return () => {
       ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, handleActivity));

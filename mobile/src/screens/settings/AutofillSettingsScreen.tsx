@@ -15,6 +15,7 @@ import { colors } from "../../theme/colors";
 import {
   getAutofillStatus,
   openAutofillSettings,
+  openCredentialManagerSettings,
   openAccessibilitySettings,
   testAutofillMatch,
   AutofillStatus,
@@ -30,7 +31,7 @@ import {
   Smartphone,
   Keyboard,
   Globe,
-  Sparkles,
+  Database,
   Search,
   Lock,
   Layers,
@@ -197,22 +198,29 @@ export function AutofillSettingsScreen({ navigation }: any) {
           <View style={styles.divider} />
 
           {/* Passkeys & Biometrics */}
-          <View style={styles.featureRow}>
-            <View style={[styles.iconBox, { backgroundColor: "rgba(251, 191, 36, 0.12)" }]}>
-              <Sparkles size={18} color="#fbbf24" />
+          <TouchableOpacity
+            style={styles.featureRow}
+            onPress={openCredentialManagerSettings}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconBox, { backgroundColor: "rgba(56, 189, 248, 0.12)" }]}>
+              <KeyRound size={18} color="#38bdf8" />
             </View>
             <View style={styles.featureContent}>
               <View style={styles.featureTitleRow}>
                 <Text style={styles.featureTitle}>Passkeys & Credential Manager</Text>
-                <View style={styles.miniPill}>
-                  <Text style={styles.miniPillText}>Android 14+</Text>
+                <View style={[styles.miniPill, (status.passkeyCount ?? 0) > 0 ? { backgroundColor: "rgba(56, 189, 248, 0.15)", borderColor: "rgba(56, 189, 248, 0.35)", borderWidth: 1 } : null]}>
+                  <Text style={[styles.miniPillText, (status.passkeyCount ?? 0) > 0 ? { color: "#38bdf8", fontWeight: "700" } : null]}>
+                    {(status.passkeyCount ?? 0) > 0 ? `${status.passkeyCount} Enrolled` : "Android 14+"}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.featureDesc}>
-                Hardware-backed Credential Manager support for passwordless FIDO2 WebAuthn passkeys.
+                Hardware-backed Credential Manager support for passwordless FIDO2 WebAuthn passkeys. Tap to configure system provider.
               </Text>
             </View>
-          </View>
+            <ExternalLink size={14} color="#71717a" style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
         </View>
 
         {/* ── Legacy Accessibility Fallback Section (With Clear Warning) ── */}
@@ -286,7 +294,7 @@ export function AutofillSettingsScreen({ navigation }: any) {
         <View style={styles.card}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <KeyRound size={16} color="#38bdf8" />
+              <Database size={16} color="#818cf8" />
               <Text style={{ color: "#f4f4f5", fontSize: 13.5, fontWeight: "600" }}>Indexed Vault Items</Text>
             </View>
             <View style={styles.accountCountBadge}>

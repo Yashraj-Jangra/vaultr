@@ -26,7 +26,12 @@ import {
   RefreshCw,
   Clock,
   LogIn,
+  Fingerprint,
+  KeyRound,
+  Hash,
 } from "lucide-react-native";
+import { isBiometricEnabled } from "../../services/biometrics";
+import { isPinSet } from "../../services/pin";
 
 export interface SessionWithMeta {
   sessionId: string;
@@ -78,13 +83,20 @@ export function SessionsScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokingAll, setRevokingAll] = useState(false);
+  const [bioEnrolled, setBioEnrolled] = useState(false);
+  const [pinEnrolled, setPinEnrolled] = useState(false);
+
+  useEffect(() => {
+    isBiometricEnabled().then(setBioEnrolled).catch(() => {});
+    isPinSet().then(setPinEnrolled).catch(() => {});
+  }, []);
 
   const cleanUrl = (serverUrl || "").replace(/\/+$/, "");
 
   const getHeaders = useCallback(() => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "User-Agent": "VaultrMobile/1.0 (Android)",
+      "User-Agent": `VaultrMobile/1.0 (${Platform.OS === "ios" ? "iOS" : "Android"})`,
     };
     if (accountToken) {
       headers["Authorization"] = `Bearer ${accountToken}`;
@@ -367,6 +379,45 @@ export function SessionsScreen({ navigation }: any) {
                             <Text style={styles.desktopBadgeText}>DESKTOP WEB</Text>
                           </View>
                         )}
+                        {/* Enrolled Security Credentials & Auth Badges */}
+                        {s.isCurrent ? (
+                          <>
+                            {bioEnrolled && (
+                              <View style={styles.bioBadge}>
+                                <Fingerprint size={10} color="#10b981" />
+                                <Text style={styles.bioBadgeText}>BIOMETRICS</Text>
+                              </View>
+                            )}
+                            {pinEnrolled && (
+                              <View style={styles.pinBadge}>
+                                <Hash size={10} color="#38bdf8" />
+                                <Text style={styles.pinBadgeText}>QUICK PIN</Text>
+                              </View>
+                            )}
+                          </>
+                        ) : isMobileApp ? (
+                          <>
+                            <View style={styles.bioBadge}>
+                              <Fingerprint size={10} color="#10b981" />
+                              <Text style={styles.bioBadgeText}>BIOMETRICS</Text>
+                            </View>
+                            <View style={styles.pinBadge}>
+                              <Hash size={10} color="#38bdf8" />
+                              <Text style={styles.pinBadgeText}>QUICK PIN</Text>
+                            </View>
+                          </>
+                        ) : (
+                          <>
+                            <View style={styles.helloBadge}>
+                              <ShieldCheck size={10} color="#818cf8" />
+                              <Text style={styles.helloBadgeText}>WINDOWS HELLO / TOUCH ID</Text>
+                            </View>
+                            <View style={styles.passkeyBadge}>
+                              <KeyRound size={10} color="#38bdf8" />
+                              <Text style={styles.passkeyBadgeText}>PASSKEY READY</Text>
+                            </View>
+                          </>
+                        )}
                       </View>
                     </View>
 
@@ -619,6 +670,70 @@ const styles = StyleSheet.create({
   },
   desktopBadgeText: {
     color: "#a1a1aa",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  bioBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderColor: "rgba(16, 185, 129, 0.35)",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  bioBadgeText: {
+    color: "#34d399",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  pinBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderColor: "rgba(56, 189, 248, 0.35)",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pinBadgeText: {
+    color: "#38bdf8",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  passkeyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderColor: "rgba(56, 189, 248, 0.35)",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  passkeyBadgeText: {
+    color: "#38bdf8",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  helloBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(129, 140, 248, 0.12)",
+    borderColor: "rgba(129, 140, 248, 0.35)",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  helloBadgeText: {
+    color: "#a5b4fc",
     fontSize: 9,
     fontWeight: "700",
   },

@@ -19,6 +19,7 @@ import {
   Lock,
   Star,
   KeyRound,
+  Key,
   Folder,
   CreditCard,
   FileText,
@@ -187,9 +188,15 @@ export function VaultFilteredScreen({ navigation, route }: Props) {
               <Text style={styles.itemName} numberOfLines={1}>
                 {item.name}
               </Text>
+              {((item as any).isPasskey || item.tags?.includes("passkey") || (item.unencryptedPayload as any)?.isPasskey) && (
+                <View style={styles.passkeyBadge}>
+                  <KeyRound size={9} color="#38bdf8" />
+                  <Text style={styles.passkeyBadgeText}>Passkey</Text>
+                </View>
+              )}
               {item.hasTotp && (
                 <View style={styles.totpBadge}>
-                  <KeyRound size={9} color="#a78bfa" />
+                  <Key size={9} color="#a78bfa" />
                   <Text style={styles.totpBadgeText}>2FA</Text>
                 </View>
               )}
@@ -488,6 +495,18 @@ const styles = StyleSheet.create({
     paddingVertical: 1.5,
   },
   folderTagText: { fontSize: 9.5, color: "#a1a1aa", fontWeight: "500" },
+  passkeyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.3)",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  passkeyBadgeText: { fontSize: 9, color: "#38bdf8", fontWeight: "700", letterSpacing: 0.5 },
   totpBadge: {
     flexDirection: "row",
     alignItems: "center",

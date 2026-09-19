@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
+  Modal,
 } from "react-native";
 import { vaultAlert } from "../../store/alertStore";
 import { CustomSwitch } from "../../components/CustomSwitch";
@@ -13,7 +14,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useVaultStore } from "../../store/vaultStore";
 import { colors } from "../../theme/colors";
 import { isBiometricAvailable, isBiometricEnabled, enrollBiometricPassword, clearBiometricPassword } from "../../services/biometrics";
-import { Fingerprint, Shield, Clock, Copy, ArrowLeft, CheckCircle2 } from "lucide-react-native";
+import { isPinSet, getPinLength, setupPin, clearPin } from "../../services/pin";
+import { PinPad } from "../../components/PinPad";
+import { Fingerprint, Shield, Clock, Copy, ArrowLeft, CheckCircle2, Hash, X } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AUTO_LOCK_KEY = "vaultr_auto_lock_timeout";
@@ -24,6 +27,16 @@ export function SecuritySettingsScreen({ navigation }: any) {
 
   const [biometricsSupported, setBiometricsSupported] = useState(false);
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [pinLength, setPinLength] = useState(4);
+  const [pinLengthTarget, setPinLengthTarget] = useState<4 | 6>(4);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinStep, setPinStep] = useState<"enter" | "confirm">("enter");
+  const [enteredPin, setEnteredPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinModalError, setPinModalError] = useState("");
+  const [shakeModalPin, setShakeModalPin] = useState(false);
+
   const [autoLockTimeout, setAutoLockTimeout] = useState("5"); // minutes
   const [clipboardTimeout, setClipboardTimeout] = useState("30"); // seconds
 
@@ -34,6 +47,14 @@ export function SecuritySettingsScreen({ navigation }: any) {
       if (avail) {
         const enabled = await isBiometricEnabled();
         setBiometricsEnabled(enabled);
+      }
+
+      const hasPin = await isPinSet();
+      setPinEnabled(hasPin);
+      if (hasPin) {
+        const len = await getPinLength();
+        setPinLength(len);
+        setPinLengthTarget(len === 6 ? 6 : 4);
       }
 
       const savedAutoLock = await AsyncStorage.getItem(AUTO_LOCK_KEY);
@@ -53,7 +74,8 @@ export function SecuritySettingsScreen({ navigation }: any) {
         });
         return;
       }
-      const res = await enrollBiometricPassword(masterPassword);
+      const { lastPasswordChangedAt } = useVaultStore.getState();
+      const res = await enrollBiometricPassword(masterPassword, lastPasswordChangedAt);
       if (res.success) {
         setBiometricsEnabled(true);
         vaultAlert.alert("Biometrics Enabled", "Fingerprint / Face ID unlock enrolled successfully!", undefined, {
@@ -72,6 +94,88 @@ export function SecuritySettingsScreen({ navigation }: any) {
     } else {
       await clearBiometricPassword();
       setBiometricsEnabled(false);
+    }
+  };
+
+  const handleTogglePin = async (val: boolean) => {
+    if (val) {
+      if (!masterPassword) {
+        vaultAlert.alert("Error", "Vault must be unlocked with master password first.", undefined, {
+          illustration: "cancel_k4w9",
+        });
+        return;
+      }
+      setPinStep("enter");
+      setEnteredPin("");
+      setConfirmPin("");
+      setPinModalError("");
+      setPinLengthTarget(pinLength === 6 ? 6 : 4);
+      setShowPinModal(true);
+    } else {
+      vaultAlert.alert(
+        "Disable PIN Unlock?",
+        "Are you sure you want to disable PIN unlock on this device?",
+        [
+          {
+            text: "Disable",
+            style: "destructive",
+            onPress: async () => {
+              await clearPin();
+              setPinEnabled(false);
+            },
+          },
+          { text: "Cancel", style: "cancel" },
+        ],
+        { illustration: "cancel_k4w9" }
+      );
+    }
+  };
+
+  const handlePinPadChange = (val: string) => {
+    if (pinStep === "enter") {
+      setEnteredPin(val);
+      if (pinModalError) setPinModalError("");
+    } else {
+      setConfirmPin(val);
+      if (pinModalError) setPinModalError("");
+    }
+  };
+
+  const handlePinPadComplete = async (pin: string) => {
+    if (pinStep === "enter") {
+      setEnteredPin(pin);
+      setPinStep("confirm");
+      setConfirmPin("");
+      setPinModalError("");
+    } else {
+      if (pin !== enteredPin) {
+        setShakeModalPin(true);
+        setTimeout(() => setShakeModalPin(false), 500);
+        setPinModalError("PINs do not match. Please re-enter.");
+        setConfirmPin("");
+        return;
+      }
+
+      if (!masterPassword) {
+        setShowPinModal(false);
+        vaultAlert.alert("Error", "Master password is required to configure PIN.", undefined, {
+          illustration: "cancel_k4w9",
+        });
+        return;
+      }
+
+      const res = await setupPin(pin, masterPassword);
+      if (res.success) {
+        setPinEnabled(true);
+        setPinLength(pin.length);
+        setShowPinModal(false);
+        vaultAlert.alert("PIN Enabled", `${pin.length}-digit PIN unlock configured successfully!`, undefined, {
+          illustration: "fingerprint_kdwq",
+          glowColor: "rgba(52, 211, 153, 0.12)",
+        });
+      } else {
+        setPinModalError(res.error || "Failed to configure PIN");
+      }
     }
   };
 
@@ -100,7 +204,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
         {/* Biometrics Section */}
         <View style={styles.card}>
           <View style={styles.cardRow}>
-            <Fingerprint size={22} color={colors.accent} />
+            <Fingerprint size={22} color="#10b981" />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>Biometric Unlock</Text>
               <Text style={styles.cardDesc}>
@@ -118,10 +222,46 @@ export function SecuritySettingsScreen({ navigation }: any) {
           </View>
         </View>
 
+        {/* Quick PIN Unlock Section */}
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <Hash size={22} color="#f59e0b" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Quick PIN Unlock</Text>
+              <Text style={styles.cardDesc}>
+                {pinEnabled
+                  ? `${pinLength}-digit PIN is active. Use it to quickly unlock your vault.`
+                  : "Set a 4 or 6-digit PIN for lightning-fast hardware-encrypted re-unlock."}
+              </Text>
+            </View>
+            <CustomSwitch
+              value={pinEnabled}
+              onValueChange={handleTogglePin}
+            />
+          </View>
+          {pinEnabled && (
+            <TouchableOpacity
+              style={{ marginTop: 4, alignSelf: "flex-start", paddingVertical: 4 }}
+              onPress={() => {
+                setPinStep("enter");
+                setEnteredPin("");
+                setConfirmPin("");
+                setPinModalError("");
+                setPinLengthTarget(pinLength === 6 ? 6 : 4);
+                setShowPinModal(true);
+              }}
+            >
+              <Text style={{ color: colors.accent || "#fafafa", fontSize: 12, fontWeight: "600" }}>
+                Change PIN →
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Auto Lock Timeout */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Clock size={20} color={colors.accent} />
+            <Clock size={20} color="#fbbf24" />
             <Text style={styles.cardTitle}>Auto-Lock Timeout</Text>
           </View>
           <Text style={styles.cardDesc}>Automatically lock vault when app remains in background.</Text>
@@ -159,7 +299,7 @@ export function SecuritySettingsScreen({ navigation }: any) {
         {/* Clipboard Clear Timeout */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Copy size={20} color={colors.accent} />
+            <Copy size={20} color="#38bdf8" />
             <Text style={styles.cardTitle}>Auto-Clear Clipboard</Text>
           </View>
           <Text style={styles.cardDesc}>Clear copied passwords from clipboard memory automatically.</Text>
@@ -212,11 +352,173 @@ export function SecuritySettingsScreen({ navigation }: any) {
           </View>
         </View>
       </ScrollView>
+
+      {/* PIN Setup / Change Modal */}
+      <Modal
+        visible={showPinModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPinModal(false)}
+      >
+        <SafeAreaView style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={() => setShowPinModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.modalCloseBtn}
+              >
+                <X size={20} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {pinStep === "enter" ? "Set Up Quick PIN" : "Confirm Your PIN"}
+              </Text>
+              <View style={{ width: 36 }} />
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              {pinStep === "enter"
+                ? `Enter a ${pinLengthTarget}-digit numeric code for fast local re-unlock.`
+                : `Re-enter your ${pinLengthTarget}-digit PIN to confirm.`}
+            </Text>
+
+            {pinStep === "enter" && (
+              <View style={styles.lengthPickerContainer}>
+                <TouchableOpacity
+                  style={[styles.lengthPickerBtn, pinLengthTarget === 4 && styles.lengthPickerBtnActive]}
+                  onPress={() => {
+                    if (pinLengthTarget !== 4) {
+                      setPinLengthTarget(4);
+                      setEnteredPin("");
+                      setPinModalError("");
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.lengthPickerText, pinLengthTarget === 4 && styles.lengthPickerTextActive]}>
+                    4 Digits
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.lengthPickerBtn, pinLengthTarget === 6 && styles.lengthPickerBtnActive]}
+                  onPress={() => {
+                    if (pinLengthTarget !== 6) {
+                      setPinLengthTarget(6);
+                      setEnteredPin("");
+                      setPinModalError("");
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.lengthPickerText, pinLengthTarget === 6 && styles.lengthPickerTextActive]}>
+                    6 Digits
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <PinPad
+              length={pinLengthTarget}
+              value={pinStep === "enter" ? enteredPin : confirmPin}
+              onChange={handlePinPadChange}
+              onComplete={handlePinPadComplete}
+              errorMessage={pinModalError}
+              shake={shakeModalPin}
+            />
+
+            {pinStep === "confirm" && (
+              <TouchableOpacity
+                style={styles.resetPinBtn}
+                onPress={() => {
+                  setPinStep("enter");
+                  setEnteredPin("");
+                  setConfirmPin("");
+                  setPinModalError("");
+                }}
+              >
+                <Text style={styles.resetPinBtnText}>Start over</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "#09090b",
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalHeader: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  modalCloseBtn: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    lineHeight: 18,
+  },
+  lengthPickerContainer: {
+    flexDirection: "row",
+    backgroundColor: "#18181b",
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#27272a",
+    width: 200,
+  },
+  lengthPickerBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 9,
+  },
+  lengthPickerBtnActive: {
+    backgroundColor: "#27272a",
+  },
+  lengthPickerText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  lengthPickerTextActive: {
+    color: "#fafafa",
+  },
+  resetPinBtn: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  resetPinBtnText: {
+    color: colors.textMuted,
+    fontSize: 12.5,
+    textDecorationLine: "underline",
+  },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

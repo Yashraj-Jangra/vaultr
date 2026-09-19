@@ -59,15 +59,20 @@ export function loadVaultSession(
   }
 }
 
-/** Refresh the "last active" timestamp on the session. */
-export function refreshVaultSession(uid: string): void {
+let lastRefreshTime = 0;
+
+/** Refresh the "last active" timestamp on the session (throttled to at most once per 30s). */
+export function refreshVaultSession(uid: string, force = false): void {
   if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (!force && now - lastRefreshTime < 30_000) return;
   try {
     const raw = sessionStorage.getItem(sessionKey(uid));
     if (!raw) return;
     const data: VaultSession = JSON.parse(raw);
-    data.unlockedAt = Date.now();
+    data.unlockedAt = now;
     sessionStorage.setItem(sessionKey(uid), JSON.stringify(data));
+    lastRefreshTime = now;
   } catch {
     // ignore
   }

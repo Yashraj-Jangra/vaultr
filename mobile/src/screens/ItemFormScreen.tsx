@@ -41,6 +41,8 @@ import {
   Upload,
   Star,
   Scan,
+  Key,
+  KeyRound,
 } from "lucide-react-native";
 import { Modal, Pressable } from "react-native";
 import { QrScannerModal } from "../components/QrScannerModal";
@@ -80,6 +82,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [additionalUrls, setAdditionalUrls] = useState<string[]>([]);
   const [totpSecret, setTotpSecret] = useState(initialTotpSecret || "");
   const [showQrScanner, setShowQrScanner] = useState(false);
+  const [passkeyData, setPasskeyData] = useState<any>(null);
 
   // Card fields
   const [cardholderName, setCardholderName] = useState("");
@@ -207,6 +210,19 @@ export function ItemFormScreen({ route, navigation }: Props) {
             setAdditionalUrls(p.urls.slice(1));
           }
           if (p.totpSecret || p.totp_secret) setTotpSecret(p.totpSecret || p.totp_secret);
+          if (p.isPasskey || p.passkeyCredentialId || (item.tags && item.tags.includes("passkey"))) {
+            setPasskeyData({
+              isPasskey: true,
+              passkeyRpId: p.passkeyRpId,
+              passkeyCredentialId: p.passkeyCredentialId,
+              passkeyUserHandle: p.passkeyUserHandle,
+              passkeyPrivateKey: p.passkeyPrivateKey,
+              passkeySignCount: p.passkeySignCount,
+              passkeyTransports: p.passkeyTransports,
+              passkeyCreatedAt: p.passkeyCreatedAt,
+              passkeyLastUsedAt: p.passkeyLastUsedAt,
+            });
+          }
 
           const rawFields = p.fields || p.customFields;
           if (rawFields && Array.isArray(rawFields)) {
@@ -415,6 +431,9 @@ export function ItemFormScreen({ route, navigation }: Props) {
         } else if (initialPasswordHistory.length > 0) {
           unencryptedPayload.passwordHistory = initialPasswordHistory;
         }
+        if (passkeyData) {
+          Object.assign(unencryptedPayload, passkeyData);
+        }
       } else if (template === "card") {
         let normMonth = expMonth.trim();
         if (normMonth) {
@@ -493,6 +512,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
         .map((t) => t.trim())
         .filter(Boolean);
 
+      if (template === "login" && passkeyData?.isPasskey && !tagsList.includes("passkey")) {
+        tagsList.push("passkey");
+      }
+
       let domain = url.trim() || undefined;
       if (template === "card" && cardNumber.replace(/\D/g, "").length >= 4) {
         const cleanNum = cardNumber.replace(/\D/g, "");
@@ -570,6 +593,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
             name={name}
             username={username}
             url={url}
+            isPasskey={!!passkeyData?.isPasskey}
             cardholderName={cardholderName}
             cardNumber={cardNumber}
             isNumberVisible={true}
@@ -763,7 +787,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
 
             {/* 2FA TOTP Secret Key (Optional) */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>2FA TOTP Secret Key (Optional)</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Key size={12} color="#c084fc" />
+                <Text style={styles.label}>2FA TOTP Secret Key (Optional)</Text>
+              </View>
               <View style={styles.inputEyeRow}>
                 <TextInput
                   key={showTotpSecret ? "totp_shown" : "totp_hidden"}
@@ -795,6 +822,33 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Passkey Credential (Read-only / Unlink) */}
+            {passkeyData?.isPasskey && (
+              <View style={styles.formGroup}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={styles.label}>PASSKEY CREDENTIAL</Text>
+                  <TouchableOpacity
+                    onPress={() => setPasskeyData(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={{ fontSize: 11, color: "#f87171", fontWeight: "600" }}>Unlink Passkey</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.passkeyInfoCard}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <KeyRound size={14} color="#38bdf8" />
+                    <Text style={styles.passkeyInfoTitle}>Linked FIDO2 Passkey</Text>
+                  </View>
+                  <Text style={styles.passkeyInfoText}>RP ID: {passkeyData.passkeyRpId || url || "WebAuthn"}</Text>
+                  {passkeyData.passkeyCredentialId ? (
+                    <Text style={styles.passkeyInfoText} numberOfLines={1}>
+                      Credential ID: {passkeyData.passkeyCredentialId.slice(0, 24)}…
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            )}
 
             <QrScannerModal
               visible={showQrScanner}
@@ -1820,5 +1874,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
     fontWeight: "500",
+  },
+  passkeyInfoCard: {
+    backgroundColor: "rgba(56, 189, 248, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.25)",
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  passkeyInfoTitle: {
+    color: "#38bdf8",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  passkeyInfoText: {
+    color: "#d4d4d8",
+    fontSize: 11,
+    fontFamily: "monospace",
   },
 });

@@ -3,9 +3,9 @@ import { VaultItem, isWebPageUrl } from "@vaultr/core";
 import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
-import { SettingsScreen } from "./SettingsScreen";
+import { SettingsScreen, applyPopupWidth } from "./SettingsScreen";
 import { NewEntryForm } from "./NewEntryForm";
-import { KeyRound, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
+import { Shield, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
 import "./popup.css";
 
 export function resolveAvatarUrl(url?: string, serverUrl?: string) {
@@ -50,6 +50,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>("vault");
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<AccountInfo>({});
+  const [theme, setTheme] = useState<"dark" | "light" | "midnight">("dark");
 
   // Overlay forms
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
@@ -72,6 +73,25 @@ export function App() {
   }, [folders, items]);
 
   useEffect(() => {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.get(["vaultr_popup_width", "vaultr_theme", "vaultr_show_animations"], (res) => {
+        if (res?.vaultr_popup_width) {
+          applyPopupWidth(res.vaultr_popup_width);
+        }
+        if (res?.vaultr_theme) {
+          setTheme(res.vaultr_theme);
+          document.documentElement.setAttribute("data-theme", res.vaultr_theme);
+        } else {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+        if (res?.vaultr_show_animations === false) {
+          document.documentElement.setAttribute("data-animations", "disabled");
+        } else {
+          document.documentElement.removeAttribute("data-animations");
+        }
+      });
+    }
+
     chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
       if (chrome.runtime.lastError) { setLoading(false); return; }
       if (res) {
@@ -88,11 +108,13 @@ export function App() {
 
   const fetchItems = () => {
     chrome.runtime.sendMessage({ type: "GET_ITEMS" }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.items) {
         setItems(res.items);
       }
     });
     chrome.runtime.sendMessage({ type: "GET_FOLDERS" }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.folders) {
         const mappedFolders = res.folders.map((f: any) => typeof f === "string" ? f : f.name);
         setFolders(mappedFolders);
@@ -102,6 +124,7 @@ export function App() {
 
   const fetchAccountInfo = () => {
     chrome.runtime.sendMessage({ type: "GET_ACCOUNT_INFO" }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.account) {
         setAccountInfo(res.account);
       }
@@ -111,6 +134,10 @@ export function App() {
   const handleUnlock = (password: string): Promise<void> =>
     new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: "UNLOCK", masterPassword: password }, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || "Failed to communicate with extension"));
+          return;
+        }
         if (res?.success) {
           setIsUnlocked(true);
           fetchItems();
@@ -124,6 +151,7 @@ export function App() {
 
   const handleLock = () => {
     chrome.runtime.sendMessage({ type: "LOCK" }, () => {
+      if (chrome.runtime.lastError) return;
       setIsUnlocked(false);
       setItems([]);
       setFolders([]);
@@ -136,10 +164,24 @@ export function App() {
   const handleUpdateServerUrl = (url: string): Promise<void> =>
     new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: "SET_SERVER_URL", serverUrl: url }, () => {
+        if (chrome.runtime.lastError) {
+          resolve();
+          return;
+        }
         setServerUrl(url);
         resolve();
       });
     });
+
+  const handleThemeChange = (newTheme: "dark" | "light" | "midnight") => {
+    setTheme(newTheme);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", newTheme);
+    }
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ vaultr_theme: newTheme });
+    }
+  };
 
   const handleDecryptItem = (encryptedBlobOrItem: string | { id?: string; encryptedBlob?: string }, itemId?: string): Promise<any> =>
     new Promise((resolve, reject) => {
@@ -154,6 +196,10 @@ export function App() {
       }
 
       chrome.runtime.sendMessage({ type: "DECRYPT_ITEM", encryptedBlob: blob, itemId: id }, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || "Failed to decrypt item"));
+          return;
+        }
         const payload = res?.decrypted ?? res?.payload;
         if (payload) {
           resolve(payload);
@@ -165,9 +211,12 @@ export function App() {
 
   const handleAutofill = (cred: { username?: string; password?: string }) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) return;
       if (!tabs[0]?.id || !tabs[0]?.url) return;
       if (!isWebPageUrl(tabs[0].url)) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred });
+      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
+        void chrome.runtime.lastError;
+      });
     });
     window.close();
   };
@@ -188,6 +237,10 @@ export function App() {
 
     return new Promise<void>((resolve, reject) => {
       chrome.runtime.sendMessage(msg, (res) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || "Failed to save item"));
+          return;
+        }
         if (res?.success) {
           fetchItems();
           setIsNewEntryOpen(false);
@@ -203,6 +256,10 @@ export function App() {
   const handleDeleteItem = async (id: string) => {
     return new Promise<void>((resolve) => {
       chrome.runtime.sendMessage({ type: "DELETE_ITEM", id }, () => {
+        if (chrome.runtime.lastError) {
+          resolve();
+          return;
+        }
         fetchItems();
         resolve();
       });
@@ -255,6 +312,7 @@ export function App() {
       prev.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
     );
     chrome.runtime.sendMessage({ type: "TOGGLE_FAVORITE", id }, (res) => {
+      if (chrome.runtime.lastError) return;
       if (res?.success) {
         fetchItems();
       }
@@ -269,7 +327,7 @@ export function App() {
       <div className="header">
         <div className="header-brand">
           <img
-            src="brand/vaultr-full-dark-transparent.png"
+            src={theme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
             alt="Vaultr"
             style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
           />
@@ -303,29 +361,43 @@ export function App() {
       {/* Main Tabs Container */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
         {activeTab === "vault" && (
-          <VaultScreen
-            items={items}
-            onDecryptItem={(blob) => handleDecryptItem(blob)}
-            onAutofill={handleAutofill}
-            onEditItem={handleEditTrigger}
-            onDeleteItem={handleDeleteItem}
-            onToggleFavorite={handleToggleFavorite}
-            onAddNew={() => setIsNewEntryOpen(true)}
-          />
+          <div key="vault" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <VaultScreen
+              items={items}
+              folders={folders}
+              onDecryptItem={(blob) => handleDecryptItem(blob)}
+              onAutofill={handleAutofill}
+              onEditItem={handleEditTrigger}
+              onDeleteItem={handleDeleteItem}
+              onToggleFavorite={handleToggleFavorite}
+              onAddNew={() => setIsNewEntryOpen(true)}
+            />
+          </div>
         )}
-        {activeTab === "generator" && <GeneratorScreen />}
+        {activeTab === "generator" && (
+          <div key="generator" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <GeneratorScreen />
+          </div>
+        )}
         {activeTab === "settings" && (
-          <SettingsScreen
-            serverUrl={serverUrl}
-            accountInfo={accountInfo}
-            onUpdateServerUrl={handleUpdateServerUrl}
-            onLock={handleLock}
-          />
+          <div key="settings" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <SettingsScreen
+              serverUrl={serverUrl}
+              accountInfo={accountInfo}
+              onUpdateServerUrl={handleUpdateServerUrl}
+              onLock={handleLock}
+              currentTheme={theme}
+              onThemeChange={handleThemeChange}
+            />
+          </div>
         )}
 
         {/* Slide-up overlays */}
         {(isNewEntryOpen || editingItem) && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div
+            className="animate-slide-up"
+            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}
+          >
             <ErrorBoundary>
               <NewEntryForm
                 folders={combinedFolders}
@@ -347,7 +419,7 @@ export function App() {
           className={`nav-btn${activeTab === "vault" ? " active" : ""}`}
           onClick={() => setActiveTab("vault")}
         >
-          <KeyRound size={16} />
+          <Shield size={16} />
           <span>Vault</span>
         </button>
         <button

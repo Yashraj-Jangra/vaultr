@@ -6,4 +6,5 @@ export * from "./api-client";
 export * from "./domain";
 export * from "./importer";
 export * from "./version";
+export * from "./webauthn";
 

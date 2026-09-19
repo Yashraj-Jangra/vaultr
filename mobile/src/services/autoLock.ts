@@ -12,7 +12,7 @@ export function initAutoLockService(): void {
   if (subscription) return;
 
   subscription = AppState.addEventListener("change", async (nextAppState: AppStateStatus) => {
-    if (nextAppState === "background" || nextAppState === "inactive") {
+    if (nextAppState === "background") {
       lastBackgroundTimestamp = Date.now();
     } else if (nextAppState === "active") {
       recordAutofillHeartbeat();

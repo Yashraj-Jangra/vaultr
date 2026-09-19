@@ -1,15 +1,26 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
-  Search, Copy, Check, Globe, KeyRound, CreditCard, FileText, User, MapPin,
+  Search, Copy, Check, Globe, Key, KeyRound, Shield, CreditCard, FileText, User, MapPin,
   Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
 } from "lucide-react";
-import { generateTOTP, getTotpPercentage, resolveDomain, isWebPageUrl, isInternalBrowserHost, detectCardBrand } from "@vaultr/core";
+import {
+  generateTOTP,
+  getTotpPercentage,
+  resolveDomain,
+  isWebPageUrl,
+  isInternalBrowserHost,
+  detectCardBrand,
+  extractDomainHost,
+  calculateDomainMatchScore,
+  extractItemCandidateUrls,
+} from "@vaultr/core";
 
 type Template = "login" | "card" | "address" | "profile" | "note";
 
 interface VaultScreenProps {
   items: VaultItem[];
+  folders?: string[];
   onDecryptItem: (encryptedBlob: string, itemId?: string) => Promise<any>;
   onAutofill: (cred: { username?: string; password?: string }) => void;
   onEditItem: (item: VaultItem, decryptedPayload: any) => void;
@@ -23,6 +34,10 @@ interface VaultScreenProps {
 function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: string }) {
   const [hasError, setHasError] = useState(false);
   const effectiveDomain = useMemo(() => resolveDomain(domain, name, url), [domain, name, url]);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [effectiveDomain]);
 
   if (!effectiveDomain || hasError) {
     return (
@@ -42,6 +57,7 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
   return (
     <div className="site-icon">
       <img
+        key={effectiveDomain}
         src={src}
         alt=""
         onError={() => setHasError(true)}
@@ -52,20 +68,24 @@ function SiteIcon({ domain, name, url }: { domain?: string; name: string; url?: 
 }
 
 
-function getItemIcon(item: VaultItem) {
+function getItemIcon(item: VaultItem, decrypted?: any) {
   const template = item.template || "login";
+  const payload = decrypted || item.unencryptedPayload;
 
   if (template === "login") {
-    return <SiteIcon domain={item.domain ?? undefined} name={item.name} url={(item as any).url} />;
+    const candidateUrl = payload?.url || payload?.urls?.[0] || (item as any).url;
+    const candidateDomain = item.domain || candidateUrl;
+    return <SiteIcon domain={candidateDomain} name={item.name} url={candidateUrl} />;
   }
 
   if (template === "card") {
-    const nameLower = item.name.toLowerCase();
-    const isVisa = nameLower.includes("visa");
-    const isMastercard = nameLower.includes("mastercard") || nameLower.includes("master card") || nameLower.includes(" mc");
-    const isAmex = nameLower.includes("amex") || nameLower.includes("american express");
-    const isDiscover = nameLower.includes("discover");
-    const isRupay = nameLower.includes("rupay");
+    const nameLower = (item.name + " " + (payload?.cardholderName || "") + " " + (payload?.cardName || "")).toLowerCase();
+    const cardBrand = (payload?.cardBrand || "").toLowerCase();
+    const isVisa = cardBrand.includes("visa") || nameLower.includes("visa");
+    const isMastercard = cardBrand.includes("mastercard") || nameLower.includes("mastercard") || nameLower.includes(" mc");
+    const isAmex = cardBrand.includes("amex") || nameLower.includes("amex") || nameLower.includes("american express");
+    const isDiscover = cardBrand.includes("discover") || nameLower.includes("discover");
+    const isRupay = cardBrand.includes("rupay") || nameLower.includes("rupay");
 
     let cardBadge: React.ReactNode;
     if (isVisa) {
@@ -123,7 +143,7 @@ function CopyBtn({ value }: { value: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="detail-action-btn"
+      className={`detail-action-btn${copied ? " animate-pop" : ""}`}
       title="Copy value"
     >
       {copied ? <Check size={12} style={{ color: "#10b981" }} /> : <Copy size={12} />}
@@ -285,12 +305,19 @@ interface ItemRowProps {
   onDelete: (id: string) => Promise<void>;
   onToggleFavorite?: (id: string) => void;
   isCurrentSiteMatch?: boolean;
+  index?: number;
 }
 
-function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavorite, isCurrentSiteMatch }: ItemRowProps) {
-  const [decrypted, setDecrypted] = useState<any>(null);
+function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavorite, isCurrentSiteMatch, index }: ItemRowProps) {
+  const [decrypted, setDecrypted] = useState<any>(item.unencryptedPayload || null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (item.unencryptedPayload && !decrypted) {
+      setDecrypted(item.unencryptedPayload);
+    }
+  }, [item.unencryptedPayload]);
 
   const handleExpand = useCallback(async () => {
     const next = !expanded;
@@ -311,7 +338,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
   const handleAutofillClick = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      let cred = decrypted;
+      let cred = decrypted || item.unencryptedPayload;
       if (!cred) {
         try {
           cred = await onDecrypt(item.encryptedBlob, item.id);
@@ -322,13 +349,13 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
       }
       onAutofill({ username: cred.username, password: cred.password });
     },
-    [decrypted, item.encryptedBlob, item.id, onDecrypt, onAutofill]
+    [decrypted, item.unencryptedPayload, item.encryptedBlob, item.id, onDecrypt, onAutofill]
   );
 
   const handleEditClick = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      let payload = decrypted;
+      let payload = decrypted || item.unencryptedPayload;
       if (!payload) {
         setLoading(true);
         try {
@@ -345,7 +372,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
         onEdit(item, payload);
       }
     },
-    [item, decrypted, onDecrypt, onEdit]
+    [item, decrypted, item.unencryptedPayload, onDecrypt, onEdit]
   );
 
   const handleDeleteClick = useCallback(
@@ -359,20 +386,86 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
   );
 
   const isLogin = !item.template || item.template === "login";
+  const payload = decrypted || item.unencryptedPayload;
+
+  const subText = useMemo(() => {
+    if (isLogin) {
+      return payload?.username || payload?.email || "";
+    }
+    if (item.template === "card") {
+      const last4 = payload?.cardNumber ? payload.cardNumber.replace(/\D/g, "").slice(-4) : "";
+      return last4 ? `•••• ${last4}` : (payload?.cardholderName || payload?.cardName || "Credit Card");
+    }
+    if (item.template === "address") {
+      return [payload?.city, payload?.state, payload?.country].filter(Boolean).join(", ") || "Address";
+    }
+    if (item.template === "profile") {
+      return payload?.fullName || payload?.email || "Identity Profile";
+    }
+    if (item.template === "note") {
+      return "Secure Note";
+    }
+    return payload?.username || payload?.email || "";
+  }, [isLogin, item.template, payload]);
 
   return (
-    <div className={`item-container${expanded ? " expanded" : ""}`}>
+    <div
+      className={`item-container${expanded ? " expanded" : ""} animate-list-item`}
+      style={{ "--i": Math.min(index ?? 0, 12) } as React.CSSProperties}
+    >
       {/* Main Row */}
       <div
         className="item-row"
         onClick={handleExpand}
       >
-        {getItemIcon(item)}
+        {getItemIcon(item, payload)}
 
         <div className="item-meta">
-          <div className="item-name">{item.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="item-name">{item.name}</div>
+            {/* 2FA Badge */}
+            {(payload?.totpSecret || item.hasTotp) && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(168, 85, 247, 0.12)",
+                  color: "#c084fc",
+                  border: "1px solid rgba(168, 85, 247, 0.3)",
+                  lineHeight: 1.2,
+                }}
+              >
+                <Key size={9} /> 2FA
+              </span>
+            )}
+            {/* Passkey Badge */}
+            {(item.isPasskey || item.tags?.includes("passkey") || payload?.isPasskey) && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: "rgba(56, 189, 248, 0.12)",
+                  color: "#38bdf8",
+                  border: "1px solid rgba(56, 189, 248, 0.3)",
+                  lineHeight: 1.2,
+                }}
+              >
+                <KeyRound size={9} /> Passkey
+              </span>
+            )}
+          </div>
           <div className="item-sub">
-            {decrypted?.username || item.domain || item.template || "vault item"}
+            {subText || (isLogin ? "No username" : item.template || "vault item")}
           </div>
         </div>
 
@@ -441,9 +534,58 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
                   {decrypted.totpSecret && (
                     <div className="detail-section-group">
-                      <div className="detail-section-title">AUTHENTICATOR</div>
+                      <div className="detail-section-title" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <Key size={11} style={{ color: "#c084fc" }} />
+                        AUTHENTICATOR
+                      </div>
                       <div className="detail-section-box">
                         <TotpDisplay secret={decrypted.totpSecret} />
+                      </div>
+                    </div>
+                  )}
+
+                  {(decrypted.isPasskey || decrypted.passkeyCredentialId) && (
+                    <div className="detail-section-group">
+                      <div className="detail-section-title" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <KeyRound size={11} style={{ color: "#38bdf8" }} />
+                        PASSKEY
+                      </div>
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(56, 189, 248, 0.05)",
+                        border: "1px solid rgba(56, 189, 248, 0.2)",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <KeyRound size={22} color="#38bdf8" style={{ flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: "12px", fontWeight: "600", color: "#f4f4f5" }}>Passkey Configured</div>
+                            <div style={{ fontSize: "10.5px", color: "#a1a1aa" }}>
+                              {decrypted.passkeyCreatedAt
+                                ? `Configured • ${new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
+                                : "Configured for passwordless sign-in"}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "2px 7px",
+                          borderRadius: "9999px",
+                          backgroundColor: "rgba(16, 185, 129, 0.12)",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                          fontSize: "9px",
+                          fontWeight: "700",
+                          color: "#34d399",
+                          letterSpacing: "0.5px",
+                        }}>
+                          <span style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: "#10b981", display: "inline-block" }} />
+                          ACTIVE
+                        </div>
                       </div>
                     </div>
                   )}
@@ -575,15 +717,17 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
               })()}
 
               {/* Entry Notes (Shared) */}
-              {decrypted.entryNotes && (
+              {item.template !== "note" && (decrypted.entryNotes || decrypted.note) && (
                 <div className="detail-section-group">
                   <div className="detail-section-title">PRIVATE NOTES</div>
                   <div className="detail-section-box" style={{ padding: "8px 10px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ fontSize: 9, fontWeight: 600, color: "var(--neutral-600)" }}>NOTES</span>
-                      <CopyBtn value={decrypted.entryNotes} />
+                      <CopyBtn value={decrypted.entryNotes || decrypted.note || ""} />
                     </div>
-                    <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>{decrypted.entryNotes}</p>
+                    <p style={{ whiteSpace: "pre-wrap", fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                      {decrypted.entryNotes || decrypted.note}
+                    </p>
                   </div>
                 </div>
               )}
@@ -634,6 +778,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
 
 export function VaultScreen({
   items,
+  folders: serverFolders,
   onDecryptItem,
   onAutofill,
   onEditItem,
@@ -644,20 +789,39 @@ export function VaultScreen({
   const [query, setQuery] = useState("");
   const [selectedFolder, setSelectedFolder] = useState<string>("All");
   const [activeTabDomain, setActiveTabDomain] = useState<string>("");
+  const [allowSubdomains, setAllowSubdomains] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.get("vaultr_subdomain_matching", (res) => {
+        if (res?.vaultr_subdomain_matching !== undefined) {
+          setAllowSubdomains(res.vaultr_subdomain_matching !== false);
+        }
+      });
+
+      const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+        if (area === "local" && changes.vaultr_subdomain_matching) {
+          setAllowSubdomains(changes.vaultr_subdomain_matching.newValue !== false);
+        }
+      };
+
+      chrome.storage.onChanged.addListener(handleStorageChange);
+      return () => {
+        chrome.storage.onChanged.removeListener(handleStorageChange);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof chrome !== "undefined" && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabUrl = tabs[0]?.url || "";
         if (tabUrl && isWebPageUrl(tabUrl)) {
-          try {
-            const url = new URL(tabUrl);
-            const host = url.hostname.replace(/^www\./, "").toLowerCase();
-            if (host && !isInternalBrowserHost(host)) {
-              setActiveTabDomain(host);
-              return;
-            }
-          } catch {}
+          const host = extractDomainHost(tabUrl);
+          if (host && !isInternalBrowserHost(host)) {
+            setActiveTabDomain(host);
+            return;
+          }
         }
         setActiveTabDomain("");
       });
@@ -669,16 +833,23 @@ export function VaultScreen({
     return items.filter((i) => !i.deletedAt);
   }, [items]);
 
-  // Extract unique folders from active items
+  // Extract unique folders combining server-defined custom folders and active items
   const folders = useMemo(() => {
     const set = new Set<string>();
+    if (serverFolders) {
+      for (const f of serverFolders) {
+        if (f && f.trim()) {
+          set.add(f.trim());
+        }
+      }
+    }
     for (const item of activeItems) {
       if (item.folder && item.folder.trim()) {
         set.add(item.folder.trim());
       }
     }
     return Array.from(set).sort();
-  }, [activeItems]);
+  }, [activeItems, serverFolders]);
 
   const filteredItems = useMemo(() => {
     let list = activeItems;
@@ -690,7 +861,9 @@ export function VaultScreen({
     return list.filter(
       (i) =>
         i.name.toLowerCase().includes(q) ||
-        (i.domain || "").toLowerCase().includes(q)
+        (i.domain || "").toLowerCase().includes(q) ||
+        (i.unencryptedPayload?.username || "").toLowerCase().includes(q) ||
+        (i.unencryptedPayload?.email || "").toLowerCase().includes(q)
     );
   }, [activeItems, selectedFolder, query]);
 
@@ -700,19 +873,15 @@ export function VaultScreen({
       const template = i.template || "login";
       if (template !== "login") return false;
 
-      const rawDomain = (i.domain || (i as any).url || "").trim();
-      if (!rawDomain) return false;
+      const candidateUrls = extractItemCandidateUrls(i);
+      if (candidateUrls.length === 0) return false;
 
-      const d = rawDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(":")[0];
-      if (!d) return false;
-
-      return (
-        d === activeTabDomain ||
-        d.includes(activeTabDomain) ||
-        (d.length >= 4 && activeTabDomain.includes(d))
-      );
+      return candidateUrls.some((cand) => {
+        const score = calculateDomainMatchScore(cand, activeTabDomain, allowSubdomains);
+        return score > 0;
+      });
     });
-  }, [activeItems, activeTabDomain, query]);
+  }, [activeItems, activeTabDomain, query, allowSubdomains]);
 
   const shownItems = filteredItems;
   const matchIds = new Set(matchedItems.map((m) => m.id));
@@ -780,15 +949,22 @@ export function VaultScreen({
         {/* Matches */}
         {matchedItems.length > 0 && !query && selectedFolder === "All" && (
           <div className="match-banner">
-            <div className="match-banner-label">
+            <div className="match-banner-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(activeTabDomain)}&sz=32`}
+                alt=""
+                style={{ width: 13, height: 13, borderRadius: 2, objectFit: "contain", flexShrink: 0 }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+              />
               <Globe size={11} />
-              {activeTabDomain}
+              <span>{activeTabDomain}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {matchedItems.map((item) => (
+              {matchedItems.map((item, idx) => (
                 <ItemRow
                   key={`match-${item.id}`}
                   item={item}
+                  index={idx}
                   onDecrypt={onDecryptItem}
                   onAutofill={onAutofill}
                   onEdit={onEditItem}
@@ -804,7 +980,7 @@ export function VaultScreen({
         {/* All items */}
         {shownItems.length === 0 ? (
           <div className="empty-state">
-            <KeyRound size={28} />
+            <Shield size={28} style={{ color: "var(--neutral-600)" }} />
             <div className="empty-state-title">
               {query ? "No results found" : selectedFolder !== "All" ? `No items in ${selectedFolder}` : "No items in vault"}
             </div>
@@ -816,10 +992,11 @@ export function VaultScreen({
               <div className="section-label">All Items</div>
             )}
             <div className="items-list">
-              {shownItems.map((item) => (
+              {shownItems.map((item, idx) => (
                 <ItemRow
                   key={item.id}
                   item={item}
+                  index={idx}
                   onDecrypt={onDecryptItem}
                   onAutofill={onAutofill}
                   onEdit={onEditItem}
@@ -832,11 +1009,6 @@ export function VaultScreen({
           </>
         )}
       </div>
-
-      {/* Floating Action Button */}
-      <button className="fab" onClick={onAddNew} title="Add secure entry">
-        <Plus size={20} />
-      </button>
     </div>
   );
 }
