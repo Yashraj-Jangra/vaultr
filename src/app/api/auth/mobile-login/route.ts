@@ -3,37 +3,24 @@ import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { toPublicUrl } from "@/lib/storage";
+import { auth } from "@/lib/auth/auth";
+import { APIError } from "better-auth/api";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const bodyText = await req.text();
-    const baseUrl = req.nextUrl.origin; // e.g. http://localhost:3000
-
-    const res = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": req.headers.get("user-agent") || "VaultrMobile/1.0",
-        "Origin": req.headers.get("origin") || baseUrl,
-        "Referer": req.headers.get("referer") || `${baseUrl}/`,
-      },
-      body: bodyText,
+    const body = await req.json();
+    const data = await auth.api.signInEmail({
+      body,
+      headers: req.headers,
     });
-
-    const setCookieArray = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get("set-cookie") || ""];
-    const setCookie = setCookieArray.find(c => c?.includes("better-auth.session_token"));
-    let token = "";
-    if (setCookie) {
-      const match = setCookie.match(/better-auth\.session_token=([^;]+)/);
-      if (match) token = match[1];
-    }
-
-    const data = await res.json();
+    const responseUser: typeof data.user & { avatarUrl?: string | null } = {
+      ...data.user,
+    };
 
     // Enrich with user profile avatar if available
-    if (res.ok && data?.user?.id) {
+    if (data.user.id) {
       const [profile] = await db
         .select({ avatarUrl: userProfiles.avatarUrl, displayName: userProfiles.displayName })
         .from(userProfiles)
@@ -43,17 +30,26 @@ export async function POST(req: NextRequest) {
       if (profile?.avatarUrl) {
         const publicAvatar = toPublicUrl(profile.avatarUrl);
         if (publicAvatar) {
-          data.user.image = publicAvatar;
-          data.user.avatarUrl = publicAvatar;
+          responseUser.image = publicAvatar;
+          responseUser.avatarUrl = publicAvatar;
         }
       }
       if (profile?.displayName) {
-        data.user.name = profile.displayName;
+        responseUser.name = profile.displayName;
       }
     }
 
-    return NextResponse.json({ ...data, token }, { status: res.status });
-  } catch (err: any) {
+    return NextResponse.json({ ...data, user: responseUser });
+  } catch (err: unknown) {
+    if (err instanceof APIError) {
+      return NextResponse.json(
+        {
+          error: err.body?.message ?? err.message,
+          ...(err.body?.code ? { code: err.body.code } : {}),
+        },
+        { status: err.statusCode }
+      );
+    }
     console.error("[mobile-login]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
