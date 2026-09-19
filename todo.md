@@ -1,3 +1,25 @@
+## Current Session: Database Migration 0008 & Mobile Google Auth Guard (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 33: Drizzle Migration 0008 & Mobile Google Route Hardening)
+- **Generated Drizzle Migration 0008 (`0008_thin_mockingbird.sql`)**:
+  - Identified root cause of production server error: `column "custom_folders" does not exist` on `user_profiles`.
+  - Ran `npx drizzle-kit generate` to generate migration `0008_thin_mockingbird.sql`:
+    - Adds `custom_folders text[] DEFAULT '{}'::text[]` to `user_profiles`.
+    - Adds `scheduled_delete_at timestamp with time zone` to `user_profiles`.
+    - Updates cascade delete constraints across `account`, `session`, and `twoFactor` tables.
+    - Updated `drizzle/migrations/meta/_journal.json` and `0008_snapshot.json`.
+- **Hardened Mobile Google Auth Route (`src/app/api/auth/mobile-google/route.ts`)**:
+  - Replaced wildcard `select().from(userProfiles)` with explicit projection `{ displayName, avatarUrl, disabled }`.
+  - Added safe error boundary guard around profile query to prevent unhandled 500 crashes during schema migration rollouts.
+- **Pre-Commit Type Gate & DoD Verification**:
+  - Root `npx tsc --noEmit` verified with 0 errors.
+
+### 📋 What's Planned Next
+- Deploy updated migrations to production container and test Google login on mobile.
+- Open and merge GitHub PR from `dev` into `main`.
+
+---
+
 ## Current Session: Version Bump to v0.2.11 (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 32: Universal Version Bump to v0.2.11 & Manifest Synchronization)
