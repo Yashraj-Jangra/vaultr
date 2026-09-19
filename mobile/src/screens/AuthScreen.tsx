@@ -22,6 +22,7 @@ import {
 } from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { Illustration } from "../components/Illustration";
+import { getAuthProviderConfig } from "../services/googleAuth";
 
 function GoogleIcon() {
   return (
@@ -90,8 +91,29 @@ export function AuthScreen() {
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverInput, setServerInput] = useState(serverUrl || "");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGoogleEnabled, setIsGoogleEnabled] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkGoogleAuth = async () => {
+      const targetUrl = serverInput.trim() || serverUrl;
+      if (!targetUrl) return;
+      try {
+        const config = await getAuthProviderConfig(targetUrl);
+        if (isMounted) {
+          setIsGoogleEnabled(config.googleEnabled);
+        }
+      } catch {
+        // Gracefully ignore fetch errors
+      }
+    };
+    checkGoogleAuth();
+    return () => {
+      isMounted = false;
+    };
+  }, [serverInput, serverUrl]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -247,28 +269,32 @@ export function AuthScreen() {
               </Text>
             </View>
 
-            {/* Google Social Sign-In — matches web page */}
-            <TouchableOpacity
-              style={[styles.googleBtn, (isLoading || isGoogleLoading) && { opacity: 0.7 }]}
-              onPress={handleGoogleLogin}
-              disabled={isLoading || isGoogleLoading}
-              activeOpacity={0.8}
-            >
-              {isGoogleLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <GoogleIcon />
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* Google Social Sign-In — matches web page (rendered if enabled on server) */}
+            {isGoogleEnabled && (
+              <>
+                <TouchableOpacity
+                  style={[styles.googleBtn, (isLoading || isGoogleLoading) && { opacity: 0.7 }]}
+                  onPress={handleGoogleLogin}
+                  disabled={isLoading || isGoogleLoading}
+                  activeOpacity={0.8}
+                >
+                  {isGoogleLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <GoogleIcon />
+                      <Text style={styles.googleBtnText}>Continue with Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+              </>
+            )}
 
             {/* Error banner — matches web's pill */}
             {errorMsg ? (

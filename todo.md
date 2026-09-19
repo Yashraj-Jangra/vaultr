@@ -1,3 +1,24 @@
+## Current Session: Independent Mobile Google OAuth & Dynamic Server Discovery (2026-09-19) · Branch: `dev`
+
+### ✅ What Was Done (Phase 28: Independent Mobile Google OAuth & Dynamic Server Discovery)
+- **Public Auth Provider Discovery Endpoint (`src/app/api/config/auth-providers/route.ts`)**:
+  - Implemented `GET /api/config/auth-providers` discovery route returning `{ googleEnabled, googleClientId }`.
+  - Enables mobile and native clients to dynamically detect whether social authentication is configured on the active VaultR server (including self-hosted instances).
+- **Direct Mobile Google Token Exchange Route (`src/app/api/auth/mobile-google/route.ts`)**:
+  - Implemented `POST /api/auth/mobile-google` accepting either direct Google `idToken` or PKCE authorization `code`.
+  - Validates issuer (`accounts.google.com`), token expiry, audience against `GOOGLE_CLIENT_ID`, and verified email status.
+  - Automatically provisions or links user, account, and user profiles with standard quota (100MB).
+  - Issues a fresh 7-day bearer session in the `session` table with client IP and mobile User-Agent tracking.
+- **Native Expo Google Authentication Service (`mobile/src/services/googleAuth.ts`)**:
+  - Created `performNativeGoogleAuth(serverUrl)` using `WebBrowser.openAuthSessionAsync` directly against Google OAuth (`https://accounts.google.com/o/oauth2/v2/auth`).
+  - Implemented cryptographic PKCE generation (`generatePkce`) using `expo-crypto` and `@vaultr/core`'s `toBase64Url`.
+  - Decoupled mobile login from web frontend pages (`/api/auth/mobile-start` and `/api/auth/mobile-callback`), eliminating browser redirect chains, state mismatch cookies, and web popup flashes.
+- **Mobile Auth Store & Dynamic Screen Wiring (`mobile/src/store/vaultStore.ts`, `mobile/src/screens/AuthScreen.tsx`)**:
+  - Updated `signInWithGoogle` in `vaultStore.ts` to call `performNativeGoogleAuth` and persist the resulting session token and `AccountUser`.
+  - Added `isGoogleEnabled` state and dynamic query to `AuthScreen.tsx`, gracefully hiding the Google sign-in button if self-hosted servers do not have Google OAuth configured.
+
+---
+
 ## Current Session: iOS Configuration & Cross-Platform Parity (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 27: iOS Target Configuration & Lifecycle Resilience)

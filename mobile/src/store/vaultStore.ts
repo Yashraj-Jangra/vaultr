@@ -13,6 +13,7 @@ import * as Linking from 'expo-linking';
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { uint8ArrayToBase64, base64ToUint8Array } from "../utils/base64";
+import { performNativeGoogleAuth } from "../services/googleAuth";
 
 interface VaultState {
   // Auth state
@@ -423,26 +424,35 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ isLoading: true });
     try {
       const cleanUrl = (url || get().serverUrl).replace(/\/+$/, "");
-      const redirectUri = Linking.createURL("auth-callback");
-      const authStartUrl = `${cleanUrl}/api/auth/mobile-start?provider=google&appUrl=${encodeURIComponent(redirectUri)}`;
+      const res = await performNativeGoogleAuth(cleanUrl);
 
-      // Open auth session in Custom Tabs directly starting from the server endpoint
-      // This guarantees state cookies are set directly inside the browser context, eliminating state_mismatch.
-      const authResult = await WebBrowser.openAuthSessionAsync(authStartUrl, redirectUri);
-
-      // Handle direct return from openAuthSessionAsync
-      if (authResult.type === "success" && authResult.url) {
-        const handled = await get().handleAuthRedirectUrl(authResult.url);
-        if (handled) return;
-      }
-
-      // If deep link listener already authenticated user during browser dismissal
-      if (get().isAuthenticated) {
+      if (!res.success) {
         set({ isLoading: false });
+        if (res.error && res.error !== "cancel") {
+          throw new Error(res.error);
+        }
         return;
       }
 
-      set({ isLoading: false });
+      if (res.token && res.user) {
+        const user: AccountUser = {
+          id: res.user.id,
+          email: res.user.email,
+          name: res.user.name,
+          image: res.user.image || res.user.avatarUrl || undefined,
+          avatarUrl: res.user.avatarUrl || res.user.image || undefined,
+        };
+        await saveAccountSession(res.token, user, cleanUrl);
+        set({
+          accountToken: res.token,
+          accountUser: user,
+          isAuthenticated: true,
+          serverUrl: cleanUrl,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
     } catch (err: any) {
       set({ isLoading: false });
       throw err;
