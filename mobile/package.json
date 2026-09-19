@@ -4,10 +4,11 @@
   "private": true,
   "main": "src/App.tsx",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
+    "start": "expo start --go",
+    "android": "expo start --go -a",
+    "ios": "expo start --go -i",
     "build:android": "expo run:android",
-    "ios": "expo run:ios"
+    "build:ios": "expo run:ios"
   },
   "dependencies": {
     "@noble/ciphers": "^2.3.0",
