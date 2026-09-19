@@ -1,3 +1,29 @@
+## Current Session: PR #18 Security Audit Merge & Remediation Patch (2026-09-20) · Branch: `dev`
+
+### ✅ What Was Done (Phase 34: PR #18 Security Remediation Integration & Unlink Fix)
+- **Fetched and Audited PR #18 Commits (`pull/18/head`)**:
+  - Merged PR #18 addressing critical-to-medium security findings:
+    - Replaced mobile auth loopback `fetch` in `mobile-login` and `mobile-register` with direct `auth.api.signInEmail` / `signUpEmail`, eliminating SSRF and Host-header credential leakage.
+    - Added atomic row-level conditional `UPDATE` inside `db.transaction` for attachment quotas (`storage_used_bytes + size <= storage_quota_bytes`) with automatic S3 rollback on failure.
+    - Fixed SQL folder wildcard injection in `src/app/api/vault/folders/route.ts` using PostgreSQL native literal prefix function `starts_with`.
+    - Patched runtime dependencies: `next@16.3.5`, `better-auth@1.7.5`, `nodemailer@10.0.10`, `copy-webpack-plugin@14.0.0`, `expo@57.0.24`, `react-native@0.86.3`.
+- **Patched Account Unlinking Bug (`src/app/settings/account/page.tsx`)**:
+  - Identified Better Auth 1.7.5 schema mismatch where `/unlink-account` matches against internal `account.id` rather than provider `account.accountId`.
+  - Updated `handleUnlink` and UI button invocation to pass `p.id` with `p.providerId` fallback, ensuring 100% interoperability across Better Auth 1.6 and 1.7.
+- **Resolved EAS Config in `mobile/app.json`**:
+  - Maintained both `expo-secure-store` in plugins and `extra.eas.projectId` configuration.
+- **Pre-Commit Type Gate & Verification**:
+  - Root `npx tsc --noEmit`: Passed (0 errors).
+  - Mobile `npx tsc --noEmit`: Passed (0 errors).
+  - Core build (`@vaultr/core`): Passed.
+  - Extension build (`@vaultr/extension`): Passed.
+
+### 📋 What's Planned Next
+- Merge `dev` into `main` and sync remote repository.
+- Rebuild Portainer production stack.
+
+---
+
 ## Current Session: Database Migration 0008 & Mobile Google Auth Guard (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 33: Drizzle Migration 0008 & Mobile Google Route Hardening)
