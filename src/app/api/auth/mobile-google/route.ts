@@ -183,12 +183,22 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Check user profile for disabled status
-      const [profile] = await db
-        .select()
-        .from(userProfiles)
-        .where(eq(userProfiles.userId, existingUser.id))
-        .limit(1);
+      // Check user profile for disabled status safely
+      let profile: { displayName: string | null; avatarUrl: string | null; disabled: boolean | null } | undefined;
+      try {
+        const [p] = await db
+          .select({
+            displayName: userProfiles.displayName,
+            avatarUrl: userProfiles.avatarUrl,
+            disabled: userProfiles.disabled,
+          })
+          .from(userProfiles)
+          .where(eq(userProfiles.userId, existingUser.id))
+          .limit(1);
+        profile = p;
+      } catch (profileErr) {
+        console.warn("[POST /api/auth/mobile-google] Could not fetch profile details, continuing:", profileErr);
+      }
 
       if (profile?.disabled) {
         return NextResponse.json(

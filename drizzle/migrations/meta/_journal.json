@@ -57,6 +57,13 @@
       "when": 1784043114188,
       "tag": "0007_shiny_moonstone",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789823281472,
+      "tag": "0008_thin_mockingbird",
+      "breakpoints": true
     }
   ]
 }
