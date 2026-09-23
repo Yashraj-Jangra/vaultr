@@ -27,6 +27,45 @@ let activeInput: HTMLInputElement | null = null;
 let lastFocusedField: HTMLInputElement | null = null;
 let activeToastTimeout: any = null;
 
+// ─── Cross-Page Username Memory ───────────────────────────────────────────────
+// Remembers the username typed on page 1 of split login flows (username → next
+// page → password) so that when the password page appears we can still report
+// the correct username for save/update prompts.
+
+const CROSS_PAGE_USERNAME_KEY = "vaultr_xpage_username";
+const CROSS_PAGE_DOMAIN_KEY   = "vaultr_xpage_domain";
+const CROSS_PAGE_TTL_KEY      = "vaultr_xpage_ts";
+const CROSS_PAGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function saveUsernameForNextPage(username: string, domain: string) {
+  try {
+    sessionStorage.setItem(CROSS_PAGE_USERNAME_KEY, username);
+    sessionStorage.setItem(CROSS_PAGE_DOMAIN_KEY,   domain);
+    sessionStorage.setItem(CROSS_PAGE_TTL_KEY,       String(Date.now()));
+  } catch {}
+}
+
+function getCrossPageUsername(currentDomain: string): string {
+  try {
+    const ts = Number(sessionStorage.getItem(CROSS_PAGE_TTL_KEY) || "0");
+    if (Date.now() - ts > CROSS_PAGE_TTL_MS) return "";
+    const savedDomain = sessionStorage.getItem(CROSS_PAGE_DOMAIN_KEY) || "";
+    // Accept if domain matches (same site, different path is fine)
+    if (savedDomain && !currentDomain.includes(savedDomain) && !savedDomain.includes(currentDomain)) return "";
+    return sessionStorage.getItem(CROSS_PAGE_USERNAME_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearCrossPageUsername() {
+  try {
+    sessionStorage.removeItem(CROSS_PAGE_USERNAME_KEY);
+    sessionStorage.removeItem(CROSS_PAGE_DOMAIN_KEY);
+    sessionStorage.removeItem(CROSS_PAGE_TTL_KEY);
+  } catch {}
+}
+
 // ─── Toast UI (Shadow DOM Isolated) ──────────────────────────────────────────
 
 function showInPageToast(messageHtml: string, durationMs = 3500) {
@@ -135,6 +174,23 @@ try {
   }
 } catch {}
 
+// Watch username/email fields — persist their value when they blur so a
+// subsequent page navigation (Next → password page) can retrieve it.
+document.addEventListener("focusout", (e) => {
+  const el = e.target as HTMLInputElement;
+  if (!el || el.tagName !== "INPUT") return;
+  if (!isWebPageUrl(window.location.href)) return;
+  if (el.type === "password") return;
+  // Only persist if the field looks like a username/email field
+  const hint = [el.name, el.id, el.autocomplete, el.placeholder].join(" ").toLowerCase();
+  const isUsernameField = /user|email|login|account|identifier/.test(hint) || el.type === "email";
+  if (!isUsernameField) return;
+  const value = el.value.trim();
+  if (value.length < 2) return;
+  const domain = getDomain();
+  if (domain) saveUsernameForNextPage(value, domain);
+}, true);
+
 /** Dispatch React-compatible input events so frameworks (React/Vue/Angular) pick up changes */
 function nativeInputValueSetter(input: HTMLInputElement, value: string) {
   try {
@@ -226,21 +282,27 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
         }
       }
 
-      // Auto-submit login form if enabled and credentials were typed into a form
+      // Auto-submit login form only when BOTH username and password were filled.
+      // Skip if the form has no password field visible — that means we are on page
+      // 1 of a split login (username only) and auto-submitting here would navigate
+      // away before the password page loads, breaking the flow.
       if (res?.autofill_submit !== false && cred.password) {
         const form = focusedField.closest("form");
         if (form) {
-          setTimeout(() => {
-            try {
-              if (typeof form.requestSubmit === "function") {
-                form.requestSubmit();
-              } else {
-                form.submit();
+          const hasPasswordField = !!form.querySelector('input[type="password"]');
+          if (hasPasswordField) {
+            setTimeout(() => {
+              try {
+                if (typeof form.requestSubmit === "function") {
+                  form.requestSubmit();
+                } else {
+                  form.submit();
+                }
+              } catch {
+                // Ignore submission block if form validation fails
               }
-            } catch {
-              // Ignore submission block if form validation fails
-            }
-          }, 150);
+            }, 150);
+          }
         }
       }
     });
@@ -946,6 +1008,8 @@ document.addEventListener("focusin", (e) => {
 
       chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
         if (chrome.runtime.lastError) return;
+        // Vault is locked — do not show dropdown (nothing to suggest)
+        if (response?.isLocked) return;
         if (response?.logins?.length > 0) {
           if (document.activeElement === target) {
             if (isOtp) {
@@ -1221,22 +1285,35 @@ function showSaveOrUpdatePrompt(opts: {
 
 function checkAndShowSavePrompt(username: string, password: string, domain: string) {
   if (!password || !domain) return;
+  // Minimum sensible password length — avoids triggering on PIN-only or OTP fields
+  if (password.length < 6) return;
   if (lastSubmittedUsername === username && lastSubmittedPassword === password && lastSubmittedDomain === domain) {
     return;
   }
+
+  // If no username found in the form, check if one was persisted from a previous page
+  const effectiveUsername = username || getCrossPageUsername(domain);
 
   if (typeof chrome !== "undefined" && chrome.storage?.local) {
     chrome.storage.local.get(["vaultr_prompt_save", "vaultr_prompt_update"], (prefs) => {
       chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (res) => {
         if (chrome.runtime.lastError) return;
+
+        // ── Locked vault guard ──────────────────────────────────────────────────
+        // When the vault is locked we cannot save or update anything, so do not
+        // show a prompt that misleads the user into thinking it worked.
+        if (res?.isLocked) return;
+
         const logins: AutofillCredential[] = res?.logins || [];
 
         const matchingUser = logins.find(
-          (l) => l.username && username && l.username.toLowerCase() === username.toLowerCase()
+          (l) => l.username && effectiveUsername && l.username.toLowerCase() === effectiveUsername.toLowerCase()
         );
 
         if (matchingUser) {
           if (matchingUser.password && matchingUser.password === password) {
+            // Password unchanged — clear cross-page state and bail
+            clearCrossPageUsername();
             return;
           }
           if (prefs?.vaultr_prompt_update === false) return;
@@ -1244,7 +1321,7 @@ function checkAndShowSavePrompt(username: string, password: string, domain: stri
           showSaveOrUpdatePrompt({
             mode: "update",
             domain,
-            username: matchingUser.username || username,
+            username: matchingUser.username || effectiveUsername,
             password,
             itemId: matchingUser.id,
             itemName: matchingUser.name,
@@ -1255,10 +1332,13 @@ function checkAndShowSavePrompt(username: string, password: string, domain: stri
           showSaveOrUpdatePrompt({
             mode: "save",
             domain,
-            username,
+            username: effectiveUsername,
             password,
           });
         }
+
+        // Clear the cross-page username after it has been used
+        clearCrossPageUsername();
       });
     });
   }
@@ -1288,18 +1368,31 @@ function findTargetPasswordField(container: Element): HTMLInputElement | null {
   return pwds[0];
 }
 
+/**
+ * Returns true for buttons that should NOT trigger a save prompt — e.g.
+ * password-reveal toggles, cancel/close/back buttons, or navigation-only
+ * buttons like "Next" on page-1 of a split username→password login flow
+ * (that page has no password field to capture).
+ */
+function isSaveExcludedButton(btn: Element): boolean {
+  const btnText = (btn.textContent || "").trim().toLowerCase();
+  const btnAria = (btn.getAttribute("aria-label") || "").toLowerCase();
+  const btnClass = (btn.className || "").toString().toLowerCase();
+  const btnId   = (btn.id || "").toLowerCase();
+  const combined = `${btnText} ${btnAria} ${btnClass} ${btnId}`;
+  return /eye|reveal|show|toggle|hide|cancel|close|back|dismiss|forget|clear|reset|navigation|nav-/.test(combined);
+}
+
 function setupFormSubmitInterceptor() {
   document.addEventListener("submit", (e) => {
     const form = e.target as HTMLFormElement;
     if (!form || form.tagName !== "FORM") return;
     const pwdInput = findTargetPasswordField(form);
-    if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
+    if (!pwdInput || !pwdInput.value || pwdInput.value.length < 6) return;
     const userInput = findUsernameField(pwdInput);
-    const username = userInput?.value || "";
-    const password = pwdInput.value;
     const domain = getDomain();
     if (!domain) return;
-    checkAndShowSavePrompt(username, password, domain);
+    checkAndShowSavePrompt(userInput?.value || "", pwdInput.value, domain);
   }, true);
 
   document.addEventListener("click", (e) => {
@@ -1310,29 +1403,22 @@ function setupFormSubmitInterceptor() {
 
     const btn = targetEl.closest('button[type="submit"], input[type="submit"], button:not([type])');
     if (!btn) return;
-
-    // Filter out eye / password reveal toggle buttons and cancel / close buttons
-    const btnText = (btn.textContent || "").toLowerCase();
-    const btnAria = (btn.getAttribute("aria-label") || "").toLowerCase();
-    const btnClass = (btn.className || "").toString().toLowerCase();
-    if (/eye|reveal|show|toggle|hide|cancel|close|back/.test(`${btnText} ${btnAria} ${btnClass}`)) {
-      return;
-    }
+    if (isSaveExcludedButton(btn)) return;
 
     const form = btn.closest("form");
     if (form) {
       const pwdInput = findTargetPasswordField(form);
-      if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
+      // No password field in this form — it may be the username-only step of a
+      // split login flow. Do NOT show save prompt here; wait for the password page.
+      if (!pwdInput || !pwdInput.value || pwdInput.value.length < 6) return;
       const userInput = findUsernameField(pwdInput);
-      const username = userInput?.value || "";
-      const password = pwdInput.value;
       const domain = getDomain();
       if (!domain) return;
-      checkAndShowSavePrompt(username, password, domain);
+      checkAndShowSavePrompt(userInput?.value || "", pwdInput.value, domain);
     } else {
       const container = btn.closest("div, section, main, [role='dialog'], [role='form']");
       const pwd = container ? findTargetPasswordField(container) : null;
-      if (pwd && pwd.value.trim().length >= 4) {
+      if (pwd && pwd.value.trim().length >= 6) {
         const usr = findUsernameField(pwd);
         checkAndShowSavePrompt(usr?.value || "", pwd.value, getDomain());
       }

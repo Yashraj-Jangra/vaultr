@@ -1,3 +1,27 @@
+## Current Session: Extension Autosave Edge Case Fixes (2026-09-23) · Branch: `dev`
+
+### ✅ What Was Done (Phase 35: Extension Autosave Hardening)
+
+**Files Changed:**
+- `extension/src/content-script/autofill.ts`
+- `extension/src/background/service-worker.ts`
+
+**Bugs Fixed:**
+
+1. **Locked-vault save prompt** — `GET_LOGINS_FOR_DOMAIN` returned `[]` when the vault was locked → `checkAndShowSavePrompt` saw an empty logins list and assumed it was a new credential, showing a "Save password?" prompt the user couldn't actually act on. Fixed by adding `isLocked: boolean` to the service-worker response. Both the `focusin` dropdown handler and `checkAndShowSavePrompt` now bail immediately when `isLocked === true`.
+
+2. **Split-page login flows (username first, password second)** — Sites like Google, Microsoft, Amazon use a two-step flow where the username is typed on page 1, then the page navigates to show the password field. On the password page `findUsernameField()` found nothing because the username field was gone. Fixed via a `sessionStorage`-backed cross-page username memory (`vaultr_xpage_*`) with a 5-minute TTL and domain validation. The username is saved on `focusout` of any username-like field; `checkAndShowSavePrompt` falls back to it when the in-page search returns empty. The stored value is cleared after use.
+
+3. **Auto-submit on page 1 of split flow** — `fillCredential()` auto-submitted the form even on the username-only first page, causing a page navigation before the password was ever entered. Fixed by checking that the form actually contains a visible password field before calling `requestSubmit()`.
+
+4. **Overly permissive submit-button detection** — The click interceptor matched ANY `button:not([type])`, including navigation, dismiss, and clear buttons. Extracted into `isSaveExcludedButton()` with an expanded exclusion regex that also catches `dismiss`, `forget`, `clear`, `reset`, `navigation`, and `nav-` class patterns.
+
+5. **Password length threshold** — Raised minimum captured password length from 4 to 6 characters to avoid false positives on short PINs and OTP inputs.
+
+6. **Vault locked — autofill dropdown** — The suggestion dropdown now silently skips rendering when the vault is locked (previously it would just show nothing, but still performed the async message round-trip and the response check was missing).
+
+---
+
 ## Current Session: PR #18 Security Audit Merge & Remediation Patch (2026-09-20) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 34: PR #18 Security Remediation Integration & Unlink Fix)

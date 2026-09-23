@@ -767,11 +767,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "GET_LOGINS_FOR_DOMAIN": {
-          const matches = await getLoginsForDomain(message.domain);
+          await tryRestoreSession();
+          const vaultLocked = !state.isUnlocked || !state.masterPassword;
+          const matches = vaultLocked ? [] : await getLoginsForDomain(message.domain);
           if (sender.tab?.id) {
             updateTabBadge(sender.tab.id, sender.tab.url || message.domain);
           }
           sendResponse({
+            isLocked: vaultLocked,
             logins: matches.map(({ id, name, domain, url, username, password, totp, hasTotp, matchedDomain }) => ({
               id,
               name,
