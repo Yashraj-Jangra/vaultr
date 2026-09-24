@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, Key, KeyRound, Star, RefreshCw, Copy, Check
+  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, Key, KeyRound, Star, RefreshCw, Copy, Check, ExternalLink
 } from "lucide-react";
 import { VaultItem, detectCardBrand, generateRandom, scorePassword } from "@vaultr/core";
 import { CipherScrambleText } from "./CipherScrambleText";
@@ -660,6 +660,27 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
                     onChange={e => setUrls(p => p.map((x, idx) => idx === i ? e.target.value : x))}
                     placeholder="https://…"
                   />
+                  {u.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let target = u.trim();
+                        if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                          target = "https://" + target;
+                        }
+                        if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+                          chrome.tabs.create({ url: target });
+                        } else {
+                          window.open(target, "_blank", "noopener,noreferrer");
+                        }
+                      }}
+                      className="btn btn-ghost"
+                      style={{ padding: "8px 10px" }}
+                      title="Open URL"
+                    >
+                      <ExternalLink size={13} />
+                    </button>
+                  ) : null}
                   {i === urls.length - 1 ? (
                     <button type="button" onClick={() => setUrls(p => [...p, ""])} className="btn btn-ghost" style={{ padding: "8px 10px" }}><Plus size={13} /></button>
                   ) : (
