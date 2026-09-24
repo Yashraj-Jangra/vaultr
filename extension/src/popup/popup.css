@@ -568,6 +568,7 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
   align-items: center;
   justify-content: center;
   border-radius: 5px;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .detail-action-btn:hover {

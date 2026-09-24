@@ -1,3 +1,29 @@
+## Current Session: Extension URL Open/Launch Button (2026-09-24) · Branch: `dev`
+
+### ✅ What Was Done (Phase 36: Extension URL Open/Launch Button Parity)
+
+**Files Changed:**
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `extension/src/popup/popup.css`
+
+**Features & Improvements:**
+1. **Open URL button in DetailRow (`VaultScreen.tsx`)**:
+   - Added `OpenUrlBtn` component using `ExternalLink` icon from `lucide-react`.
+   - Uses `className="detail-action-btn"` matching dimensions (20x20), border-radius (5px), and neutral color tokens identical to `CopyBtn` and `MaskedValue` (`Eye`/`EyeOff`).
+   - Opens URL safely in a new browser tab via `chrome.tabs.create({ url: target })` with fallback to `window.open(target, "_blank", "noopener,noreferrer")`.
+   - Normalizes protocol (`https://` prefix added if missing, matching mobile `handleLaunchUrl`).
+   - Placed directly adjacent to `CopyBtn` in `.detail-actions`, mirroring mobile `FieldRow` launch behavior.
+   - Automatically detects website/URL/URI fields or explicit `isUrl` prop (including custom fields of type `"url"` and item domain fallback).
+
+2. **Open URL button in NewEntryForm (`NewEntryForm.tsx`)**:
+   - Added `ExternalLink` launch button to URL input rows when a URL is present (`u.trim()`), styled with `.btn.btn-ghost` matching form controls.
+
+3. **Smooth styling transitions (`popup.css`)**:
+   - Added `transition: color 0.15s ease, background 0.15s ease;` to `.detail-action-btn`.
+
+---
+
 ## Current Session: Extension Autosave Edge Case Fixes (2026-09-23) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 35: Extension Autosave Hardening)

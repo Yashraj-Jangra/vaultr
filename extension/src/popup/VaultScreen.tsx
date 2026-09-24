@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { VaultItem } from "@vaultr/core";
 import {
   Search, Copy, Check, Globe, Key, KeyRound, Shield, CreditCard, FileText, User, MapPin,
-  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
+  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star, ExternalLink
 } from "lucide-react";
 import {
   generateTOTP,
@@ -175,8 +175,57 @@ function MaskedValue({ value, dots = 12 }: { value: string; dots?: number }) {
   );
 }
 
-function DetailRow({ label, value, masked = false, dots = 12 }: { label: string; value: string; masked?: boolean; dots?: number }) {
+function OpenUrlBtn({ url }: { url: string }) {
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!url || !url.trim()) return;
+    let target = url.trim();
+    if (!target.startsWith("http://") && !target.startsWith("https://")) {
+      target = "https://" + target;
+    }
+    if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+      chrome.tabs.create({ url: target });
+    } else {
+      window.open(target, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      className="detail-action-btn"
+      title="Open URL"
+    >
+      <ExternalLink size={12} />
+    </button>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  masked = false,
+  dots = 12,
+  isUrl,
+}: {
+  label: string;
+  value: string;
+  masked?: boolean;
+  dots?: number;
+  isUrl?: boolean;
+}) {
   if (!value) return null;
+  const isLink = isUrl !== undefined
+    ? isUrl
+    : (
+        label.toLowerCase().includes("website") ||
+        label.toLowerCase().includes("uri") ||
+        label.toLowerCase().includes("url") ||
+        value.startsWith("http://") ||
+        value.startsWith("https://")
+      );
+
   return (
     <div className="detail-row">
       <span className="detail-label">{label}</span>
@@ -187,6 +236,7 @@ function DetailRow({ label, value, masked = false, dots = 12 }: { label: string;
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
             <span className="detail-value">{value}</span>
             <div className="detail-actions">
+              {isLink && <OpenUrlBtn url={value} />}
               <CopyBtn value={value} />
             </div>
           </div>
@@ -590,16 +640,16 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                     </div>
                   )}
 
-                  {(decrypted.url || (decrypted.urls && decrypted.urls.length > 0)) && (
+                  {(decrypted.url || (decrypted.urls && decrypted.urls.length > 0) || (item.domain && !item.domain.includes("••••"))) && (
                     <div className="detail-section-group">
                       <div className="detail-section-title">WEBSITE URLS</div>
                       <div className="detail-section-box">
                         {decrypted.urls && decrypted.urls.length > 0 ? (
                           decrypted.urls.map((u: string, i: number) => (
-                            <DetailRow key={i} label={i === 0 ? "Website (URI)" : `Website #${i+1}`} value={u} />
+                            <DetailRow key={i} label={i === 0 ? "Website (URI)" : `Website #${i+1}`} value={u} isUrl />
                           ))
                         ) : (
-                          <DetailRow label="Website (URI)" value={decrypted.url} />
+                          <DetailRow label="Website (URI)" value={decrypted.url || item.domain} isUrl />
                         )}
                       </div>
                     </div>
@@ -709,6 +759,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                           value={f.value}
                           masked={f.type === "hidden"}
                           dots={8}
+                          isUrl={f.type === "url"}
                         />
                       ))}
                     </div>
