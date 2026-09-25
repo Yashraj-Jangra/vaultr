@@ -363,6 +363,24 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
   const [totpSecret, setTotpSecret] = useState(initialData?.payload?.totpSecret || "");
   const [showTotpField, setShowTotpField] = useState(!!initialData?.payload?.totpSecret);
 
+  // Passkey
+  const [passkeyData, setPasskeyData] = useState<any>(() => {
+    if (initialData?.payload?.isPasskey || initialData?.payload?.passkeyCredentialId) {
+      return {
+        isPasskey: true,
+        passkeyRpId: initialData.payload.passkeyRpId,
+        passkeyCredentialId: initialData.payload.passkeyCredentialId,
+        passkeyUserHandle: initialData.payload.passkeyUserHandle,
+        passkeyPrivateKey: initialData.payload.passkeyPrivateKey,
+        passkeySignCount: initialData.payload.passkeySignCount,
+        passkeyTransports: initialData.payload.passkeyTransports,
+        passkeyCreatedAt: initialData.payload.passkeyCreatedAt,
+        passkeyLastUsedAt: initialData.payload.passkeyLastUsedAt,
+      };
+    }
+    return null;
+  });
+
   // Card
   const [cardName, setCardName] = useState(initialData?.payload?.cardName || initialData?.payload?.cardholderName || "");
   const [cardNumber, setCardNumber] = useState(initialData?.payload?.cardNumber || "");
@@ -443,18 +461,8 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
         passwordHistory: history.length > 0 ? history : undefined,
       });
 
-      if (initialData?.payload?.isPasskey) {
-        Object.assign(payload, {
-          isPasskey: true,
-          passkeyRpId: initialData.payload.passkeyRpId,
-          passkeyCredentialId: initialData.payload.passkeyCredentialId,
-          passkeyUserHandle: initialData.payload.passkeyUserHandle,
-          passkeyPrivateKey: initialData.payload.passkeyPrivateKey,
-          passkeySignCount: initialData.payload.passkeySignCount,
-          passkeyTransports: initialData.payload.passkeyTransports,
-          passkeyCreatedAt: initialData.payload.passkeyCreatedAt,
-          passkeyLastUsedAt: initialData.payload.passkeyLastUsedAt,
-        });
+      if (passkeyData?.isPasskey) {
+        Object.assign(payload, passkeyData);
       }
     }
     if (template === "card") {
@@ -488,9 +496,11 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note") Object.assign(payload, { note });
 
-    const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
-    if (initialData?.payload?.isPasskey && !parsedTags.includes("passkey")) {
-      parsedTags.push("passkey");
+    let parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
+    if (template === "login" && passkeyData?.isPasskey) {
+      if (!parsedTags.includes("passkey")) parsedTags.push("passkey");
+    } else {
+      parsedTags = parsedTags.filter(t => t.toLowerCase() !== "passkey");
     }
 
     try {
@@ -713,17 +723,45 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
               </div>
             )}
 
-            {initialData?.payload?.isPasskey && (
+            {passkeyData?.isPasskey && (
               <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: 5 }}>
                     <KeyRound size={12} color="#38bdf8" /> PASSKEY ENROLLED
                   </span>
-                  <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
-                    {initialData.payload.passkeyRpId || "FIDO2"}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
+                      {passkeyData.passkeyRpId || "FIDO2"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPasskeyData(null);
+                        setTags((prev) =>
+                          prev
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                            .join(", ")
+                        );
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        fontSize: 10,
+                        color: "#f87171",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                      title="Unlink passkey from this login"
+                    >
+                      Unlink passkey
+                    </button>
+                  </div>
                 </div>
-                <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4, margin: 0 }}>
                   This login item has an active passkey credential linked for instant WebAuthn sign-in.
                 </p>
               </div>

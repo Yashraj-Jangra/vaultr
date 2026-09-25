@@ -210,7 +210,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
             setAdditionalUrls(p.urls.slice(1));
           }
           if (p.totpSecret || p.totp_secret) setTotpSecret(p.totpSecret || p.totp_secret);
-          if (p.isPasskey || p.passkeyCredentialId || (item.tags && item.tags.includes("passkey"))) {
+          if (p.isPasskey || p.passkeyCredentialId) {
             setPasskeyData({
               isPasskey: true,
               passkeyRpId: p.passkeyRpId,
@@ -507,13 +507,15 @@ export function ItemFormScreen({ route, navigation }: Props) {
         unencryptedPayload.customFields = validCustomFields.map((f) => ({ key: f.name, name: f.name, value: f.value, type: f.type }));
       }
 
-      const tagsList = tagsStr
+      let tagsList = tagsStr
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
 
-      if (template === "login" && passkeyData?.isPasskey && !tagsList.includes("passkey")) {
-        tagsList.push("passkey");
+      if (template === "login" && passkeyData?.isPasskey) {
+        if (!tagsList.includes("passkey")) tagsList.push("passkey");
+      } else {
+        tagsList = tagsList.filter((t) => t.toLowerCase() !== "passkey");
       }
 
       let domain = url.trim() || undefined;
@@ -829,7 +831,16 @@ export function ItemFormScreen({ route, navigation }: Props) {
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                   <Text style={styles.label}>PASSKEY CREDENTIAL</Text>
                   <TouchableOpacity
-                    onPress={() => setPasskeyData(null)}
+                    onPress={() => {
+                      setPasskeyData(null);
+                      setTagsStr((prev) =>
+                        prev
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                          .join(", ")
+                      );
+                    }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Text style={{ fontSize: 11, color: "#f87171", fontWeight: "600" }}>Unlink Passkey</Text>

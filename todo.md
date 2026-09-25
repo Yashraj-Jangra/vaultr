@@ -1,3 +1,30 @@
+## Current Session: Unified Passkey Unlinking Across All Clients (2026-09-25) · Branch: `dev`
+
+### ✅ What Was Done (Phase 37: Unified Passkey Unlinking Across Web, Mobile, and Extension)
+
+**Files Changed:**
+- `mobile/src/screens/ItemFormScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `src/components/vault/NewEntryDialog.tsx`
+
+**Fixes & Enhancements:**
+1. **Mobile App (`ItemFormScreen.tsx`)**:
+   - Pruned `"passkey"` from `tagsStr` in state immediately when "Unlink Passkey" is tapped.
+   - Filtered `"passkey"` from `tagsList` on save when unlinked (`!passkeyData?.isPasskey`), preventing ghost passkey tags from persisting in the database.
+   - Guarded `passkeyData` initialization on edit to check for actual credentials (`p.isPasskey || p.passkeyCredentialId`) rather than resurrecting state solely from stale tags.
+
+2. **Browser Extension (`NewEntryForm.tsx`)**:
+   - Added `passkeyData` state management to track linked credentials in edit mode.
+   - Added an **"Unlink passkey"** red action link to the `PASSKEY ENROLLED` card header.
+   - Stripped `"passkey"` from `tags` state on unlink click.
+   - Conditionally attached passkey properties to the encrypted payload on save only when `passkeyData?.isPasskey` is true.
+   - Filtered `"passkey"` from `parsedTags` on save when unlinked.
+
+3. **Web App (`NewEntryDialog.tsx`)**:
+   - Synchronized immediate removal of `"passkey"` from the dialog's `tags` input state upon tapping "Unlink passkey" in both primary and simplified views.
+
+---
+
 ## Current Session: Extension URL Open/Launch Button (2026-09-24) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 36: Extension URL Open/Launch Button Parity)
