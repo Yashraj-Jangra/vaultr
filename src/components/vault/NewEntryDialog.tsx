@@ -1328,6 +1328,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                       setPasskeyUserHandle("");
                       setPasskeyPrivateKey("");
                       setPasskeySignCount(undefined);
+                      setTags((prev) =>
+                        prev
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                          .join(", ")
+                      );
                     }}
                     className="text-[10px] text-red-400 hover:underline cursor-pointer"
                   >
@@ -1741,6 +1748,13 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     setPasskeyCredentialId("");
                     setPasskeyUserHandle("");
                     setPasskeyPrivateKey("");
+                    setTags((prev) =>
+                      prev
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                        .join(", ")
+                    );
                   }}
                   className="text-[10px] text-red-400 hover:underline cursor-pointer"
                 >
