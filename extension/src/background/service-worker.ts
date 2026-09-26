@@ -1586,8 +1586,8 @@ function normalizeCredentialId(id: string | undefined | null): string {
               return;
             }
 
-            const currentCount = matchedPayload.passkeySignCount || 0;
-            const signCount = currentCount + 1;
+            // Multi-device syncable passkeys maintain signCount = 0 per W3C WebAuthn Level 3 spec
+            const signCount = 0;
             const effectiveRp = payload.rpId || matchedPayload.passkeyRpId || rpId;
 
             const assertionResult = await signPasskeyAssertion({
@@ -1598,7 +1598,6 @@ function normalizeCredentialId(id: string | undefined | null): string {
               signCount,
             });
 
-            matchedPayload.passkeySignCount = signCount;
             matchedPayload.passkeyLastUsedAt = new Date().toISOString();
             state.decryptedItemsCache[matchedItem.id] = matchedPayload;
 

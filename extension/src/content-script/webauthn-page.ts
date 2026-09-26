@@ -43,29 +43,42 @@
 
   // ─── Encoding Helpers ───────────────────────────────────────────────────────
 
-  function bufferToBase64Url(buf: ArrayBuffer | ArrayBufferView): string {
-    const bytes = buf instanceof Uint8Array
-      ? buf
-      : (ArrayBuffer.isView(buf)
-          ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
-          : new Uint8Array(buf));
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+  function bufferToBase64Url(buf: any): string {
+    if (!buf) return "";
+    if (typeof buf === "string") return buf;
+    try {
+      const bytes = buf instanceof Uint8Array
+        ? buf
+        : (ArrayBuffer.isView(buf)
+            ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+            : new Uint8Array(buf));
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    } catch {
+      return "";
     }
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
-  function base64UrlToBuffer(str: string): ArrayBuffer {
-    if (!str) return new ArrayBuffer(0);
-    let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  function base64UrlToBuffer(val: any): ArrayBuffer {
+    if (!val) return new ArrayBuffer(0);
+    if (val instanceof ArrayBuffer) return val;
+    if (ArrayBuffer.isView(val)) {
+      const copy = new Uint8Array(val.byteLength);
+      copy.set(new Uint8Array(val.buffer as any, val.byteOffset, val.byteLength));
+      return copy.buffer as ArrayBuffer;
+    }
+    if (typeof val !== "string") return new ArrayBuffer(0);
+    let base64 = val.replace(/-/g, "+").replace(/_/g, "/");
     while (base64.length % 4 !== 0) base64 += "=";
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-    return bytes.buffer;
+    return bytes.buffer as ArrayBuffer;
   }
 
   // ─── Serializers ───────────────────────────────────────────────────────────
@@ -175,7 +188,8 @@
       if (res?.handled && res?.credential) {
         const c = res.credential;
         const rawId = base64UrlToBuffer(c.credentialId || c.id);
-        const clientDataJSON = new TextEncoder().encode(c.clientDataJSON).buffer;
+        const encodedClientData = new TextEncoder().encode(c.clientDataJSON);
+        const clientDataJSON = new Uint8Array(encodedClientData).buffer as ArrayBuffer;
         const attestationObject = base64UrlToBuffer(c.attestationObject);
         const authenticatorData = c.authenticatorData ? base64UrlToBuffer(c.authenticatorData) : new ArrayBuffer(0);
         const publicKey = c.publicKey ? base64UrlToBuffer(c.publicKey) : null;
@@ -273,7 +287,8 @@
       if (res?.handled && res?.credential) {
         const c = res.credential;
         const rawId = base64UrlToBuffer(c.id || c.credentialId);
-        const clientDataJSON = new TextEncoder().encode(c.clientDataJSON).buffer;
+        const encodedClientData = new TextEncoder().encode(c.clientDataJSON);
+        const clientDataJSON = new Uint8Array(encodedClientData).buffer as ArrayBuffer;
         const authenticatorData = base64UrlToBuffer(c.authenticatorData);
         const signature = base64UrlToBuffer(c.signature);
         const userHandle = c.userHandle ? base64UrlToBuffer(c.userHandle) : null;

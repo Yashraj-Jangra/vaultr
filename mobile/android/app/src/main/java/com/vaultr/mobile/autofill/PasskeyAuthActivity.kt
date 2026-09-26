@@ -266,11 +266,12 @@ class PasskeyAuthActivity : Activity() {
             else -> "https://$rpId"
         }
 
-        // Build clientDataJSON (omitting crossOrigin per W3C WebAuthn L3)
+        // Build clientDataJSON (W3C WebAuthn L3 standard with crossOrigin: false)
         val clientDataJsonObj = JSONObject().apply {
             put("type", "webauthn.get")
             put("challenge", challengeStr)
             put("origin", origin)
+            put("crossOrigin", false)
             if (callingPkg.isNotBlank()) {
                 put("androidPackageName", callingPkg)
             }
@@ -282,11 +283,11 @@ class PasskeyAuthActivity : Activity() {
             ?: MessageDigest.getInstance("SHA-256").digest(clientDataJsonBytes)
 
         // 4. Build Authenticator Data (37 bytes)
-        // 32 bytes rpIdHash + 1 byte flags (UP=0x01, UV=0x04) + 4 bytes signCount
+        // 32 bytes rpIdHash + 1 byte flags (UP=0x01, UV=0x04, BE=0x08, BS=0x10 = 0x1d) + 4 bytes signCount (0)
         val rpIdHash = MessageDigest.getInstance("SHA-256").digest(rpId.toByteArray(Charsets.UTF_8))
-        val flags = (0x01 or 0x04).toByte()
-        val nextSignCount = item.passkeySignCount + 1
-        val signCountBytes = ByteBuffer.allocate(4).putInt(nextSignCount.toInt()).array()
+        val flags = (0x01 or 0x04 or 0x08 or 0x10).toByte()
+        val nextSignCount = 0L
+        val signCountBytes = ByteBuffer.allocate(4).putInt(0).array()
 
         val authData = ByteArray(37)
         System.arraycopy(rpIdHash, 0, authData, 0, 32)
@@ -417,7 +418,7 @@ class PasskeyAuthActivity : Activity() {
         val authData = ByteArray(authDataLen)
         var offset = 0
         System.arraycopy(rpIdHash, 0, authData, offset, 32); offset += 32
-        authData[offset] = (0x01 or 0x04 or 0x40).toByte(); offset += 1 // UP | UV | AT
+        authData[offset] = (0x01 or 0x04 or 0x08 or 0x10 or 0x40).toByte(); offset += 1 // UP | UV | BE | BS | AT (0x5d)
         val signCountBytes = ByteBuffer.allocate(4).putInt(0).array()
         System.arraycopy(signCountBytes, 0, authData, offset, 4); offset += 4
         val aaguid = ByteArray(16) // all zeros
@@ -444,6 +445,7 @@ class PasskeyAuthActivity : Activity() {
             put("type", "webauthn.create")
             put("challenge", challengeStr)
             put("origin", origin)
+            put("crossOrigin", false)
             if (callingPkg.isNotBlank()) {
                 put("androidPackageName", callingPkg)
             }
