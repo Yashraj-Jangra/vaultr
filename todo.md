@@ -1,3 +1,46 @@
+## Current Session: Passkey Sign-In & Creation Deep Fix Across Extension & Android (2026-09-27) · Branch: `dev`
+
+### ✅ What Was Done (Phase 39: Passkey Creation, Assertion & Cross-Platform Alignment)
+
+**Files Changed:**
+- `packages/core/src/webauthn.ts`
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/AutofillCredentialStore.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrCredentialProviderService.kt`
+
+**Fixes & Enhancements:**
+1. **Android Passkey & Password Creation Support (`VaultrCredentialProviderService.kt`, `PasskeyAuthActivity.kt`)**:
+   - Implemented `onBeginCreateCredentialRequest` in `VaultrCredentialProviderService` to return `CreateEntry` for `BeginCreatePublicKeyCredentialRequest` and `BeginCreatePasswordCredentialRequest`.
+   - Android Credential Manager now actively presents VaultR as a destination when apps and browsers prompt to enroll a new passkey or save a password.
+   - Built full WebAuthn registration handler in `PasskeyAuthActivity.kt` generating P-256 keypairs (`secp256r1`), authentic COSE public key bytes, canonical CBOR `attestationObject` (fmt: "none", flags: `UP | UV | AT`), and returning `CreatePublicKeyCredentialResponse`.
+   - Persists enrolled passkey directly into `AutofillCredentialStore` so it is immediately available for subsequent sign-ins.
+
+2. **Android Lock-State False Positive Elimination (`AutofillCredentialStore.kt`)**:
+   - Fixed `isVaultLockedInternal()` which previously returned `cachedItems.isEmpty()` when timestamp check passed.
+   - Now returns `false` when the vault is unlocked even if cache is temporarily empty or 0 credentials match the current RP, preventing "Unlock VaultR" loops.
+   - Added thread-safe `addOrUpdatePasskey` helper that updates in-memory cache and persists serialized JSON to SharedPreferences.
+
+3. **Android Assertion Origin & Authenticator Data Flags Alignment (`PasskeyAuthActivity.kt`)**:
+   - Replaced `BE` (backup eligible) and `BS` (backup state) assertion flags (`0x01 | 0x04 | 0x08 | 0x10`) with `UP | UV` only (`0x01 | 0x04`), matching the registration flags and preventing strict RP server verification rejections.
+   - Enhanced `origin` calculation: uses `callingAppInfo.origin` when present, dynamically resolves `android:apk-key-hash:<hash>` from `PackageManager` signing certificates for native Android app callers, and falls back to `https://$rpId` for browser origins.
+   - Directly signs `clientDataHashFromOption` from `GetPublicKeyCredentialOption` when provided by Credential Manager framework.
+
+4. **Extension Service Worker Cold-Start Race Prevention (`autofill.ts`)**:
+   - Added pre-flight `CHECK_PASSKEY_AVAILABLE` ping inside `onConfirm` for both `WEBAUTHN_CREATE` and `WEBAUTHN_GET` prompts before dispatching requests.
+   - Wakes background service worker and validates session/master password before initiating WebAuthn cryptography.
+   - If the vault is locked when the user confirms, displays a clear toast notification and avoids posting `userConfirmed: true` with an error, preventing `webauthn-page.ts` from throwing `NotAllowedError` and triggering "We weren't able to sign you in".
+
+5. **Extension Candidate Matching by `selectedCredentialId` (`service-worker.ts`)**:
+   - Updated `WEBAUTHN_GET` handler to read `payload.selectedCredentialId` in addition to `selectedItemId`.
+   - Added fallback passkey candidate resolution by normalized credential ID (`normalizeCredentialId(p.passkeyCredentialId) === targetNormId`), ensuring the exact credential confirmed in prompt is used.
+
+6. **WebAuthn Spec Compliance: Removed `crossOrigin: false` (`webauthn.ts`)**:
+   - Omitted `crossOrigin: false` from both `createPasskeyCredential` and `signPasskeyAssertion` `clientDataJSON` payloads per W3C WebAuthn L3 specifications, avoiding rejection by strict RP verifiers (Google Accounts, GitHub, etc.).
+
+---
+
 ## Current Session: Portaled FolderSelect Floating Dropdown (2026-09-26) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 38: Web FolderSelect Floating Popover with createPortal)

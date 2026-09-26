@@ -1460,6 +1460,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
           const rpId = payload.rpId || "";
           const allowCredentials = payload.allowCredentials || [];
           const selectedItemId = payload.selectedItemId;
+          const selectedCredentialId = payload.selectedCredentialId;
           const cleanRp = rpId.toLowerCase();
 
           try {
@@ -1482,6 +1483,33 @@ function normalizeCredentialId(id: string | undefined | null): string {
                 if (p && (p.isPasskey || p.passkeyPrivateKey)) {
                   matchedItem = item;
                   matchedPayload = p;
+                }
+              }
+            }
+
+            // 1b. If user confirmed a passkey with selectedCredentialId, match by credential ID
+            if (!matchedItem && selectedCredentialId) {
+              const targetNormId = normalizeCredentialId(selectedCredentialId);
+              for (const item of state.items) {
+                if (item.deletedAt) continue;
+                let p = state.decryptedItemsCache[item.id];
+                if (!p) {
+                  try {
+                    const raw = await decrypt(key, item.encryptedBlob);
+                    p = JSON.parse(raw);
+                    state.decryptedItemsCache[item.id] = p;
+                  } catch {
+                    continue;
+                  }
+                }
+                if (
+                  p &&
+                  (p.isPasskey || p.passkeyPrivateKey) &&
+                  normalizeCredentialId(p.passkeyCredentialId) === targetNormId
+                ) {
+                  matchedItem = item;
+                  matchedPayload = p;
+                  break;
                 }
               }
             }
