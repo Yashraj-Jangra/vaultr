@@ -228,7 +228,7 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
 
   // 5. Build Authenticator Data with Attested Credential Data
   const rpIdHash = await sha256Bytes(effectiveRpId);
-  const flags = 0x01 | 0x04 | 0x40; // UP (0x01) | UV (0x04) | AT (0x40)
+  const flags = 0x01 | 0x04 | 0x08 | 0x10 | 0x40; // UP (0x01) | UV (0x04) | BE (0x08) | BS (0x10) | AT (0x40) = 0x5d
   const signCount = 0;
   const aaguid = new Uint8Array(16); // 16 zeroes for platform / software passkey
 
@@ -253,11 +253,12 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
   // 6. Build Attestation Object (fmt: "none" + attStmt: {})
   const attestationObject = encodeAttestationObjectNone(authData);
 
-  // 7. Build clientDataJSON
+  // 7. Build clientDataJSON (Chromium top-level standard with crossOrigin: false)
   const clientData = {
     type: "webauthn.create",
     challenge,
     origin,
+    crossOrigin: false,
   };
   const clientDataJSON = JSON.stringify(clientData);
 
@@ -307,19 +308,20 @@ export async function signPasskeyAssertion(params: SignPasskeyAssertionParams): 
 
   // 2. Build Authenticator Data (37 bytes: rpIdHash[32] + flags[1] + counter[4])
   const rpIdHash = await sha256Bytes(rpId);
-  const flags = 0x01 | 0x04; // User Present (UP) + User Verified (UV)
+  const flags = 0x01 | 0x04 | 0x08 | 0x10; // UP (0x01) | UV (0x04) | BE (0x08) | BS (0x10) = 0x1d
 
   const authData = new Uint8Array(37);
   authData.set(rpIdHash, 0);
   authData[32] = flags;
   const view = new DataView(authData.buffer);
-  view.setUint32(33, signCount, false); // big-endian counter
+  view.setUint32(33, signCount, false); // big-endian counter (0 for multi-device passkeys)
 
-  // 3. Build clientDataJSON
+  // 3. Build clientDataJSON (Chromium top-level standard with crossOrigin: false)
   const clientData = {
     type: "webauthn.get",
     challenge,
     origin,
+    crossOrigin: false,
   };
   const clientDataJSON = JSON.stringify(clientData);
   const clientDataHash = await sha256Bytes(clientDataJSON);
