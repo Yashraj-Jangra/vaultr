@@ -17,10 +17,13 @@ import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.AuthenticationAction
 import androidx.credentials.provider.BeginCreateCredentialRequest
 import androidx.credentials.provider.BeginCreateCredentialResponse
+import androidx.credentials.provider.BeginCreatePasswordCredentialRequest
+import androidx.credentials.provider.BeginCreatePublicKeyCredentialRequest
 import androidx.credentials.provider.BeginGetCredentialRequest
 import androidx.credentials.provider.BeginGetCredentialResponse
 import androidx.credentials.provider.BeginGetPasswordOption
 import androidx.credentials.provider.BeginGetPublicKeyCredentialOption
+import androidx.credentials.provider.CreateEntry
 import androidx.credentials.provider.CredentialProviderService
 import androidx.credentials.provider.PasswordCredentialEntry
 import androidx.credentials.provider.ProviderClearCredentialStateRequest
@@ -48,6 +51,8 @@ class VaultrCredentialProviderService : CredentialProviderService() {
         const val EXTRA_PASSWORD = "vaultr_extra_password"
         const val ACTION_PASSKEY_AUTH = "com.vaultr.mobile.PASSKEY_AUTHENTICATE"
         const val ACTION_PASSWORD_AUTH = "com.vaultr.mobile.PASSWORD_AUTHENTICATE"
+        const val ACTION_PASSKEY_CREATE = "com.vaultr.mobile.PASSKEY_CREATE"
+        const val ACTION_PASSWORD_CREATE = "com.vaultr.mobile.PASSWORD_CREATE"
     }
 
     override fun onCreate() {
@@ -194,7 +199,91 @@ class VaultrCredentialProviderService : CredentialProviderService() {
         callback: OutcomeReceiver<BeginCreateCredentialResponse, CreateCredentialException>
     ) {
         try {
+            AutofillCredentialStore.initialize(applicationContext)
+            val callingAppInfo = request.callingAppInfo
+            val callingPackage = callingAppInfo?.packageName ?: ""
+            val origin = callingAppInfo?.origin ?: ""
+
             val responseBuilder = BeginCreateCredentialResponse.Builder()
+
+            if (request is BeginCreatePublicKeyCredentialRequest) {
+                val requestJson = request.requestJson
+                var rpId = ""
+                var username = ""
+                var displayName = ""
+                if (requestJson.isNotBlank()) {
+                    try {
+                        val json = JSONObject(requestJson)
+                        val rp = json.optJSONObject("rp")
+                        rpId = rp?.optString("id") ?: json.optString("rpId")
+                        val user = json.optJSONObject("user")
+                        username = user?.optString("name") ?: ""
+                        displayName = user?.optString("displayName") ?: username
+                    } catch (_: Exception) {}
+                }
+
+                if (rpId.isBlank() && origin.isNotBlank()) {
+                    rpId = AutofillCredentialStore.normalizeDomain(origin)
+                }
+                if (rpId.isBlank()) {
+                    rpId = callingPackage
+                }
+
+                val createIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                    action = ACTION_PASSKEY_CREATE
+                    putExtra(EXTRA_RP_ID, rpId)
+                    putExtra(EXTRA_USERNAME, username)
+                    putExtra(EXTRA_REQUEST_JSON, requestJson)
+                    putExtra(EXTRA_CALLING_PACKAGE, callingPackage)
+                }
+
+                val pendingIntent = PendingIntent.getActivity(
+                    this,
+                    rpId.hashCode(),
+                    createIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+
+                val accountLabel = if (username.isNotBlank()) username else if (displayName.isNotBlank()) displayName else "VaultR Passkey"
+                val entry = CreateEntry.Builder(
+                    accountLabel,
+                    pendingIntent
+                ).apply {
+                    setDescription(rpId.ifBlank { "VaultR" })
+                    setIcon(Icon.createWithResource(this@VaultrCredentialProviderService, R.drawable.ic_vaultr_lock_small))
+                    setAutoSelectAllowed(false)
+                }.build()
+
+                responseBuilder.addCreateEntry(entry)
+                Log.d(TAG, "Added passkey create entry for '$accountLabel' on $rpId")
+            } else if (request is BeginCreatePasswordCredentialRequest) {
+                val target = if (origin.isNotBlank()) origin else callingPackage
+                val createIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                    action = ACTION_PASSWORD_CREATE
+                    putExtra(EXTRA_RP_ID, target)
+                    putExtra(EXTRA_CALLING_PACKAGE, callingPackage)
+                }
+
+                val pendingIntent = PendingIntent.getActivity(
+                    this,
+                    target.hashCode(),
+                    createIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+
+                val entry = CreateEntry.Builder(
+                    "VaultR Password",
+                    pendingIntent
+                ).apply {
+                    setDescription(target)
+                    setIcon(Icon.createWithResource(this@VaultrCredentialProviderService, R.drawable.ic_vaultr_lock_small))
+                    setAutoSelectAllowed(false)
+                }.build()
+
+                responseBuilder.addCreateEntry(entry)
+                Log.d(TAG, "Added password create entry on $target")
+            }
+
             callback.onResult(responseBuilder.build())
         } catch (e: Exception) {
             Log.e(TAG, "Error in onBeginCreateCredentialRequest", e)

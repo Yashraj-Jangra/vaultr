@@ -1628,31 +1628,52 @@ window.addEventListener("message", (event) => {
         rpId,
         username,
         onConfirm: () => {
-          chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
-            if (chrome.runtime.lastError || !res) {
+          // Pre-flight check to wake service worker and ensure vault session is unlocked
+          chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (checkRes) => {
+            if (chrome.runtime.lastError || !checkRes?.isUnlocked) {
+              showInPageToast(
+                `<span style="color:#ef4444;font-weight:700">✕</span> <span>Vault is locked. Unlock VaultR to create passkey.</span>`,
+                6000
+              );
               window.postMessage(
                 {
                   source: "VAULTR_WEBAUTHN_CONTENT",
                   reqId,
                   handled: false,
-                  userConfirmed: true,
-                  error: chrome.runtime.lastError?.message || "Failed to create passkey in VaultR",
+                  userConfirmed: false,
+                  error: "Vault is locked",
                 },
                 "*"
               );
               return;
             }
-            window.postMessage(
-              {
-                source: "VAULTR_WEBAUTHN_CONTENT",
-                reqId,
-                handled: res.handled ?? true,
-                userConfirmed: true,
-                credential: res.credential,
-                error: res.error,
-              },
-              "*"
-            );
+
+            chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
+              if (chrome.runtime.lastError || !res) {
+                window.postMessage(
+                  {
+                    source: "VAULTR_WEBAUTHN_CONTENT",
+                    reqId,
+                    handled: false,
+                    userConfirmed: true,
+                    error: chrome.runtime.lastError?.message || "Failed to create passkey in VaultR",
+                  },
+                  "*"
+                );
+                return;
+              }
+              window.postMessage(
+                {
+                  source: "VAULTR_WEBAUTHN_CONTENT",
+                  reqId,
+                  handled: res.handled ?? true,
+                  userConfirmed: true,
+                  credential: res.credential,
+                  error: res.error,
+                },
+                "*"
+              );
+            });
           });
         },
         onCancel: () => {
@@ -1677,46 +1698,67 @@ window.addEventListener("message", (event) => {
             rpId,
             username: passkey.username,
             onConfirm: () => {
-              chrome.runtime.sendMessage(
-                {
-                  type: "WEBAUTHN_GET",
-                  payload: {
-                    ...payload,
-                    selectedItemId: passkey.id,
-                    selectedCredentialId: passkey.credentialId,
-                  },
-                },
-                (getRes) => {
-                  if (chrome.runtime.lastError || !getRes || !getRes.handled || !getRes.credential) {
-                    const errMsg = getRes?.error || chrome.runtime.lastError?.message || "Passkey sign-in failed";
-                    showInPageToast(
-                      `<span style="color:#ef4444;font-weight:700">✕</span> <span>${errMsg}</span>`,
-                      6000
-                    );
-                    window.postMessage(
-                      {
-                        source: "VAULTR_WEBAUTHN_CONTENT",
-                        reqId,
-                        handled: false,
-                        userConfirmed: true,
-                        error: errMsg,
-                      },
-                      "*"
-                    );
-                    return;
-                  }
+              // Pre-flight check to wake service worker and ensure vault session is unlocked
+              chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (checkRes) => {
+                if (chrome.runtime.lastError || !checkRes?.isUnlocked) {
+                  showInPageToast(
+                    `<span style="color:#ef4444;font-weight:700">✕</span> <span>Vault is locked. Unlock VaultR to sign in with passkey.</span>`,
+                    6000
+                  );
                   window.postMessage(
                     {
                       source: "VAULTR_WEBAUTHN_CONTENT",
                       reqId,
-                      handled: true,
-                      userConfirmed: true,
-                      credential: getRes.credential,
+                      handled: false,
+                      userConfirmed: false,
+                      error: "Vault is locked",
                     },
                     "*"
                   );
+                  return;
                 }
-              );
+
+                chrome.runtime.sendMessage(
+                  {
+                    type: "WEBAUTHN_GET",
+                    payload: {
+                      ...payload,
+                      selectedItemId: passkey.id,
+                      selectedCredentialId: passkey.credentialId,
+                    },
+                  },
+                  (getRes) => {
+                    if (chrome.runtime.lastError || !getRes || !getRes.handled || !getRes.credential) {
+                      const errMsg = getRes?.error || chrome.runtime.lastError?.message || "Passkey sign-in failed";
+                      showInPageToast(
+                        `<span style="color:#ef4444;font-weight:700">✕</span> <span>${errMsg}</span>`,
+                        6000
+                      );
+                      window.postMessage(
+                        {
+                          source: "VAULTR_WEBAUTHN_CONTENT",
+                          reqId,
+                          handled: false,
+                          userConfirmed: true,
+                          error: errMsg,
+                        },
+                        "*"
+                      );
+                      return;
+                    }
+                    window.postMessage(
+                      {
+                        source: "VAULTR_WEBAUTHN_CONTENT",
+                        reqId,
+                        handled: true,
+                        userConfirmed: true,
+                        credential: getRes.credential,
+                      },
+                      "*"
+                    );
+                  }
+                );
+              });
             },
             onCancel: () => {
               window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");

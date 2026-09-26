@@ -258,7 +258,6 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
     type: "webauthn.create",
     challenge,
     origin,
-    crossOrigin: false,
   };
   const clientDataJSON = JSON.stringify(clientData);
 
@@ -321,7 +320,6 @@ export async function signPasskeyAssertion(params: SignPasskeyAssertionParams): 
     type: "webauthn.get",
     challenge,
     origin,
-    crossOrigin: false,
   };
   const clientDataJSON = JSON.stringify(clientData);
   const clientDataHash = await sha256Bytes(clientDataJSON);

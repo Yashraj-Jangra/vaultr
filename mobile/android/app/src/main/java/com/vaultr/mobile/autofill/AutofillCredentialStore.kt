@@ -117,7 +117,7 @@ object AutofillCredentialStore {
                 return true
             }
         }
-        return cachedItems.isEmpty()
+        return false
     }
 
     fun syncCredentials(context: Context, jsonString: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS) {
@@ -313,6 +313,27 @@ object AutofillCredentialStore {
                     Log.e(TAG, "Failed to persist updated signCount", e)
                 }
             }
+        }
+    }
+
+    fun addOrUpdatePasskey(newItem: AutofillItem, context: Context) {
+        val index = cachedItems.indexOfFirst {
+            (!newItem.passkeyCredentialId.isNullOrBlank() && it.passkeyCredentialId == newItem.passkeyCredentialId) ||
+            it.id == newItem.id
+        }
+        val newList = cachedItems.toMutableList()
+        if (index != -1) {
+            newList[index] = newItem
+        } else {
+            newList.add(newItem)
+        }
+        cachedItems = newList
+        try {
+            val raw = serializeToJson(cachedItems)
+            getPrefs(context).edit().putString(KEY_CREDENTIALS, raw).apply()
+            Log.d(TAG, "Successfully added/updated passkey in AutofillCredentialStore for ${newItem.username} on ${newItem.passkeyRpId}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to persist new passkey", e)
         }
     }
 
