@@ -1607,6 +1607,11 @@ window.addEventListener("message", (event) => {
 
   const { action, reqId, payload } = event.data;
 
+  if (action === "ABORT") {
+    removePasskeyPrompt();
+    return;
+  }
+
   chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (status) => {
     if (chrome.runtime.lastError || !status?.enabled) {
       window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");

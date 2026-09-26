@@ -30,6 +30,12 @@
    - Aligned authenticator flags to `0x5d` (create) and `0x1d` (get) with `signCount = 0`.
    - Handled `callingAppInfo.origin`, package signing certificate hashes (`android:apk-key-hash:...`), and fallback web origins.
 
+5. **Conditional Mediation, AbortSignal & Candidate Fallback Safety (`webauthn-page.ts`, `autofill.ts`, `service-worker.ts`)**:
+   - Fixed "asking twice for passkey" on Google Accounts and initial failure on passkeys.io: W3C WebAuthn L3 specifies that `mediation: "conditional"` MUST NOT display modal UI. Delegated `options.mediation === "conditional"` to native browser `originalGet`.
+   - Removed `window.PublicKeyCredential.isConditionalMediationAvailable = true` override and set `conditionalGet: false` in `getClientCapabilities` so RPs do not trigger premature background modal assertions.
+   - Added `AbortSignal` listener: when the RP aborts a session (e.g., when the user enters an email), active in-page prompt modals are immediately dismissed and promises rejected with `AbortError`.
+   - Removed unallowed candidate fallbacks from `service-worker.ts`: strictly matches `allowCredentials` and never returns an unauthorized credential ID.
+
 ---
 
 ## Current Session: Portaled FolderSelect Floating Dropdown (2026-09-26) · Branch: `dev`

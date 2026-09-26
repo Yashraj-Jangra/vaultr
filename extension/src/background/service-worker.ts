@@ -1246,30 +1246,6 @@ function normalizeCredentialId(id: string | undefined | null): string {
             });
           }
 
-          // Fallback: If allowCredentials was specified but filtered out all candidates,
-          // include passkeys for this RP anyway so discoverable/resident credentials work
-          if (matched.length === 0 && allowCredentials.length > 0) {
-            for (const item of state.items) {
-              if (item.deletedAt) continue;
-              const tmpl = item.template || "login";
-              if (tmpl !== "login") continue;
-
-              const p = state.decryptedItemsCache[item.id];
-              if (!p || !p.passkeyPrivateKey) continue;
-
-              const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
-              const rpMatches = !rpId || itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp);
-              if (!rpMatches) continue;
-
-              matched.push({
-                id: item.id,
-                name: item.name,
-                username: p.username,
-                credentialId: p.passkeyCredentialId,
-              });
-            }
-          }
-
           sendResponse({ passkeys: matched });
           break;
         }
@@ -1544,36 +1520,6 @@ function normalizeCredentialId(id: string | undefined | null): string {
                   );
                   if (!allowed) continue;
                 }
-
-                matchedItem = item;
-                matchedPayload = p;
-                break;
-              }
-            }
-
-            // 3. Fallback: If allowCredentials didn't match any but we have candidates for this RP
-            if (!matchedItem && allowCredentials.length > 0) {
-              for (const item of state.items) {
-                if (item.deletedAt) continue;
-                const tmpl = item.template || "login";
-                if (tmpl !== "login") continue;
-
-                let p = state.decryptedItemsCache[item.id];
-                if (!p) {
-                  try {
-                    const raw = await decrypt(key, item.encryptedBlob);
-                    p = JSON.parse(raw);
-                    state.decryptedItemsCache[item.id] = p;
-                  } catch {
-                    continue;
-                  }
-                }
-
-                if (!p.isPasskey && !p.passkeyPrivateKey) continue;
-
-                const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
-                const rpMatches = !cleanRp || itemRp === cleanRp || itemRp.includes(cleanRp) || cleanRp.includes(itemRp);
-                if (!rpMatches) continue;
 
                 matchedItem = item;
                 matchedPayload = p;
