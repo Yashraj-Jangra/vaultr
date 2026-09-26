@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Folder, FolderOpen, ChevronDown, Check, Plus, X, Search,
   Inbox, FolderPlus, CornerDownRight
@@ -45,20 +46,91 @@ export function FolderSelect({
   const [newFolderName, setNewFolderName] = useState("");
   const { addCustomFolder } = useVault();
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({
+    position: "fixed",
+    opacity: 0,
+    pointerEvents: "none",
+  });
 
-  // Close on click outside
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+
+    // If trigger button is scrolled completely out of viewport, dismiss dropdown
+    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+      setOpen(false);
+      return;
+    }
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const approximateDropdownHeight = 280;
+    const placeAbove = spaceBelow < approximateDropdownHeight && rect.top > approximateDropdownHeight;
+
+    const maxAvailableWidth = window.innerWidth - 24;
+    const width = Math.min(rect.width, maxAvailableWidth);
+    const left = Math.min(Math.max(12, rect.left), window.innerWidth - width - 12);
+
+    setDropdownStyle({
+      position: "fixed",
+      left,
+      width,
+      ...(placeAbove
+        ? { bottom: window.innerHeight - rect.top + 6 }
+        : { top: rect.bottom + 6 }),
+      zIndex: 99999,
+      opacity: 1,
+      pointerEvents: "auto",
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+
+    const handleScrollOrResize = () => {
+      updatePosition();
+    };
+
+    window.addEventListener("resize", handleScrollOrResize);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+
+    return () => {
+      window.removeEventListener("resize", handleScrollOrResize);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+    };
+  }, [open, updatePosition]);
+
+  // Close on click outside or escape
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
         setCreating(false);
         setSearch("");
       }
     };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setCreating(false);
+        setSearch("");
+      }
+    };
+
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
   // Focus input when creating
@@ -113,7 +185,10 @@ export function FolderSelect({
       {/* Trigger Button */}
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          if (!open) updatePosition();
+          setOpen(v => !v);
+        }}
         className="w-full flex items-center justify-between gap-2 bg-[var(--bg,#0a0a0a)] border border-[var(--border,#262626)] rounded-lg px-3 py-2 text-[12px] text-[var(--fg,#e5e5e5)] outline-none hover:border-neutral-700 focus:border-[var(--accent,#6366f1)] transition-colors cursor-pointer text-left"
       >
         <span className="flex items-center gap-2 min-w-0 flex-1 truncate">
@@ -144,8 +219,12 @@ export function FolderSelect({
       </button>
 
       {/* Dropdown Menu */}
-      {open && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-[200] bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden py-1 text-[12px]">
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden py-1 text-[12px] animate-in fade-in zoom-in-95 duration-100"
+        >
           {/* Search bar */}
           {flatOptions.length > 5 && (
             <div className="px-2 py-1 border-b border-neutral-800/80">
@@ -167,7 +246,7 @@ export function FolderSelect({
           )}
 
           {/* Options list */}
-          <div className="max-h-56 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-neutral-800">
+          <div className="max-h-56 overflow-y-auto overscroll-contain py-1 scrollbar-thin scrollbar-thumb-neutral-800">
             {/* "No folder" Option */}
             {!search && (
               <button
@@ -271,7 +350,8 @@ export function FolderSelect({
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
