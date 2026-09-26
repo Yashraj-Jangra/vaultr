@@ -30,11 +30,11 @@
    - Aligned authenticator flags to `0x5d` (create) and `0x1d` (get) with `signCount = 0`.
    - Handled `callingAppInfo.origin`, package signing certificate hashes (`android:apk-key-hash:...`), and fallback web origins.
 
-5. **Conditional Mediation, AbortSignal & Candidate Fallback Safety (`webauthn-page.ts`, `autofill.ts`, `service-worker.ts`)**:
-   - Fixed "asking twice for passkey" on Google Accounts and initial failure on passkeys.io: W3C WebAuthn L3 specifies that `mediation: "conditional"` MUST NOT display modal UI. Delegated `options.mediation === "conditional"` to native browser `originalGet`.
-   - Removed `window.PublicKeyCredential.isConditionalMediationAvailable = true` override and set `conditionalGet: false` in `getClientCapabilities` so RPs do not trigger premature background modal assertions.
-   - Added `AbortSignal` listener: when the RP aborts a session (e.g., when the user enters an email), active in-page prompt modals are immediately dismissed and promises rejected with `AbortError`.
-   - Removed unallowed candidate fallbacks from `service-worker.ts`: strictly matches `allowCredentials` and never returns an unauthorized credential ID.
+5. **Conditional Mediation Silencing & Browser Prompt Takeover Prevention (`webauthn-page.ts`, `autofill.ts`)**:
+   - Fixed browser in-built passkey prompt takeover on Google Accounts: overridden `window.PublicKeyCredential.isConditionalMediationAvailable = async () => false;` and return a silent, abort-aware pending Promise when `options.mediation === "conditional"` rather than calling `originalGet(options)` (which was triggering Chrome's native Windows Hello / password manager passkey dialog).
+   - Added `credProps: { rk: true }` in `getClientExtensionResults()` and `clientExtensionResults` during passkey creation to explicitly inform relying parties that the credential is a resident key / syncable passkey.
+   - Sliced all typed array extractions (`rawId`, `signature`, `clientDataJSON`, `authenticatorData`) via `.slice().buffer` to eliminate V8 small-buffer memory pooling artifacts.
+   - Added prompt deduplication guard in `autofill.ts` (`removePasskeyPrompt(true)` on `showPasskeyPrompt` and on `action === "ABORT"`) to prevent ghost or overlapping card instances in the DOM during fast abort/retry authentication cycles.
 
 ---
 

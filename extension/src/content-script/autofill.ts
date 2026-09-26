@@ -1433,14 +1433,21 @@ setupFormSubmitInterceptor();
 
 let activePasskeyPrompt: HTMLElement | null = null;
 
-function removePasskeyPrompt() {
-  if (activePasskeyPrompt) {
-    const el = activePasskeyPrompt;
-    activePasskeyPrompt = null;
-    el.style.opacity = "0";
-    el.style.transform = "translateY(-8px)";
-    setTimeout(() => el.remove(), 200);
+function removePasskeyPrompt(immediate = false) {
+  const existing = document.getElementById("vaultr-passkey-prompt-host");
+  if (existing) {
+    if (immediate) {
+      existing.remove();
+    } else {
+      existing.style.opacity = "0";
+      existing.style.transform = "translateY(-8px)";
+      setTimeout(() => existing.remove(), 200);
+    }
   }
+  if (activePasskeyPrompt && activePasskeyPrompt !== existing) {
+    try { activePasskeyPrompt.remove(); } catch {}
+  }
+  activePasskeyPrompt = null;
 }
 
 function showPasskeyPrompt(opts: {
@@ -1450,7 +1457,7 @@ function showPasskeyPrompt(opts: {
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  removePasskeyPrompt();
+  removePasskeyPrompt(true);
 
   const host = document.createElement("div");
   host.id = "vaultr-passkey-prompt-host";
@@ -1608,7 +1615,7 @@ window.addEventListener("message", (event) => {
   const { action, reqId, payload } = event.data;
 
   if (action === "ABORT") {
-    removePasskeyPrompt();
+    removePasskeyPrompt(true);
     return;
   }
 

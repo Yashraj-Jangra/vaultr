@@ -22,6 +22,12 @@
       return true;
     };
 
+    // Inform relying parties that conditional mediation UI (autofill) is not active.
+    // This prevents relying parties like Google Accounts from triggering background conditional requests on page load.
+    (window.PublicKeyCredential as any).isConditionalMediationAvailable = async function () {
+      return false;
+    };
+
     if (typeof (window.PublicKeyCredential as any).getClientCapabilities === "function") {
       (window.PublicKeyCredential as any).getClientCapabilities = async function () {
         return {
@@ -58,11 +64,11 @@
 
   function base64UrlToBuffer(val: any): ArrayBuffer {
     if (!val) return new ArrayBuffer(0);
-    if (val instanceof ArrayBuffer) return val;
+    if (val instanceof ArrayBuffer) return val.slice(0);
     if (ArrayBuffer.isView(val)) {
       const copy = new Uint8Array(val.byteLength);
       copy.set(new Uint8Array(val.buffer as any, val.byteOffset, val.byteLength));
-      return copy.buffer as ArrayBuffer;
+      return copy.buffer;
     }
     if (typeof val !== "string") return new ArrayBuffer(0);
     let base64 = val.replace(/-/g, "+").replace(/_/g, "/");
@@ -72,7 +78,7 @@
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-    return bytes.buffer as ArrayBuffer;
+    return bytes.slice().buffer;
   }
 
   // ─── Serializers ───────────────────────────────────────────────────────────
@@ -217,7 +223,7 @@
         const c = res.credential;
         const rawId = base64UrlToBuffer(c.credentialId || c.id);
         const encodedClientData = new TextEncoder().encode(c.clientDataJSON);
-        const clientDataJSON = new Uint8Array(encodedClientData).buffer as ArrayBuffer;
+        const clientDataJSON = new Uint8Array(encodedClientData).slice().buffer as ArrayBuffer;
         const attestationObject = base64UrlToBuffer(c.attestationObject);
         const authenticatorData = c.authenticatorData ? base64UrlToBuffer(c.authenticatorData) : new ArrayBuffer(0);
         const publicKey = c.publicKey ? base64UrlToBuffer(c.publicKey) : null;
@@ -249,7 +255,7 @@
           type: { value: "public-key", enumerable: true, configurable: true },
           authenticatorAttachment: { value: "platform", enumerable: true, configurable: true },
           response: { value: responseObj, enumerable: true, configurable: true },
-          getClientExtensionResults: { value: () => ({}), enumerable: true, configurable: true },
+          getClientExtensionResults: { value: () => ({ credProps: { rk: true } }), enumerable: true, configurable: true },
           toJSON: {
             value: () => ({
               id: c.credentialId || c.id,
@@ -263,7 +269,7 @@
                 publicKey: c.publicKey,
               },
               authenticatorAttachment: "platform",
-              clientExtensionResults: {},
+              clientExtensionResults: { credProps: { rk: true } },
               type: "public-key",
             }),
             enumerable: true,
@@ -305,11 +311,25 @@
       return originalGet ? originalGet(options) : null;
     }
 
-    // Do NOT display a modal prompt for conditional mediation (autofill).
-    // Conditional mediation is meant for inline form autofill and MUST NOT display a modal.
-    // Delegating to originalGet allows the browser to handle conditional requests natively.
+    // Do NOT delegate conditional mediation to originalGet!
+    // Calling originalGet causes Chrome to display the browser's in-built passkey prompt.
+    // Return a quiet pending Promise that stays dormant and cleanly aborts when the RP cancels.
     if (options.mediation === "conditional") {
-      return originalGet(options);
+      if (options.signal?.aborted) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+      return new Promise<Credential | null>((resolve, reject) => {
+        const onAbort = () => {
+          options.signal?.removeEventListener("abort", onAbort);
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        };
+        options.signal?.addEventListener("abort", onAbort, { once: true });
+        const timeoutMs = options.publicKey?.timeout || 60000;
+        setTimeout(() => {
+          options.signal?.removeEventListener("abort", onAbort);
+          resolve(null);
+        }, Math.min(timeoutMs, 120000));
+      });
     }
 
     if (options.signal?.aborted) {
@@ -327,7 +347,7 @@
         const c = res.credential;
         const rawId = base64UrlToBuffer(c.id || c.credentialId);
         const encodedClientData = new TextEncoder().encode(c.clientDataJSON);
-        const clientDataJSON = new Uint8Array(encodedClientData).buffer as ArrayBuffer;
+        const clientDataJSON = new Uint8Array(encodedClientData).slice().buffer as ArrayBuffer;
         const authenticatorData = base64UrlToBuffer(c.authenticatorData);
         const signature = base64UrlToBuffer(c.signature);
         const userHandle = c.userHandle ? base64UrlToBuffer(c.userHandle) : null;
