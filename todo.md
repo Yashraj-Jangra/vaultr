@@ -1,3 +1,31 @@
+## Current Session: Portaled FolderSelect Floating Dropdown (2026-09-26) · Branch: `dev`
+
+### ✅ What Was Done (Phase 38: Web FolderSelect Floating Popover with createPortal)
+
+**Files Changed:**
+- `src/components/vault/FolderSelect.tsx`
+
+**Fixes & Enhancements:**
+1. **Teleported Dropdown to `document.body`**:
+   - Replaced trapped `absolute` positioning inside scrollable ancestor divs with `createPortal(..., document.body)`.
+   - Used `position: fixed` with dynamic `getBoundingClientRect()` measurement on trigger button.
+   - Dropdown now pops out over dialog modals, eliminating clipping and preventing parent scroll container expansion.
+
+2. **Smart Viewport-Aware Placement**:
+   - Automatically detects available vertical viewport space (`window.innerHeight - rect.bottom`) and flips above the trigger (`bottom: window.innerHeight - rect.top + 6`) if space below is constrained.
+
+3. **Scroll Bleed Prevention**:
+   - Added `overscroll-contain` to the folder options list (`max-h-56 overflow-y-auto overscroll-contain`) so scrolling inside the folder list does not bubble up to scroll the parent dialog panel.
+   - Added captured window scroll and resize listeners to smoothly reposition the dropdown.
+
+4. **Click-Outside & Escape Dismissal**:
+   - Updated `handleClickOutside` with `dropdownRef` to distinguish clicks inside the portaled menu from outside clicks.
+   - Added `Escape` keyboard shortcut listener to dismiss the open menu cleanly.
+   - Clamped horizontal coordinates to prevent overflowing off either edge of the viewport.
+   - Auto-dismisses dropdown if parent scroll moves the trigger button out of view.
+
+---
+
 ## Current Session: Unified Passkey Unlinking Across All Clients (2026-09-25) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 37: Unified Passkey Unlinking Across Web, Mobile, and Extension)
