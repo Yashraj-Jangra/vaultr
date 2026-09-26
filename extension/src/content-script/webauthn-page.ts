@@ -22,17 +22,11 @@
       return true;
     };
 
-    if (typeof window.PublicKeyCredential.isConditionalMediationAvailable === "function") {
-      window.PublicKeyCredential.isConditionalMediationAvailable = async function () {
-        return true;
-      };
-    }
-
     if (typeof (window.PublicKeyCredential as any).getClientCapabilities === "function") {
       (window.PublicKeyCredential as any).getClientCapabilities = async function () {
         return {
-          conditionalCreate: true,
-          conditionalGet: true,
+          conditionalCreate: false,
+          conditionalGet: false,
           hybridTransport: true,
           passkeyPlatformAuthenticator: true,
           userVerificationMethod: true,
@@ -134,12 +128,41 @@
 
   // ─── Bridge to Isolated Content Script ─────────────────────────────────────
 
-  function dispatchToExtension(action: "CREATE" | "GET", payload: any, timeoutMs: number = 60000): Promise<any> {
-    return new Promise((resolve) => {
+  function dispatchToExtension(
+    action: "CREATE" | "GET",
+    payload: any,
+    timeoutMs: number = 60000,
+    signal?: AbortSignal | null
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+        return;
+      }
+
       const reqId = "vtr_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
       const safeTimeout = Math.max(10000, Math.min(timeoutMs, 120000));
 
+      const abortHandler = () => {
+        clearTimeout(timeout);
+        window.removeEventListener("message", listener);
+        window.postMessage(
+          {
+            source: "VAULTR_WEBAUTHN_PAGE",
+            action: "ABORT",
+            reqId,
+          },
+          "*"
+        );
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      };
+
+      if (signal) {
+        signal.addEventListener("abort", abortHandler, { once: true });
+      }
+
       const timeout = setTimeout(() => {
+        if (signal) signal.removeEventListener("abort", abortHandler);
         window.removeEventListener("message", listener);
         resolve({ handled: false, timeout: true });
       }, safeTimeout);
@@ -154,6 +177,7 @@
           return;
         }
         clearTimeout(timeout);
+        if (signal) signal.removeEventListener("abort", abortHandler);
         window.removeEventListener("message", listener);
         resolve(event.data);
       };
@@ -178,12 +202,16 @@
       return originalCreate ? originalCreate(options) : null;
     }
 
+    if (options.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
     try {
       const serialized = serializeCreationOptions(options);
       if (!serialized) return originalCreate(options);
 
       const timeoutMs = options.publicKey.timeout || 60000;
-      const res = await dispatchToExtension("CREATE", serialized, timeoutMs);
+      const res = await dispatchToExtension("CREATE", serialized, timeoutMs, options.signal);
 
       if (res?.handled && res?.credential) {
         const c = res.credential;
@@ -277,12 +305,23 @@
       return originalGet ? originalGet(options) : null;
     }
 
+    // Do NOT display a modal prompt for conditional mediation (autofill).
+    // Conditional mediation is meant for inline form autofill and MUST NOT display a modal.
+    // Delegating to originalGet allows the browser to handle conditional requests natively.
+    if (options.mediation === "conditional") {
+      return originalGet(options);
+    }
+
+    if (options.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
     try {
       const serialized = serializeRequestOptions(options);
       if (!serialized) return originalGet(options);
 
       const timeoutMs = options.publicKey.timeout || 60000;
-      const res = await dispatchToExtension("GET", serialized, timeoutMs);
+      const res = await dispatchToExtension("GET", serialized, timeoutMs, options.signal);
 
       if (res?.handled && res?.credential) {
         const c = res.credential;
