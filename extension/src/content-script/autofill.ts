@@ -135,7 +135,10 @@ function showInPageToast(messageHtml: string, durationMs = 3500) {
   `;
   shadow.appendChild(toast);
 
-  document.body.appendChild(host);
+  const targetParent = document.body || document.documentElement;
+  if (targetParent) {
+    targetParent.appendChild(host);
+  }
 
   requestAnimationFrame(() => {
     host.style.opacity = "1";
@@ -734,7 +737,7 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
 
   container.appendChild(itemsList);
   shadow.appendChild(container);
-  document.body.appendChild(host);
+  (document.body || document.documentElement).appendChild(host);
   activeDropdown = host;
 
   // Animate in
@@ -973,7 +976,7 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
 
   container.appendChild(itemsList);
   shadow.appendChild(container);
-  document.body.appendChild(host);
+  (document.body || document.documentElement).appendChild(host);
   activeDropdown = host;
 
   requestAnimationFrame(() => {
@@ -1456,6 +1459,7 @@ function showPasskeyPrompt(opts: {
   username?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  onUseBrowser?: () => void;
 }) {
   removePasskeyPrompt(true);
 
@@ -1591,7 +1595,16 @@ function showPasskeyPrompt(opts: {
     opts.onCancel();
   };
 
-  card.querySelector(".btn-ghost")?.addEventListener("click", handleDismiss);
+  const handleUseBrowser = () => {
+    removePasskeyPrompt();
+    if (opts.onUseBrowser) {
+      opts.onUseBrowser();
+    } else {
+      opts.onCancel();
+    }
+  };
+
+  card.querySelector(".btn-ghost")?.addEventListener("click", handleUseBrowser);
   card.querySelector(".close-btn")?.addEventListener("click", handleDismiss);
 
   shadow.appendChild(card);
@@ -1627,10 +1640,15 @@ window.addEventListener("message", (event) => {
 
     if (!status.isUnlocked) {
       // Vault is locked — tell the interceptor so it can throw NotAllowedError
-      // For GET: show a toast so user knows to unlock VaultR
+      // Show toast so user knows to unlock VaultR
       if (action === "GET") {
         showInPageToast(
           `<span style="color:#f59e0b;font-weight:700">&#128274;</span> <span>Unlock VaultR to sign in with your passkey.</span>`,
+          6000
+        );
+      } else if (action === "CREATE") {
+        showInPageToast(
+          `<span style="color:#f59e0b;font-weight:700">&#128274;</span> <span>Unlock VaultR to save your passkey.</span>`,
           6000
         );
       }
@@ -1695,8 +1713,11 @@ window.addEventListener("message", (event) => {
             });
           });
         },
+        onUseBrowser: () => {
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, useBrowser: true }, "*");
+        },
         onCancel: () => {
-          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "Passkey creation cancelled by user" }, "*");
         },
       });
     } else if (action === "GET") {
@@ -1784,8 +1805,11 @@ window.addEventListener("message", (event) => {
                 );
               });
             },
+            onUseBrowser: () => {
+              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, useBrowser: true }, "*");
+            },
             onCancel: () => {
-              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");
+              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "Passkey sign-in cancelled by user" }, "*");
             },
           });
         }

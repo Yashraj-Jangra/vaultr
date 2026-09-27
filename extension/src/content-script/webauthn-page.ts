@@ -35,6 +35,7 @@
           conditionalGet: false,
           hybridTransport: true,
           passkeyPlatformAuthenticator: true,
+          userVerifyingPlatformAuthenticator: true,
           userVerificationMethod: true,
         };
       };
@@ -97,9 +98,9 @@
         name: effectiveRpName,
       },
       user: {
-        id: bufferToBase64Url(pk.user.id),
-        name: pk.user.name || "",
-        displayName: pk.user.displayName || pk.user.name || "",
+        id: pk.user ? bufferToBase64Url(pk.user.id) : "",
+        name: pk.user?.name || "",
+        displayName: pk.user?.displayName || pk.user?.name || "",
       },
       pubKeyCredParams: pk.pubKeyCredParams,
       timeout: pk.timeout,
@@ -248,12 +249,14 @@
           ? PublicKeyCredential.prototype
           : (typeof Credential !== "undefined" ? (Credential as any).prototype : Object.prototype);
 
+        const attachment = options.publicKey?.authenticatorSelection?.authenticatorAttachment || "platform";
+
         const syntheticCredential = Object.create(credProto);
         Object.defineProperties(syntheticCredential, {
           id: { value: c.credentialId || c.id, enumerable: true, configurable: true },
           rawId: { value: rawId, enumerable: true, configurable: true },
           type: { value: "public-key", enumerable: true, configurable: true },
-          authenticatorAttachment: { value: "platform", enumerable: true, configurable: true },
+          authenticatorAttachment: { value: attachment, enumerable: true, configurable: true },
           response: { value: responseObj, enumerable: true, configurable: true },
           getClientExtensionResults: { value: () => ({ credProps: { rk: true } }), enumerable: true, configurable: true },
           toJSON: {
@@ -268,7 +271,7 @@
                 publicKeyAlgorithm: -7,
                 publicKey: c.publicKey,
               },
-              authenticatorAttachment: "platform",
+              authenticatorAttachment: attachment,
               clientExtensionResults: { credProps: { rk: true } },
               type: "public-key",
             }),
@@ -280,28 +283,37 @@
         return syntheticCredential as PublicKeyCredential;
       }
 
-      // If user confirmed creation via VaultR prompt, NEVER fall back to Windows Hello!
+      // User confirmed but VaultR creation failed — do NOT open browser prompt
       if (res?.userConfirmed) {
         throw new DOMException(res.error || "Failed to create passkey in VaultR", "NotAllowedError");
       }
 
-      // If user explicitly chose "Use Browser"
-      if (res?.userCancelled) {
+      // User explicitly clicked "Use Browser" — only legitimate handoff to browser
+      if (res?.useBrowser) {
         return originalCreate(options);
       }
 
-      // If VaultR didn't handle it (vault locked, passkeys disabled)
-      if (!res?.handled) {
-        return originalCreate(options);
+      // Vault is locked — do NOT open browser prompt, surface error
+      if (res?.error === "locked") {
+        throw new DOMException("Vault is locked. Unlock VaultR to create passkey.", "NotAllowedError");
       }
+
+      // Not handled (user dismissed prompt, passkeys disabled, or error) — do NOT open browser prompt
+      throw new DOMException(
+        res?.error || "VaultR passkey creation could not be completed.",
+        "NotAllowedError"
+      );
     } catch (err: any) {
-      if (err instanceof DOMException || err?.name === "NotAllowedError") {
+      if (err instanceof DOMException || err?.name === "NotAllowedError" || err?.name === "AbortError") {
         throw err;
       }
-      console.warn("[VaultR WebAuthn] Create fallback:", err);
+      console.warn("[VaultR WebAuthn] Create error:", err);
+      // Internal VaultR error — do NOT fall back to browser prompt!
+      throw new DOMException("VaultR passkey creation failed. Please try again.", "NotAllowedError");
     }
 
-    return originalCreate(options);
+    // Should not be reached — but if somehow we get here, throw rather than open browser prompt
+    throw new DOMException("VaultR passkey creation failed.", "NotAllowedError");
   }
 
   // ─── Intercept navigator.credentials.get ───────────────────────────────────
@@ -407,7 +419,7 @@
       }
 
       // User explicitly clicked "Use Browser" — only legitimate handoff to browser
-      if (res?.userCancelled) {
+      if (res?.useBrowser) {
         return originalGet ? originalGet(options) : null;
       }
 
