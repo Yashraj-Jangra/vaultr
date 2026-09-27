@@ -1,3 +1,47 @@
+## Current Session: Custom VaultR AAGUID & Branded Passkey UI (2026-09-27) · Branch: `dev`
+
+### ✅ What Was Done (Phase 41: Custom VaultR AAGUID, Elimination of "iCloud Keychain" RP Label & Bitwarden-Style UI)
+
+**Files Changed:**
+- `packages/core/src/webauthn.ts`
+- `packages/core/src/types.ts`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+- `docs/passkeys/aaguid-metadata.json` (New)
+- `docs/passkeys/README.md` (New)
+
+**Fixes & Enhancements:**
+1. **Root Cause Analysis: Why Google Accounts Labeled Passkeys as "iCloud Keychain"**:
+   - In `packages/core/src/webauthn.ts` and `PasskeyAuthActivity.kt`, the authenticator data (`authData`) embedded an all-zero AAGUID (`00000000-0000-0000-0000-000000000000`).
+   - In Google Accounts' internal authenticator directory, all-zero AAGUID is mapped to Apple's legacy anonymous platform authenticator ("iCloud Keychain"), causing Google to display "iCloud Keychain" for newly registered passkeys.
+
+2. **Official VaultR AAGUID Defined & Standardized Across Core, Extension & Android**:
+   - RFC 4122 v4 UUID: `"7661756c-7472-4a11-8517-5e839e55720c"`.
+   - Hex bytes: `[0x76, 0x61, 0x75, 0x6c, 0x74, 0x72, 0x4a, 0x11, 0x85, 0x17, 0x5e, 0x83, 0x9e, 0x55, 0x72, 0x0c]`.
+   - The first 6 bytes in ASCII hex spell `"vaultr"`.
+   - Replaced all-zero AAGUID in `@vaultr/core` (`createPasskeyCredential`) and Android Native Credential Manager (`PasskeyAuthActivity.kt`).
+   - Added `passkeyAaguid?: string` to `DecryptedLoginPayload` in `@vaultr/core` and persisted in service worker storage.
+
+3. **Bitwarden-Style Branded Passkey Prompt UI (`autofill.ts`)**:
+   - **VaultR Brand Mark**: Embedded official VaultR vector shield/keyhole logo in a high-contrast dark badge.
+   - **Typography & Chips**: "VaultR" bold brand header with sky-blue "PASSKEY" chip and smooth dismissal `✕`.
+   - **Account Card**: Elevated contextual card with dynamic relying party favicon (`google.com/s2/favicons`), RP domain, and username/account indicator.
+   - **Security Guarantee**: Added subtle footnote with green shield check: *"End-to-end encrypted in your vault"*.
+   - **Bitwarden Action Hierarchy**: Elevated high-contrast primary button with key icon ("Save Passkey" / "Sign In") and secondary "Use Browser".
+   - **Unified Brand System**: Applied consistent VaultR logo badge and typography to password save/update prompts as well.
+
+4. **Community AAGUID Registry Entry (`docs/passkeys/`)**:
+   - Created `docs/passkeys/aaguid-metadata.json` formatted for `passkeydeveloper/passkey-authenticator-aaguids` with base64 data URIs of light and dark SVG brand marks.
+   - Created `docs/passkeys/README.md` documenting AAGUID architecture and RP compatibility.
+
+5. **Build & Type Check Validation**:
+   - `@vaultr/core` compiled cleanly (`npm run build`).
+   - Extension bundle compiled cleanly (`npm run build` in `extension/`).
+   - `npx tsc --noEmit` verified 0 errors across the entire codebase.
+
+---
+
 ## Current Session: Passkey Creation & Browser Prompt Elimination (2026-09-27) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 40: Block Browser Passkey Popup During Creation, Iframe Interception & Spec Alignment)

@@ -22,6 +22,7 @@ import {
   calculateDomainMatchScore,
   isIpAddress,
   extractItemCandidateUrls,
+  VAULTR_AAGUID,
 } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
@@ -1348,6 +1349,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 passkeyPrivateKey: credResult.passkeyPrivateKey,
                 passkeySignCount: 0,
                 passkeyTransports: ["internal", "hybrid"],
+                passkeyAaguid: credResult.aaguid || VAULTR_AAGUID,
                 passkeyCreatedAt: new Date().toISOString(),
                 passkeyLastUsedAt: new Date().toISOString(),
               };
@@ -1375,6 +1377,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   attestationObject: toBase64Url(credResult.attestationObject),
                   authenticatorData: toBase64Url(credResult.authenticatorData),
                   publicKey: toBase64Url(credResult.publicKeySpki),
+                  aaguid: credResult.aaguid || VAULTR_AAGUID,
                 },
               });
             } else {
@@ -1389,6 +1392,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 passkeyPrivateKey: credResult.passkeyPrivateKey,
                 passkeySignCount: 0,
                 passkeyTransports: ["internal", "hybrid"],
+                passkeyAaguid: credResult.aaguid || VAULTR_AAGUID,
                 passkeyCreatedAt: new Date().toISOString(),
                 passkeyLastUsedAt: new Date().toISOString(),
               };
@@ -1415,6 +1419,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   attestationObject: toBase64Url(credResult.attestationObject),
                   authenticatorData: toBase64Url(credResult.authenticatorData),
                   publicKey: toBase64Url(credResult.publicKeySpki),
+                  aaguid: credResult.aaguid || VAULTR_AAGUID,
                 },
               });
             }
