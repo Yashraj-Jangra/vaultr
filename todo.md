@@ -40,6 +40,13 @@
    - Extension bundle compiled cleanly (`npm run build` in `extension/`).
    - `npx tsc --noEmit` verified 0 errors across the entire codebase.
 
+6. **Android Release Build (`assembleRelease`)**:
+   - Successfully generated signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.11-release.apk` (146.7 MB).
+   - Bundled React Native & Expo JavaScript/assets with Hermes bytecode optimization (`App.tsx`, 3231 modules in 143s).
+   - Compiled and linked native C++ modules (`worklets`, `quick-crypto`, CMake) across 4 target ABIs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+   - Built with updated VaultR AAGUID (`7661756c-7472-4a11-8517-5e839e55720c`) in `PasskeyAuthActivity.kt`.
+   - Signed with production keystore `vaultr-release.keystore` (alias: `vaultr`).
+
 ---
 
 ## Current Session: Passkey Creation & Browser Prompt Elimination (2026-09-27) · Branch: `dev`
