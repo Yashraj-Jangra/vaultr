@@ -338,7 +338,8 @@
 
     try {
       const serialized = serializeRequestOptions(options);
-      if (!serialized) return originalGet(options);
+      // Can't serialize — not a public-key request VaultR handles
+      if (!serialized) return originalGet ? originalGet(options) : null;
 
       const timeoutMs = options.publicKey.timeout || 60000;
       const res = await dispatchToExtension("GET", serialized, timeoutMs, options.signal);
@@ -400,28 +401,40 @@
         return syntheticCredential as PublicKeyCredential;
       }
 
-      // If user confirmed passkey assertion via VaultR prompt, NEVER fall back to Windows Hello!
+      // User confirmed but VaultR assertion failed — do NOT open browser prompt
       if (res?.userConfirmed) {
         throw new DOMException(res.error || "VaultR passkey assertion failed", "NotAllowedError");
       }
 
-      // If user explicitly chose "Use Browser"
+      // User explicitly clicked "Use Browser" — only legitimate handoff to browser
       if (res?.userCancelled) {
-        return originalGet(options);
+        return originalGet ? originalGet(options) : null;
       }
 
-      // If VaultR didn't handle it (vault locked, passkeys disabled, or no passkeys found for RP)
+      // Vault is locked — do NOT open browser prompt, surface error
+      if (res?.error === "locked") {
+        throw new DOMException("Vault is locked. Unlock VaultR to sign in with passkey.", "NotAllowedError");
+      }
+
+      // No passkey found in VaultR for this RP — do NOT open browser prompt
+      // The RP registered this passkey with VaultR; handing off to the browser would
+      // show Windows Hello with no key to offer (or worse, offer a stale OS-level passkey).
       if (!res?.handled) {
-        return originalGet(options);
+        throw new DOMException(
+          res?.error || "No VaultR passkey found for this site. Please re-register your passkey.",
+          "NotAllowedError"
+        );
       }
     } catch (err: any) {
-      if (err instanceof DOMException || err?.name === "NotAllowedError") {
+      if (err instanceof DOMException || err?.name === "NotAllowedError" || err?.name === "AbortError") {
         throw err;
       }
-      console.warn("[VaultR WebAuthn] Assertion fallback:", err);
+      // Internal VaultR error — do NOT fall back to browser prompt
+      throw new DOMException("VaultR passkey sign-in failed. Please try again.", "NotAllowedError");
     }
 
-    return originalGet(options);
+    // Should not be reached — but if somehow we get here, throw rather than open browser prompt
+    throw new DOMException("VaultR passkey sign-in failed.", "NotAllowedError");
   }
 
   // ─── Attach Interceptors ───────────────────────────────────────────────────
