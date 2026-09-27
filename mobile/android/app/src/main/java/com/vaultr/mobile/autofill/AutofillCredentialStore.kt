@@ -75,9 +75,9 @@ object AutofillCredentialStore {
             lastUnlockedAt = prefs.getLong(KEY_UNLOCKED_AT, 0L)
             autoLockTimeoutMs = prefs.getLong(KEY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
 
-            // If never unlocked or auto-lock timeout has expired, wipe immediately
+            // If never unlocked or auto-lock timeout has expired, mark memory cache locked (do not wipe stored credentials)
             if (lastUnlockedAt == 0L) {
-                clear(context)
+                cachedItems = emptyList()
                 return
             }
 
@@ -85,7 +85,8 @@ object AutofillCredentialStore {
                 val elapsed = System.currentTimeMillis() - lastUnlockedAt
                 if (elapsed >= autoLockTimeoutMs) {
                     Log.d(TAG, "Auto-lock timeout expired ($elapsed >= $autoLockTimeoutMs ms). Vault is locked.")
-                    clear(context)
+                    cachedItems = emptyList()
+                    lastUnlockedAt = 0L
                     return
                 }
             }
@@ -118,6 +119,38 @@ object AutofillCredentialStore {
             }
         }
         return false
+    }
+
+    fun unlockVault(context: Context): Boolean {
+        try {
+            val prefs = getPrefs(context)
+            val raw = prefs.getString(KEY_CREDENTIALS, null)
+            if (!raw.isNullOrBlank()) {
+                cachedItems = parseJson(raw)
+                lastUnlockedAt = System.currentTimeMillis()
+                prefs.edit().putLong(KEY_UNLOCKED_AT, lastUnlockedAt).apply()
+                Log.d(TAG, "Unlocked vault with ${cachedItems.size} credentials via native unlock")
+                return true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unlock vault natively", e)
+        }
+        return false
+    }
+
+    fun hasStoredCredentials(context: Context): Boolean {
+        val prefs = getPrefs(context)
+        return !prefs.getString(KEY_CREDENTIALS, null).isNullOrBlank()
+    }
+
+    fun getStoredItems(context: Context): List<AutofillItem> {
+        if (cachedItems.isNotEmpty()) return cachedItems
+        return try {
+            val raw = getPrefs(context).getString(KEY_CREDENTIALS, null)
+            if (!raw.isNullOrBlank()) parseJson(raw) else emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     fun syncCredentials(context: Context, jsonString: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS) {
@@ -289,6 +322,86 @@ object AutofillCredentialStore {
 
             false
         }
+    }
+
+    /**
+     * Searches passkeys from local secure storage even if vault memory cache is currently locked.
+     * Essential for Credential Manager discovery to provide unlock actions only when relevant.
+     */
+    fun findPasskeysInStorage(context: Context, rpId: String?): List<AutofillItem> {
+        if (rpId.isNullOrBlank()) return emptyList()
+        val items = getStoredItems(context)
+        val cleanRp = normalizeDomain(rpId)
+        val mappedDomain = PACKAGE_DOMAIN_MAP[cleanRp.lowercase()]
+        return items.filter { item ->
+            if (!item.isPasskey || item.passkeyCredentialId.isNullOrBlank()) return@filter false
+
+            val itemRp = item.passkeyRpId?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
+            val itemDomain = item.domain?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
+
+            if (itemRp == cleanRp || itemDomain == cleanRp) return@filter true
+            if (mappedDomain != null && (itemRp == mappedDomain || itemDomain == mappedDomain)) return@filter true
+            if (itemRp != null && (cleanRp.endsWith(".$itemRp") || itemRp.endsWith(".$cleanRp"))) return@filter true
+            if (itemDomain != null && (cleanRp.endsWith(".$itemDomain") || itemDomain.endsWith(".$cleanRp"))) return@filter true
+
+            for (u in item.urls) {
+                val uDomain = normalizeDomain(u)
+                if (uDomain == cleanRp || (mappedDomain != null && uDomain == mappedDomain)) return@filter true
+                if (cleanRp.endsWith(".$uDomain") || uDomain.endsWith(".$cleanRp")) return@filter true
+            }
+            false
+        }
+    }
+
+    /**
+     * Searches logins from local secure storage even if vault memory cache is currently locked.
+     */
+    fun findMatchesInStorage(context: Context, target: String?): List<AutofillItem> {
+        if (target.isNullOrBlank()) return emptyList()
+        val items = getStoredItems(context)
+        val cleanTarget = normalizeDomain(target)
+        val mappedDomain = PACKAGE_DOMAIN_MAP[target.trim().lowercase()]
+
+        val matches = mutableListOf<AutofillItem>()
+        for (item in items) {
+            if (!item.domain.isNullOrBlank()) {
+                val itemDomain = normalizeDomain(item.domain)
+                if (itemDomain == cleanTarget || (mappedDomain != null && itemDomain == mappedDomain)) {
+                    matches.add(item)
+                    continue
+                }
+                if (cleanTarget.endsWith(".$itemDomain") || itemDomain.endsWith(".$cleanTarget")) {
+                    matches.add(item)
+                    continue
+                }
+            }
+
+            var urlMatched = false
+            for (u in item.urls) {
+                val uDomain = normalizeDomain(u)
+                if (uDomain == cleanTarget || (mappedDomain != null && uDomain == mappedDomain)) {
+                    matches.add(item)
+                    urlMatched = true
+                    break
+                }
+            }
+            if (urlMatched) continue
+
+            if (item.domain?.startsWith("androidapp:") == true) {
+                val pkg = item.domain.removePrefix("androidapp:").trim()
+                if (pkg.equals(target, ignoreCase = true)) {
+                    matches.add(item)
+                    continue
+                }
+            }
+
+            val cleanName = item.name.trim().lowercase().replace(Regex("[^a-z0-9]"), "")
+            val cleanTargetKey = cleanTarget.replace(Regex("[^a-z0-9]"), "")
+            if (cleanName.length >= 3 && cleanTargetKey.contains(cleanName)) {
+                matches.add(item)
+            }
+        }
+        return matches.distinctBy { it.id }
     }
 
     fun findPasskeyByCredentialId(credentialId: String): AutofillItem? {

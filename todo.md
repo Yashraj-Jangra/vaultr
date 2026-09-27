@@ -1,3 +1,45 @@
+## Current Session: Android Passkey Biometric Unlock & Accessibility Autofill Overlay (2026-09-28) · Branch: `dev`
+
+### ✅ What Was Done (Phase 42: Bitwarden-Style In-Sheet Unlock, Non-Destructive Auto-Lock & Floating Accessibility Overlay)
+
+**Files Changed:**
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/AutofillCredentialStore.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrCredentialProviderService.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrAccessibilityService.kt`
+
+**Fixes & Enhancements:**
+1. **Root Cause 1: Broken Unlock Flow in Android Credential Manager**:
+   - `VaultrCredentialProviderService` previously assigned `AuthenticationAction("Unlock VaultR")` to launch `MainActivity` (the root React Native launcher).
+   - Android Credential Manager expects the target Activity to return an updated `BeginGetCredentialResponse` via `PendingIntentHandler.setBeginGetCredentialResponse(resultIntent, response)` + `setResult(RESULT_OK)` + `finish()`.
+   - By launching `MainActivity`, the Credential Manager ceremony was aborted on every unlock attempt.
+   - **Resolution**: Pointed `AuthenticationAction` to `PasskeyAuthActivity` with `ACTION_CREDENTIAL_UNLOCK` and `FLAG_MUTABLE`.
+
+2. **Root Cause 2: Destructive Auto-Lock Eviction in `AutofillCredentialStore.kt`**:
+   - On auto-lock timeout (5m default), `initialize()` was previously calling `clear(context)`, which removed `KEY_CREDENTIALS` permanently from disk.
+   - Even if the user verified biometrics, 0 credentials remained in native storage.
+   - **Resolution**: Fixed auto-lock so timeout only clears in-memory cache (`cachedItems = emptyList()`, `lastUnlockedAt = 0L`) while preserving `KEY_CREDENTIALS` in local private storage. Added `unlockVault(context)`, `hasStoredCredentials(context)`, `findPasskeysInStorage()`, and `findMatchesInStorage()`.
+
+3. **Bitwarden-Style Native Biometric Unlock & Dynamic Bottom Sheet Update (`PasskeyAuthActivity.kt`)**:
+   - Added `handleCredentialUnlock()` using Android's native `BiometricPrompt` (`BIOMETRIC_STRONG` or `DEVICE_CREDENTIAL`).
+   - On biometric success: unlocks vault into memory, retrieves `BeginGetCredentialRequest` via `PendingIntentHandler`, populates matching passkey entries (`PublicKeyCredentialEntry`) and password entries (`PasswordCredentialEntry`), and delivers back to Credential Manager via `setBeginGetCredentialResponse`.
+   - Android Credential Manager immediately updates its bottom sheet to display the matching passkeys for that site.
+   - User selects the passkey -> `PasskeyAuthActivity` signs ECDSA P-256 WebAuthn assertion -> Web/app logs in seamlessly!
+
+4. **Universal Accessibility Autofill Suggestion Overlay (`VaultrAccessibilityService.kt`)**:
+   - **Research**: WebViews, Google Account sign-in screens in Chrome / embedded tabs, banking apps, and custom canvas views do not trigger standard Android `AutofillService` or `CredentialManager` callbacks. Bitwarden solves this with an `AccessibilityService` overlay.
+   - **Implementation**: Listens to `TYPE_VIEW_FOCUSED` on editable username/email/password inputs. Extracts package and web domain.
+   - Queries `AutofillCredentialStore` for matching accounts.
+   - Displays a sleek floating dark-themed suggestion pill (`WindowManager.addView` with `TYPE_ACCESSIBILITY_OVERLAY`): `[VaultR logo] Autofill user@gmail.com   ✕` positioned comfortably above the keyboard.
+   - 1-tap on the pill opens `AutofillSearchActivity` directly over the current app (e.g. Google Sign-In) to autofill username and password via `AccessibilityNodeInfo` injection and dismiss.
+
+5. **Validation & Release Build**:
+   - Root and mobile TypeScript type checks passed with 0 errors (`npx tsc --noEmit`).
+   - Android release build compiled cleanly (`assembleRelease` in 4m 8s, 745 tasks).
+   - Generated signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.11-release.apk` (146.7 MB).
+
+---
+
 ## Current Session: Custom VaultR AAGUID & Branded Passkey UI (2026-09-27) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 41: Custom VaultR AAGUID, Elimination of "iCloud Keychain" RP Label & Bitwarden-Style UI)

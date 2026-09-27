@@ -53,6 +53,7 @@ class VaultrCredentialProviderService : CredentialProviderService() {
         const val ACTION_PASSWORD_AUTH = "com.vaultr.mobile.PASSWORD_AUTHENTICATE"
         const val ACTION_PASSKEY_CREATE = "com.vaultr.mobile.PASSKEY_CREATE"
         const val ACTION_PASSWORD_CREATE = "com.vaultr.mobile.PASSWORD_CREATE"
+        const val ACTION_CREDENTIAL_UNLOCK = "com.vaultr.mobile.CREDENTIAL_UNLOCK"
     }
 
     override fun onCreate() {
@@ -74,20 +75,52 @@ class VaultrCredentialProviderService : CredentialProviderService() {
             val responseBuilder = BeginGetCredentialResponse.Builder()
 
             if (AutofillCredentialStore.isVaultLocked()) {
-                Log.d(TAG, "Vault locked during onBeginGetCredentialRequest — adding Unlock VaultR action")
-                val unlockIntent = Intent(this, MainActivity::class.java).apply {
-                    action = Intent.ACTION_MAIN
-                    addCategory(Intent.CATEGORY_LAUNCHER)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                Log.d(TAG, "Vault locked during onBeginGetCredentialRequest — checking stored credentials")
+                var requestedRpId = ""
+                var requestedRequestJson = ""
+                for (option in request.beginGetCredentialOptions) {
+                    if (option is BeginGetPublicKeyCredentialOption) {
+                        requestedRequestJson = option.requestJson
+                        if (requestedRequestJson.isNotBlank()) {
+                            try {
+                                val json = JSONObject(requestedRequestJson)
+                                requestedRpId = json.optString("rpId")
+                                if (requestedRpId.isBlank()) {
+                                    requestedRpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
                 }
-                val unlockPendingIntent = PendingIntent.getActivity(
-                    this,
-                    9999,
-                    unlockIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val unlockAction = AuthenticationAction.Builder("Unlock VaultR", unlockPendingIntent).build()
-                responseBuilder.addAuthenticationAction(unlockAction)
+                if (requestedRpId.isBlank() && origin.isNotBlank()) {
+                    requestedRpId = AutofillCredentialStore.normalizeDomain(origin)
+                }
+                if (requestedRpId.isBlank()) {
+                    requestedRpId = callingPackage
+                }
+
+                val target = if (origin.isNotBlank()) origin else callingPackage
+                val storedPasskeys = AutofillCredentialStore.findPasskeysInStorage(applicationContext, requestedRpId)
+                val storedPasswords = AutofillCredentialStore.findMatchesInStorage(applicationContext, target)
+                val hasStored = AutofillCredentialStore.hasStoredCredentials(applicationContext)
+
+                if (storedPasskeys.isNotEmpty() || storedPasswords.isNotEmpty() || (hasStored && requestedRpId.isNotBlank())) {
+                    Log.d(TAG, "Found candidates in storage (passkeys: ${storedPasskeys.size}, passwords: ${storedPasswords.size}) — adding Unlock VaultR action")
+                    val unlockIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                        action = ACTION_CREDENTIAL_UNLOCK
+                        putExtra(EXTRA_RP_ID, requestedRpId)
+                        putExtra(EXTRA_REQUEST_JSON, requestedRequestJson)
+                        putExtra(EXTRA_CALLING_PACKAGE, callingPackage)
+                    }
+                    val unlockPendingIntent = PendingIntent.getActivity(
+                        this,
+                        9999,
+                        unlockIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+                    val unlockAction = AuthenticationAction.Builder("Unlock VaultR", unlockPendingIntent).build()
+                    responseBuilder.addAuthenticationAction(unlockAction)
+                }
                 callback.onResult(responseBuilder.build())
                 return
             }

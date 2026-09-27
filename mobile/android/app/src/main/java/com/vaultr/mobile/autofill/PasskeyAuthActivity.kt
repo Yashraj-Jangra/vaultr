@@ -1,9 +1,14 @@
 package com.vaultr.mobile.autofill
 
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.Intent
+import android.graphics.drawable.Icon
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
 import android.util.Base64
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -16,8 +21,14 @@ import androidx.credentials.PasswordCredential
 import androidx.credentials.PublicKeyCredential
 import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.exceptions.GetCredentialUnknownException
+import androidx.credentials.provider.BeginGetCredentialResponse
+import androidx.credentials.provider.BeginGetPasswordOption
+import androidx.credentials.provider.BeginGetPublicKeyCredentialOption
+import androidx.credentials.provider.PasswordCredentialEntry
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.credentials.provider.ProviderCreateCredentialRequest
+import androidx.credentials.provider.PublicKeyCredentialEntry
+import com.vaultr.mobile.R
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.security.KeyFactory
@@ -197,6 +208,7 @@ class PasskeyAuthActivity : Activity() {
                 VaultrCredentialProviderService.ACTION_PASSWORD_AUTH -> handlePasswordAuth()
                 VaultrCredentialProviderService.ACTION_PASSKEY_CREATE -> handlePasskeyCreate()
                 VaultrCredentialProviderService.ACTION_PASSWORD_CREATE -> handlePasswordCreate()
+                VaultrCredentialProviderService.ACTION_CREDENTIAL_UNLOCK -> handleCredentialUnlock()
                 else -> {
                     Log.w(TAG, "Unknown action: $action")
                     finishWithFailure("Unknown credential action: $action")
@@ -211,6 +223,164 @@ class PasskeyAuthActivity : Activity() {
                 finishWithFailure(e.message ?: "Authentication error")
             }
         }
+    }
+
+    private fun handleCredentialUnlock() {
+        val rpId = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_RP_ID) ?: ""
+        val requestJson = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_REQUEST_JSON) ?: ""
+        val callingPkg = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE) ?: ""
+
+        val promptBuilder = BiometricPrompt.Builder(this)
+            .setTitle("Unlock VaultR")
+            .setSubtitle(if (rpId.isNotBlank()) "Authenticate to sign in to $rpId" else "Authenticate to access your passkeys")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            promptBuilder.setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            promptBuilder.setDeviceCredentialAllowed(true)
+        }
+
+        val prompt = promptBuilder.build()
+        val cancellationSignal = CancellationSignal()
+
+        prompt.authenticate(
+            cancellationSignal,
+            mainExecutor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                    Log.d(TAG, "Biometric authentication succeeded in PasskeyAuthActivity")
+                    onCredentialUnlockSucceeded(rpId, requestJson, callingPkg)
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                    Log.w(TAG, "Biometric authentication canceled/error: $errorCode ($errString)")
+                    finishWithFailure(errString?.toString() ?: "Authentication canceled")
+                }
+
+                override fun onAuthenticationFailed() {
+                    Log.w(TAG, "Biometric authentication failed (unrecognized)")
+                }
+            }
+        )
+    }
+
+    private fun onCredentialUnlockSucceeded(passedRpId: String, passedRequestJson: String, passedCallingPkg: String) {
+        // 1. Unlock the local vault in memory
+        AutofillCredentialStore.unlockVault(applicationContext)
+
+        val resultIntent = Intent()
+        val responseBuilder = BeginGetCredentialResponse.Builder()
+
+        // 2. Retrieve original system BeginGetCredentialRequest if present
+        val beginRequest = PendingIntentHandler.retrieveBeginGetCredentialRequest(intent)
+        val callingAppInfo = beginRequest?.callingAppInfo
+        val callingPackage = callingAppInfo?.packageName ?: passedCallingPkg
+        val origin = callingAppInfo?.origin ?: ""
+
+        val options = beginRequest?.beginGetCredentialOptions ?: emptyList()
+
+        for (option in options) {
+            if (option is BeginGetPublicKeyCredentialOption) {
+                val requestJson = option.requestJson.ifBlank { passedRequestJson }
+                var rpId = ""
+                if (requestJson.isNotBlank()) {
+                    try {
+                        val json = JSONObject(requestJson)
+                        rpId = json.optString("rpId")
+                        if (rpId.isBlank()) {
+                            rpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (rpId.isBlank() && origin.isNotBlank()) {
+                    rpId = AutofillCredentialStore.normalizeDomain(origin)
+                }
+                if (rpId.isBlank()) {
+                    rpId = passedRpId.ifBlank { callingPackage }
+                }
+
+                val passkeys = AutofillCredentialStore.findPasskeys(rpId)
+                Log.d(TAG, "Post-unlock: found ${passkeys.size} passkeys for rpId '$rpId'")
+
+                for (passkey in passkeys) {
+                    val authIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                        action = VaultrCredentialProviderService.ACTION_PASSKEY_AUTH
+                        putExtra(VaultrCredentialProviderService.EXTRA_CREDENTIAL_ID, passkey.id)
+                        putExtra(VaultrCredentialProviderService.EXTRA_PASSKEY_ID, passkey.passkeyCredentialId)
+                        putExtra(VaultrCredentialProviderService.EXTRA_RP_ID, rpId)
+                        putExtra(VaultrCredentialProviderService.EXTRA_REQUEST_JSON, requestJson)
+                        putExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE, callingPackage)
+                    }
+
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        (passkey.passkeyCredentialId ?: passkey.id).hashCode(),
+                        authIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+
+                    val entry = PublicKeyCredentialEntry.Builder(
+                        this,
+                        passkey.username.ifBlank { passkey.name },
+                        pendingIntent,
+                        option
+                    ).apply {
+                        setDisplayName(passkey.name.ifBlank { passkey.username })
+                        setIcon(Icon.createWithResource(this@PasskeyAuthActivity, R.drawable.ic_vaultr_lock_small))
+                        setAutoSelectAllowed(false)
+                    }.build()
+
+                    responseBuilder.addCredentialEntry(entry)
+                    Log.d(TAG, "Added post-unlock passkey entry for ${passkey.username} on $rpId")
+                }
+            } else if (option is BeginGetPasswordOption) {
+                val target = if (origin.isNotBlank()) origin else callingPackage
+                val matches = AutofillCredentialStore.findMatches(target)
+                Log.d(TAG, "Post-unlock: found ${matches.size} password matches for target '$target'")
+
+                for (login in matches) {
+                    if (login.password.isBlank()) continue
+
+                    val authIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                        action = VaultrCredentialProviderService.ACTION_PASSWORD_AUTH
+                        putExtra(VaultrCredentialProviderService.EXTRA_CREDENTIAL_ID, login.id)
+                        putExtra(VaultrCredentialProviderService.EXTRA_USERNAME, login.username)
+                        putExtra(VaultrCredentialProviderService.EXTRA_PASSWORD, login.password)
+                    }
+
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        login.id.hashCode(),
+                        authIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+
+                    val entry = PasswordCredentialEntry.Builder(
+                        this,
+                        login.username,
+                        pendingIntent,
+                        option
+                    ).apply {
+                        setDisplayName(login.name.ifBlank { login.username })
+                        setIcon(Icon.createWithResource(this@PasskeyAuthActivity, R.drawable.ic_vaultr_lock_small))
+                        setAutoSelectAllowed(false)
+                    }.build()
+
+                    responseBuilder.addCredentialEntry(entry)
+                    Log.d(TAG, "Added post-unlock password entry for ${login.username} on $target")
+                }
+            }
+        }
+
+        val unlockedResponse = responseBuilder.build()
+        PendingIntentHandler.setBeginGetCredentialResponse(resultIntent, unlockedResponse)
+        setResult(Activity.RESULT_OK, resultIntent)
+        Log.d(TAG, "Delivered unlocked BeginGetCredentialResponse with entries to Credential Manager")
+        finish()
     }
 
     private fun handlePasskeyAuth() {
