@@ -73,68 +73,30 @@ class VaultrCredentialProviderService : CredentialProviderService() {
             val origin = callingAppInfo?.origin ?: ""
 
             val responseBuilder = BeginGetCredentialResponse.Builder()
-
-            if (AutofillCredentialStore.isVaultLocked()) {
-                Log.d(TAG, "Vault locked during onBeginGetCredentialRequest — checking stored credentials")
-                var requestedRpId = ""
-                var requestedRequestJson = ""
-                for (option in request.beginGetCredentialOptions) {
-                    if (option is BeginGetPublicKeyCredentialOption) {
-                        requestedRequestJson = option.requestJson
-                        if (requestedRequestJson.isNotBlank()) {
-                            try {
-                                val json = JSONObject(requestedRequestJson)
-                                requestedRpId = json.optString("rpId")
-                                if (requestedRpId.isBlank()) {
-                                    requestedRpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
-                                }
-                            } catch (_: Exception) {}
-                        }
-                    }
-                }
-                if (requestedRpId.isBlank() && origin.isNotBlank()) {
-                    requestedRpId = AutofillCredentialStore.normalizeDomain(origin)
-                }
-                if (requestedRpId.isBlank()) {
-                    requestedRpId = callingPackage
-                }
-
-                val target = if (origin.isNotBlank()) origin else callingPackage
-                val storedPasskeys = AutofillCredentialStore.findPasskeysInStorage(applicationContext, requestedRpId)
-                val storedPasswords = AutofillCredentialStore.findMatchesInStorage(applicationContext, target)
-                val hasStored = AutofillCredentialStore.hasStoredCredentials(applicationContext)
-
-                if (storedPasskeys.isNotEmpty() || storedPasswords.isNotEmpty() || (hasStored && requestedRpId.isNotBlank())) {
-                    Log.d(TAG, "Found candidates in storage (passkeys: ${storedPasskeys.size}, passwords: ${storedPasswords.size}) — adding Unlock VaultR action")
-                    val unlockIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
-                        action = ACTION_CREDENTIAL_UNLOCK
-                        putExtra(EXTRA_RP_ID, requestedRpId)
-                        putExtra(EXTRA_REQUEST_JSON, requestedRequestJson)
-                        putExtra(EXTRA_CALLING_PACKAGE, callingPackage)
-                    }
-                    val unlockPendingIntent = PendingIntent.getActivity(
-                        this,
-                        9999,
-                        unlockIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                    )
-                    val unlockAction = AuthenticationAction.Builder("Unlock VaultR", unlockPendingIntent).build()
-                    responseBuilder.addAuthenticationAction(unlockAction)
-                }
-                callback.onResult(responseBuilder.build())
-                return
-            }
+            var addedCandidateCount = 0
 
             for (option in request.beginGetCredentialOptions) {
                 if (option is BeginGetPublicKeyCredentialOption) {
                     val requestJson = option.requestJson
                     var rpId = ""
+                    val allowCredentials = mutableListOf<String>()
                     if (requestJson.isNotBlank()) {
                         try {
                             val json = JSONObject(requestJson)
                             rpId = json.optString("rpId")
                             if (rpId.isBlank()) {
                                 rpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
+                            }
+                            val credsArr = json.optJSONArray("allowCredentials")
+                                ?: json.optJSONObject("publicKey")?.optJSONArray("allowCredentials")
+                            if (credsArr != null) {
+                                for (i in 0 until credsArr.length()) {
+                                    val credObj = credsArr.optJSONObject(i)
+                                    val id = credObj?.optString("id", "") ?: ""
+                                    if (id.isNotBlank()) {
+                                        allowCredentials.add(id)
+                                    }
+                                }
                             }
                         } catch (_: Exception) {}
                     }
@@ -146,15 +108,16 @@ class VaultrCredentialProviderService : CredentialProviderService() {
                         rpId = callingPackage
                     }
 
-                    val passkeys = AutofillCredentialStore.findPasskeys(rpId)
-                    Log.d(TAG, "Found ${passkeys.size} passkey(s) matching rpId: '$rpId' (pkg: $callingPackage, origin: $origin)")
+                    val passkeys = AutofillCredentialStore.findPasskeysInStorage(applicationContext, rpId, allowCredentials)
+                    Log.d(TAG, "Found ${passkeys.size} passkey(s) matching rpId: '$rpId' (allowCreds: ${allowCredentials.size}, pkg: $callingPackage, origin: $origin)")
 
                     for (passkey in passkeys) {
+                        addedCandidateCount++
                         val authIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
                             action = ACTION_PASSKEY_AUTH
                             putExtra(EXTRA_CREDENTIAL_ID, passkey.id)
                             putExtra(EXTRA_PASSKEY_ID, passkey.passkeyCredentialId)
-                            putExtra(EXTRA_RP_ID, rpId)
+                            putExtra(EXTRA_RP_ID, if (rpId.isNotBlank()) rpId else (passkey.passkeyRpId ?: passkey.domain ?: ""))
                             putExtra(EXTRA_REQUEST_JSON, requestJson)
                             putExtra(EXTRA_CALLING_PACKAGE, callingPackage)
                         }
@@ -182,11 +145,12 @@ class VaultrCredentialProviderService : CredentialProviderService() {
                     }
                 } else if (option is BeginGetPasswordOption) {
                     val target = if (origin.isNotBlank()) origin else callingPackage
-                    val matches = AutofillCredentialStore.findMatches(target)
+                    val matches = AutofillCredentialStore.findMatchesInStorage(applicationContext, target)
                     Log.d(TAG, "Found ${matches.size} password match(es) for target: '$target'")
 
                     for (login in matches) {
                         if (login.password.isBlank()) continue
+                        addedCandidateCount++
 
                         val authIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
                             action = ACTION_PASSWORD_AUTH
@@ -217,6 +181,22 @@ class VaultrCredentialProviderService : CredentialProviderService() {
                         Log.d(TAG, "Added password entry for ${login.username} on $target")
                     }
                 }
+            }
+
+            // If vault is locked, provide an Unlock VaultR action as well
+            if (AutofillCredentialStore.isVaultLocked() && AutofillCredentialStore.hasStoredCredentials(applicationContext)) {
+                val unlockIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                    action = ACTION_CREDENTIAL_UNLOCK
+                    putExtra(EXTRA_CALLING_PACKAGE, callingPackage)
+                }
+                val unlockPendingIntent = PendingIntent.getActivity(
+                    this,
+                    9999,
+                    unlockIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                val unlockAction = AuthenticationAction.Builder("Unlock VaultR", unlockPendingIntent).build()
+                responseBuilder.addAuthenticationAction(unlockAction)
             }
 
             callback.onResult(responseBuilder.build())

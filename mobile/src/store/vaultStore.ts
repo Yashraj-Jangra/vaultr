@@ -649,7 +649,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   lock: () => {
-    clearAutofillCredentials();
+    // 🛡️ Note: Do NOT wipe native AutofillCredentialStore on lock.
+    // The native store retains encrypted/cached credentials and auto-locks,
+    // allowing Android Credential Manager to show passkeys and prompt for biometric unlock.
     set({
       items: [],
       cryptoKey: null,
@@ -674,6 +676,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       const mergedCustom = Array.from(new Set([...cleanCurrentCustom, ...cleanServerFolders])).sort();
 
       set({ items, customFolders: mergedCustom, isOnline: true });
+      setTimeout(() => {
+        syncAutofillStore();
+      }, 0);
 
       if (accountUser?.id && mergedCustom.length > 0) {
         await AsyncStorage.setItem(`vaultr_custom_folders_${accountUser.id}`, JSON.stringify(mergedCustom));
@@ -731,6 +736,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const updatedItems = [createdItem, ...get().items.filter((i) => i.id !== createdItem.id)];
     set({ items: updatedItems });
     await cacheVaultItems(updatedItems, accountUser?.id);
+    setTimeout(() => {
+      syncAutofillStore();
+    }, 0);
     return createdItem;
   },
 
@@ -762,6 +770,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const finalItems = get().items.map((i) => (i.id === id ? serverUpdated : i));
     set({ items: finalItems });
     await cacheVaultItems(finalItems, accountUser?.id);
+    setTimeout(() => {
+      syncAutofillStore();
+    }, 0);
     return serverUpdated;
   },
 
@@ -776,6 +787,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const updatedItems = get().items.map((i) => (i.id === id ? { ...i, deletedAt } : i));
     set({ items: updatedItems });
     await cacheVaultItems(updatedItems, accountUser?.id);
+    setTimeout(() => {
+      syncAutofillStore();
+    }, 0);
   },
 
   restoreItem: async (id) => {
@@ -788,6 +802,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const updatedItems = get().items.map((i) => (i.id === id ? { ...i, deletedAt: null } : i));
     set({ items: updatedItems });
     await cacheVaultItems(updatedItems, accountUser?.id);
+    setTimeout(() => {
+      syncAutofillStore();
+    }, 0);
   },
 
   deleteItem: async (id) => {
@@ -800,6 +817,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const updatedItems = get().items.filter((i) => i.id !== id);
     set({ items: updatedItems });
     await cacheVaultItems(updatedItems, accountUser?.id);
+    setTimeout(() => {
+      syncAutofillStore();
+    }, 0);
   },
 
   toggleFavorite: async (id) => {
@@ -1243,13 +1263,17 @@ async function syncAutofillStore() {
   const timeoutStr = await AsyncStorage.getItem("vaultr_auto_lock_timeout");
   const timeoutMinutes = parseInt(timeoutStr || "5", 10) || 5;
 
-  const loginItems = items.filter((i) => (i.template || "login") === "login" && !i.deletedAt);
+  const loginItems = items.filter((i) => {
+    if (i.deletedAt) return false;
+    const tmpl = i.template || "login";
+    return tmpl === "login" || (i as any).isPasskey || i.tags?.includes("passkey");
+  });
   const datasets: any[] = [];
   for (const item of loginItems) {
     try {
       const raw = await decrypt(cryptoKey, item.encryptedBlob);
       const p = JSON.parse(raw);
-      const isPasskey = Boolean(p.isPasskey || p.passkeyCredentialId || item.isPasskey || item.tags?.includes("passkey"));
+      const isPasskey = Boolean(p.isPasskey || p.passkeyCredentialId || (item as any).isPasskey || item.tags?.includes("passkey"));
       if (p.username || p.password || isPasskey) {
         const rawUrls: string[] = [];
         if (p.url && typeof p.url === "string") rawUrls.push(p.url);
@@ -1260,15 +1284,29 @@ async function syncAutofillStore() {
           });
         }
 
+        let domain = item.domain || p.url || "";
+        if (domain.startsWith("http://") || domain.startsWith("https://")) {
+          try {
+            domain = new URL(domain).hostname;
+          } catch {}
+        }
+
+        let passkeyRpId = p.passkeyRpId || domain || item.domain || "";
+        if (passkeyRpId.startsWith("http://") || passkeyRpId.startsWith("https://")) {
+          try {
+            passkeyRpId = new URL(passkeyRpId).hostname;
+          } catch {}
+        }
+
         datasets.push({
           id: item.id,
           name: item.name,
-          domain: item.domain || p.url || "",
+          domain,
           username: p.username || "",
           password: p.password || "",
           urls: Array.from(new Set(rawUrls)).filter(Boolean),
           isPasskey,
-          passkeyRpId: p.passkeyRpId || item.domain || "",
+          passkeyRpId,
           passkeyCredentialId: p.passkeyCredentialId || "",
           passkeyUserHandle: p.passkeyUserHandle || "",
           passkeyPrivateKey: p.passkeyPrivateKey || "",
