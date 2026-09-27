@@ -1,3 +1,40 @@
+## Current Session: Passkey Creation & Browser Prompt Elimination (2026-09-27) · Branch: `dev`
+
+### ✅ What Was Done (Phase 40: Block Browser Passkey Popup During Creation, Iframe Interception & Spec Alignment)
+
+**Files Changed:**
+- `extension/src/content-script/webauthn-page.ts`
+- `extension/src/content-script/autofill.ts`
+- `extension/src/background/service-worker.ts`
+- `extension/manifest.json`
+
+**Fixes & Enhancements:**
+1. **Blocked All Fallbacks to Browser Passkeys in `interceptedCreate` (`webauthn-page.ts`)**:
+   - Eliminated silent fallback calls to `originalCreate(options)` whenever VaultR is locked, passkeys are disabled, creation fails, or the ceremony is unhandled.
+   - All failure cases now throw standard WebAuthn `DOMException(..., "NotAllowedError")`, preventing Chrome/Windows Hello from displaying its native passkey prompt.
+   - `originalCreate(options)` is now strictly called ONLY if the user explicitly clicked "Use Browser" (`res?.useBrowser === true`).
+
+2. **Differentiated "Use Browser" from Prompt Dismissal (`autofill.ts`, `webauthn-page.ts`)**:
+   - Closing the VaultR in-page prompt via `✕` (dismiss) now cleanly cancels the ceremony and throws `NotAllowedError` without triggering the browser's native passkeys.
+   - Clicking "Use Browser" explicitly sets `useBrowser: true` to permit the only legitimate delegation to native platform credentials.
+
+3. **In-Page Toast & Error Handling on Locked Vault for Creation (`autofill.ts`)**:
+   - Added user feedback toast (`Unlock VaultR to save your passkey`) when passkey creation is attempted while the vault is locked.
+   - Sends `error: "locked"` so the interceptor can reject with a descriptive message rather than falling through to Windows Hello.
+
+4. **Multi-Frame & Iframe Interception (`manifest.json`)**:
+   - Added `"all_frames": true` to both `webauthn-page.js` and `autofill.js` so passkey creation and authentication inside embedded iframes (e.g. Google Accounts / GSI / identity frames) are properly intercepted instead of bypassing the extension.
+   - Set `autofill.js` to `"run_at": "document_start"` with safe `(document.body || document.documentElement)` DOM attachment guards so the message listener is ready immediately when early WebAuthn ceremonies fire.
+
+5. **WebAuthn Level 3 Spec Capability Fix (`webauthn-page.ts`)**:
+   - Added `userVerifyingPlatformAuthenticator: true` to `PublicKeyCredential.getClientCapabilities()`. Google specifically verifies this capability to detect whether a platform authenticator with user verification is present.
+   - Added defensive optional chaining to `pk.user?.id` serialization in `serializeCreationOptions`.
+
+6. **Service Worker Cleanup (`service-worker.ts`)**:
+   - Cleanly extracted `normalizeCredentialId` to the top-level helper section outside of the `onMessage` switch statement.
+
+---
+
 ## Current Session: Passkey Sign-In & Creation Deep Fix Across Extension & Android (2026-09-27) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 39: Passkey Creation, Assertion & Cross-Platform Alignment)
