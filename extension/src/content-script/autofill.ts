@@ -1626,7 +1626,14 @@ window.addEventListener("message", (event) => {
     }
 
     if (!status.isUnlocked) {
-      // Vault is locked; delegate to browser native
+      // Vault is locked — tell the interceptor so it can throw NotAllowedError
+      // For GET: show a toast so user knows to unlock VaultR
+      if (action === "GET") {
+        showInPageToast(
+          `<span style="color:#f59e0b;font-weight:700">&#128274;</span> <span>Unlock VaultR to sign in with your passkey.</span>`,
+          6000
+        );
+      }
       window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "locked" }, "*");
       return;
     }
@@ -1699,8 +1706,13 @@ window.addEventListener("message", (event) => {
         { type: "GET_PASSKEYS_FOR_RP", rpId, allowCredentials: payload.allowCredentials },
         (res) => {
           if (chrome.runtime.lastError || !res?.passkeys || res.passkeys.length === 0) {
-            // No passkeys in vault for this RP; let browser handle natively
-            window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+            // No passkeys in VaultR vault for this RP — inform user instead of silently
+            // falling back to browser native (which would trigger Windows Hello popup).
+            showInPageToast(
+              `<span style="color:#f59e0b;font-weight:700">&#128275;</span> <span>No VaultR passkey found for <strong>${rpId}</strong>. Please register a passkey first.</span>`,
+              7000
+            );
+            window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "No passkey found" }, "*");
             return;
           }
 
