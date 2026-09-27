@@ -33,6 +33,11 @@ function normalizeServerUrl(url?: string | null): string {
   return trimmed.replace(/\/+$/, "");
 }
 
+function normalizeCredentialId(id: string | undefined | null): string {
+  if (!id) return "";
+  return id.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+}
+
 function getServerBaseUrl(): string {
   return normalizeServerUrl(state.serverUrl);
 }
@@ -1181,11 +1186,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
           break;
         }
-
-function normalizeCredentialId(id: string | undefined | null): string {
-  if (!id) return "";
-  return id.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
-}
 
         case "CHECK_PASSKEY_AVAILABLE": {
           await tryRestoreSession();
