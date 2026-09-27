@@ -287,12 +287,24 @@ class PasskeyAuthActivity : Activity() {
             if (option is BeginGetPublicKeyCredentialOption) {
                 val requestJson = option.requestJson.ifBlank { passedRequestJson }
                 var rpId = ""
+                val allowCredentials = mutableListOf<String>()
                 if (requestJson.isNotBlank()) {
                     try {
                         val json = JSONObject(requestJson)
                         rpId = json.optString("rpId")
                         if (rpId.isBlank()) {
                             rpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
+                        }
+                        val credsArr = json.optJSONArray("allowCredentials")
+                            ?: json.optJSONObject("publicKey")?.optJSONArray("allowCredentials")
+                        if (credsArr != null) {
+                            for (i in 0 until credsArr.length()) {
+                                val credObj = credsArr.optJSONObject(i)
+                                val id = credObj?.optString("id", "") ?: ""
+                                if (id.isNotBlank()) {
+                                    allowCredentials.add(id)
+                                }
+                            }
                         }
                     } catch (_: Exception) {}
                 }
@@ -303,7 +315,7 @@ class PasskeyAuthActivity : Activity() {
                     rpId = passedRpId.ifBlank { callingPackage }
                 }
 
-                val passkeys = AutofillCredentialStore.findPasskeys(rpId)
+                val passkeys = AutofillCredentialStore.findPasskeysInStorage(applicationContext, rpId, allowCredentials)
                 Log.d(TAG, "Post-unlock: found ${passkeys.size} passkeys for rpId '$rpId'")
 
                 for (passkey in passkeys) {
@@ -311,7 +323,7 @@ class PasskeyAuthActivity : Activity() {
                         action = VaultrCredentialProviderService.ACTION_PASSKEY_AUTH
                         putExtra(VaultrCredentialProviderService.EXTRA_CREDENTIAL_ID, passkey.id)
                         putExtra(VaultrCredentialProviderService.EXTRA_PASSKEY_ID, passkey.passkeyCredentialId)
-                        putExtra(VaultrCredentialProviderService.EXTRA_RP_ID, rpId)
+                        putExtra(VaultrCredentialProviderService.EXTRA_RP_ID, if (rpId.isNotBlank()) rpId else (passkey.passkeyRpId ?: passkey.domain ?: ""))
                         putExtra(VaultrCredentialProviderService.EXTRA_REQUEST_JSON, requestJson)
                         putExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE, callingPackage)
                     }
@@ -339,7 +351,7 @@ class PasskeyAuthActivity : Activity() {
                 }
             } else if (option is BeginGetPasswordOption) {
                 val target = if (origin.isNotBlank()) origin else callingPackage
-                val matches = AutofillCredentialStore.findMatches(target)
+                val matches = AutofillCredentialStore.findMatchesInStorage(applicationContext, target)
                 Log.d(TAG, "Post-unlock: found ${matches.size} password matches for target '$target'")
 
                 for (login in matches) {
@@ -397,14 +409,8 @@ class PasskeyAuthActivity : Activity() {
             ?: intent.getStringExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE)
             ?: ""
 
-        // 2. Find matching passkey item in store
-        var item: AutofillItem? = null
-        if (passkeyId.isNotBlank()) {
-            item = AutofillCredentialStore.findPasskeyByCredentialId(passkeyId)
-        }
-        if (item == null && credentialId.isNotBlank()) {
-            item = AutofillCredentialStore.getAll().find { it.id == credentialId || it.passkeyCredentialId == credentialId }
-        }
+        // 2. Find matching passkey item in store (searches storage even if memory cache is locked!)
+        val item = AutofillCredentialStore.findPasskeyInStorage(applicationContext, passkeyId.ifBlank { credentialId })
 
         if (item == null || item.passkeyPrivateKey.isNullOrBlank()) {
             Log.e(TAG, "Passkey item not found or missing private key for credentialId: $credentialId / passkeyId: $passkeyId")
@@ -422,6 +428,59 @@ class PasskeyAuthActivity : Activity() {
             ?: ""
         val clientDataHashFromOption = publicKeyOption?.clientDataHash
 
+        if (AutofillCredentialStore.isVaultLocked()) {
+            Log.d(TAG, "Vault locked for passkey auth — presenting BiometricPrompt")
+            val promptBuilder = BiometricPrompt.Builder(this)
+                .setTitle("Sign in with Passkey")
+                .setSubtitle("Authenticate to use passkey for ${item.username.ifBlank { item.name }}")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                promptBuilder.setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                promptBuilder.setDeviceCredentialAllowed(true)
+            }
+
+            val prompt = promptBuilder.build()
+            val cancellationSignal = CancellationSignal()
+            prompt.authenticate(
+                cancellationSignal,
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                        Log.d(TAG, "Biometric authentication succeeded for passkey auth")
+                        AutofillCredentialStore.unlockVault(applicationContext)
+                        performPasskeyAssertion(item, credentialId, rpId, callingPkg, requestJson, clientDataHashFromOption, getRequest, resultIntent)
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                        Log.w(TAG, "Biometric authentication error/canceled: $errorCode ($errString)")
+                        finishWithFailure(errString?.toString() ?: "Authentication canceled")
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        Log.w(TAG, "Biometric authentication failed")
+                    }
+                }
+            )
+        } else {
+            performPasskeyAssertion(item, credentialId, rpId, callingPkg, requestJson, clientDataHashFromOption, getRequest, resultIntent)
+        }
+    }
+
+    private fun performPasskeyAssertion(
+        item: AutofillItem,
+        credentialId: String,
+        rpId: String,
+        callingPkg: String,
+        requestJson: String,
+        clientDataHashFromOption: ByteArray?,
+        getRequest: androidx.credentials.provider.ProviderGetCredentialRequest?,
+        resultIntent: Intent
+    ) {
         var challengeStr = ""
         if (requestJson.isNotBlank()) {
             try {
@@ -688,6 +747,45 @@ class PasskeyAuthActivity : Activity() {
             return
         }
 
+        if (AutofillCredentialStore.isVaultLocked()) {
+            val promptBuilder = BiometricPrompt.Builder(this)
+                .setTitle("Unlock VaultR")
+                .setSubtitle("Authenticate to autofill credentials for $username")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                promptBuilder.setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                promptBuilder.setDeviceCredentialAllowed(true)
+            }
+
+            val prompt = promptBuilder.build()
+            val cancellationSignal = CancellationSignal()
+            prompt.authenticate(
+                cancellationSignal,
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                        AutofillCredentialStore.unlockVault(applicationContext)
+                        deliverPasswordResponse(username, password, resultIntent)
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                        finishWithFailure(errString?.toString() ?: "Authentication canceled")
+                    }
+
+                    override fun onAuthenticationFailed() {}
+                }
+            )
+        } else {
+            deliverPasswordResponse(username, password, resultIntent)
+        }
+    }
+
+    private fun deliverPasswordResponse(username: String, password: String, resultIntent: Intent) {
         val passwordCredential = PasswordCredential(username, password)
         val getCredentialResponse = GetCredentialResponse(passwordCredential)
         PendingIntentHandler.setGetCredentialResponse(resultIntent, getCredentialResponse)

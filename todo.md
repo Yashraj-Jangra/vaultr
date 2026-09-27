@@ -1,12 +1,45 @@
-## Current Session: Android Passkey Biometric Unlock & Accessibility Autofill Overlay (2026-09-28) · Branch: `dev`
+## Current Session: Android Passkey Discovery & In-Sheet Biometric Assertion (2026-09-28) · Branch: `dev`
 
-### ✅ What Was Done (Phase 42: Bitwarden-Style In-Sheet Unlock, Non-Destructive Auto-Lock & Floating Accessibility Overlay)
+### ✅ What Was Done (Phase 43: Fix Chrome "No Available Passkey / Other Device" Prompt via Persistent Candidates & In-Sheet Biometric Assertion)
 
 **Files Changed:**
+- `mobile/src/store/vaultStore.ts`
+- `mobile/android/app/src/main/res/xml/credential_provider_config.xml`
 - `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/AutofillCredentialStore.kt`
 - `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrCredentialProviderService.kt`
 - `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
-- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrAccessibilityService.kt`
+
+**Root Cause Analysis & Resolutions:**
+1. **Root Cause A: Returning `AuthenticationAction` with ZERO `PublicKeyCredentialEntry`**:
+   - In `VaultrCredentialProviderService.kt`, when `isVaultLocked()` was true, the service returned only an `AuthenticationAction("Unlock VaultR")` and zero `PublicKeyCredentialEntry` candidates.
+   - When Chrome fires a WebAuthn passkey request (`navigator.credentials.get({ publicKey: ... })`), Android Credential Manager evaluates if any registered provider returned a `PublicKeyCredentialEntry`. If no entry is returned by any provider, Chrome displays its fallback sheet: *"No available passkey for this site. Use a passkey from another device"*.
+   - **Resolution**: Removed the early return in `onBeginGetCredentialRequest`. Now queries `findPasskeysInStorage(applicationContext, rpId, allowCredentials)` and **always returns `PublicKeyCredentialEntry` for each matching passkey**, whether locked or unlocked. Chrome displays the VaultR passkey directly in its selector.
+
+2. **Root Cause B: `lock()` in React Native Wiped the Native Store**:
+   - In `mobile/src/store/vaultStore.ts` line 652: `lock()` called `clearAutofillCredentials()`. Whenever the user switched from VaultR to Chrome, VaultR locked, wiping all cached credentials from Android `SharedPreferences`. When Chrome queried VaultR, SharedPreferences had 0 items.
+   - **Resolution**: Removed `clearAutofillCredentials()` from `lock()`. Sensitive keys in JS memory are purged, but the native Android store remains cached in private app storage and auto-locks safely. `clearAutofillCredentials()` is now strictly reserved for account logout and stale biometric invalidation.
+
+3. **Root Cause C: `syncAutofillStore()` Never Called on Fetch / Mutations**:
+   - `syncAutofillStore()` was only triggered once on manual master password unlock. It was never called when items were fetched from the server (`fetchItems`) or when items were created, updated, trashed, or deleted.
+   - **Resolution**: Added `syncAutofillStore()` calls after `fetchItems()` and after item mutations (`createItem`, `updateItem`, `trashItem`, `restoreItem`, `deleteItem`). Broadened the filter so any passkey item (even without `login` template) is indexed with normalized domain/RP IDs.
+
+4. **Root Cause D: Missing `allowCredentials` Matching & Base64URL Normalization**:
+   - WebAuthn relying parties (such as Google Accounts) provide `allowCredentials: [ { id: "..." } ]` containing the specific credential ID for that account.
+   - **Resolution**: Added `normalizeCredentialId(id: String?)` in Kotlin (stripping padding `=`, converting `-` to `+`, `_` to `/`) to harmonize Base64 vs Base64URL differences. Enhanced `findPasskeysInStorage()` to match `allowCredentials` IDs with 100% precision before domain fallback. Added `findPasskeyInStorage()` to retrieve stored passkeys regardless of memory lock state.
+
+5. **Root Cause E: In-Sheet Biometric Authentication on Passkey Selection (`PasskeyAuthActivity.kt`)**:
+   - When the user selects the passkey in Android Credential Manager, `PasskeyAuthActivity` is launched via `PendingIntent`.
+   - If `AutofillCredentialStore.isVaultLocked()` is true, it displays native Android `BiometricPrompt` (*"Sign in with Passkey - Authenticate to use passkey for user@gmail.com"*).
+   - Upon biometric success, it unlocks the vault in memory (`unlockVault`), signs the ECDSA P-256 WebAuthn assertion with `item.passkeyPrivateKey`, and returns `GetCredentialResponse` to Android OS via `PendingIntentHandler`.
+
+6. **Validation & Release Build**:
+   - TypeScript checks passed with 0 errors across root and mobile (`npx tsc --noEmit`).
+   - Android release build compiled cleanly (`assembleRelease` in 10m 52s, 745 tasks).
+   - Generated signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.11-release.apk` (146.7 MB).
+
+---
+
+## Prior Session: Android Passkey Biometric Unlock & Accessibility Autofill Overlay (2026-09-28) · Branch: `dev`
 
 **Fixes & Enhancements:**
 1. **Root Cause 1: Broken Unlock Flow in Android Credential Manager**:

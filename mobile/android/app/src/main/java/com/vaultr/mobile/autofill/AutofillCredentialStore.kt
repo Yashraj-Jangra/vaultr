@@ -324,18 +324,41 @@ object AutofillCredentialStore {
         }
     }
 
+    fun normalizeCredentialId(id: String?): String {
+        if (id.isNullOrBlank()) return ""
+        return id.trim().replace(Regex("=+$"), "").replace('-', '+').replace('_', '/')
+    }
+
     /**
      * Searches passkeys from local secure storage even if vault memory cache is currently locked.
-     * Essential for Credential Manager discovery to provide unlock actions only when relevant.
+     * Essential for Credential Manager discovery to provide passkey entries directly.
      */
-    fun findPasskeysInStorage(context: Context, rpId: String?): List<AutofillItem> {
-        if (rpId.isNullOrBlank()) return emptyList()
+    fun findPasskeysInStorage(
+        context: Context,
+        rpId: String?,
+        allowCredentials: List<String> = emptyList()
+    ): List<AutofillItem> {
         val items = getStoredItems(context)
+        val passkeyItems = items.filter { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+        if (passkeyItems.isEmpty()) return emptyList()
+
+        // 1. If explicit allowCredentials IDs are provided by the relying party, match them first
+        val allowedNormalized = allowCredentials.map { normalizeCredentialId(it) }.filter { it.isNotBlank() }.toSet()
+        if (allowedNormalized.isNotEmpty()) {
+            val idMatches = passkeyItems.filter { item ->
+                allowedNormalized.contains(normalizeCredentialId(item.passkeyCredentialId))
+            }
+            if (idMatches.isNotEmpty()) {
+                return idMatches
+            }
+        }
+
+        if (rpId.isNullOrBlank()) return emptyList()
+
         val cleanRp = normalizeDomain(rpId)
         val mappedDomain = PACKAGE_DOMAIN_MAP[cleanRp.lowercase()]
-        return items.filter { item ->
-            if (!item.isPasskey || item.passkeyCredentialId.isNullOrBlank()) return@filter false
 
+        return passkeyItems.filter { item ->
             val itemRp = item.passkeyRpId?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
             val itemDomain = item.domain?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
 
@@ -405,22 +428,42 @@ object AutofillCredentialStore {
     }
 
     fun findPasskeyByCredentialId(credentialId: String): AutofillItem? {
-        if (isVaultLocked()) return null
-        return cachedItems.firstOrNull { it.isPasskey && (it.passkeyCredentialId == credentialId || it.id == credentialId) }
+        val targetNorm = normalizeCredentialId(credentialId)
+        return cachedItems.firstOrNull {
+            it.isPasskey && (
+                it.id == credentialId ||
+                (!it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == targetNorm)
+            )
+        }
+    }
+
+    fun findPasskeyInStorage(context: Context, credentialId: String): AutofillItem? {
+        if (credentialId.isBlank()) return null
+        val targetNorm = normalizeCredentialId(credentialId)
+        val items = getStoredItems(context)
+        return items.firstOrNull { item ->
+            item.isPasskey && (
+                item.id == credentialId ||
+                (!item.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(item.passkeyCredentialId) == targetNorm)
+            )
+        }
     }
 
     fun updatePasskeySignCount(credentialId: String, newCount: Long, context: Context? = null) {
-        val index = cachedItems.indexOfFirst { it.passkeyCredentialId == credentialId || it.id == credentialId }
+        val currentItems = if (context != null) getStoredItems(context).toMutableList() else cachedItems.toMutableList()
+        val targetNorm = normalizeCredentialId(credentialId)
+        val index = currentItems.indexOfFirst {
+            it.id == credentialId || (!it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == targetNorm)
+        }
         if (index != -1) {
-            val item = cachedItems[index]
+            val item = currentItems[index]
             val updated = item.copy(passkeySignCount = newCount)
-            val newList = cachedItems.toMutableList()
-            newList[index] = updated
-            cachedItems = newList
+            currentItems[index] = updated
+            cachedItems = currentItems
 
             if (context != null) {
                 try {
-                    val raw = serializeToJson(cachedItems)
+                    val raw = serializeToJson(currentItems)
                     getPrefs(context).edit().putString(KEY_CREDENTIALS, raw).apply()
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to persist updated signCount", e)
@@ -430,19 +473,20 @@ object AutofillCredentialStore {
     }
 
     fun addOrUpdatePasskey(newItem: AutofillItem, context: Context) {
-        val index = cachedItems.indexOfFirst {
-            (!newItem.passkeyCredentialId.isNullOrBlank() && it.passkeyCredentialId == newItem.passkeyCredentialId) ||
-            it.id == newItem.id
+        val currentItems = getStoredItems(context).toMutableList()
+        val newNorm = normalizeCredentialId(newItem.passkeyCredentialId)
+        val index = currentItems.indexOfFirst {
+            it.id == newItem.id ||
+            (!newItem.passkeyCredentialId.isNullOrBlank() && !it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == newNorm)
         }
-        val newList = cachedItems.toMutableList()
         if (index != -1) {
-            newList[index] = newItem
+            currentItems[index] = newItem
         } else {
-            newList.add(newItem)
+            currentItems.add(newItem)
         }
-        cachedItems = newList
+        cachedItems = currentItems
         try {
-            val raw = serializeToJson(cachedItems)
+            val raw = serializeToJson(currentItems)
             getPrefs(context).edit().putString(KEY_CREDENTIALS, raw).apply()
             Log.d(TAG, "Successfully added/updated passkey in AutofillCredentialStore for ${newItem.username} on ${newItem.passkeyRpId}")
         } catch (e: Exception) {
