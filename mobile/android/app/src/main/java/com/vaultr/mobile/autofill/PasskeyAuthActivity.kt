@@ -43,6 +43,16 @@ class PasskeyAuthActivity : Activity() {
     companion object {
         private const val TAG = "VaultrPasskeyAuth"
 
+        // Official VaultR Authenticator Attestation Globally Unique Identifier (AAGUID)
+        // Format: RFC 4122 v4 UUID, hex prefix: 0x76 61 75 6c 74 72 = "vaultr" in ASCII
+        const val VAULTR_AAGUID = "7661756c-7472-4a11-8517-5e839e55720c"
+        val VAULTR_AAGUID_BYTES = byteArrayOf(
+            0x76.toByte(), 0x61.toByte(), 0x75.toByte(), 0x6c.toByte(),
+            0x74.toByte(), 0x72.toByte(), 0x4a.toByte(), 0x11.toByte(),
+            0x85.toByte(), 0x17.toByte(), 0x5e.toByte(), 0x83.toByte(),
+            0x9e.toByte(), 0x55.toByte(), 0x72.toByte(), 0x0c.toByte()
+        )
+
         // Fixed ASN.1 PKCS#8 prefix for SECP256R1 (ECDSA P-256) private key wrapping
         private val PKCS8_P256_PREFIX = byteArrayOf(
             0x30.toByte(), 0x41.toByte(), 0x02.toByte(), 0x01.toByte(), 0x00.toByte(), 0x30.toByte(),
@@ -421,7 +431,7 @@ class PasskeyAuthActivity : Activity() {
         authData[offset] = (0x01 or 0x04 or 0x08 or 0x10 or 0x40).toByte(); offset += 1 // UP | UV | BE | BS | AT (0x5d)
         val signCountBytes = ByteBuffer.allocate(4).putInt(0).array()
         System.arraycopy(signCountBytes, 0, authData, offset, 4); offset += 4
-        val aaguid = ByteArray(16) // all zeros
+        val aaguid = VAULTR_AAGUID_BYTES.clone()
         System.arraycopy(aaguid, 0, authData, offset, 16); offset += 16
         val credIdLenBytes = byteArrayOf(((credIdBytes.size shr 8) and 0xff).toByte(), (credIdBytes.size and 0xff).toByte())
         System.arraycopy(credIdLenBytes, 0, authData, offset, 2); offset += 2

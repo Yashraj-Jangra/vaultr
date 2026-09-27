@@ -1100,6 +1100,14 @@ function removeSavePrompt() {
   }
 }
 
+const VAULTR_SHIELD_ICON_SVG = `
+<svg width="15" height="15" viewBox="0 0 1000 1000" fill="none" style="display:block;flex-shrink:0;">
+  <path fill="#ffffff" d="M 61 148 L 500.5 976.6 L 779.8 589.8 L 779.8 351.1 L 725.1 310.5 L 291.5 311 L 394 462.9 L 339.8 447.3 L 539.6 782.7 L 507.3 827.6 L 275.4 403.3 L 326.2 419.4 Z"/>
+  <path fill="#09090b" d="M 500 433 C 472 433 449 456 449 484 C 449 504 460 521 477 530 L 469 604 L 531 604 L 523 530 C 540 521 551 504 551 484 C 551 456 528 433 500 433 Z"/>
+  <path fill="#ffffff" d="M 305 285 L 305 78 L 360 21 L 640 21 L 700 78 L 700 285 L 625 285 L 625 106 L 605 88 L 395 88 L 380 106 L 380 285 Z"/>
+</svg>
+`;
+
 function showSaveOrUpdatePrompt(opts: {
   mode: "save" | "update";
   domain: string;
@@ -1119,7 +1127,7 @@ function showSaveOrUpdatePrompt(opts: {
     position: fixed !important;
     top: 16px !important;
     right: 16px !important;
-    width: 320px !important;
+    width: 340px !important;
     z-index: 2147483647 !important;
     pointer-events: auto !important;
     opacity: 0;
@@ -1135,7 +1143,7 @@ function showSaveOrUpdatePrompt(opts: {
       background: #09090b;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
       padding: 14px 16px;
       color: #f4f4f5;
     }
@@ -1143,28 +1151,57 @@ function showSaveOrUpdatePrompt(opts: {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
-    .badge {
+    .brand {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
+      gap: 8px;
+    }
+    .logo-box {
+      width: 24px;
+      height: 24px;
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+    }
+    .chip {
+      font-size: 9px;
       font-weight: 700;
       color: #38bdf8;
-      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 1.5px 5px;
+      border-radius: 4px;
       letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
     .close-btn {
+      width: 24px;
+      height: 24px;
       background: none;
       border: none;
+      border-radius: 6px;
       color: #71717a;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
     }
-    .close-btn:hover { color: #f4f4f5; }
+    .close-btn:hover { background: rgba(255, 255, 255, 0.08); color: #f4f4f5; }
     .title {
       font-size: 14px;
       font-weight: 600;
@@ -1184,28 +1221,35 @@ function showSaveOrUpdatePrompt(opts: {
     }
     .btn-primary {
       flex: 1;
-      height: 34px;
+      height: 36px;
       background: #f4f4f5;
       color: #09090b;
       border: none;
       border-radius: 9px;
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s, transform 0.05s;
     }
     .btn-primary:hover { background: #ffffff; }
+    .btn-primary:active { transform: scale(0.99); }
     .btn-ghost {
-      height: 34px;
+      height: 36px;
       padding: 0 12px;
       background: #18181b;
       color: #a1a1aa;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 9px;
       font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.2); }
+    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255, 255, 255, 0.22); background: #202024; }
   `;
   shadow.appendChild(styleEl);
 
@@ -1215,11 +1259,14 @@ function showSaveOrUpdatePrompt(opts: {
   const isSave = opts.mode === "save";
   card.innerHTML = `
     <div class="header">
-      <div class="badge">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>VaultR Password Manager</span>
+      <div class="brand">
+        <div class="logo-box">
+          ${VAULTR_SHIELD_ICON_SVG}
+        </div>
+        <span class="brand-title">VaultR</span>
+        <span class="chip">Password</span>
       </div>
-      <button class="close-btn" title="Dismiss">✕</button>
+      <button class="close-btn" title="Dismiss" aria-label="Dismiss">✕</button>
     </div>
     <div class="title">${isSave ? "Save password to VaultR?" : "Update password in VaultR?"}</div>
     <div class="sub">
@@ -1469,7 +1516,7 @@ function showPasskeyPrompt(opts: {
     position: fixed !important;
     top: 16px !important;
     right: 16px !important;
-    width: 320px !important;
+    width: 350px !important;
     z-index: 2147483647 !important;
     pointer-events: auto !important;
     opacity: 0;
@@ -1485,7 +1532,7 @@ function showPasskeyPrompt(opts: {
       background: #09090b;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
       padding: 14px 16px;
       color: #f4f4f5;
     }
@@ -1493,39 +1540,120 @@ function showPasskeyPrompt(opts: {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
-    .badge {
+    .brand {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
+      gap: 8px;
+    }
+    .logo-box {
+      width: 24px;
+      height: 24px;
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+    }
+    .chip {
+      font-size: 9px;
       font-weight: 700;
       color: #38bdf8;
-      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 1.5px 5px;
+      border-radius: 4px;
       letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
     .close-btn {
+      width: 24px;
+      height: 24px;
       background: none;
       border: none;
+      border-radius: 6px;
       color: #71717a;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
     }
-    .close-btn:hover { color: #f4f4f5; }
+    .close-btn:hover { background: rgba(255, 255, 255, 0.08); color: #f4f4f5; }
     .title {
       font-size: 14px;
       font-weight: 600;
       color: #ffffff;
-      margin-bottom: 4px;
+      margin-bottom: 10px;
     }
-    .sub {
+    .account-card {
+      background: #141417;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .account-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #1c1c21;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .account-icon img {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+    }
+    .account-meta {
+      min-width: 0;
+      flex: 1;
+    }
+    .account-rp {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f4f4f5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-user {
       font-size: 12px;
       color: #a1a1aa;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+    .security-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #71717a;
       margin-bottom: 14px;
-      line-height: 1.4;
+    }
+    .security-note svg {
+      flex-shrink: 0;
     }
     .actions {
       display: flex;
@@ -1533,28 +1661,35 @@ function showPasskeyPrompt(opts: {
     }
     .btn-primary {
       flex: 1;
-      height: 34px;
+      height: 36px;
       background: #f4f4f5;
       color: #09090b;
       border: none;
       border-radius: 9px;
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s, transform 0.05s;
     }
     .btn-primary:hover { background: #ffffff; }
+    .btn-primary:active { transform: scale(0.99); }
     .btn-ghost {
-      height: 34px;
-      padding: 0 10px;
+      height: 36px;
+      padding: 0 12px;
       background: #18181b;
       color: #a1a1aa;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 9px;
       font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.2); }
+    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255, 255, 255, 0.22); background: #202024; }
   `;
 
   shadow.appendChild(styleEl);
@@ -1563,24 +1698,42 @@ function showPasskeyPrompt(opts: {
   card.className = "card";
 
   const isCreate = opts.mode === "create";
+  const userDisplay = opts.username || (isCreate ? "New Passkey" : "Saved Passkey");
+
   card.innerHTML = `
     <div class="header">
-      <div class="badge">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m21 2-2 2m-1.5 1.5L10 13a5 5 0 1 0 4 4l7.5-7.5M15.5 7.5l3 3"/></svg>
-        <span>VaultR Passkey</span>
+      <div class="brand">
+        <div class="logo-box">
+          ${VAULTR_SHIELD_ICON_SVG}
+        </div>
+        <span class="brand-title">VaultR</span>
+        <span class="chip">Passkey</span>
       </div>
-      <button class="close-btn" title="Dismiss">✕</button>
+      <button class="close-btn" title="Dismiss" aria-label="Dismiss">✕</button>
     </div>
     <div class="title">${isCreate ? "Save Passkey to VaultR" : "Sign In with Passkey"}</div>
-    <div class="sub">
-      ${
-        isCreate
-          ? `Save passkey for <strong>${opts.rpId}</strong>${opts.username ? ` (${opts.username})` : ""}`
-          : `Use passkey stored in VaultR for <strong>${opts.rpId}</strong>${opts.username ? ` (${opts.username})` : ""}`
-      }
+    <div class="account-card">
+      <div class="account-icon">
+        <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(opts.rpId)}&sz=64" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      </div>
+      <div class="account-meta">
+        <div class="account-rp">${opts.rpId}</div>
+        <div class="account-user">${userDisplay}</div>
+      </div>
+    </div>
+    <div class="security-note">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+      <span>End-to-end encrypted in your vault</span>
     </div>
     <div class="actions">
-      <button class="btn-primary">${isCreate ? "Save Passkey" : "Sign In"}</button>
+      <button class="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-1.5 1.5L10 13a5 5 0 1 0 4 4l7.5-7.5M15.5 7.5l3 3"/></svg>
+        <span>${isCreate ? "Save Passkey" : "Sign In"}</span>
+      </button>
       <button class="btn-ghost">Use Browser</button>
     </div>
   `;
