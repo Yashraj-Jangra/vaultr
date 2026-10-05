@@ -805,7 +805,7 @@ export function SettingsScreen({
     : "VA";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "var(--bg)" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", background: "var(--bg)" }}>
       {/* ════════════════════════════════════════════════════════════════════
           VIEW A: ROOT FOLDERS LIST (Simple folder layout like in mobile)
          ════════════════════════════════════════════════════════════════════ */}
@@ -1037,7 +1037,7 @@ export function SettingsScreen({
         /* ════════════════════════════════════════════════════════════════════
             VIEW B: INDIVIDUAL FOLDER SETTINGS SCREEN (Full width, no side-rail)
            ════════════════════════════════════════════════════════════════════ */
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
           {/* Sub-Folder Top Bar with Back Button */}
           <div className="settings-folder-header-bar">
             <button
@@ -1061,7 +1061,7 @@ export function SettingsScreen({
           <div
             key={`folder-${activeFolder}-${animKey}`}
             className={`screen-body ${animDir === "right" ? "animate-slide-right" : "animate-screen-enter"}`}
-            style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 12 }}
+            style={{ padding: "12px 14px 32px", display: "flex", flexDirection: "column", gap: 12 }}
           >
             {/* ─── FOLDER: AUTOFILL ─── */}
             {activeFolder === "autofill" && (
@@ -1078,11 +1078,16 @@ export function SettingsScreen({
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                           <ShieldCheck size={14} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8" }} />
                           <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                            Set as Default Password Manager
+                            Default Password Manager
                           </span>
+                          {browserOverrideActive && (
+                            <span className="settings-badge-pill">
+                              <Check size={9} /> Active
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
                           {isEdgeBrowser
@@ -1091,7 +1096,7 @@ export function SettingsScreen({
                               : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
                             : browserOverrideActive
                             ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
-                            : "Turn off browser password prompts and let VaultR seamlessly autofill and manage logins."}
+                            : "Turn off native browser prompts and let VaultR seamlessly autofill and manage logins."}
                         </div>
                       </div>
                       <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
@@ -1104,56 +1109,58 @@ export function SettingsScreen({
                       </label>
                     </div>
 
-                    {browserOverrideActive && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          padding: "6px 10px",
-                          background: "rgba(16, 185, 129, 0.1)",
-                          border: "1px solid rgba(16, 185, 129, 0.2)",
-                          borderRadius: 8,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <Check size={12} style={{ color: "#10b981", flexShrink: 0 }} />
-                        <span style={{ fontSize: 10.5, fontWeight: 600, color: "#10b981" }}>
-                          {isEdgeBrowser ? "MANAGING BROWSER AUTOFILL & PASSKEYS" : "MANAGING BROWSER PASSWORD SETTING"}
-                        </span>
-                      </div>
-                    )}
-
                     {isEdgeBrowser && browserOverrideActive && (
-                      <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                      <div style={{ marginTop: 10, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
                         <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
-                          To silence Edge's &quot;Save password?&quot; banner without affecting Windows Hello passkeys, turn off &quot;Offer to save passwords&quot; in Edge:
+                          To silence Edge's &quot;Save password?&quot; banner without affecting Windows Hello passkeys, disable &quot;Offer to save passwords&quot; in Edge:
                         </p>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ width: "100%", height: 26, fontSize: 10, justifyContent: "center", gap: 4 }}
-                          onClick={() => {
-                            navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
-                            setCopiedKey("edge_autofill");
-                            setTimeout(() => setCopiedKey(null), 2000);
-                          }}
-                        >
-                          {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-                          {copiedKey === "edge_autofill" ? "Copied edge://settings/autofill/passwords/settings" : "Copy edge://settings/autofill/passwords/settings link"}
-                        </button>
+                        <div className="settings-chip-box">
+                          <code className="settings-chip-code">edge://settings/autofill/passwords/settings</code>
+                          <button
+                            type="button"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              padding: "3px 8px",
+                              fontSize: 10,
+                              fontWeight: 500,
+                              borderRadius: 5,
+                              background: copiedKey === "edge_autofill" ? "rgba(16, 185, 129, 0.15)" : "var(--surface)",
+                              color: copiedKey === "edge_autofill" ? "#10b981" : "var(--neutral-200)",
+                              border: "1px solid var(--border)",
+                              cursor: "pointer",
+                              flexShrink: 0,
+                            }}
+                            onClick={() => {
+                              navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
+                              setCopiedKey("edge_autofill");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            title="Copy settings URL"
+                          >
+                            {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+                            {copiedKey === "edge_autofill" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Autofill Preferences Group */}
+                {/* Group 1: Autofill Behavior */}
+                <div className="section-label" style={{ margin: "2px 0 -4px", padding: "0 2px" }}>AUTOFILL BEHAVIOR</div>
                 <div className="settings-card animate-list-item" style={{ "--i": 1, padding: 0, overflow: "hidden" } as React.CSSProperties}>
                   {/* Suggest credentials */}
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Suggest credentials</div>
-                      <div className="settings-row-sub">Show VaultR dropdown popup on input fields</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <div className="settings-row-icon" style={{ background: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.2)" }}>
+                        <Sparkles size={14} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-label">Suggest credentials</div>
+                        <div className="settings-row-sub">Show inline dropdown on login and password fields</div>
+                      </div>
                     </div>
                     <label className="toggle">
                       <input
@@ -1169,9 +1176,14 @@ export function SettingsScreen({
 
                   {/* Auto-submit form */}
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Auto-submit form</div>
-                      <div className="settings-row-sub">Automatically submit the login form after filling credentials</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <div className="settings-row-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.2)" }}>
+                        <LogIn size={14} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-label">Auto-submit form</div>
+                        <div className="settings-row-sub">Automatically submit form after filling credentials</div>
+                      </div>
                     </div>
                     <label className="toggle">
                       <input
@@ -1187,9 +1199,14 @@ export function SettingsScreen({
 
                   {/* Auto-copy 2FA code on fill */}
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Auto-copy 2FA code</div>
-                      <div className="settings-row-sub">Copies one-time TOTP verification code to clipboard upon fill</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <div className="settings-row-icon" style={{ background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderColor: "rgba(245, 158, 11, 0.2)" }}>
+                        <Clock size={14} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-label">Auto-copy 2FA code</div>
+                        <div className="settings-row-sub">Copies one-time TOTP code to clipboard upon fill</div>
+                      </div>
                     </div>
                     <label className="toggle">
                       <input
@@ -1200,14 +1217,21 @@ export function SettingsScreen({
                       <span className="toggle-slider" />
                     </label>
                   </div>
+                </div>
 
-                  <div className="settings-row-divider" />
-
+                {/* Group 2: Capture & Matching */}
+                <div className="section-label" style={{ margin: "4px 0 -4px", padding: "0 2px" }}>CAPTURE & MATCHING</div>
+                <div className="settings-card animate-list-item" style={{ "--i": 2, padding: 0, overflow: "hidden" } as React.CSSProperties}>
                   {/* Match base domain */}
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Match base domain</div>
-                      <div className="settings-row-sub">Suggest credentials across all subdomains (e.g. login.example.com)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <div className="settings-row-icon" style={{ background: "rgba(168, 85, 247, 0.1)", color: "#a855f7", borderColor: "rgba(168, 85, 247, 0.2)" }}>
+                        <Globe size={14} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-label">Match base domain</div>
+                        <div className="settings-row-sub">Suggest credentials across all subdomains (e.g. login.example.com)</div>
+                      </div>
                     </div>
                     <label className="toggle">
                       <input
@@ -1223,9 +1247,14 @@ export function SettingsScreen({
 
                   {/* Prompt to save new credentials */}
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Prompt to save passwords</div>
-                      <div className="settings-row-sub">Ask to save new logins entered into web forms</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <div className="settings-row-icon" style={{ background: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.2)" }}>
+                        <KeyRound size={14} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-label">Prompt to save passwords</div>
+                        <div className="settings-row-sub">Ask to save new logins entered into web forms</div>
+                      </div>
                     </div>
                     <label className="toggle">
                       <input
@@ -1241,9 +1270,14 @@ export function SettingsScreen({
 
                   {/* Prompt to update existing credentials */}
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Prompt to update passwords</div>
-                      <div className="settings-row-sub">Offer to update existing entries when password changes are detected</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <div className="settings-row-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.2)" }}>
+                        <RefreshCw size={14} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-label">Prompt to update passwords</div>
+                        <div className="settings-row-sub">Offer to update existing entries when password changes are detected</div>
+                      </div>
                     </div>
                     <label className="toggle">
                       <input
@@ -1256,21 +1290,20 @@ export function SettingsScreen({
                   </div>
                 </div>
 
-                {/* Keyboard Shortcuts Card */}
-                <div className="settings-card animate-list-item" style={{ "--i": 2 } as React.CSSProperties}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 8, textTransform: "uppercase" }}>
-                    Keyboard Shortcuts
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {/* Group 3: Keyboard Shortcuts Card */}
+                <div className="section-label" style={{ margin: "4px 0 -4px", padding: "0 2px" }}>KEYBOARD SHORTCUTS</div>
+                <div className="settings-card animate-list-item" style={{ "--i": 3 } as React.CSSProperties}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Autofill credentials</span>
-                      <kbd style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
+                      <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Autofill credentials</span>
+                      <kbd className="settings-kbd-key">
                         {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
                       </kbd>
                     </div>
+                    <div style={{ height: 1, background: "var(--border)" }} />
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 11.5, color: "var(--neutral-300)" }}>Copy 2FA TOTP code</span>
-                      <kbd style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--neutral-200)" }}>
+                      <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Copy 2FA TOTP code</span>
+                      <kbd className="settings-kbd-key">
                         {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
                       </kbd>
                     </div>
