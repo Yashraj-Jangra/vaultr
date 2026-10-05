@@ -185,7 +185,30 @@ function PasswordField({
   );
 }
 
-export type SettingsTab = "autofill" | "security" | "themes" | "about";
+function getPasswordStrength(pwd: string): { label: string; score: number; color: string } {
+  if (!pwd) return { label: "", score: 0, color: "var(--neutral-700)" };
+  if (pwd.length < 8) {
+    return { label: "Too short (min 8 characters)", score: 1, color: "#f87171" };
+  }
+  let score = 1;
+  if (pwd.length >= 12) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+
+  if (score <= 2) {
+    return { label: "Weak", score: 2, color: "#f87171" };
+  }
+  if (score === 3) {
+    return { label: "Fair", score: 3, color: "#fbbf24" };
+  }
+  if (score === 4) {
+    return { label: "Good", score: 4, color: "#38bdf8" };
+  }
+  return { label: "Strong", score: 4, color: "#10b981" };
+}
+
+export type SettingsTab = "autofill" | "security" | "themes" | "about" | "change_password" | "sessions";
 
 export function SettingsScreen({
   serverUrl,
@@ -204,12 +227,19 @@ export function SettingsScreen({
     setAnimDir("right");
     setAnimKey((k) => k + 1);
     setActiveFolder(folder);
+    if (folder === "sessions") {
+      loadSessions();
+    }
   };
 
   const navigateBack = () => {
     setAnimDir("left");
     setAnimKey((k) => k + 1);
-    setActiveFolder(null);
+    if (activeFolder === "change_password" || activeFolder === "sessions") {
+      setActiveFolder("security");
+    } else {
+      setActiveFolder(null);
+    }
   };
 
   // Autofill section state (all default ON)
@@ -237,15 +267,14 @@ export function SettingsScreen({
   const [promptPassword, setPromptPassword] = useState("");
 
   // Change Master Password state
-  const [showChangePw, setShowChangePw] = useState(false);
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwChanging, setPwChanging] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const pwStrength = getPasswordStrength(newPw);
 
   // Sessions & Devices state
-  const [showSessions, setShowSessions] = useState(false);
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState("");
@@ -357,6 +386,8 @@ export function SettingsScreen({
             }
           }
         });
+
+        loadSessions();
       }
     }
   }, []);
@@ -612,7 +643,7 @@ export function SettingsScreen({
     }
   };
 
-  const loadSessions = () => {
+  function loadSessions() {
     setSessionsLoading(true);
     setSessionsError("");
     chrome.runtime.sendMessage({ type: "GET_SESSIONS" }, (res) => {
@@ -629,9 +660,9 @@ export function SettingsScreen({
         setSessions(res.sessions);
       }
     });
-  };
+  }
 
-  const handleRevokeSession = (sessionId: string) => {
+  function handleRevokeSession(sessionId: string) {
     setRevokingId(sessionId);
     chrome.runtime.sendMessage({ type: "REVOKE_SESSION", sessionId }, (res) => {
       setRevokingId(null);
@@ -641,9 +672,9 @@ export function SettingsScreen({
       }
       setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
     });
-  };
+  }
 
-  const handleRevokeAllSessions = () => {
+  function handleRevokeAllSessions() {
     setRevokingAll(true);
     chrome.runtime.sendMessage({ type: "REVOKE_ALL_SESSIONS" }, (res) => {
       setRevokingAll(false);
@@ -654,7 +685,7 @@ export function SettingsScreen({
       }
       setSessions((prev) => prev.filter((s) => s.isCurrent));
     });
-  };
+  }
 
   const handleChangeMasterPassword = () => {
     if (!oldPw || !newPw || !confirmPw) return;
@@ -1044,7 +1075,7 @@ export function SettingsScreen({
               type="button"
               className="settings-folder-back-btn"
               onClick={navigateBack}
-              title="Back to Settings"
+              title={activeFolder === "change_password" || activeFolder === "sessions" ? "Back to Account Security" : "Back to Settings"}
             >
               <ChevronLeft size={17} />
             </button>
@@ -1053,14 +1084,28 @@ export function SettingsScreen({
               {activeFolder === "security" && "Account Security"}
               {activeFolder === "themes" && "Themes & Appearance"}
               {activeFolder === "about" && "About VaultR"}
+              {activeFolder === "change_password" && "Change Master Password"}
+              {activeFolder === "sessions" && "Active Sessions"}
             </div>
-            <div style={{ width: 28, height: 28, flexShrink: 0 }} />
+            {activeFolder === "sessions" ? (
+              <button
+                type="button"
+                className="settings-folder-back-btn"
+                onClick={loadSessions}
+                disabled={sessionsLoading}
+                title="Refresh sessions"
+              >
+                <RefreshCw size={13} className={sessionsLoading ? "animate-spin" : ""} />
+              </button>
+            ) : (
+              <div style={{ width: 28, height: 28, flexShrink: 0 }} />
+            )}
           </div>
 
           {/* Full-width scrollable folder contents */}
           <div
             key={`folder-${activeFolder}-${animKey}`}
-            className="screen-body"
+            className={`screen-body ${animDir === "left" ? "animate-slide-left" : "animate-screen-enter"}`}
             style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: "12px 14px 80px", display: "flex", flexDirection: "column", gap: 12 }}
           >
             {/* ─── FOLDER: AUTOFILL ─── */}
@@ -1469,326 +1514,43 @@ export function SettingsScreen({
                   </div>
                 </div>
 
-                {/* Sessions & Devices Accordion */}
-                <div className="settings-card animate-list-item" style={{ "--i": 4 } as React.CSSProperties}>
+                {/* Credentials & Sessions Navigation Group */}
+                <div className="mobile-settings-group animate-list-item" style={{ "--i": 4 } as React.CSSProperties}>
+                  {/* Change Master Password Row */}
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      const next = !showSessions;
-                      setShowSessions(next);
-                      if (next && sessions.length === 0 && !sessionsLoading) {
-                        loadSessions();
-                      }
-                    }}
+                    className="mobile-settings-row"
+                    onClick={() => navigateToFolder("change_password")}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-                      <Monitor size={14} style={{ color: "#38bdf8", flexShrink: 0 }} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                          Manage Sessions
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
-                          {sessions.length > 0
-                            ? `${sessions.length} active session${sessions.length !== 1 ? "s" : ""}`
-                            : "Review and revoke active sign-ins"}
-                        </div>
-                      </div>
+                    <div className="mobile-settings-icon-wrap" style={{ background: "rgba(251, 191, 36, 0.12)", color: "#fbbf24" }}>
+                      <KeyRound size={17} />
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{
-                        height: 24,
-                        padding: "0 8px",
-                        fontSize: 10.5,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        borderRadius: 6,
-                        color: "var(--neutral-300)",
-                        flexShrink: 0,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const next = !showSessions;
-                        setShowSessions(next);
-                        if (next && sessions.length === 0 && !sessionsLoading) {
-                          loadSessions();
-                        }
-                      }}
-                    >
-                      {showSessions ? "Hide" : "Show"}
-                      {showSessions ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                    </button>
+                    <div className="mobile-settings-text">
+                      <div className="mobile-settings-title">Change Master Password</div>
+                      <div className="mobile-settings-sub">Update encryption key & master password</div>
+                    </div>
+                    <ChevronRight size={15} style={{ color: "var(--neutral-500)", flexShrink: 0 }} />
                   </div>
 
-                  {showSessions && (
-                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--neutral-400)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                            Active Sessions
-                          </span>
-                          <button
-                            type="button"
-                            onClick={loadSessions}
-                            disabled={sessionsLoading}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--neutral-500)",
-                              cursor: sessionsLoading ? "not-allowed" : "pointer",
-                              padding: 2,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              borderRadius: 4,
-                            }}
-                            title="Refresh sessions"
-                          >
-                            <RefreshCw size={11} className={sessionsLoading ? "animate-spin" : ""} />
-                          </button>
-                        </div>
+                  <div className="mobile-settings-divider" />
 
-                        {otherSessions.length > 0 && !confirmRevokeAll && (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmRevokeAll(true)}
-                            disabled={revokingAll}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#f87171",
-                              fontSize: 10.5,
-                              fontWeight: 500,
-                              cursor: revokingAll ? "not-allowed" : "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              padding: "2px 4px",
-                              borderRadius: 4,
-                            }}
-                          >
-                            <Trash2 size={11} />
-                            Sign out others ({otherSessions.length})
-                          </button>
-                        )}
-                      </div>
-
-                      {confirmRevokeAll && (
-                        <div
-                          style={{
-                            padding: "10px",
-                            borderRadius: 8,
-                            border: "1px solid rgba(239, 68, 68, 0.3)",
-                            background: "rgba(239, 68, 68, 0.08)",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 8,
-                          }}
-                        >
-                          <p style={{ fontSize: 11, color: "#fca5a5", lineHeight: 1.4, margin: 0 }}>
-                            Sign out from {otherSessions.length} other device{otherSessions.length !== 1 ? "s" : ""}?
-                          </p>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button
-                              type="button"
-                              className="btn btn-danger"
-                              style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
-                              disabled={revokingAll}
-                              onClick={handleRevokeAllSessions}
-                            >
-                              {revokingAll ? (
-                                <>
-                                  <Loader2 size={11} className="animate-spin" style={{ marginRight: 4 }} />
-                                  Signing out…
-                                </>
-                              ) : (
-                                "Yes, sign out all"
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              style={{ flex: 1, height: 28, fontSize: 11, justifyContent: "center" }}
-                              onClick={() => setConfirmRevokeAll(false)}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {sessionsError && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 500,
-                            padding: "6px 8px",
-                            borderRadius: 6,
-                            background: "rgba(239, 68, 68, 0.1)",
-                            border: "1px solid rgba(239, 68, 68, 0.25)",
-                            color: "#f87171",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <AlertCircle size={12} style={{ flexShrink: 0 }} />
-                          <span>{sessionsError}</span>
-                        </div>
-                      )}
-
-                      {sessionsLoading && sessions.length === 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <div style={{ height: 44, borderRadius: 8, background: "var(--surface-2)", opacity: 0.6 }} className="animate-pulse" />
-                          <div style={{ height: 44, borderRadius: 8, background: "var(--surface-2)", opacity: 0.4 }} className="animate-pulse" />
-                        </div>
-                      )}
-
-                      {!sessionsLoading && sessions.length === 0 && !sessionsError && (
-                        <div style={{ textAlign: "center", padding: "12px 0", fontSize: 11, color: "var(--neutral-500)" }}>
-                          No active sessions found.
-                        </div>
-                      )}
-
-                      {currentSession && renderSessionCard(currentSession)}
-                      {otherSessions.map((s) => renderSessionCard(s))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Change Master Password Accordion */}
-                <div className="settings-card animate-list-item" style={{ "--i": 5 } as React.CSSProperties}>
+                  {/* Active Sessions Row */}
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setShowChangePw(!showChangePw);
-                      setPwMsg(null);
-                    }}
+                    className="mobile-settings-row"
+                    onClick={() => navigateToFolder("sessions")}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-                      <KeyRound size={14} style={{ color: "#fbbf24", flexShrink: 0 }} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                          Change Master Password
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.3 }}>
-                          Re-encrypt vault items with a new master key
-                        </div>
+                    <div className="mobile-settings-icon-wrap" style={{ background: "rgba(56, 189, 248, 0.12)", color: "#38bdf8" }}>
+                      <Monitor size={17} />
+                    </div>
+                    <div className="mobile-settings-text">
+                      <div className="mobile-settings-title">Active Sessions</div>
+                      <div className="mobile-settings-sub">
+                        {sessions.length > 0
+                          ? `${sessions.length} active session${sessions.length !== 1 ? "s" : ""} on devices`
+                          : "Review and revoke active sign-ins"}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{
-                        height: 24,
-                        padding: "0 8px",
-                        fontSize: 10.5,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        borderRadius: 6,
-                        color: "var(--neutral-300)",
-                        flexShrink: 0,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowChangePw(!showChangePw);
-                        setPwMsg(null);
-                      }}
-                    >
-                      {showChangePw ? "Cancel" : "Change"}
-                      {showChangePw ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                    </button>
+                    <ChevronRight size={15} style={{ color: "var(--neutral-500)", flexShrink: 0 }} />
                   </div>
-
-                  {showChangePw && (
-                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
-                      <PasswordField
-                        value={oldPw}
-                        onChange={setOldPw}
-                        placeholder="Current master password"
-                        disabled={pwChanging}
-                      />
-                      <PasswordField
-                        value={newPw}
-                        onChange={setNewPw}
-                        placeholder="New master password (min 8 chars)"
-                        disabled={pwChanging}
-                      />
-                      <PasswordField
-                        value={confirmPw}
-                        onChange={setConfirmPw}
-                        placeholder="Confirm new master password"
-                        disabled={pwChanging}
-                      />
-
-                      {pwMsg && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 500,
-                            padding: "6px 8px",
-                            borderRadius: 6,
-                            background: pwMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
-                            border: `1px solid ${pwMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
-                            color: pwMsg.ok ? "#10b981" : "#f87171",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          {pwMsg.ok ? <Check size={12} /> : <Info size={12} />}
-                          <span>{pwMsg.text}</span>
-                        </div>
-                      )}
-
-                      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center" }}
-                          disabled={pwChanging}
-                          onClick={() => {
-                            setShowChangePw(false);
-                            setOldPw("");
-                            setNewPw("");
-                            setConfirmPw("");
-                            setPwMsg(null);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ flex: 1, height: 32, fontSize: 11, justifyContent: "center", gap: 6 }}
-                          disabled={pwChanging || !oldPw || !newPw || !confirmPw}
-                          onClick={handleChangeMasterPassword}
-                        >
-                          {pwChanging ? (
-                            <>
-                              <Loader2 size={12} className="animate-spin" />
-                              Re-encrypting…
-                            </>
-                          ) : (
-                            "Update Password"
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Lock Vault Button */}
@@ -2137,6 +1899,311 @@ export function SettingsScreen({
                   VaultR Core · End-to-End Zero-Knowledge Encrypted
                 </div>
               </>
+            )}
+
+            {/* ─── FOLDER: CHANGE MASTER PASSWORD ─── */}
+            {activeFolder === "change_password" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Intro summary */}
+                <div style={{ padding: "2px 2px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
+                    Update Master Password
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.45, marginTop: 2 }}>
+                    Your master password derives your local zero-knowledge PBKDF2 encryption key. All vault credentials will be automatically re-encrypted with your new key.
+                  </div>
+                </div>
+
+                {/* Form fields */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--neutral-300)", marginBottom: 5 }}>
+                      Current Master Password
+                    </label>
+                    <PasswordField
+                      value={oldPw}
+                      onChange={setOldPw}
+                      placeholder="Enter current password"
+                      disabled={pwChanging}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--neutral-300)", marginBottom: 5 }}>
+                      New Master Password
+                    </label>
+                    <PasswordField
+                      value={newPw}
+                      onChange={setNewPw}
+                      placeholder="Minimum 8 characters"
+                      disabled={pwChanging}
+                    />
+                    {newPw && (
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ display: "flex", gap: 4, height: 3 }}>
+                          {[1, 2, 3, 4].map((step) => (
+                            <div
+                              key={step}
+                              style={{
+                                flex: 1,
+                                borderRadius: 2,
+                                background: step <= pwStrength.score ? pwStrength.color : "var(--neutral-800)",
+                                transition: "background 0.2s ease",
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                          <span style={{ fontSize: 10, color: pwStrength.color, fontWeight: 500 }}>
+                            {pwStrength.label}
+                          </span>
+                          <span style={{ fontSize: 9.5, color: "var(--neutral-500)", fontFamily: "monospace" }}>
+                            {newPw.length} chars
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--neutral-300)", marginBottom: 5 }}>
+                      Confirm New Master Password
+                    </label>
+                    <PasswordField
+                      value={confirmPw}
+                      onChange={setConfirmPw}
+                      placeholder="Re-enter new password"
+                      disabled={pwChanging}
+                    />
+                    {confirmPw && newPw !== confirmPw && (
+                      <div style={{ fontSize: 10.5, color: "#f87171", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                        <AlertCircle size={11} /> Passwords do not match
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Message */}
+                {pwMsg && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: pwMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                      border: `1px solid ${pwMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                      color: pwMsg.ok ? "#10b981" : "#f87171",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {pwMsg.ok ? <Check size={13} style={{ flexShrink: 0 }} /> : <AlertCircle size={13} style={{ flexShrink: 0 }} />}
+                    <span>{pwMsg.text}</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{
+                      width: "100%",
+                      height: 36,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      justifyContent: "center",
+                      borderRadius: 8,
+                      gap: 6,
+                    }}
+                    disabled={pwChanging || !oldPw || !newPw || !confirmPw || newPw !== confirmPw || newPw.length < 8}
+                    onClick={handleChangeMasterPassword}
+                  >
+                    {pwChanging ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        Re-encrypting Vault…
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound size={13} />
+                        Update Master Password
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{
+                      width: "100%",
+                      height: 32,
+                      fontSize: 11.5,
+                      justifyContent: "center",
+                      borderRadius: 8,
+                    }}
+                    disabled={pwChanging}
+                    onClick={() => {
+                      setOldPw("");
+                      setNewPw("");
+                      setConfirmPw("");
+                      setPwMsg(null);
+                      navigateBack();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {/* Security Footer Notice */}
+                <div style={{ fontSize: 10, color: "var(--neutral-500)", textAlign: "center", lineHeight: 1.4, marginTop: 4 }}>
+                  VaultR utilizes zero-knowledge cryptography. Your password is never sent to any server in plaintext.
+                </div>
+              </div>
+            )}
+
+            {/* ─── FOLDER: ACTIVE SESSIONS ─── */}
+            {activeFolder === "sessions" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Intro summary row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "2px 2px" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
+                      Connected Devices
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 1 }}>
+                      {sessionsLoading && sessions.length === 0
+                        ? "Fetching active devices…"
+                        : `${sessions.length} active session${sessions.length !== 1 ? "s" : ""} on your account`}
+                    </div>
+                  </div>
+
+                  {otherSessions.length > 0 && !confirmRevokeAll && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRevokeAll(true)}
+                      disabled={revokingAll}
+                      style={{
+                        background: "rgba(239, 68, 68, 0.08)",
+                        border: "1px solid rgba(239, 68, 68, 0.25)",
+                        color: "#f87171",
+                        fontSize: 11,
+                        fontWeight: 500,
+                        cursor: revokingAll ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "5px 8px",
+                        borderRadius: 6,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Trash2 size={11} />
+                      Revoke Others ({otherSessions.length})
+                    </button>
+                  )}
+                </div>
+
+                {/* Confirm Revoke All Box */}
+                {confirmRevokeAll && (
+                  <div
+                    style={{
+                      padding: "12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    <p style={{ fontSize: 11.5, color: "#fca5a5", lineHeight: 1.4, margin: 0 }}>
+                      Are you sure you want to sign out all <strong>{otherSessions.length}</strong> other active device{otherSessions.length !== 1 ? "s" : ""}? You will remain signed in on this extension.
+                    </p>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        style={{ flex: 1, height: 30, fontSize: 11, justifyContent: "center" }}
+                        disabled={revokingAll}
+                        onClick={handleRevokeAllSessions}
+                      >
+                        {revokingAll ? (
+                          <>
+                            <Loader2 size={11} className="animate-spin" style={{ marginRight: 4 }} />
+                            Revoking…
+                          </>
+                        ) : (
+                          "Yes, Revoke All"
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ flex: 1, height: 30, fontSize: 11, justifyContent: "center" }}
+                        onClick={() => setConfirmRevokeAll(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Banner */}
+                {sessionsError && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: "rgba(239, 68, 68, 0.1)",
+                      border: `1px solid rgba(239, 68, 68, 0.25)`,
+                      color: "#f87171",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                    <span>{sessionsError}</span>
+                  </div>
+                )}
+
+                {/* Loading Skeleton */}
+                {sessionsLoading && sessions.length === 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ height: 64, borderRadius: 10, background: "var(--surface-2)", opacity: 0.6 }} className="animate-pulse" />
+                    <div style={{ height: 64, borderRadius: 10, background: "var(--surface-2)", opacity: 0.4 }} className="animate-pulse" />
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {!sessionsLoading && sessions.length === 0 && !sessionsError && (
+                  <div style={{ textAlign: "center", padding: "28px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <Monitor size={30} style={{ color: "var(--neutral-600)" }} />
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--neutral-300)" }}>No active sessions found</div>
+                    <div style={{ fontSize: 11, color: "var(--neutral-500)", maxWidth: 240, lineHeight: 1.4 }}>
+                      Active sign-ins from your web browsers and mobile apps will appear here.
+                    </div>
+                  </div>
+                )}
+
+                {/* Sessions List */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {currentSession && renderSessionCard(currentSession)}
+                  {otherSessions.map((s) => renderSessionCard(s))}
+                </div>
+
+                {/* Footer Notice */}
+                {sessions.length > 0 && (
+                  <div style={{ fontSize: 10.5, color: "var(--neutral-500)", lineHeight: 1.4, marginTop: 4, padding: "0 2px" }}>
+                    If you notice an unrecognized location or device, revoke it immediately and change your master password.
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
