@@ -78,15 +78,21 @@
 ### ✅ What Was Done (Extension Autofill & Integration Page Fix & UI Modernization)
 
 **Files Changed:**
+- `extension/src/popup/App.tsx`
 - `extension/src/popup/SettingsScreen.tsx`
 - `extension/src/popup/popup.css`
 
 **Fixes & Enhancements:**
-1. **Scrolling & Overlap Fix in Sub-Folder View (Autofill & Integration)**:
-   - Root cause: Flex items in column containers defaulted to `min-height: auto` without `min-height: 0` or `flex: 1`, preventing `.screen-body` from shrinking to the viewport. Content expanded to ~560px+, clipping bottom settings and keyboard shortcuts behind `.bottom-nav`.
-   - Updated root container and View B wrapper in `SettingsScreen.tsx` to `flex: 1, minHeight: 0, overflow: "hidden"`.
-   - Added `min-height: 0`, `scrollbar-width: thin`, and custom WebKit scrollbar styling to `.screen-body`.
-   - Increased bottom clearance padding on `.screen-body` to `padding: 12px 14px 32px` to prevent any overlap with the bottom nav bar.
+1. **Full Scrolling & Viewport Chain Fix**:
+   - Fixed `minHeight: 0` on `App.tsx`'s main tab containers and tab routes to ensure flex containment from root to subfolder.
+   - Removed keyframe slide/enter animations from `.screen-body` to avoid persistent CSS transforms that interfere with mousewheel and touchpad scrolling in Chromium popups.
+   - Increased bottom clearance on `.screen-body` to `padding: 12px 14px 80px` (matching VaultScreen) for comfortable clearance above the bottom nav.
+   - Boosted scrollbar thumb contrast (`rgba(255, 255, 255, 0.25)` on hover `0.45`) for easy visual tracking and dragging.
+
+2. **Clean Autofill Options Card & Full Visibility**:
+   - Restored all 6 options (Suggest credentials, Auto-submit form, Auto-copy 2FA, Match base domain, Prompt save, Prompt update) into a clean, cohesive `.settings-card` matching standard VaultR styling.
+   - Compacted Default Password Manager card with active pill badge and Edge copy chip.
+   - Kept keycaps on shortcuts card with clean contrast.
 
 2. **Eliminated Button & Logo Hover Size Changes / Jitter**:
    - Back button (`.settings-folder-back-btn`): Removed `transform: translateX(-2px)` on hover and `scale(0.94)` on active, maintaining smooth color and surface brightness transitions without positional jumping.

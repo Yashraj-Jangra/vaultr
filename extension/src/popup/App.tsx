@@ -359,9 +359,9 @@ export function App() {
       </div>
 
       {/* Main Tabs Container */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
         {activeTab === "vault" && (
-          <div key="vault" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="vault" className="animate-screen-enter" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <VaultScreen
               items={items}
               folders={folders}
@@ -375,12 +375,12 @@ export function App() {
           </div>
         )}
         {activeTab === "generator" && (
-          <div key="generator" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="generator" className="animate-screen-enter" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <GeneratorScreen />
           </div>
         )}
         {activeTab === "settings" && (
-          <div key="settings" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="settings" className="animate-screen-enter" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <SettingsScreen
               serverUrl={serverUrl}
               accountInfo={accountInfo}
