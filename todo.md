@@ -73,7 +73,27 @@
 
 ---
 
-## Current Session: Extension Autofill & Integration Comprehensive Options & UI Restoration (2026-10-31) · Branch: `dev`
+## Current Session: Extension Settings Minimal Card-Free Version Footer (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Minimalist Card-Free Version Footer)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+
+**Key Improvements:**
+1. **Eliminated Div Clutter & Boxed Footer Card**:
+   - Removed the heavy boxed card container (`border: 1px solid var(--border)`, `background: var(--surface)`, `padding: 18px 14px 14px`) at the bottom of the main settings screen.
+   - Removed the repetitive branding logo image, marketing tagline, `VAULTR_EDITION` ("VaultR 2026") pill badge, and "Zero-Knowledge" check badge.
+2. **Professional Div-Less Version Footer**:
+   - Replaced with a subtle, minimal centered version label (`v{VAULTR_VERSION}`) in clean monospace typography (`color: var(--neutral-500)`).
+   - Card-free, uncluttered design adhering to VaultR modal & surface design guidelines.
+3. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run build --workspace=extension` compiled cleanly (0 errors).
+
+---
+
+## Prior Session: Extension Autofill & Integration Comprehensive Options & UI Restoration (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Comprehensive Autofill & Integration Options, Grouping & Micro-Icons Restoration)
 
