@@ -1150,218 +1150,309 @@ export function SettingsScreen({
           <div
             key={`folder-${activeFolder}-${animKey}`}
             className="screen-body"
-            style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: "12px 14px 80px", display: "flex", flexDirection: "column", gap: 12 }}
+            style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: "12px 14px 84px", display: "flex", flexDirection: "column", gap: 14 }}
           >
             {/* ─── FOLDER: AUTOFILL ─── */}
             {activeFolder === "autofill" && (
               <>
-                {/* Make VaultR Default Password Manager card */}
+                {/* 1. Default Password Manager */}
                 {browserOverrideSupported && (
-                  <div
-                    className="settings-card"
-                    style={{
-                      border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
-                      background: browserOverrideActive ? "rgba(16, 185, 129, 0.03)" : "var(--surface)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                          <ShieldCheck size={15} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8", flexShrink: 0 }} />
-                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
-                            Default Password Manager
-                          </span>
-                          {browserOverrideActive && (
-                            <span className="settings-badge-pill">
-                              <Check size={9} /> Active
+                  <div>
+                    <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>DEFAULT PASSWORD MANAGER</div>
+                    <div
+                      className="settings-card"
+                      style={{
+                        border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
+                        background: browserOverrideActive ? "rgba(16, 185, 129, 0.03)" : "var(--surface)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                            <ShieldCheck size={15} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8", flexShrink: 0 }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
+                              Default Password Manager
                             </span>
-                          )}
+                            {browserOverrideActive && (
+                              <span className="settings-badge-pill">
+                                <Check size={9} /> Active
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
+                            {isEdgeBrowser
+                              ? browserOverrideActive
+                                ? "VaultR manages form autofill. Microsoft Wallet is kept active so Windows Hello passkeys continue working without conflict."
+                                : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
+                              : browserOverrideActive
+                              ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
+                              : "Turn off native browser prompts and let VaultR seamlessly autofill and manage logins."}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                          {isEdgeBrowser
-                            ? browserOverrideActive
-                              ? "VaultR manages form autofill. Microsoft Wallet is kept active so Windows Hello passkeys continue working without conflict."
-                              : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
-                            : browserOverrideActive
-                            ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
-                            : "Turn off native browser prompts and let VaultR seamlessly autofill and manage logins."}
+                        <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                          <input
+                            type="checkbox"
+                            checked={browserOverrideActive}
+                            onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
+                          />
+                          <span className="toggle-slider" />
+                        </label>
+                      </div>
+
+                      {isEdgeBrowser && browserOverrideActive && (
+                        <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                          <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
+                            To silence Edge&apos;s &quot;Save password?&quot; banner without affecting Windows Hello passkeys, disable &quot;Offer to save passwords&quot; in Edge:
+                          </p>
+                          <div className="settings-chip-box">
+                            <code className="settings-chip-code">edge://settings/autofill/passwords/settings</code>
+                            <button
+                              type="button"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 8px",
+                                fontSize: 10,
+                                fontWeight: 500,
+                                borderRadius: 5,
+                                background: copiedKey === "edge_autofill" ? "rgba(16, 185, 129, 0.15)" : "var(--surface)",
+                                color: copiedKey === "edge_autofill" ? "#10b981" : "var(--neutral-200)",
+                                border: "1px solid var(--border)",
+                                cursor: "pointer",
+                                flexShrink: 0,
+                              }}
+                              onClick={() => {
+                                navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
+                                setCopiedKey("edge_autofill");
+                                setTimeout(() => setCopiedKey(null), 2000);
+                              }}
+                              title="Copy settings URL"
+                            >
+                              {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+                              {copiedKey === "edge_autofill" ? "Copied" : "Copy"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Autofill Behavior */}
+                <div>
+                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>AUTOFILL BEHAVIOR</div>
+                  <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                    {/* Suggest credentials */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.2)" }}>
+                          <Sparkles size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Suggest credentials</div>
+                          <div className="settings-row-sub">Show VaultR dropdown popup on input fields</div>
                         </div>
                       </div>
-                      <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                      <label className="toggle">
                         <input
                           type="checkbox"
-                          checked={browserOverrideActive}
-                          onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
+                          checked={autofillEnabled}
+                          onChange={(e) => handleToggleAutofill(e.target.checked)}
                         />
                         <span className="toggle-slider" />
                       </label>
                     </div>
 
-                    {isEdgeBrowser && browserOverrideActive && (
-                      <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                        <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
-                          To silence Edge&apos;s &quot;Save password?&quot; banner without affecting Windows Hello passkeys, disable &quot;Offer to save passwords&quot; in Edge:
-                        </p>
-                        <div className="settings-chip-box">
-                          <code className="settings-chip-code">edge://settings/autofill/passwords/settings</code>
-                          <button
-                            type="button"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                              padding: "3px 8px",
-                              fontSize: 10,
-                              fontWeight: 500,
-                              borderRadius: 5,
-                              background: copiedKey === "edge_autofill" ? "rgba(16, 185, 129, 0.15)" : "var(--surface)",
-                              color: copiedKey === "edge_autofill" ? "#10b981" : "var(--neutral-200)",
-                              border: "1px solid var(--border)",
-                              cursor: "pointer",
-                              flexShrink: 0,
-                            }}
-                            onClick={() => {
-                              navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
-                              setCopiedKey("edge_autofill");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            title="Copy settings URL"
-                          >
-                            {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-                            {copiedKey === "edge_autofill" ? "Copied" : "Copy"}
-                          </button>
+                    <div className="settings-row-divider" />
+
+                    {/* Auto-submit form */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.2)" }}>
+                          <LogIn size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Auto-submit form</div>
+                          <div className="settings-row-sub">Automatically submit the login form after filling credentials</div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Autofill Preferences Group */}
-                <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
-                  {/* Suggest credentials */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Suggest credentials</div>
-                      <div className="settings-row-sub">Show VaultR dropdown popup on input fields</div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={autofillSubmit}
+                          onChange={(e) => handleToggleSubmit(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
                     </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={autofillEnabled}
-                        onChange={(e) => handleToggleAutofill(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
 
-                  <div className="settings-row-divider" />
+                    <div className="settings-row-divider" />
 
-                  {/* Auto-submit form */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Auto-submit form</div>
-                      <div className="settings-row-sub">Automatically submit the login form after filling credentials</div>
+                    {/* Auto-copy 2FA code on fill */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderColor: "rgba(245, 158, 11, 0.2)" }}>
+                          <Clock size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Auto-copy 2FA code</div>
+                          <div className="settings-row-sub">Copies one-time TOTP verification code to clipboard upon fill</div>
+                        </div>
+                      </div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={autoCopy2fa}
+                          onChange={(e) => handleToggleAutoCopy2fa(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
                     </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={autofillSubmit}
-                        onChange={(e) => handleToggleSubmit(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
-
-                  <div className="settings-row-divider" />
-
-                  {/* Auto-copy 2FA code on fill */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Auto-copy 2FA code</div>
-                      <div className="settings-row-sub">Copies one-time TOTP verification code to clipboard upon fill</div>
-                    </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={autoCopy2fa}
-                        onChange={(e) => handleToggleAutoCopy2fa(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
-
-                  <div className="settings-row-divider" />
-
-                  {/* Match base domain */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Match base domain</div>
-                      <div className="settings-row-sub">Suggest credentials across all subdomains (e.g. login.example.com)</div>
-                    </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={subdomainMatching}
-                        onChange={(e) => handleToggleSubdomainMatching(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
-
-                  <div className="settings-row-divider" />
-
-                  {/* Prompt to save new credentials */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Prompt to save passwords</div>
-                      <div className="settings-row-sub">Ask to save new logins entered into web forms</div>
-                    </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={promptSave}
-                        onChange={(e) => handleTogglePromptSave(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
-
-                  <div className="settings-row-divider" />
-
-                  {/* Prompt to update existing credentials */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Prompt to update passwords</div>
-                      <div className="settings-row-sub">Offer to update existing entries when password changes are detected</div>
-                    </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={promptUpdate}
-                        onChange={(e) => handleTogglePromptUpdate(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
                   </div>
                 </div>
 
-                {/* Keyboard Shortcuts Card */}
-                <div className="settings-card" style={{ padding: "12px 14px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 10, textTransform: "uppercase" }}>
-                    Keyboard Shortcuts
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Autofill credentials</span>
-                      <kbd className="settings-kbd-key">
-                        {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
-                      </kbd>
+                {/* 3. Credentials Capture & Domain Matching */}
+                <div>
+                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>CAPTURE & MATCHING</div>
+                  <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                    {/* Match base domain */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(167, 139, 250, 0.1)", color: "#a78bfa", borderColor: "rgba(167, 139, 250, 0.2)" }}>
+                          <Globe size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Match base domain</div>
+                          <div className="settings-row-sub">Suggest credentials across all subdomains (e.g. login.example.com)</div>
+                        </div>
+                      </div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={subdomainMatching}
+                          onChange={(e) => handleToggleSubdomainMatching(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Copy 2FA TOTP code</span>
-                      <kbd className="settings-kbd-key">
-                        {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
-                      </kbd>
+
+                    <div className="settings-row-divider" />
+
+                    {/* Prompt to save new credentials */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.2)" }}>
+                          <KeyRound size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Prompt to save passwords</div>
+                          <div className="settings-row-sub">Ask to save new logins entered into web forms</div>
+                        </div>
+                      </div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={promptSave}
+                          onChange={(e) => handleTogglePromptSave(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+
+                    <div className="settings-row-divider" />
+
+                    {/* Prompt to update existing credentials */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.2)" }}>
+                          <RefreshCw size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Prompt to update passwords</div>
+                          <div className="settings-row-sub">Offer to update existing entries when password changes are detected</div>
+                        </div>
+                      </div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={promptUpdate}
+                          onChange={(e) => handleTogglePromptUpdate(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Browser Integrations */}
+                <div>
+                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>BROWSER INTEGRATIONS</div>
+                  <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                    {/* Passkeys & WebAuthn */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(52, 211, 153, 0.1)", color: "#34d399", borderColor: "rgba(52, 211, 153, 0.2)" }}>
+                          <Fingerprint size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Passkeys & WebAuthn</div>
+                          <div className="settings-row-sub">Save and autofill FIDO2/WebAuthn passkeys directly with VaultR</div>
+                        </div>
+                      </div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={passkeysEnabled}
+                          onChange={(e) => handleTogglePasskeys(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+
+                    <div className="settings-row-divider" />
+
+                    {/* Badge Counter on Icon */}
+                    <div className="settings-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <div className="settings-row-icon" style={{ background: "rgba(244, 63, 94, 0.1)", color: "#f43f5e", borderColor: "rgba(244, 63, 94, 0.2)" }}>
+                          <Hash size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="settings-row-label">Badge counter on icon</div>
+                          <div className="settings-row-sub">Show count of matching vault credentials on extension badge</div>
+                        </div>
+                      </div>
+                      <label className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={showBadgeCount}
+                          onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Keyboard Shortcuts Card */}
+                <div>
+                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>KEYBOARD SHORTCUTS</div>
+                  <div className="settings-card" style={{ padding: "12px 14px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Autofill credentials</span>
+                        <kbd className="settings-kbd-key">
+                          {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
+                        </kbd>
+                      </div>
+                      <div style={{ height: 1, background: "var(--border)" }} />
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Copy 2FA TOTP code</span>
+                        <kbd className="settings-kbd-key">
+                          {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
+                        </kbd>
+                      </div>
                     </div>
                   </div>
                 </div>

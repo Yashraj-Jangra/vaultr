@@ -73,7 +73,42 @@
 
 ---
 
-## Current Session: Extension Dedicated Security Sub-Screens (Change Password & Active Sessions) (2026-10-31) · Branch: `dev`
+## Current Session: Extension Autofill & Integration Comprehensive Options & UI Restoration (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Comprehensive Autofill & Integration Options, Grouping & Micro-Icons Restoration)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+
+**Key Improvements & Architecture:**
+1. **Restored Full Semantic Groupings & Options in Autofill & Integration**:
+   - **DEFAULT PASSWORD MANAGER**: Native browser password manager takeover toggle, active status pill (`● Active`), contextual browser explanations, and Edge settings shortcut copy chip.
+   - **AUTOFILL BEHAVIOR**:
+     - *Suggest credentials* with `Sparkles` icon badge and inline dropdown explanation.
+     - *Auto-submit form* with `LogIn` icon badge and automatic submission toggle.
+     - *Auto-copy 2FA code* with `Clock` icon badge and TOTP clipboard copy toggle.
+   - **CAPTURE & MATCHING**:
+     - *Match base domain* with `Globe` icon badge and multi-subdomain matching toggle.
+     - *Prompt to save passwords* with `KeyRound` icon badge and web form detection toggle.
+     - *Prompt to update passwords* with `RefreshCw` icon badge and password change detection toggle.
+   - **BROWSER INTEGRATIONS**:
+     - *Passkeys & WebAuthn* with `Fingerprint` icon badge, letting users control FIDO2/WebAuthn provider autofill directly from this screen in addition to Account Security (synchronized with `vaultr_passkeys_enabled`).
+     - *Badge counter on icon* with `Hash` icon badge, letting users toggle the matching vault credentials count on the extension icon badge (synchronized with `vaultr_show_badge_count`).
+   - **KEYBOARD SHORTCUTS**:
+     - *Autofill credentials* with styled tactile `<kbd>` keycaps (`⌘ Shift L` / `Ctrl Shift L`).
+     - *Copy 2FA TOTP code* with styled tactile `<kbd>` keycaps (`⌘ Shift T` / `Ctrl Shift T`).
+
+2. **Guaranteed Visibility & Smooth Scrolling**:
+   - No animation fill-mode traps or opacity keys. All cards render with immediate 100% visibility.
+   - Set `.screen-body` bottom padding to `84px` for generous scroll clearance well above the bottom navigation bar.
+
+3. **Typecheck & Production Build Verification**:
+   - `npx tsc --noEmit` passed with 0 errors across all workspaces.
+   - `npm run build --workspace=extension` compiled successfully with webpack 5 (0 errors).
+
+---
+
+## Prior Session: Extension Dedicated Security Sub-Screens (Change Password & Active Sessions) (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Dedicated Sub-Screens & Sleek Navigation for Password & Sessions)
 
