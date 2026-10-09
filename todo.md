@@ -73,7 +73,27 @@
 
 ---
 
-## Current Session: Extension Settings Minimal Card-Free Version Footer (2026-10-31) · Branch: `dev`
+## Current Session: Extension Div-Less Back Button & Minimal Header (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Div-Less Ghost Back Button & Sub-Folder Header Refinement)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements:**
+1. **Div-Less Ghost Back Button**:
+   - Stripped away the boxed card styling (`border: 1px solid var(--border)`, `background: var(--surface)`) from `.settings-folder-back-btn`.
+   - Converted into a sleek, borderless, transparent ghost navigation button with smooth color transition and subtle hover highlight (`rgba(255, 255, 255, 0.08)` / light mode `rgba(0, 0, 0, 0.06)`).
+   - Increased icon size to 18px (`<ChevronLeft size={18} />`) for crisp, modern visibility.
+   - Synchronized with the right-side header spacer (`32px`) to ensure perfect center alignment of the header title.
+2. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run build --workspace=extension` compiled cleanly (0 errors).
+
+---
+
+## Prior Session: Extension Settings Minimal Card-Free Version Footer (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Minimalist Card-Free Version Footer)
 

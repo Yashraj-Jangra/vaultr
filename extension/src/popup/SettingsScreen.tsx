@@ -1051,7 +1051,7 @@ export function SettingsScreen({
             VIEW B: INDIVIDUAL FOLDER SETTINGS SCREEN (Full width, no side-rail)
            ════════════════════════════════════════════════════════════════════ */
         <div style={{ display: "flex", flexDirection: "column", height: "100%", flex: 1, minHeight: 0, overflow: "hidden" }}>
-          {/* Sub-Folder Top Bar with Back Button */}
+          {/* Sub-Folder Top Bar with Div-Less Back Button */}
           <div className="settings-folder-header-bar">
             <button
               type="button"
@@ -1063,7 +1063,7 @@ export function SettingsScreen({
                   : "Back to Settings"
               }
             >
-              <ChevronLeft size={17} />
+              <ChevronLeft size={18} />
             </button>
             <div className="settings-folder-header-title">
               {activeFolder === "autofill" && "Autofill & Integration"}
@@ -1081,10 +1081,10 @@ export function SettingsScreen({
                 disabled={sessionsLoading}
                 title="Refresh sessions"
               >
-                <RefreshCw size={13} className={sessionsLoading ? "animate-spin" : ""} />
+                <RefreshCw size={14} className={sessionsLoading ? "animate-spin" : ""} />
               </button>
             ) : (
-              <div style={{ width: 28, height: 28, flexShrink: 0 }} />
+              <div style={{ width: 32, height: 32, flexShrink: 0 }} />
             )}
           </div>
 
