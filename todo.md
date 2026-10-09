@@ -78,22 +78,23 @@
 ### ✅ What Was Done (Dedicated Sub-Screens & Sleek Navigation for Password & Sessions)
 
 **Files Changed:**
+- `extension/src/popup/App.tsx`
 - `extension/src/popup/SettingsScreen.tsx`
 - `extension/src/popup/popup.css`
 
 **Key Improvements & Architecture:**
-1. **Dedicated Settings Sub-Screens (`change_password` & `sessions`)**:
+1. **Dedicated Settings Sections in Main Menu & Account Security**:
+   - Added **Change Master Password** and **Active Sessions** directly to the main Settings folders list (View A) as first-class settings sections, each with a full clickable area (`.mobile-settings-row`), icon badge (`KeyRound` in amber, `Monitor` in sky blue), title, descriptive subtext, and a sleek `ChevronRight` arrow.
+   - Kept both navigation rows inside **Account Security** as well, so users can access them seamlessly from either the main menu or within Account Security.
    - Expanded `SettingsTab` to `"autofill" | "security" | "themes" | "about" | "change_password" | "sessions"`.
-   - Updated `navigateBack()` to hierarchically navigate back to `"security"` from either sub-screen, and from `"security"` back to the root settings list.
-   - Sub-folder top header bar dynamically updates its title ("Change Master Password", "Active Sessions") and features a native-feeling refresh button in the top bar when on Active Sessions.
+   - Added `prevFolder` tracking so the back button on either sub-screen returns to wherever the user came from (Main Settings or Account Security).
 
-2. **Main Settings-Style Full-Width Clickable Buttons in Account Security**:
-   - Replaced clunky inline expandable dropdown accordions in Account Security with sleek, full-width `.mobile-settings-row` buttons inside a `.mobile-settings-group`.
-   - Change Master Password: Amber `KeyRound` icon wrapper, title, subtitle, and sleek `ChevronRight` arrow.
-   - Active Sessions: Sky-blue `Monitor` icon wrapper, dynamic session count subtitle (`X active sessions on devices`), and sleek `ChevronRight` arrow.
-   - Full clickable hover and active states without layout jitter or scaling distortion.
+2. **Eliminated All CSS Animation Ghosting & Opacity Traps**:
+   - Removed `animate-screen-enter` and `animate-slide-left` from `.screen-body` and tab containers which caused Chromium extension popups to composite at `opacity: 0` or clip content.
+   - Removed `animate-list-item` and `--i` delays from all settings cards and rows, ensuring 100% immediate and permanent visibility.
+   - Adjusted `.animate-list-item` `animation-fill-mode` from `both` to `forwards` as a defensive measure across the popup stylesheet.
 
-3. **Compact, Card-Free Change Master Password Screen**:
+3. **Compact Change Master Password Screen**:
    - Minimal layout without nested div clutter.
    - Live 4-tier password strength bar (Too short, Weak, Fair, Good, Strong) with character count counter.
    - Real-time mismatch detection with inline warning pill.
@@ -107,7 +108,7 @@
 5. **Typecheck & Production Build Verification**:
    - `npx tsc --noEmit` passed with 0 errors across root and workspaces.
    - `npx tsc --noEmit --project extension/tsconfig.json` passed with 0 errors.
-   - `npm run build --workspace=extension` compiled successfully with webpack 5.
+   - `npm run build --workspace=extension` compiled successfully with webpack 5 (0 errors).
 
 ---
 
