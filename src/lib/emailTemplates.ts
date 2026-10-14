@@ -52,14 +52,14 @@ export type TemplateKey =
 
 // ─── Branding Logo CID Attachment Helper ──────────────────────────────────────
 
-export const VAULTR_LOGO_CID = "vaultr-full-dark-transparent@vaultr.app";
+export const VAULTR_LOGO_CID = "vaultr-full-light-transparent@vaultr.app";
 
 export function getBrandLogoAttachment() {
-  const logoPath = path.join(process.cwd(), "public/brand/vaultr-full-dark-transparent.png");
+  const logoPath = path.join(process.cwd(), "public/brand/vaultr-full-light-transparent.png");
   if (fs.existsSync(logoPath)) {
     return [
       {
-        filename: "vaultr-full-dark-transparent.png",
+        filename: "vaultr-full-light-transparent.png",
         path: logoPath,
         cid: VAULTR_LOGO_CID,
       },
@@ -72,45 +72,41 @@ export function getBrandLogoAttachment() {
 
 export const WRAPPER = (
   content: string,
-  badgeText = "END-TO-END ENCRYPTED",
-  footerLine = "Vaultr · Zero-Knowledge Security Architecture"
+  badgeText?: string,
+  footerLine = "Vaultr · Secure password management"
 ) => {
   const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "https://vaultr.app").replace(/\/$/, "");
 
-  return `
-<!DOCTYPE html>
+  const badgeHtml = badgeText
+    ? `<span style="font-size:11px;font-weight:500;color:#6b7280;background-color:#f3f4f6;padding:3px 9px;border-radius:6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${badgeText}</span>`
+    : "";
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="color-scheme" content="dark"/>
-  <meta name="supported-color-schemes" content="dark"/>
+  <meta name="color-scheme" content="light"/>
+  <meta name="supported-color-schemes" content="light"/>
   <title>Vaultr</title>
 </head>
-<body style="margin:0;padding:0;background-color:#050507;background:#050507;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#050507;background:#050507;width:100%;table-layout:fixed;">
+<body style="margin:0;padding:0;background-color:#f6f8fa;background:#f6f8fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f6f8fa;background:#f6f8fa;width:100%;table-layout:fixed;">
     <tr>
-      <td align="center" style="padding:40px 16px;">
+      <td align="center" style="padding:48px 16px 56px;">
         <!-- Container Card -->
-        <table width="540" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:540px;background-color:#0d0d10;background:#0d0d10;border-radius:18px;border:1px solid #1f1f26;box-shadow:0 20px 50px -10px rgba(0,0,0,0.85);overflow:hidden;">
-          <!-- Top Accent Glow Line -->
-          <tr>
-            <td style="height:2px;background:linear-gradient(90deg, #ffffff 0%, rgba(255,255,255,0.18) 100%);font-size:0;line-height:0;">&nbsp;</td>
-          </tr>
-
+        <table width="520" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;background-color:#ffffff;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.04);overflow:hidden;">
           <!-- Header Row -->
           <tr>
-            <td style="padding:26px 32px 22px;border-bottom:1px solid #18181f;background-color:#0d0d10;">
+            <td style="padding:28px 32px 20px;border-bottom:1px solid #f3f4f6;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" style="vertical-align:middle;">
                     <a href="${appBaseUrl}" target="_blank" style="text-decoration:none;display:inline-block;">
-                      <img src="cid:${VAULTR_LOGO_CID}" alt="Vaultr" width="112" height="24" style="height:24px;width:auto;max-width:130px;display:block;border:0;outline:none;" />
+                      <img src="cid:${VAULTR_LOGO_CID}" alt="Vaultr" width="93" height="28" style="height:28px;width:auto;display:block;border:0;outline:none;" />
                     </a>
                   </td>
-                  <td align="right" style="vertical-align:middle;">
-                    <span style="font-size:10px;font-weight:700;color:#a1a1aa;background-color:rgba(255,255,255,0.06);background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:9999px;border:1px solid rgba(255,255,255,0.09);letter-spacing:0.06em;text-transform:uppercase;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${badgeText}</span>
-                  </td>
+                  ${badgeText ? `<td align="right" style="vertical-align:middle;">${badgeHtml}</td>` : ""}
                 </tr>
               </table>
             </td>
@@ -118,19 +114,19 @@ export const WRAPPER = (
 
           <!-- Main Content Body -->
           <tr>
-            <td style="padding:36px 32px 40px;background-color:#0d0d10;color:#f4f4f5;">
+            <td style="padding:32px 32px 36px;color:#111827;font-size:14px;line-height:1.6;">
               ${content}
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="padding:22px 32px;border-top:1px solid #16161f;background-color:#08080a;background:#08080a;text-align:center;">
-              <p style="margin:0 0 4px;font-size:11px;font-weight:500;color:#52525b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.5;">
+            <td style="padding:24px 32px 28px;border-top:1px solid #f3f4f6;background-color:#fafafa;background:#fafafa;text-align:center;">
+              <p style="margin:0 0 4px;font-size:12px;font-weight:500;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;">
                 ${footerLine}
               </p>
-              <p style="margin:0;font-size:10px;color:#3f3f46;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-                Security Notification &nbsp;·&nbsp; Do not reply directly to this email
+              <p style="margin:0;font-size:11px;color:#9ca3af;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;">
+                This is an automated notification · Do not reply directly to this email
               </p>
             </td>
           </tr>
@@ -146,199 +142,197 @@ export const WRAPPER = (
 
 export const DEFAULT_TEMPLATES: Record<TemplateKey, EmailTemplate> = {
   device_verification: {
-    subject: "{{OTP}} — Your Vaultr device verification code",
+    subject: "{{OTP}} is your Vaultr verification code",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">Verify your device</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 28px;line-height:1.6;">
-        Enter this single-use code in Vaultr to authenticate <strong style="color:#ffffff;font-weight:600;">{{DEVICE_NAME}}</strong>.
-        This verification code will expire in <strong style="color:#ffffff;font-weight:600;">15 minutes</strong>.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Verify your device</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        Enter the verification code below to sign in to your Vaultr account on <strong style="color:#111827;font-weight:600;">{{DEVICE_NAME}}</strong>. This code will expire in <strong style="color:#111827;font-weight:600;">15 minutes</strong>.
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:26px 16px;text-align:center;margin-bottom:28px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);">
-        <span style="font-family:ui-monospace,SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:42px;font-weight:800;letter-spacing:14px;color:#ffffff;display:block;margin-left:14px;">{{OTP}}</span>
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:22px 16px;text-align:center;margin:0 0 24px;">
+        <span style="font-family:ui-monospace,SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:34px;font-weight:700;letter-spacing:10px;color:#111827;display:inline-block;margin-left:10px;">{{OTP}}</span>
       </div>
-      <p style="font-size:12.5px;color:#71717a;line-height:1.6;margin:0;">
-        If you did not attempt to sign in to Vaultr, your account is completely safe. Someone may have mistyped their email address. You can safely ignore this email.
+      <p style="font-size:12px;color:#9ca3af;line-height:1.6;margin:0;">
+        If you didn't attempt to sign in to Vaultr, you can safely ignore this email. Someone may have entered your email address by mistake.
       </p>`),
     bodyText: "Your Vaultr verification code: {{OTP}}\n\nDevice: {{DEVICE_NAME}}\nExpires in 15 minutes.\n\nIf you didn't request this, ignore this email.",
   },
 
   new_device_alert: {
-    subject: "⚠️ New device signed in to your Vaultr account",
+    subject: "New sign-in to your Vaultr account",
     bodyHtml: WRAPPER(`
-      <div style="display:inline-block;padding:4px 10px;background-color:rgba(239,68,68,0.1);background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;">
-        <span style="font-size:11px;font-weight:700;color:#ef4444;letter-spacing:0.04em;text-transform:uppercase;">⚠️ Security Alert</span>
-      </div>
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">New device sign-in</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 24px;line-height:1.6;">
-        A new device recently authenticated into your Vaultr account. If this was you, no further action is required.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">New device sign-in</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        A new device recently signed in to your Vaultr account. If this was you, no action is needed.
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px;margin-bottom:26px;">
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:0 0 24px;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#71717a;width:90px;">Device</td>
-            <td style="padding:6px 0;font-size:13px;color:#ffffff;font-weight:600;">{{DEVICE_NAME}}</td>
+            <td style="padding:6px 0;font-size:13px;color:#6b7280;width:95px;font-weight:500;">Device</td>
+            <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500;">{{DEVICE_NAME}}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#71717a;">Location</td>
-            <td style="padding:6px 0;font-size:13px;color:#ffffff;font-weight:600;">{{LOCATION}}</td>
+            <td style="padding:6px 0;font-size:13px;color:#6b7280;font-weight:500;">Location</td>
+            <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500;">{{LOCATION}}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#71717a;">Timestamp</td>
-            <td style="padding:6px 0;font-size:13px;color:#ffffff;font-weight:600;">{{TIME}}</td>
+            <td style="padding:6px 0;font-size:13px;color:#6b7280;font-weight:500;">Time</td>
+            <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500;">{{TIME}}</td>
           </tr>
         </table>
       </div>
-      <p style="font-size:13px;color:#71717a;margin-bottom:24px;line-height:1.6;">
-        If you do not recognize this activity, your password may be compromised. Revoke active sessions immediately.
+      <p style="font-size:13px;color:#6b7280;margin:0 0 22px;line-height:1.6;">
+        If you don't recognize this activity, your master password may be compromised. We recommend reviewing active sessions immediately.
       </p>
-      <a href="{{SECURITY_URL}}" style="display:inline-block;padding:12px 26px;background-color:#ef4444;background:#ef4444;color:#ffffff;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(239,68,68,0.25);">Review Active Sessions &rarr;</a>`, "SECURITY ALERT"),
+      <a href="{{SECURITY_URL}}" style="display:inline-block;padding:11px 22px;background-color:#dc2626;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">Review Active Sessions</a>`, "Security Alert"),
     bodyText: "New sign-in detected on your Vaultr account.\n\nDevice: {{DEVICE_NAME}}\nLocation: {{LOCATION}}\nTime: {{TIME}}\n\nReview sessions: {{SECURITY_URL}}",
   },
 
   welcome: {
-    subject: "Welcome to Vaultr 🔐",
+    subject: "Welcome to Vaultr",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">Welcome to Vaultr, {{USER_NAME}}</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 24px;line-height:1.6;">
-        Your zero-knowledge encrypted vault is ready. Everything you store is client-side encrypted before leaving your browser or mobile device.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Welcome to Vaultr, {{USER_NAME}}</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        Your vault is ready. Vaultr keeps your passwords, passkeys, and personal notes secure with end-to-end encryption — meaning only you have the keys to view your data.
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:22px 24px;margin-bottom:28px;">
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin:0 0 24px;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#d4d4d8;">
-              🔐 &nbsp;<strong style="color:#ffffff;font-weight:600;">AES-256-GCM Encryption</strong> — Standard military-grade cryptography
+            <td style="padding:7px 0;font-size:13px;color:#374151;line-height:1.5;">
+              <strong style="color:#111827;font-weight:600;">Zero-Knowledge Privacy</strong> — Your records are encrypted directly on your device. We can never see your master password or stored data.
             </td>
           </tr>
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#d4d4d8;">
-              🛡️ &nbsp;<strong style="color:#ffffff;font-weight:600;">Zero-Knowledge</strong> — Your master password is never sent to our servers
+            <td style="padding:7px 0;font-size:13px;color:#374151;line-height:1.5;border-top:1px solid #f3f4f6;">
+              <strong style="color:#111827;font-weight:600;">Seamless Autofill</strong> — Access and fill your credentials across Web, Browser Extension, and Mobile.
             </td>
           </tr>
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#d4d4d8;">
-              ⚡ &nbsp;<strong style="color:#ffffff;font-weight:600;">Cross-Platform</strong> — Access seamlessly on Web, Extension & Mobile
+            <td style="padding:7px 0;font-size:13px;color:#374151;line-height:1.5;border-top:1px solid #f3f4f6;">
+              <strong style="color:#111827;font-weight:600;">Instant Sync</strong> — Any updates you make are automatically synchronized across all your devices in real time.
             </td>
           </tr>
         </table>
       </div>
-      <a href="{{APP_URL}}" style="display:inline-block;padding:12px 26px;background-color:#ffffff;background:#ffffff;color:#000000;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(255,255,255,0.15);">Open My Vault &rarr;</a>`, "WELCOME TO VAULTR"),
+      <a href="{{APP_URL}}" style="display:inline-block;padding:11px 22px;background-color:#111827;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">Go to Your Vault</a>`),
     bodyText: "Welcome to Vaultr, {{USER_NAME}}!\n\nYour zero-knowledge vault is ready.\n\nOpen vault: {{APP_URL}}",
   },
 
   password_changed: {
-    subject: "Your Vaultr master password was changed",
+    subject: "Your master password was changed",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">Master password updated</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 24px;line-height:1.6;">
-        Your Vaultr master password was successfully changed on <strong style="color:#ffffff;font-weight:600;">{{DATE}}</strong>.
-        All <strong style="color:#ffffff;font-weight:600;">{{ITEM_COUNT}}</strong> vault items were safely re-encrypted with your new key.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Master password updated</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        The master password for your Vaultr account was successfully changed on <strong style="color:#111827;font-weight:600;">{{DATE}}</strong>. All <strong style="color:#111827;font-weight:600;">{{ITEM_COUNT}}</strong> items in your vault were re-encrypted with your new key.
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 22px;margin-bottom:26px;">
-        <p style="margin:0;font-size:13px;color:#a1a1aa;line-height:1.5;">
-          🔒 Your new key derivation has been updated across all authorized devices.
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+        <p style="margin:0;font-size:13px;color:#4b5563;line-height:1.5;">
+          Active sessions on other devices may be prompted to unlock again using your new master password.
         </p>
       </div>
-      <p style="font-size:13px;color:#71717a;margin-bottom:24px;line-height:1.6;">
-        If you did not authorize this change, please contact Vaultr support immediately and revoke all active device sessions.
+      <p style="font-size:13px;color:#6b7280;margin:0 0 22px;line-height:1.6;">
+        If you did not make this change, please review your active sessions immediately and contact support.
       </p>
-      <a href="{{SECURITY_URL}}" style="display:inline-block;padding:12px 26px;background-color:#ef4444;background:#ef4444;color:#ffffff;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(239,68,68,0.25);">Review Active Sessions &rarr;</a>`, "SECURITY UPDATE"),
+      <a href="{{SECURITY_URL}}" style="display:inline-block;padding:11px 22px;background-color:#dc2626;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">Review Active Sessions</a>`, "Security Update"),
     bodyText: "Your Vaultr master password was changed on {{DATE}}.\n{{ITEM_COUNT}} items were re-encrypted.\n\nIf this wasn't you, review sessions: {{SECURITY_URL}}",
   },
 
   account_deleted: {
     subject: "Your Vaultr account has been deleted",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">Account permanently deleted</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 24px;line-height:1.6;">
-        Your Vaultr account and all associated encrypted vault records have been permanently wiped from our database.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Account deleted</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 18px;line-height:1.6;">
+        Your Vaultr account and all associated encrypted vault records have been permanently deleted as requested.
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 22px;margin-bottom:24px;">
-        <p style="margin:0;font-size:13px;color:#71717a;line-height:1.5;">
-          ⚠️ This operation is irreversible. All encrypted blobs, session keys, and vault items have been purged.
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+        <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">
+          This operation is irreversible. All encrypted records, cryptographic keys, and user settings have been purged.
         </p>
       </div>
-      <p style="font-size:13px;color:#71717a;line-height:1.6;margin:0;">
-        Thank you for using Vaultr. If you ever wish to return, you can create a new account anytime.
-      </p>`, "ACCOUNT TERMINATED"),
+      <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0;">
+        Thank you for having used Vaultr. If you ever need a secure vault again in the future, you are always welcome to create a new account.
+      </p>`),
     bodyText: "Your Vaultr account has been permanently deleted. All vault data is gone. This cannot be undone.",
   },
 
   support_reply: {
     subject: "Re: {{TICKET_SUBJECT}}",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">New response to your support ticket</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 20px;line-height:1.6;">
-        You received a reply regarding: <strong style="color:#ffffff;font-weight:600;">{{TICKET_SUBJECT}}</strong>
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Support response</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        Our support team has responded to your request regarding <strong style="color:#111827;font-weight:600;">{{TICKET_SUBJECT}}</strong>:
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:22px 24px;margin-bottom:26px;">
-        <p style="margin:0;font-size:14px;color:#f4f4f5;line-height:1.6;white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">{{MESSAGE}}</p>
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-left:3px solid #111827;border-radius:8px;padding:18px 20px;margin:0 0 24px;">
+        <p style="margin:0;font-size:14px;color:#1f2937;line-height:1.6;white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">{{MESSAGE}}</p>
       </div>
-      <a href="{{APP_URL}}/settings/support" style="display:inline-block;padding:12px 26px;background-color:#ffffff;background:#ffffff;color:#000000;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(255,255,255,0.15);">View Support Ticket &rarr;</a>`, "SUPPORT RESPONSE"),
+      <a href="{{APP_URL}}/settings/support" style="display:inline-block;padding:11px 22px;background-color:#111827;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">View Support Ticket</a>`),
     bodyText: "You have received a reply on your ticket: {{TICKET_SUBJECT}}\n\n{{MESSAGE}}\n\nView Ticket: {{APP_URL}}/settings/support",
   },
 
   new_ticket_alert: {
-    subject: "New Support Ticket: {{TICKET_SUBJECT}}",
+    subject: "[Support] {{TICKET_SUBJECT}}",
     bodyHtml: WRAPPER(`
-      <div style="display:inline-block;padding:4px 10px;background-color:rgba(255,255,255,0.06);background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;margin-bottom:14px;">
-        <span style="font-size:11px;font-weight:700;color:#ffffff;letter-spacing:0.04em;text-transform:uppercase;">🎫 Admin Notification</span>
-      </div>
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">New support ticket created</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 24px;line-height:1.6;">
-        A user submitted a new ticket requiring administrator attention.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">New support ticket received</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        A user submitted a new ticket that is awaiting administrator review:
       </p>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px;margin-bottom:26px;">
+      <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:0 0 24px;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#71717a;width:90px;">From</td>
-            <td style="padding:6px 0;font-size:13px;color:#ffffff;font-weight:600;">{{USER_EMAIL}}</td>
+            <td style="padding:6px 0;font-size:13px;color:#6b7280;width:95px;font-weight:500;">From</td>
+            <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500;">{{USER_EMAIL}}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#71717a;">Priority</td>
-            <td style="padding:6px 0;font-size:13px;color:#ffffff;font-weight:600;">{{PRIORITY}}</td>
+            <td style="padding:6px 0;font-size:13px;color:#6b7280;font-weight:500;">Priority</td>
+            <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500;">{{PRIORITY}}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0;font-size:13px;color:#71717a;">Subject</td>
-            <td style="padding:6px 0;font-size:13px;color:#ffffff;font-weight:600;">{{TICKET_SUBJECT}}</td>
+            <td style="padding:6px 0;font-size:13px;color:#6b7280;font-weight:500;">Subject</td>
+            <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500;">{{TICKET_SUBJECT}}</td>
           </tr>
         </table>
       </div>
-      <a href="{{APP_URL}}/admin/support" style="display:inline-block;padding:12px 26px;background-color:#ffffff;background:#ffffff;color:#000000;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(255,255,255,0.15);">Open Admin Inbox &rarr;</a>`, "ADMIN ALERT"),
+      <a href="{{APP_URL}}/admin/support" style="display:inline-block;padding:11px 22px;background-color:#111827;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">Open Ticket in Admin</a>`),
     bodyText: "New support ticket from {{USER_EMAIL}}.\nPriority: {{PRIORITY}}\nSubject: {{TICKET_SUBJECT}}\n\nView Inbox: {{APP_URL}}/admin/support",
   },
 
   email_verification: {
-    subject: "Verify your email address for Vaultr 🔐",
+    subject: "Verify your email address",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">Verify your email address</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 28px;line-height:1.6;">
-        Welcome to Vaultr! Please click the button below to confirm your email address and activate your zero-knowledge account.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Verify your email address</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 24px;line-height:1.6;">
+        Thanks for signing up for Vaultr. Please confirm your email address to activate your account and finish setting up your vault.
       </p>
-      <a href="{{VERIFICATION_URL}}" style="display:inline-block;padding:12px 26px;background-color:#ffffff;background:#ffffff;color:#000000;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:28px;box-shadow:0 4px 14px rgba(255,255,255,0.15);">Verify Email Address &rarr;</a>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 20px;">
-        <p style="font-size:12px;color:#71717a;line-height:1.6;margin:0;">
-          If the button above does not work, copy and paste this URL into your web browser:<br/>
-          <span style="word-break:break-all;color:#a1a1aa;font-family:ui-monospace,monospace;font-size:11px;">{{VERIFICATION_URL}}</span>
-        </p>
-      </div>`, "EMAIL VERIFICATION"),
-    bodyText: "Verify your email address for Vaultr.\n\nClick the link below to verify your email:\n{{VERIFICATION_URL}}",
+      <div style="margin:0 0 24px;">
+        <a href="{{VERIFICATION_URL}}" style="display:inline-block;padding:11px 22px;background-color:#111827;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">Verify Email Address</a>
+      </div>
+      <p style="font-size:12px;color:#6b7280;line-height:1.6;margin:0 0 16px;">
+        If the button doesn't work, copy and paste this link into your browser:<br/>
+        <a href="{{VERIFICATION_URL}}" style="color:#2563eb;text-decoration:underline;word-break:break-all;">{{VERIFICATION_URL}}</a>
+      </p>
+      <p style="font-size:12px;color:#9ca3af;line-height:1.6;margin:0;">
+        If you did not create a Vaultr account, you can safely ignore this email.
+      </p>`),
+    bodyText: "Verify your email address for Vaultr.\n\nClick the link below to verify your email:\n{{VERIFICATION_URL}}\n\nIf you did not request this, you can ignore this email.",
   },
 
   password_reset: {
-    subject: "Reset your Vaultr master password 🔐",
+    subject: "Reset your Vaultr password",
     bodyHtml: WRAPPER(`
-      <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">Reset your password</h2>
-      <p style="color:#a1a1aa;font-size:14px;margin:0 0 28px;line-height:1.6;">
-        We received a request to reset the password for your Vaultr account (<strong style="color:#ffffff;">{{USER_EMAIL}}</strong>).
-        Click the button below to choose a new password.
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">Reset your password</h2>
+      <p style="color:#4b5563;font-size:14px;margin:0 0 24px;line-height:1.6;">
+        We received a request to reset the password for your Vaultr account (<strong style="color:#111827;font-weight:600;">{{USER_EMAIL}}</strong>). Click the button below to choose a new password.
       </p>
-      <a href="{{RESET_URL}}" style="display:inline-block;padding:12px 26px;background-color:#ffffff;background:#ffffff;color:#000000;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:28px;box-shadow:0 4px 14px rgba(255,255,255,0.15);">Reset Password &rarr;</a>
-      <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 20px;">
-        <p style="font-size:12px;color:#71717a;line-height:1.6;margin:0;">
-          If you did not request a password reset, you can safely ignore this email. Your vault remains encrypted.
-        </p>
-      </div>`, "PASSWORD RESET"),
-    bodyText: "Reset your Vaultr password.\n\nClick the link below to set a new password:\n{{RESET_URL}}",
+      <div style="margin:0 0 24px;">
+        <a href="{{RESET_URL}}" style="display:inline-block;padding:11px 22px;background-color:#111827;color:#ffffff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;">Reset Password</a>
+      </div>
+      <p style="font-size:12px;color:#6b7280;line-height:1.6;margin:0 0 16px;">
+        If the button doesn't work, copy and paste this link into your browser:<br/>
+        <a href="{{RESET_URL}}" style="color:#2563eb;text-decoration:underline;word-break:break-all;">{{RESET_URL}}</a>
+      </p>
+      <p style="font-size:12px;color:#9ca3af;line-height:1.6;margin:0;">
+        If you didn't request a password reset, you can safely ignore this email. Your vault remains locked.
+      </p>`),
+    bodyText: "Reset your Vaultr password.\n\nClick the link below to set a new password:\n{{RESET_URL}}\n\nIf you did not request this, you can ignore this email.",
   },
 };
 
