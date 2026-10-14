@@ -73,7 +73,27 @@
 
 ---
 
-## Current Session: Transactional Emails Light Theme Redesign & Human Copy (2026-10-31) · Branch: `dev`
+## Current Session: Remove Manual Passkey Linking in Web App (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Passkey Linking Elimination & Read-Only Enrolled Display)
+
+**Files Changed:**
+- `src/components/vault/NewEntryDialog.tsx`
+
+**Key Improvements:**
+1. **Removed Manual Passkey Linking**:
+   - WebAuthn passkeys are client-bound cryptographic credentials that can only be registered through an active ceremony (`navigator.credentials.create()`) via the Extension or Mobile autofill provider.
+   - Removed the remnant `+ Link a passkey` button and its popup dialog in `NewEntryDialog.tsx` that previously generated arbitrary `crypto.randomUUID()` values without private keys.
+2. **Conditional Read-Only Enrolled Display**:
+   - In both Split view (`renderForm`) and Bento view (`renderBentoFields`), the passkey section is now strictly conditional on `isPasskey === true`.
+   - When no passkey is enrolled (e.g. creating a new login or editing a login without a passkey), zero passkey controls or buttons are rendered.
+   - When a passkey is enrolled, the user can inspect the relying party (RP ID), creation date, and truncated Credential ID, or click **Unlink passkey** to clear the credentials.
+3. **Cross-Platform Parity**:
+   - Aligns the Web App with the Extension (`NewEntryForm.tsx`) and Mobile app (`ItemFormScreen.tsx`), which already adhere to this exact behavior.
+
+---
+
+## Prior Session: Transactional Emails Light Theme Redesign & Human Copy (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Clean White/Light Theme & Card-Free Professional Redesign)
 
