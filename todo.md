@@ -1,4 +1,33 @@
-## Current Session: Android Passkey Discovery & In-Sheet Biometric Assertion (2026-09-28) · Branch: `dev`
+## Current Session: Extension Wide Mode Content Constraints & Master Password Layout (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Phase 44: Extension Wide Mode Centered Content Constraints - Option A)
+
+**Files Changed:**
+- `extension/src/popup/UnlockScreen.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/GeneratorScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Resolutions:**
+1. **Unlock Screen Width Containment (`UnlockScreen.tsx`)**:
+   - Master Password form, input, and unlock buttons now have `max-width: 340px; margin: 0 auto; width: 100%`, perfectly maintaining standard 380px compact proportions even when popup is in `wide` (460px), `wider` (540px), or `extended` (620px) mode.
+   - PIN Pad keypad and dots view are centered and constrained to `maxWidth: 340, margin: "0 auto"`.
+   - Unauthorized / Sign-in required view illustration and action buttons are centered and constrained to `maxWidth: 340, margin: "0 auto"`.
+   - Footer links ("Forgot password?", "Why is this needed?") align neatly below the form at `maxWidth: 340, margin: "24px auto 0"`.
+2. **Settings Screen Master Password Update (`SettingsScreen.tsx`)**:
+   - Change Master Password form (`activeFolder === "change_password"`) constrained to `max-width: 380px; margin: 0 auto; width: 100%` so the 3 password inputs and re-encryption action button never stretch into 600px ribbons.
+3. **Generator Screen Sizing (`GeneratorScreen.tsx`)**:
+   - Generator controls and options constrained to `max-width: 480px; margin: 0 auto; width: 100%` so sliders and checkboxes stay comfortably sized in extended widths.
+4. **Bottom Nav Bar Proportions (`popup.css`)**:
+   - `.bottom-nav` updated to `grid-template-columns: repeat(3, minmax(0, 160px)); justify-content: center;` so tabs never stretch into awkward 200px+ blocks in 620px mode while border-top remains full-width.
+5. **Validation**:
+   - Zero-div-clutter design preserved across all affected components.
+   - `npx tsc --noEmit` passed with 0 errors across extension and root.
+   - Production webpack build (`npm run build`) compiled cleanly.
+
+---
+
+## Prior Session: Android Passkey Discovery & In-Sheet Biometric Assertion (2026-09-28) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 43: Fix Chrome "No Available Passkey / Other Device" Prompt via Persistent Candidates & In-Sheet Biometric Assertion)
 

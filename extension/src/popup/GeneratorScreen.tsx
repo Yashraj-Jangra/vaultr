@@ -221,7 +221,7 @@ export function GeneratorScreen() {
   }, [regen]);
 
   return (
-    <div className="screen-body" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+    <div className="screen-body" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480, margin: "0 auto" }}>
       
       {/* Mode Selector Segmented Tabs */}
       <div

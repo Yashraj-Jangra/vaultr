@@ -1978,7 +1978,7 @@ export function SettingsScreen({
 
             {/* ─── FOLDER: CHANGE MASTER PASSWORD ─── */}
             {activeFolder === "change_password" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 380, margin: "0 auto" }}>
                 {/* Intro summary */}
                 <div style={{ padding: "2px 2px" }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
