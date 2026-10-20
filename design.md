@@ -83,6 +83,13 @@ For navigating between settings views:
 * Backdrop: `rgba(0, 0, 0, 0.8)` with subtle `backdrop-filter: blur(8px)`.
 * Clear 1-tap primary action, subtle ghost cancel.
 
+### 3.7. Unified Top Header & Sub-Navigation
+To prevent visual clutter, redundant margins, and awkward double-header stacking:
+* **Root / Top-Level Views**: Displays the brand logo on the left (`vaultr-full-...`) with global action buttons on the right (Sync Vault, Lock Vault, Account Avatar).
+* **Sub-Level Views (Settings Folders)**: The brand logo seamlessly swaps with a sleek, div-less back button (`<ChevronLeft size={18} />`) and the sub-view title (`font-size: 13.5px; font-weight: 600;`).
+* **Zero Second Header**: Sub-views NEVER render a second header toolbar below the primary app header. Content scrolls immediately underneath the unified header, preserving vertical viewport real-estate.
+* **Contextual Actions**: The top header's right actions contextually adapt (e.g. Refresh triggers active session reload when on the Sessions sub-page; Avatar / Bottom Nav Settings button navigates back to root settings).
+
 ---
 
 ## 4. Viewport Scaling & Width Bounds
@@ -95,3 +102,4 @@ For navigating between settings views:
 | **Extended** | 620 × 600 px | Settings & forms constrained to `max-width: 440px; margin: 0 auto;` |
 
 *Note*: The **Vault Items List**, **Entry Edit Form**, and **Active Sessions List** take advantage of fluid width (`100%`) so long URLs, usernames, notes, and session diagnostics are never truncated.
+
