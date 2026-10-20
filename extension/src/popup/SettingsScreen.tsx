@@ -31,6 +31,8 @@ import {
   Palette,
   Sparkles,
   ChevronLeft,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { AccountInfo, resolveAvatarUrl } from "./App";
 import {
@@ -1643,80 +1645,81 @@ export function SettingsScreen({
 
             {/* ─── FOLDER: THEMES & APPEARANCE ─── */}
             {activeFolder === "themes" && (
-              <>
-                {/* Theme Picker */}
-                <div className="settings-card">
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)", display: "flex", alignItems: "center", gap: 6 }}>
-                    <Palette size={14} style={{ color: "#38bdf8" }} />
-                    Color Theme
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 440, margin: "0 auto", padding: "4px 2px" }}>
+                {/* 1. Theme */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 8, padding: "0 2px" }}>
+                    THEME
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 2 }}>
-                    Select your interface theme for the extension popup
-                  </div>
-
-                  <div className="theme-picker-grid">
-                    {/* Dark Theme */}
-                    <div
-                      className={`theme-card-option ${activeTheme === "dark" ? "active" : ""}`}
-                      onClick={() => handleThemeSelect("dark")}
-                    >
-                      <div className="theme-preview-swatch" style={{ background: "#0a0a0a" }}>
-                        <div className="theme-preview-dot" style={{ background: "#ffffff" }} />
-                      </div>
-                      <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--neutral-100)" }}>Dark</div>
-                      <div style={{ fontSize: 9.5, color: "var(--neutral-500)" }}>Obsidian</div>
-                    </div>
-
-                    {/* Zinc Light Theme */}
-                    <div
-                      className={`theme-card-option ${activeTheme === "light" ? "active" : ""}`}
-                      onClick={() => handleThemeSelect("light")}
-                    >
-                      <div className="theme-preview-swatch" style={{ background: "#fafafa", borderColor: "#e4e4e7" }}>
-                        <div className="theme-preview-dot" style={{ background: "#09090b" }} />
-                      </div>
-                      <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--neutral-100)" }}>Zinc Light</div>
-                      <div style={{ fontSize: 9.5, color: "var(--neutral-500)" }}>Crisp & Clean</div>
-                    </div>
-
-                    {/* Midnight Theme */}
-                    <div
-                      className={`theme-card-option ${activeTheme === "midnight" ? "active" : ""}`}
-                      onClick={() => handleThemeSelect("midnight")}
-                    >
-                      <div className="theme-preview-swatch" style={{ background: "#070a13", borderColor: "#1e293b" }}>
-                        <div className="theme-preview-dot" style={{ background: "#38bdf8" }} />
-                      </div>
-                      <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--neutral-100)" }}>Midnight</div>
-                      <div style={{ fontSize: 9.5, color: "var(--neutral-500)" }}>Deep Slate</div>
-                    </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, 1fr)",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: 3,
+                      gap: 3,
+                    }}
+                  >
+                    {[
+                      { id: "dark" as const, label: "Dark", icon: Moon },
+                      { id: "light" as const, label: "Light", icon: Sun },
+                      { id: "midnight" as const, label: "Midnight", icon: Sparkles },
+                    ].map(({ id, label, icon: Icon }) => {
+                      const active = activeTheme === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => handleThemeSelect(id)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            height: 36,
+                            borderRadius: 8,
+                            border: "none",
+                            background: active ? "var(--neutral-800)" : "transparent",
+                            color: active ? "var(--neutral-100)" : "var(--neutral-400)",
+                            fontSize: 12,
+                            fontWeight: active ? 600 : 500,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            boxShadow: active ? "0 1px 3px rgba(0, 0, 0, 0.2)" : "none",
+                          }}
+                        >
+                          <Icon size={13} style={{ color: active ? "var(--neutral-100)" : "var(--neutral-500)" }} />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Popup Window Size */}
-                <div className="settings-card">
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <div>
-                      <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <Maximize2 size={13} style={{ color: "#38bdf8" }} />
-                        Extension Window Width
-                      </div>
-                      <div className="settings-row-sub">Choose your preferred extension viewport size</div>
-                    </div>
-                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, background: "rgba(56, 189, 248, 0.12)", padding: "2px 6px", borderRadius: 6 }}>
-                      {POPUP_SIZE_MAP[popupWidth].width} × {POPUP_SIZE_MAP[popupWidth].height}
-                    </span>
+                {/* 2. Window Width */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 8, padding: "0 2px" }}>
+                    WINDOW WIDTH
                   </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 8 }}>
-                    {(
-                      [
-                        { id: "normal", label: "Normal", desc: "380px" },
-                        { id: "wide", label: "Wide", desc: "460px" },
-                        { id: "wider", label: "Wider", desc: "540px" },
-                        { id: "extended", label: "Extended", desc: "620px" },
-                      ] as const
-                    ).map(({ id, label, desc }) => {
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, 1fr)",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: 3,
+                      gap: 3,
+                    }}
+                  >
+                    {[
+                      { id: "normal" as const, label: "380px", hint: "Compact" },
+                      { id: "wide" as const, label: "460px", hint: "Wide" },
+                      { id: "wider" as const, label: "540px", hint: "Wider" },
+                      { id: "extended" as const, label: "620px", hint: "Max" },
+                    ].map(({ id, label, hint }) => {
                       const active = popupWidth === id;
                       return (
                         <button
@@ -1724,66 +1727,92 @@ export function SettingsScreen({
                           type="button"
                           onClick={() => handleWidthChange(id)}
                           style={{
-                            padding: "6px 2px",
-                            borderRadius: 8,
-                            border: active ? "1px solid #38bdf8" : "1px solid var(--border)",
-                            background: active ? "rgba(56, 189, 248, 0.12)" : "var(--surface-2)",
-                            color: active ? "#38bdf8" : "var(--neutral-400)",
-                            fontSize: 10.5,
-                            fontWeight: active ? 600 : 500,
-                            cursor: "pointer",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
-                            gap: 2,
-                            transition: "all 0.12s ease",
+                            justifyContent: "center",
+                            height: 42,
+                            borderRadius: 8,
+                            border: "none",
+                            background: active ? "var(--neutral-800)" : "transparent",
+                            color: active ? "var(--neutral-100)" : "var(--neutral-400)",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            boxShadow: active ? "0 1px 3px rgba(0, 0, 0, 0.2)" : "none",
+                            gap: 1,
                           }}
                         >
-                          <span>{label}</span>
-                          <span style={{ fontSize: 9, opacity: 0.75, fontFamily: "monospace" }}>{desc}</span>
+                          <span style={{ fontSize: 11.5, fontWeight: active ? 600 : 500 }}>{label}</span>
+                          <span style={{ fontSize: 9.5, color: active ? "var(--neutral-300)" : "var(--neutral-500)" }}>{hint}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Interface Toggles Card */}
-                <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
-                  {/* Show suggestions badge count on extension icon */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Show suggestions badge on icon</div>
-                      <div className="settings-row-sub">Display number of matching login suggestions on extension toolbar icon</div>
-                    </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={showBadgeCount}
-                        onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
+                {/* 3. Preferences */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    PREFERENCES
                   </div>
-
-                  <div className="settings-row-divider" />
-
-                  {/* Show animations */}
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">Show animations</div>
-                      <div className="settings-row-sub">Enable smooth interface transitions and randomisation cipher scrambles</div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {/* Badge Count Toggle */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 2px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>
+                          Suggestion Badge
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>
+                          Show matching credential count on extension toolbar icon
+                        </div>
+                      </div>
+                      <label className="toggle" style={{ flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={showBadgeCount}
+                          onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
                     </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={showAnimations}
-                        onChange={(e) => handleToggleShowAnimations(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
+
+                    {/* Smooth Animations Toggle */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 2px",
+                      }}
+                    >
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>
+                          Interface Animations
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>
+                          Smooth screen transitions and cipher scramble effects
+                        </div>
+                      </div>
+                      <label className="toggle" style={{ flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={showAnimations}
+                          onChange={(e) => handleToggleShowAnimations(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ─── FOLDER: ABOUT ─── */}

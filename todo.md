@@ -1,4 +1,25 @@
-## Current Session: Extension Wide Mode Content Constraints & Master Password Layout (2026-10-31) · Branch: `dev`
+## Current Session: Extension Appearance Redesign & Wide Mode Constraints (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Phase 45: Div-Less Focused Redesign of Extension Themes & Appearance)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Resolutions:**
+1. **Div-Less & Card-Free Appearance Architecture (`SettingsScreen.tsx`)**:
+   - Replaced heavy nested card boxes (`settings-card`) and borders-on-borders with clean, focused typographic section labels (`THEME`, `WINDOW WIDTH`, `PREFERENCES`).
+   - Eliminated AI-like swatch previews, nested dots, and artificial marketing subtitles ("Obsidian", "Crisp & Clean", "Deep Slate").
+   - Implemented sleek segmented control for Themes: `[ 🌙 Dark | ☀️ Light | ✨ Midnight ]` with direct theme icons and native active contrast.
+   - Implemented matching 4-segment control for Window Sizing: `[ 380px Compact | 460px Wide | 540px Wider | 620px Max ]`.
+   - Rendered preferences (Suggestion Badge, Interface Animations) as flat, borderless rows with clean 1px hairline separation.
+2. **CSS Cleanup (`popup.css`)**:
+   - Removed dead/clunky classes (`.theme-picker-grid`, `.theme-card-option`, `.theme-preview-swatch`, `.theme-preview-dot`).
+3. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors across extension and root.
+   - Production webpack build (`npm run build`) compiled successfully.
+
+---
 
 ### ✅ What Was Done (Phase 44: Extension Wide Mode Centered Content Constraints - Option A)
 
