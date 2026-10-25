@@ -17,7 +17,7 @@
    - Dynamically swapped brand logos: light mode now renders `brand/vaultr-full-light-transparent.png` and `brand/vaultr-lock-light-transparent.svg` with optimal opacity.
    - Removed hardcoded `#0d0d0d` background and border from master password input; input lock icon updated to readable `var(--neutral-400)`.
    - Removed hardcoded `#f4f4f5` background and white glow from biometric button, allowing `.btn-primary` theme rules to render high-contrast black button with white text in light theme.
-   - Replaced inline mouse hover listeners on footer links with `.unlock-footer-link` CSS class.
+   - Stripped default button backgrounds, borders, and box shadows from footer links ("Forgot password?" and "Why is this needed?"), ensuring pure text color transitions (`var(--neutral-500)` to `var(--neutral-200)` in dark, and `var(--neutral-500)` to `var(--neutral-100)` in light) with zero background fill.
    - Replaced hardcoded black lock box with `#ffffff` card, subtle shadow, and light mode radial/grid ambient visuals.
 2. **PIN Pad Color Contrast Restoration (`PinPad.tsx`, `popup.css`)**:
    - Fixed `.pin-dot-filled` selector typo in `popup.css` (was `.pin-dot.filled`), restoring high-contrast dark dots on light theme.

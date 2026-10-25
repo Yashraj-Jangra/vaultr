@@ -485,19 +485,18 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock, theme }: UnlockSc
       {/* Footer Links matching site */}
       <div style={{ width: "100%", maxWidth: 340, margin: unlockMode === "pin" ? "14px auto 0" : "24px auto 0", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, position: "relative", zIndex: 10 }}>
         <button
+          type="button"
           onClick={openLoginPage}
           className="unlock-footer-link"
-
-
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
         >
           Forgot password?
         </button>
         <button
+          type="button"
           onClick={openLoginPage}
           className="unlock-footer-link"
-          style={{ display: "flex", alignItems: "center", gap: 5 }}
-
-
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
         >
           <Shield size={14} /> Why is this needed?
         </button>
