@@ -165,7 +165,7 @@ export function PinPad({
         >
           <BackspaceIcon
             size={20}
-            color={value.length > 0 ? "#f4f4f5" : "rgba(255, 255, 255, 0.25)"}
+            color={value.length > 0 ? "var(--neutral-100)" : "var(--neutral-400)"}
           />
         </button>
       </div>

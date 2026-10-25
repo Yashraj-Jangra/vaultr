@@ -612,8 +612,8 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                           <KeyRound size={22} color="#38bdf8" style={{ flexShrink: 0 }} />
                           <div>
-                            <div style={{ fontSize: "12px", fontWeight: "600", color: "#f4f4f5" }}>Passkey Configured</div>
-                            <div style={{ fontSize: "10.5px", color: "#a1a1aa" }}>
+                            <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--neutral-100)" }}>Passkey Configured</div>
+                            <div style={{ fontSize: "10.5px", color: "var(--neutral-400)" }}>
                               {decrypted.passkeyCreatedAt
                                 ? `Configured • ${new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
                                 : "Configured for passwordless sign-in"}

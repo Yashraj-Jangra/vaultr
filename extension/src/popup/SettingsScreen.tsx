@@ -940,7 +940,7 @@ export function SettingsScreen({
                   width: 48,
                   height: 48,
                   borderRadius: "50%",
-                  background: "#1c1c1e",
+                  background: "var(--surface-2)",
                   border: "1px solid var(--border)",
                   display: "flex",
                   alignItems: "center",
@@ -2076,7 +2076,7 @@ export function SettingsScreen({
                       gap: 8,
                     }}
                   >
-                    <p style={{ fontSize: 11.5, color: "#fca5a5", lineHeight: 1.4, margin: 0 }}>
+                    <p style={{ fontSize: 11.5, color: "var(--danger)", lineHeight: 1.4, margin: 0 }}>
                       Are you sure you want to sign out all <strong>{otherSessions.length}</strong> other active device{otherSessions.length !== 1 ? "s" : ""}? You will remain signed in on this extension.
                     </p>
                     <div style={{ display: "flex", gap: 6 }}>

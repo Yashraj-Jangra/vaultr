@@ -304,6 +304,7 @@ export function App() {
         serverUrl={serverUrl}
         userEmail={accountInfo.email}
         onUnlock={handleUnlock}
+        theme={theme}
       />
     );
   }
@@ -426,7 +427,7 @@ export function App() {
         {(isNewEntryOpen || editingItem) && (
           <div
             className="animate-slide-up"
-            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}
+            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg)", display: "flex", flexDirection: "column", overflow: "hidden" }}
           >
             <ErrorBoundary>
               <NewEntryForm

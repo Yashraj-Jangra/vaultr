@@ -136,14 +136,14 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
     <div
       style={{
         padding: "10px 12px",
-        background: "#0d0d0f",
+        background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 12,
         marginBottom: 12,
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        boxShadow: "0 6px 20px -4px rgba(0, 0, 0, 0.5)",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
       }}
     >
       {/* Output Row with Inline Actions */}
@@ -153,8 +153,8 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 6,
-          background: "#070709",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
           borderRadius: 8,
           padding: "7px 10px",
           minHeight: 40,
@@ -228,8 +228,8 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
               padding: "3px 8px",
               fontSize: 10.5,
               fontWeight: 600,
-              background: "#f4f4f5",
-              color: "#09090b",
+              background: "var(--neutral-100)",
+              color: "var(--bg)",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
@@ -321,12 +321,12 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
                 fontWeight: 600,
                 cursor: "pointer",
                 transition: "all 0.15s ease",
-                background: val ? "rgba(255, 255, 255, 0.08)" : "#070709",
-                border: val ? "1px solid rgba(255, 255, 255, 0.18)" : "1px solid var(--border)",
-                color: val ? "var(--neutral-200)" : "var(--neutral-600)",
+                background: val ? "var(--surface-2)" : "transparent",
+                border: val ? "1px solid var(--neutral-400)" : "1px solid var(--border)",
+                color: val ? "var(--neutral-100)" : "var(--neutral-500)",
               }}
             >
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: val ? color : "var(--neutral-700)" }} />
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: val ? color : "var(--neutral-400)" }} />
               {label}
             </button>
           ))}

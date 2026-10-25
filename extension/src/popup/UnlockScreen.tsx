@@ -14,9 +14,13 @@ interface UnlockScreenProps {
   serverUrl: string;
   userEmail?: string;
   onUnlock: (password: string) => Promise<void>;
+  theme?: "dark" | "light" | "midnight";
 }
 
-export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenProps) {
+export function UnlockScreen({ serverUrl, userEmail, onUnlock, theme }: UnlockScreenProps) {
+  const isLight = theme === "light" || (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "light");
+  const brandLogo = isLight ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png";
+  const lockSvg = isLight ? "brand/vaultr-lock-light-transparent.svg" : "brand/vaultr-lock-dark-transparent.svg";
   const [unlockMode, setUnlockMode] = useState<"pin" | "password">("password");
   const [masterPassword, setMasterPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -214,7 +218,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
         {/* Top Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", zIndex: 10, opacity: 0.7 }}>
           <img
-            src="brand/vaultr-full-dark-transparent.png"
+            src={brandLogo}
             alt="Vaultr"
             style={{ height: 20, width: "auto", objectFit: "contain" }}
           />
@@ -275,7 +279,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
           style={unlockMode === "pin" ? { width: 52, height: 52, borderRadius: 14 } : undefined}
         >
           <img
-            src="brand/vaultr-lock-dark-transparent.svg"
+            src={lockSvg}
             alt="Vaultr Lock"
             style={{
               width: unlockMode === "pin" ? 34 : 48,
@@ -292,7 +296,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", width: "100%", maxWidth: 340, margin: unlockMode === "pin" ? "0 auto 8px" : "0 auto 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6, opacity: 0.6 }}>
           <img
-            src="brand/vaultr-full-dark-transparent.png"
+            src={brandLogo}
             alt="Vaultr"
             style={{ height: 18, width: "auto", objectFit: "contain" }}
           />
@@ -354,8 +358,8 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
           <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {error && (
               <div className="alert-error animate-auth-form-in">
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0, marginTop: 4 }} />
-                <p style={{ fontSize: 12, color: "#f87171", margin: 0, lineHeight: 1.4, flex: 1 }}>{error}</p>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", opacity: 0.8, flexShrink: 0, marginTop: 4 }} />
+                <p style={{ fontSize: 12, color: "inherit", margin: 0, lineHeight: 1.4, flex: 1 }}>{error}</p>
               </div>
             )}
 
@@ -376,13 +380,13 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
                     gap: 8,
                     fontSize: 13,
                     fontWeight: 600,
-                    background: "#f4f4f5",
-                    color: "#09090b",
-                    boxShadow: "0 2px 10px rgba(255,255,255,0.12)",
+
+
+
                   }}
                 >
                   {bioLoading ? (
-                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: "#09090b", borderTopColor: "transparent" }} />
+                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
                   ) : (
                     <>
                       <Fingerprint size={16} />
@@ -413,14 +417,14 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
                   width: "100%",
                   height: 44,
                   paddingRight: 40,
-                  background: "#0d0d0d",
-                  border: "1px solid var(--border)",
+
+
                   borderRadius: 12,
-                  color: "var(--neutral-200)",
+
                   fontSize: 13,
                 }}
               />
-              <Lock size={16} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-700)", pointerEvents: "none" }} />
+              <Lock size={16} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--neutral-400)", pointerEvents: "none" }} />
             </div>
 
             <button
@@ -482,17 +486,18 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       <div style={{ width: "100%", maxWidth: 340, margin: unlockMode === "pin" ? "14px auto 0" : "24px auto 0", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, position: "relative", zIndex: 10 }}>
         <button
           onClick={openLoginPage}
-          style={{ background: "none", border: "none", color: "var(--neutral-600)", cursor: "pointer", fontSize: 12 }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--neutral-300)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--neutral-600)")}
+          className="unlock-footer-link"
+
+
         >
           Forgot password?
         </button>
         <button
           onClick={openLoginPage}
-          style={{ background: "none", border: "none", color: "var(--neutral-600)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--neutral-300)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--neutral-600)")}
+          className="unlock-footer-link"
+          style={{ display: "flex", alignItems: "center", gap: 5 }}
+
+
         >
           <Shield size={14} /> Why is this needed?
         </button>

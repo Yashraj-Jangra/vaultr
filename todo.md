@@ -1,6 +1,48 @@
-## Current Session: Extension Generator Screen Div-Less Redesign (2026-10-31) · Branch: `dev`
+## Current Session: Extension Light Theme Color Audit & Polish (2026-10-31) · Branch: `dev`
 
-### ✅ What Was Done (Phase 48: Div-Less Focused Redesign of Extension Password Generator)
+### ✅ What Was Done (Phase 49: Comprehensive Light Theme Audit & Color Correction in Browser Extension)
+
+**Files Changed:**
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/UnlockScreen.tsx`
+- `extension/src/popup/PinPad.tsx`
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Resolutions:**
+1. **Master Password & Unlock Screen Theme Parity (`UnlockScreen.tsx`, `App.tsx`)**:
+   - Passed `theme` prop to `<UnlockScreen />` with dual detection via DOM fallback (`html[data-theme="light"]`).
+   - Dynamically swapped brand logos: light mode now renders `brand/vaultr-full-light-transparent.png` and `brand/vaultr-lock-light-transparent.svg` with optimal opacity.
+   - Removed hardcoded `#0d0d0d` background and border from master password input; input lock icon updated to readable `var(--neutral-400)`.
+   - Removed hardcoded `#f4f4f5` background and white glow from biometric button, allowing `.btn-primary` theme rules to render high-contrast black button with white text in light theme.
+   - Replaced inline mouse hover listeners on footer links with `.unlock-footer-link` CSS class.
+   - Replaced hardcoded black lock box with `#ffffff` card, subtle shadow, and light mode radial/grid ambient visuals.
+2. **PIN Pad Color Contrast Restoration (`PinPad.tsx`, `popup.css`)**:
+   - Fixed `.pin-dot-filled` selector typo in `popup.css` (was `.pin-dot.filled`), restoring high-contrast dark dots on light theme.
+   - Updated empty PIN dots to soft translucent borders (`rgba(0, 0, 0, 0.16)`) and backspace icon color to `var(--neutral-100)`.
+   - Restored elevated white keycaps (`#ffffff` with `var(--border)` and subtle shadow) with crisp zinc numerals (`#18181b`) and subtle sub-lettering.
+3. **Buttons, Badges & Interactive States (`popup.css`)**:
+   - Overrode `.btn-primary:hover` in light mode to `#000000` with white text, resolving white-on-white text disappearance.
+   - Standardized `.btn-fill-badge` and `.btn-expanded-primary` across light mode with zinc backgrounds and crisp borders.
+   - Standardized `.btn-expanded-icon` and `.detail-action-btn:hover` to use `var(--surface)` / `var(--surface-2)`.
+4. **Form Inputs, Selects & Overlays (`NewEntryForm.tsx`, `App.tsx`, `popup.css`)**:
+   - Replaced hardcoded `#09090b` slide-up modal overlay in `App.tsx` and `popup.css` with `var(--bg)` (`#fafafa` in light mode).
+   - Replaced hardcoded dark `#0d0d0f` and `#070709` containers in mini generator with `var(--surface)` and `var(--surface-2)`.
+   - Enhanced `.form-input`, `.form-select`, and `.search-input` in light mode with `#ffffff` backgrounds, visible placeholders, and distinct focus rings.
+5. **Info Banners, Alerts & Text Hierarchy (`VaultScreen.tsx`, `SettingsScreen.tsx`, `popup.css`)**:
+   - Fixed passkey banner in `VaultScreen.tsx` by replacing hardcoded white text `#f4f4f5` with `var(--neutral-100)`.
+   - Fixed confirmation alert in `SettingsScreen.tsx` by replacing unreadable light pink `#fca5a5` with `var(--danger)`.
+   - Refined `.alert-error` in light mode to high-contrast red (`#dc2626` on `rgba(239, 68, 68, 0.08)`).
+   - Polished empty states (`.empty-state`, `.empty-state-title`) to clear high-contrast tones.
+6. **Validation & Build Verification**:
+   - `npx tsc --noEmit` verified with 0 errors across entire workspace.
+   - Production extension bundle (`npm run build` in `extension/`) compiled cleanly with 0 errors (`popup.js` 428 KiB).
+
+---
+
+## Prior Sessions:
 
 **Files Changed:**
 - `extension/src/popup/GeneratorScreen.tsx`
