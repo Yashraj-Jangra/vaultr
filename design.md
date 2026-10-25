@@ -90,6 +90,19 @@ To prevent visual clutter, redundant margins, and awkward double-header stacking
 * **Zero Second Header**: Sub-views NEVER render a second header toolbar below the primary app header. Content scrolls immediately underneath the unified header, preserving vertical viewport real-estate.
 * **Contextual Actions**: The top header's right actions contextually adapt (e.g. Refresh triggers active session reload when on the Sessions sub-page; Avatar / Bottom Nav Settings button navigates back to root settings).
 
+### 3.8. Generator Screen & Password Canvas Pattern
+* **Mode Selector**: Segmented control (`Password`, `Passphrase`, `PIN`) using `var(--surface)` container and `var(--neutral-800)` active pill.
+* **Hero Output Canvas**: Single cohesive surface using `background: var(--surface); border: 1px solid var(--border); border-radius: 12px;` containing:
+  - Monospace character display (`14.5px`) with semantic character color coding:
+    - Uppercase: Sky (`#38bdf8`)
+    - Lowercase: High-contrast theme neutral (`var(--neutral-100)`)
+    - Digits: Amber (`#fbbf24`)
+    - Symbols: Rose (`#fb7185`)
+  - Integrated 1-tap Copy action and Regenerate button (`32px` touch targets with animated spin/pop states).
+  - 4-segment hairline strength indicator with entropy and crack-time metadata.
+  - Quiet typographic breakdown line (`X uppercase · Y lowercase · Z digits · W symbols`) eliminating bulky chip boxes.
+* **Div-Less Options**: Flat list rows with subtle `1px solid var(--border)` hairlines and native `.toggle` controls. Zero nested card wraps or box grids.
+
 ---
 
 ## 4. Viewport Scaling & Width Bounds

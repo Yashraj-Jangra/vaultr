@@ -1,4 +1,31 @@
-## Current Session: Unified Settings Header & 2nd Header Elimination (2026-10-31) · Branch: `dev`
+## Current Session: Extension Generator Screen Div-Less Redesign (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Phase 48: Div-Less Focused Redesign of Extension Password Generator)
+
+**Files Changed:**
+- `extension/src/popup/GeneratorScreen.tsx`
+- `extension/src/popup/CipherScrambleText.tsx`
+- `design.md`
+
+**Key Improvements & Resolutions:**
+1. **Div-Less & Card-Free Generator Architecture (`GeneratorScreen.tsx`)**:
+   - Replaced heavy nested card boxes and 8 cluttered badge chip containers (`CharBreakdown` and `ColorLegend`) with a single cohesive hero canvas.
+   - Streamlined hero canvas: 14.5px monospace password display, integrated 1-tap Copy button with emerald feedback, smooth spinning Regenerate button (`RefreshCw`), 4-segment hairline strength bar, and quiet typographic breakdown line (`X uppercase · Y lowercase · Z digits · W symbols`).
+2. **Enhanced Semantic Character Color Coding (`CipherScrambleText.tsx`)**:
+   - Preserved and polished character distinction: Sky for uppercase (`#38bdf8`), Amber for digits (`#fbbf24`), Rose for symbols (`#fb7185`), and theme-adaptive neutral for lowercase (`var(--neutral-100)`), ensuring maximum contrast across Dark, Light, and Midnight themes.
+3. **Div-Less Options & Native Toggle Rhythms**:
+   - Replaced 2x2 checkbox grid and isolated toggle boxes with flat hairline setting rows (`border-bottom: 1px solid var(--border)`) and native `.toggle` switches.
+   - Password mode: Uppercase (A–Z), Lowercase (a–z), Numbers (0–9), Special Symbols (!@#$), and Avoid Ambiguous Characters.
+   - Passphrase mode: Word Count slider, Word Separator mini segmented picker, and Capitalize Words toggle.
+   - PIN mode: Length slider (4–16 digits) and Quick Presets pills (4, 6, 8 digits).
+4. **Ergonomic Viewport Constraints & Design System Docs**:
+   - Constrained layout to `max-width: 440px; margin: 0 auto;` for natural proportions across wide popup modes (`460px`–`620px`).
+   - Documented Section 3.8 (Generator Screen & Password Canvas Pattern) in `design.md`.
+5. **Validation & Build Verification**:
+   - `npx tsc --noEmit` verified and passed with 0 errors across root and packages.
+   - Production webpack build (`npm run build` in `extension/`) compiled cleanly with exit code 0 (`popup.js` 424 KiB).
+
+---
 
 ### ✅ What Was Done (Phase 47: Unified Settings Navigation Header & 2nd Header Elimination)
 
