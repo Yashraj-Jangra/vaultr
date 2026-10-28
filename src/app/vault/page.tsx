@@ -947,28 +947,40 @@ function ExpandedDetails({ itemId, itemName, data, readOnly, onEdit, inGrid = fa
           {(data.isPasskey || data.passkeyCredentialId) && (
             <SectionGroup
               title={
-                <span className="flex items-center gap-1.5 text-sky-400">
-                  <KeyRound className="w-3 h-3" /> PASSKEY
+                <span className="flex items-center gap-1.5 text-neutral-400">
+                  <KeyRound className="w-3 h-3 text-sky-400" /> PASSKEY
                 </span>
               }
             >
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--surface-hover)] border border-sky-500/20">
-                <div className="flex items-center gap-3.5">
-                  <KeyRound className="w-6 h-6 text-sky-400 shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-neutral-200">Passkey Configured</div>
-                    <div className="text-xs text-neutral-400">
-                      {data.passkeyCreatedAt
-                        ? `Configured • ${new Date(data.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
-                        : "Configured for passwordless sign-in"}
-                    </div>
+              <div className="flex items-center justify-between px-3 py-2.5 min-w-0">
+                <span className="text-[11px] text-neutral-400 font-medium shrink-0 pr-3">Status</span>
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="text-[12px] font-mono text-neutral-200 truncate">
+                      {data.passkeyRpId || "WebAuthn / FIDO2"}
+                    </span>
+                    <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shrink-0">
+                      Configured
+                    </span>
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-400 tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  ACTIVE
+                  {data.passkeyCreatedAt && (
+                    <span className="text-[11px] text-neutral-500 shrink-0 font-sans">
+                      {new Date(data.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
                 </div>
               </div>
+              {data.passkeyCredentialId && (
+                <div className="flex items-center justify-between px-3 py-2.5 min-w-0">
+                  <span className="text-[11px] text-neutral-400 font-medium shrink-0 pr-3">Credential</span>
+                  <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                    <span className="text-[12px] font-mono text-neutral-400 truncate max-w-[220px]" title={data.passkeyCredentialId}>
+                      {data.passkeyCredentialId.slice(0, 16)}…{data.passkeyCredentialId.slice(-8)}
+                    </span>
+                    <CopyBtn value={data.passkeyCredentialId} />
+                  </div>
+                </div>
+              )}
             </SectionGroup>
           )}
 

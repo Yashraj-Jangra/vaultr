@@ -1339,35 +1339,26 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                   </button>
                 </div>
 
-                <div className="p-3.5 rounded-xl border border-sky-900/40 bg-sky-950/20 space-y-2">
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-sky-300">
-                    <KeyRound className="w-4 h-4 text-sky-400" />
-                    <span>Linked FIDO2 Passkey</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-neutral-300 pt-1">
-                    <div>
-                      <span className="text-neutral-500">RP ID: </span>
-                      {passkeyRpId || "WebAuthn"}
+                <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[12px] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-medium text-[var(--fg)]">
+                      <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>{passkeyRpId || "WebAuthn / FIDO2"}</span>
+                      <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                        Configured
+                      </span>
                     </div>
-                    {passkeySignCount !== undefined && (
-                      <div>
-                        <span className="text-neutral-500">Sign Count: </span>
-                        {passkeySignCount}
-                      </div>
-                    )}
-                    {passkeyCredentialId && (
-                      <div className="col-span-2 truncate">
-                        <span className="text-neutral-500">Credential ID: </span>
-                        {passkeyCredentialId.slice(0, 24)}…
-                      </div>
-                    )}
                     {passkeyCreatedAt && (
-                      <div className="col-span-2 text-neutral-400">
-                        <span className="text-neutral-500">Created: </span>
+                      <span className="text-[11px] text-[var(--fg-muted)]">
                         {new Date(passkeyCreatedAt).toLocaleDateString()}
-                      </div>
+                      </span>
                     )}
                   </div>
+                  {passkeyCredentialId && (
+                    <div className="text-[11px] font-mono text-[var(--fg-muted)] truncate pt-0.5">
+                      <span className="text-neutral-500">ID: </span>{passkeyCredentialId.slice(0, 24)}…
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1693,105 +1684,29 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                 </button>
               </div>
 
-              <div className="p-3 rounded-xl border border-sky-900/40 bg-sky-950/20 text-[11px] font-mono text-neutral-300 space-y-1">
-                <div className="text-sky-300 font-sans font-medium flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-sky-400" /> Linked FIDO2 Passkey
+              <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[12px] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-medium text-[var(--fg)]">
+                    <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>{passkeyRpId || "WebAuthn / FIDO2"}</span>
+                    <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                      Configured
+                    </span>
+                  </div>
+                  {passkeyCreatedAt && (
+                    <span className="text-[11px] text-[var(--fg-muted)]">
+                      {new Date(passkeyCreatedAt).toLocaleDateString()}
+                    </span>
+                  )}
                 </div>
-                <div><span className="text-neutral-500">RP ID: </span>{passkeyRpId || "WebAuthn"}</div>
-                {passkeyCredentialId && <div className="truncate"><span className="text-neutral-500">Credential ID: </span>{passkeyCredentialId.slice(0, 24)}…</div>}
+                {passkeyCredentialId && (
+                  <div className="text-[11px] font-mono text-[var(--fg-muted)] truncate pt-0.5">
+                    <span className="text-neutral-500">ID: </span>{passkeyCredentialId.slice(0, 24)}…
+                  </div>
+                )}
               </div>
             </div>
           )}
-        </div>
-      );
-    }
-
-    if (template === "card") {
-      const binBrands = Array.from(new Set((config?.cardBins || []).map((b: any) => b.brand)));
-      const allBrands = new Set(["Visa", "Mastercard", "AMEX", "Discover", "RuPay"]);
-      binBrands.forEach((b: any) => allBrands.add(b as string));
-      const networkOptions = [{ value: "", label: "Auto-detect" }, ...Array.from(allBrands).map(b => ({ value: b, label: b })), { value: "Other", label: "Other" }];
-
-      return (
-        <div className="space-y-4 text-left">
-          <div className="grid grid-cols-5 gap-4">
-            <div className="col-span-2"><FieldLabel>Cardholder Name</FieldLabel><Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Name on card" /></div>
-            <div className="col-span-1">
-              <FieldLabel>Network</FieldLabel>
-              <Select
-                value={cardBrand}
-                onChange={(v) => {
-                  setCardBrand(v);
-                  setIsManualBrand(!!v);
-                  if (v === "Other") {
-                    setFallbackIndex((prev) => getRandomEggIndex(prev, eggs.length));
-                  }
-                }}
-                options={networkOptions}
-                placeholder="Network"
-              />
-            </div>
-            <div className="col-span-2">
-              <FieldLabel>Card Number</FieldLabel>
-              <Input 
-                value={displayCardNumber} 
-                onChange={e => setCardNumber(e.target.value.replace(/\D/g, ""))} 
-                onCopy={e => { e.clipboardData.setData('text/plain', cardNumber); e.preventDefault(); }}
-                placeholder="•••• •••• •••• ••••" className="font-mono" 
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <FieldLabel>Exp Month</FieldLabel>
-              <Input
-                value={expiryMonth}
-                onChange={e => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 2);
-                  setExpiryMonth(v);
-                  setExpiryMonthError(false);
-                }}
-                onBlur={() => {
-                  if (!expiryMonth) { setExpiryMonthError(false); return; }
-                  const n = parseInt(expiryMonth, 10);
-                  if (isNaN(n) || n < 1 || n > 12) {
-                    setExpiryMonthError(true);
-                  } else {
-                    setExpiryMonth(String(n).padStart(2, "0"));
-                    setExpiryMonthError(false);
-                  }
-                }}
-                placeholder="MM"
-                className={expiryMonthError ? "border-red-500" : ""}
-              />
-              {expiryMonthError && <p className="text-red-400 text-[10px] mt-1">Must be 01 – 12</p>}
-            </div>
-            <div>
-              <FieldLabel>Exp Year</FieldLabel>
-              <Input
-                value={expiryYear}
-                onChange={e => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                  setExpiryYear(v);
-                  setExpiryYearError(false);
-                }}
-                onBlur={() => {
-                  if (!expiryYear) { setExpiryYearError(false); return; }
-                  const len = expiryYear.length;
-                  if (len !== 2 && len !== 4) {
-                    setExpiryYearError(true);
-                  } else {
-                    setExpiryYearError(false);
-                  }
-                }}
-                placeholder="YY or YYYY"
-                className={expiryYearError ? "border-red-500" : ""}
-              />
-              {expiryYearError && <p className="text-red-400 text-[10px] mt-1">Enter YY or YYYY</p>}
-            </div>
-            <div><FieldLabel>CVV</FieldLabel><SecretInput value={cvv} onChange={e => setCvv(e.target.value)} placeholder="•••" /></div>
-            <div><FieldLabel>PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
-          </div>
         </div>
       );
     }

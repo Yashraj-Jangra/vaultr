@@ -597,45 +597,50 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                   {(decrypted.isPasskey || decrypted.passkeyCredentialId) && (
                     <div className="detail-section-group">
                       <div className="detail-section-title" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <KeyRound size={11} style={{ color: "#38bdf8" }} />
+                        <KeyRound size={11} style={{ color: "var(--neutral-400)" }} />
                         PASSKEY
                       </div>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 12px",
-                        borderRadius: "10px",
-                        backgroundColor: "rgba(56, 189, 248, 0.05)",
-                        border: "1px solid rgba(56, 189, 248, 0.2)",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <KeyRound size={22} color="#38bdf8" style={{ flexShrink: 0 }} />
-                          <div>
-                            <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--neutral-100)" }}>Passkey Configured</div>
-                            <div style={{ fontSize: "10.5px", color: "var(--neutral-400)" }}>
-                              {decrypted.passkeyCreatedAt
-                                ? `Configured • ${new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
-                                : "Configured for passwordless sign-in"}
+                      <div className="detail-section-box">
+                        <div className="detail-row">
+                          <span className="detail-label">Status</span>
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <span className="detail-value" style={{ color: "var(--neutral-100)" }}>
+                                {decrypted.passkeyRpId || "WebAuthn / FIDO2"}
+                              </span>
+                              <span style={{
+                                fontSize: 9.5,
+                                fontWeight: 600,
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                background: "rgba(16, 185, 129, 0.12)",
+                                color: "#10b981",
+                                border: "1px solid rgba(16, 185, 129, 0.25)",
+                                flexShrink: 0,
+                              }}>
+                                Configured
+                              </span>
                             </div>
+                            {decrypted.passkeyCreatedAt && (
+                              <span style={{ fontSize: 10.5, color: "var(--neutral-500)", flexShrink: 0 }}>
+                                {new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          padding: "2px 7px",
-                          borderRadius: "9999px",
-                          backgroundColor: "rgba(16, 185, 129, 0.12)",
-                          border: "1px solid rgba(16, 185, 129, 0.3)",
-                          fontSize: "9px",
-                          fontWeight: "700",
-                          color: "#34d399",
-                          letterSpacing: "0.5px",
-                        }}>
-                          <span style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: "#10b981", display: "inline-block" }} />
-                          ACTIVE
-                        </div>
+                        {decrypted.passkeyCredentialId && (
+                          <div className="detail-row">
+                            <span className="detail-label">Credential</span>
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                              <span className="detail-value" style={{ color: "var(--neutral-400)", fontSize: 11 }} title={decrypted.passkeyCredentialId}>
+                                {decrypted.passkeyCredentialId.slice(0, 16)}…{decrypted.passkeyCredentialId.slice(-8)}
+                              </span>
+                              <div className="detail-actions">
+                                <CopyBtn value={decrypted.passkeyCredentialId} />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

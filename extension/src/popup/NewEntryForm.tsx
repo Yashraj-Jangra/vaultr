@@ -724,46 +724,56 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
             )}
 
             {passkeyData?.isPasskey && (
-              <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 10 }}>
+              <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: 5 }}>
-                    <KeyRound size={12} color="#38bdf8" /> PASSKEY ENROLLED
-                  </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
-                      {passkeyData.passkeyRpId || "FIDO2"}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <KeyRound size={13} style={{ color: "var(--neutral-400)" }} />
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--neutral-100)" }}>
+                      {passkeyData.passkeyRpId || "WebAuthn / FIDO2"}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPasskeyData(null);
-                        setTags((prev) =>
-                          prev
-                            .split(",")
-                            .map((t) => t.trim())
-                            .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
-                            .join(", ")
-                        );
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        fontSize: 10,
-                        color: "#f87171",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                      }}
-                      title="Unlink passkey from this login"
-                    >
-                      Unlink passkey
-                    </button>
+                    <span style={{
+                      fontSize: 9.5,
+                      fontWeight: 600,
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      background: "rgba(16, 185, 129, 0.12)",
+                      color: "#10b981",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                    }}>
+                      Configured
+                    </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasskeyData(null);
+                      setTags((prev) =>
+                        prev
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                          .join(", ")
+                      );
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 10.5,
+                      color: "var(--danger)",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                    title="Unlink passkey from this login"
+                  >
+                    Unlink
+                  </button>
                 </div>
-                <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4, margin: 0 }}>
-                  This login item has an active passkey credential linked for instant WebAuthn sign-in.
-                </p>
+                {passkeyData.passkeyCredentialId && (
+                  <div style={{ fontSize: 10.5, fontFamily: "monospace", color: "var(--neutral-500)", marginTop: 2 }}>
+                    ID: {passkeyData.passkeyCredentialId.slice(0, 20)}…
+                  </div>
+                )}
               </div>
             )}
           </div>
