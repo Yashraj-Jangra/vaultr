@@ -197,7 +197,7 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
   overflow-x: hidden;
   padding: 12px;
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 
 .screen-body::-webkit-scrollbar {
@@ -209,12 +209,12 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
 }
 
 .screen-body::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 4px;
 }
 
 .screen-body::-webkit-scrollbar-thumb:hover {
-  background: var(--neutral-600);
+  background: rgba(255, 255, 255, 0.45);
 }
 
 /* ─── Header ──────────────────────────────────────────────────────────────── */
