@@ -73,7 +73,40 @@
 
 ---
 
-## Current Session: Custom VaultR AAGUID & Branded Passkey UI (2026-09-27) · Branch: `dev`
+## Current Session: Extension Autofill & Integration Page Scrolling Fix & UI Polish (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Extension Autofill & Integration Page Fix & UI Modernization)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Fixes & Enhancements:**
+1. **Scrolling & Overlap Fix in Sub-Folder View (Autofill & Integration)**:
+   - Root cause: Flex items in column containers defaulted to `min-height: auto` without `min-height: 0` or `flex: 1`, preventing `.screen-body` from shrinking to the viewport. Content expanded to ~560px+, clipping bottom settings and keyboard shortcuts behind `.bottom-nav`.
+   - Updated root container and View B wrapper in `SettingsScreen.tsx` to `flex: 1, minHeight: 0, overflow: "hidden"`.
+   - Added `min-height: 0`, `scrollbar-width: thin`, and custom WebKit scrollbar styling to `.screen-body`.
+   - Increased bottom clearance padding on `.screen-body` to `padding: 12px 14px 32px` to prevent any overlap with the bottom nav bar.
+
+2. **Eliminated Button & Logo Hover Size Changes / Jitter**:
+   - Back button (`.settings-folder-back-btn`): Removed `transform: translateX(-2px)` on hover and `scale(0.94)` on active, maintaining smooth color and surface brightness transitions without positional jumping.
+   - Folder icon boxes (`.mobile-settings-icon-wrap`): Removed `transform: scale(1.05)` on hover and `scale(0.985)` row squish, keeping 36×36px icon wrappers pixel-stable.
+   - General buttons (`.btn:active`, `.btn-fill-badge:hover`, `.btn-expanded-primary:hover`, `.btn-expanded-icon:hover`): Removed `translateY(-0.5px)` and `scale(0.98)` distortions across the popup.
+
+3. **Modernized Autofill & Integration Page Layout**:
+   - Refactored Default Password Manager card with a sleek active status pill (`Active` with checkmark) and replaced the raw Edge settings URL button with an inline chip box (`edge://...`) and 1-click copy action.
+   - Semantically grouped options with uppercase category labels:
+     - **Autofill Behavior**: Suggest credentials (`Sparkles`), Auto-submit form (`LogIn`), Auto-copy 2FA code (`Clock`).
+     - **Capture & Matching**: Match base domain (`Globe`), Prompt to save passwords (`KeyRound`), Prompt to update passwords (`RefreshCw`).
+   - Integrated 28×28px tinted micro-icon badges for each setting row to dramatically enhance visual scannability.
+   - Styled keyboard shortcuts with tactile `<kbd>` keycaps (`⌘ Shift L`, `⌘ Shift T` / `Ctrl Shift L`, `Ctrl Shift T`).
+
+4. **Validation & Packaging**:
+   - Webpack production build compiled cleanly with zero errors (`npm run build --workspace=extension`).
+
+---
+
+## Prior Session: Custom VaultR AAGUID & Branded Passkey UI (2026-09-27) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 41: Custom VaultR AAGUID, Elimination of "iCloud Keychain" RP Label & Bitwarden-Style UI)
 
