@@ -73,7 +73,45 @@
 
 ---
 
-## Current Session: Extension Autofill & Integration Page Scrolling Fix & UI Polish (2026-10-31) · Branch: `dev`
+## Current Session: Extension Dedicated Security Sub-Screens (Change Password & Active Sessions) (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Dedicated Sub-Screens & Sleek Navigation for Password & Sessions)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Architecture:**
+1. **Dedicated Settings Sub-Screens (`change_password` & `sessions`)**:
+   - Expanded `SettingsTab` to `"autofill" | "security" | "themes" | "about" | "change_password" | "sessions"`.
+   - Updated `navigateBack()` to hierarchically navigate back to `"security"` from either sub-screen, and from `"security"` back to the root settings list.
+   - Sub-folder top header bar dynamically updates its title ("Change Master Password", "Active Sessions") and features a native-feeling refresh button in the top bar when on Active Sessions.
+
+2. **Main Settings-Style Full-Width Clickable Buttons in Account Security**:
+   - Replaced clunky inline expandable dropdown accordions in Account Security with sleek, full-width `.mobile-settings-row` buttons inside a `.mobile-settings-group`.
+   - Change Master Password: Amber `KeyRound` icon wrapper, title, subtitle, and sleek `ChevronRight` arrow.
+   - Active Sessions: Sky-blue `Monitor` icon wrapper, dynamic session count subtitle (`X active sessions on devices`), and sleek `ChevronRight` arrow.
+   - Full clickable hover and active states without layout jitter or scaling distortion.
+
+3. **Compact, Card-Free Change Master Password Screen**:
+   - Minimal layout without nested div clutter.
+   - Live 4-tier password strength bar (Too short, Weak, Fair, Good, Strong) with character count counter.
+   - Real-time mismatch detection with inline warning pill.
+   - Prominent primary action button ("Update Master Password") and zero-knowledge disclaimer.
+
+4. **Dedicated Active Sessions Screen**:
+   - Clear overview of all connected devices and browsers with "THIS EXTENSION" highlighted badge.
+   - Individual session revocation and bulk "Revoke Others" with safe confirmation dialog.
+   - Direct refresh button in the header bar and pre-loading on mount so badge counts are instantly accurate.
+
+5. **Typecheck & Production Build Verification**:
+   - `npx tsc --noEmit` passed with 0 errors across root and workspaces.
+   - `npx tsc --noEmit --project extension/tsconfig.json` passed with 0 errors.
+   - `npm run build --workspace=extension` compiled successfully with webpack 5.
+
+---
+
+## Prior Session: Extension Autofill & Integration Page Scrolling Fix & UI Polish (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Extension Autofill & Integration Page Fix & UI Modernization)
 
