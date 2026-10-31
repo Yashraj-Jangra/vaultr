@@ -5,7 +5,8 @@ import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
 import { SettingsScreen, applyPopupWidth, SettingsSubNav } from "./SettingsScreen";
 import { NewEntryForm } from "./NewEntryForm";
-import { Shield, Wand2, Settings, Lock, RefreshCw, ChevronLeft } from "lucide-react";
+import { Shield, Wand2, Settings, Lock, RefreshCw, ChevronLeft, ExternalLink } from "lucide-react";
+import { getActiveWebTab } from "../services/tabs";
 import "./popup.css";
 
 export function resolveAvatarUrl(url?: string, serverUrl?: string) {
@@ -43,6 +44,7 @@ export interface AccountInfo {
 }
 
 export function App() {
+  const isPopout = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "popout";
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [serverUrl, setServerUrl] = useState("https://vaultr.cvweb.qzz.io");
   const [items, setItems] = useState<VaultItem[]>([]);
@@ -74,6 +76,9 @@ export function App() {
   }, [folders, items]);
 
   useEffect(() => {
+    if (isPopout) {
+      document.documentElement.setAttribute("data-mode", "popout");
+    }
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.get(["vaultr_popup_width", "vaultr_theme", "vaultr_show_animations"], (res) => {
         if (res?.vaultr_popup_width) {
@@ -210,15 +215,19 @@ export function App() {
       });
     });
 
-  const handleAutofill = (cred: { username?: string; password?: string }) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) return;
-      if (!tabs[0]?.id || !tabs[0]?.url) return;
-      if (!isWebPageUrl(tabs[0].url)) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
+  const handlePopOut = () => {
+    chrome.runtime.sendMessage({ type: "OPEN_POPOUT" }, () => {
+      window.close();
+    });
+  };
+
+  const handleAutofill = async (cred: { username?: string; password?: string }) => {
+    const tab = await getActiveWebTab();
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
         void chrome.runtime.lastError;
       });
-    });
+    }
     window.close();
   };
 
@@ -305,6 +314,8 @@ export function App() {
         userEmail={accountInfo.email}
         onUnlock={handleUnlock}
         theme={theme}
+        isPopout={isPopout}
+        onPopOut={handlePopOut}
       />
     );
   }
@@ -352,6 +363,15 @@ export function App() {
           </div>
         )}
         <div className="header-actions">
+          {!isPopout && (
+            <button
+              className="detail-action-btn"
+              onClick={handlePopOut}
+              title="Pop out into new window"
+            >
+              <ExternalLink size={14} />
+            </button>
+          )}
           {/* Refresh */}
           <button
             className="detail-action-btn"

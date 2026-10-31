@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { getActiveWebTab } from "../services/tabs";
 import { VaultItem } from "@vaultr/core";
 import {
   Search, Copy, Check, Globe, Key, KeyRound, Shield, CreditCard, FileText, User, MapPin,
@@ -869,19 +870,17 @@ export function VaultScreen({
   }, []);
 
   useEffect(() => {
-    if (typeof chrome !== "undefined" && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tabUrl = tabs[0]?.url || "";
-        if (tabUrl && isWebPageUrl(tabUrl)) {
-          const host = extractDomainHost(tabUrl);
-          if (host && !isInternalBrowserHost(host)) {
-            setActiveTabDomain(host);
-            return;
-          }
+    getActiveWebTab().then((tab) => {
+      const tabUrl = tab?.url || "";
+      if (tabUrl && isWebPageUrl(tabUrl)) {
+        const host = extractDomainHost(tabUrl);
+        if (host && !isInternalBrowserHost(host)) {
+          setActiveTabDomain(host);
+          return;
         }
-        setActiveTabDomain("");
-      });
-    }
+      }
+      setActiveTabDomain("");
+    });
   }, []);
 
   // Filter out Trash (soft deleted) items
