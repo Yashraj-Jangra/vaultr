@@ -852,7 +852,7 @@ export function SettingsScreen({
         <div
           key={`root-${animKey}`}
           className="screen-body"
-          style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 14 }}
+          style={{ padding: "12px 14px 24px", display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 440, margin: "0 auto" }}
         >
           {/* Account Profile Header - Minimal, No Div Box, Bigger Avatar */}
           <div
@@ -915,7 +915,7 @@ export function SettingsScreen({
 
           {/* Settings Folders Group (Simple folder layout like in mobile) */}
           <div>
-            <div className="section-label">SETTINGS FOLDERS</div>
+            <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>SETTINGS</div>
             <div className="mobile-settings-group">
               {/* Folder 1: Autofill */}
               <div
@@ -1098,107 +1098,94 @@ export function SettingsScreen({
           >
             {/* ─── FOLDER: AUTOFILL ─── */}
             {activeFolder === "autofill" && (
-              <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 440, margin: "0 auto", padding: "4px 2px" }}>
                 {/* 1. Default Password Manager */}
                 {browserOverrideSupported && (
                   <div>
-                    <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>DEFAULT PASSWORD MANAGER</div>
-                    <div
-                      className="settings-card"
-                      style={{
-                        border: `1px solid ${browserOverrideActive ? "rgba(16, 185, 129, 0.4)" : "var(--border)"}`,
-                        background: browserOverrideActive ? "rgba(16, 185, 129, 0.03)" : "var(--surface)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                            <ShieldCheck size={15} style={{ color: browserOverrideActive ? "#10b981" : "#38bdf8", flexShrink: 0 }} />
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-100)" }}>
-                              Default Password Manager
-                            </span>
-                            {browserOverrideActive && (
-                              <span className="settings-badge-pill">
-                                <Check size={9} /> Active
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                            {isEdgeBrowser
-                              ? browserOverrideActive
-                                ? "VaultR manages form autofill. Microsoft Wallet is kept active so Windows Hello passkeys continue working without conflict."
-                                : "Suppress browser autofill popups and let VaultR seamlessly handle logins without breaking Windows Hello passkeys."
-                              : browserOverrideActive
-                              ? "VaultR is actively managing browser password saving. Native browser prompts are suppressed."
-                              : "Turn off native browser prompts and let VaultR seamlessly autofill and manage logins."}
-                          </div>
-                        </div>
-                        <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
-                          <input
-                            type="checkbox"
-                            checked={browserOverrideActive}
-                            onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
-                          />
-                          <span className="toggle-slider" />
-                        </label>
-                      </div>
-
-                      {isEdgeBrowser && browserOverrideActive && (
-                        <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                          <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
-                            To silence Edge&apos;s &quot;Save password?&quot; banner without affecting Windows Hello passkeys, disable &quot;Offer to save passwords&quot; in Edge:
-                          </p>
-                          <div className="settings-chip-box">
-                            <code className="settings-chip-code">edge://settings/autofill/passwords/settings</code>
-                            <button
-                              type="button"
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                padding: "3px 8px",
-                                fontSize: 10,
-                                fontWeight: 500,
-                                borderRadius: 5,
-                                background: copiedKey === "edge_autofill" ? "rgba(16, 185, 129, 0.15)" : "var(--surface)",
-                                color: copiedKey === "edge_autofill" ? "#10b981" : "var(--neutral-200)",
-                                border: "1px solid var(--border)",
-                                cursor: "pointer",
-                                flexShrink: 0,
-                              }}
-                              onClick={() => {
-                                navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
-                                setCopiedKey("edge_autofill");
-                                setTimeout(() => setCopiedKey(null), 2000);
-                              }}
-                              title="Copy settings URL"
-                            >
-                              {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
-                              {copiedKey === "edge_autofill" ? "Copied" : "Copy"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                    <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                      DEFAULT PASSWORD MANAGER
                     </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)", display: "flex", alignItems: "center", gap: 6 }}>
+                          Default Password Manager
+                          {browserOverrideActive && (
+                            <span style={{ fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              <Check size={9} /> ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>
+                          {isEdgeBrowser
+                            ? browserOverrideActive
+                              ? "VaultR manages form autofill while Microsoft Wallet remains active for Windows Hello passkeys."
+                              : "Suppress browser autofill prompts and let VaultR seamlessly handle logins."
+                            : browserOverrideActive
+                            ? "VaultR manages browser password saving. Native browser prompts are suppressed."
+                            : "Turn off native browser prompts and let VaultR seamlessly autofill and manage logins."}
+                        </div>
+                      </div>
+                      <label className="toggle" style={{ flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={browserOverrideActive}
+                          onChange={(e) => handleToggleBrowserOverride(e.target.checked)}
+                        />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+
+                    {isEdgeBrowser && browserOverrideActive && (
+                      <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                        <p style={{ fontSize: 10.5, color: "var(--neutral-400)", lineHeight: 1.4, margin: "0 0 6px" }}>
+                          To silence Edge&apos;s &quot;Save password?&quot; banner, disable &quot;Offer to save passwords&quot; in Edge:
+                        </p>
+                        <div className="settings-chip-box">
+                          <code className="settings-chip-code">edge://settings/autofill/passwords/settings</code>
+                          <button
+                            type="button"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              padding: "3px 8px",
+                              fontSize: 10,
+                              fontWeight: 500,
+                              borderRadius: 5,
+                              background: copiedKey === "edge_autofill" ? "rgba(16, 185, 129, 0.15)" : "var(--surface-2)",
+                              color: copiedKey === "edge_autofill" ? "#10b981" : "var(--neutral-200)",
+                              border: "1px solid var(--border)",
+                              cursor: "pointer",
+                              flexShrink: 0,
+                            }}
+                            onClick={() => {
+                              navigator.clipboard.writeText("edge://settings/autofill/passwords/settings");
+                              setCopiedKey("edge_autofill");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                          >
+                            {copiedKey === "edge_autofill" ? <Check size={11} style={{ color: "#10b981" }} /> : <Copy size={11} />}
+                            {copiedKey === "edge_autofill" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* 2. Autofill Behavior */}
                 <div>
-                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>AUTOFILL BEHAVIOR</div>
-                  <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    AUTOFILL BEHAVIOR
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {/* Suggest credentials */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.2)" }}>
-                          <Sparkles size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Suggest credentials</div>
-                          <div className="settings-row-sub">Show VaultR dropdown popup on input fields</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Suggest credentials</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Show VaultR dropdown popup on input fields</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={autofillEnabled}
@@ -1208,20 +1195,13 @@ export function SettingsScreen({
                       </label>
                     </div>
 
-                    <div className="settings-row-divider" />
-
                     {/* Auto-submit form */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.2)" }}>
-                          <LogIn size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Auto-submit form</div>
-                          <div className="settings-row-sub">Automatically submit the login form after filling credentials</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Auto-submit form</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Automatically submit the login form after filling credentials</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={autofillSubmit}
@@ -1231,20 +1211,13 @@ export function SettingsScreen({
                       </label>
                     </div>
 
-                    <div className="settings-row-divider" />
-
                     {/* Auto-copy 2FA code on fill */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderColor: "rgba(245, 158, 11, 0.2)" }}>
-                          <Clock size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Auto-copy 2FA code</div>
-                          <div className="settings-row-sub">Copies one-time TOTP verification code to clipboard upon fill</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Auto-copy 2FA code</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Copies one-time TOTP verification code to clipboard upon fill</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={autoCopy2fa}
@@ -1258,20 +1231,17 @@ export function SettingsScreen({
 
                 {/* 3. Credentials Capture & Domain Matching */}
                 <div>
-                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>CAPTURE & MATCHING</div>
-                  <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    CAPTURE & MATCHING
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {/* Match base domain */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(167, 139, 250, 0.1)", color: "#a78bfa", borderColor: "rgba(167, 139, 250, 0.2)" }}>
-                          <Globe size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Match base domain</div>
-                          <div className="settings-row-sub">Suggest credentials across all subdomains (e.g. login.example.com)</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Match base domain</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Suggest credentials across all subdomains (e.g. login.example.com)</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={subdomainMatching}
@@ -1281,20 +1251,13 @@ export function SettingsScreen({
                       </label>
                     </div>
 
-                    <div className="settings-row-divider" />
-
                     {/* Prompt to save new credentials */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.2)" }}>
-                          <KeyRound size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Prompt to save passwords</div>
-                          <div className="settings-row-sub">Ask to save new logins entered into web forms</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Prompt to save passwords</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Ask to save new logins entered into web forms</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={promptSave}
@@ -1304,20 +1267,13 @@ export function SettingsScreen({
                       </label>
                     </div>
 
-                    <div className="settings-row-divider" />
-
                     {/* Prompt to update existing credentials */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.2)" }}>
-                          <RefreshCw size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Prompt to update passwords</div>
-                          <div className="settings-row-sub">Offer to update existing entries when password changes are detected</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Prompt to update passwords</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Offer to update existing entries when password changes are detected</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={promptUpdate}
@@ -1331,20 +1287,17 @@ export function SettingsScreen({
 
                 {/* 4. Browser Integrations */}
                 <div>
-                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>BROWSER INTEGRATIONS</div>
-                  <div className="settings-card" style={{ padding: 0, overflow: "hidden" }}>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    PASSKEYS & HARDWARE
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {/* Passkeys & WebAuthn */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(52, 211, 153, 0.1)", color: "#34d399", borderColor: "rgba(52, 211, 153, 0.2)" }}>
-                          <Fingerprint size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Passkeys & WebAuthn</div>
-                          <div className="settings-row-sub">Save and autofill FIDO2/WebAuthn passkeys directly with VaultR</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Passkeys & WebAuthn</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>Save and autofill FIDO2/WebAuthn passkeys directly with VaultR</div>
                       </div>
-                      <label className="toggle">
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
                           checked={passkeysEnabled}
@@ -1353,202 +1306,168 @@ export function SettingsScreen({
                         <span className="toggle-slider" />
                       </label>
                     </div>
-
-                    <div className="settings-row-divider" />
-
-                    {/* Badge Counter on Icon */}
-                    <div className="settings-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div className="settings-row-icon" style={{ background: "rgba(244, 63, 94, 0.1)", color: "#f43f5e", borderColor: "rgba(244, 63, 94, 0.2)" }}>
-                          <Hash size={14} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="settings-row-label">Badge counter on icon</div>
-                          <div className="settings-row-sub">Show count of matching vault credentials on extension badge</div>
-                        </div>
-                      </div>
-                      <label className="toggle">
-                        <input
-                          type="checkbox"
-                          checked={showBadgeCount}
-                          onChange={(e) => handleToggleShowBadgeCount(e.target.checked)}
-                        />
-                        <span className="toggle-slider" />
-                      </label>
-                    </div>
                   </div>
                 </div>
 
-                {/* 5. Keyboard Shortcuts Card */}
+                {/* 5. Keyboard Shortcuts */}
                 <div>
-                  <div className="section-label" style={{ margin: "2px 0 6px", padding: "0 2px" }}>KEYBOARD SHORTCUTS</div>
-                  <div className="settings-card" style={{ padding: "12px 14px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Autofill credentials</span>
-                        <kbd className="settings-kbd-key">
-                          {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
-                        </kbd>
-                      </div>
-                      <div style={{ height: 1, background: "var(--border)" }} />
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 12, color: "var(--neutral-300)" }}>Copy 2FA TOTP code</span>
-                        <kbd className="settings-kbd-key">
-                          {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
-                        </kbd>
-                      </div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    KEYBOARD SHORTCUTS
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: "1px solid var(--border)" }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Autofill credentials</span>
+                      <kbd className="settings-kbd-key">
+                        {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift L" : "Ctrl Shift L"}
+                      </kbd>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Copy 2FA TOTP code</span>
+                      <kbd className="settings-kbd-key">
+                        {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "⌘ Shift T" : "Ctrl Shift T"}
+                      </kbd>
                     </div>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ─── FOLDER: SECURITY ─── */}
             {activeFolder === "security" && (
-              <>
-                {/* Biometric Unlock Card */}
-                {biometricsSupported && (
-                  <div className="settings-card">
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <Fingerprint size={15} style={{ color: "#34d399" }} />
-                          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                            Unlock with Biometrics
-                          </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 440, margin: "0 auto", padding: "4px 2px" }}>
+                {/* 1. Unlock Methods */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    UNLOCK METHODS
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {/* Biometric */}
+                    {biometricsSupported && (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ flex: 1, paddingRight: 12 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>
+                            Biometric Unlock
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>
+                            {biometricsEnrolled
+                              ? "Windows Hello or Touch ID unlock is active on this browser."
+                              : "Use Windows Hello, Touch ID or system biometric key to unlock without typing your master password."}
+                          </div>
+                          {bioEnrolling && (
+                            <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                              <span className="spinner" style={{ width: 12, height: 12 }} />
+                              Authenticating with hardware device…
+                            </div>
+                          )}
+                          {bioError && (
+                            <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>{bioError}</div>
+                          )}
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                          {biometricsEnrolled
-                            ? "Windows Hello or Touch ID unlock is active on this browser."
-                            : "Use Windows Hello, Touch ID or system biometric key to unlock without typing your master password."}
-                        </div>
+                        <label className="toggle" style={{ flexShrink: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={biometricsEnrolled}
+                            disabled={bioEnrolling}
+                            onChange={(e) => handleToggleBiometrics(e.target.checked)}
+                          />
+                          <span className="toggle-slider" />
+                        </label>
                       </div>
-                      <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
+                    )}
+
+                    {/* PIN */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                      <div style={{ flex: 1, paddingRight: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)", display: "flex", alignItems: "center", gap: 6 }}>
+                          Quick PIN Unlock
+                          {pinEnabled && (
+                            <span
+                              style={{
+                                fontSize: 9.5,
+                                fontWeight: 700,
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                background: "rgba(56, 189, 248, 0.15)",
+                                color: "#38bdf8",
+                                border: "1px solid rgba(56, 189, 248, 0.3)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              <Check size={9} /> {pinLength}-DIGIT ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>
+                          {pinEnabled
+                            ? `Your ${pinLength}-digit PIN is active for fast re-unlock on this device.`
+                            : "Set a 4 or 6-digit PIN for fast local re-unlock."}
+                        </div>
+                        {pinEnabled && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{
+                              height: 24,
+                              padding: "0 6px",
+                              fontSize: 11,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              borderRadius: 6,
+                              color: "#38bdf8",
+                              marginTop: 6,
+                            }}
+                            onClick={handleStartChangePin}
+                          >
+                            Change PIN <ChevronRight size={12} />
+                          </button>
+                        )}
+                        {pinMsg && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 11,
+                              fontWeight: 500,
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              background: pinMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                              border: `1px solid ${pinMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                              color: pinMsg.ok ? "#10b981" : "#f87171",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            {pinMsg.ok ? <Check size={12} /> : <Info size={12} />}
+                            <span>{pinMsg.text}</span>
+                          </div>
+                        )}
+                      </div>
+                      <label className="toggle" style={{ flexShrink: 0 }}>
                         <input
                           type="checkbox"
-                          checked={biometricsEnrolled}
-                          disabled={bioEnrolling}
-                          onChange={(e) => handleToggleBiometrics(e.target.checked)}
+                          checked={pinEnabled}
+                          onChange={(e) => handleTogglePin(e.target.checked)}
                         />
                         <span className="toggle-slider" />
                       </label>
                     </div>
-
-                    {bioEnrolling && (
-                      <div style={{ fontSize: 11, color: "var(--neutral-400)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span className="spinner" style={{ width: 12, height: 12 }} />
-                        Authenticating with hardware device…
-                      </div>
-                    )}
-
-                    {bioError && (
-                      <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>
-                        {bioError}
-                      </div>
-                    )}
                   </div>
-                )}
-
-                {/* Quick PIN Unlock Card */}
-                <div
-                  className="settings-card"
-                  style={{
-                    border: `1px solid ${pinEnabled ? "rgba(56, 189, 248, 0.3)" : "var(--border)"}`,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <Hash size={14} style={{ color: pinEnabled ? "#38bdf8" : "var(--neutral-400)" }} />
-                        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                          Unlock with PIN
-                        </span>
-                        {pinEnabled && (
-                          <span
-                            style={{
-                              fontSize: 9.5,
-                              fontWeight: 700,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: "rgba(56, 189, 248, 0.15)",
-                              color: "#38bdf8",
-                              border: "1px solid rgba(56, 189, 248, 0.3)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 3,
-                            }}
-                          >
-                            <Check size={9} /> {pinLength}-DIGIT ACTIVE
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                        {pinEnabled
-                          ? `Your ${pinLength}-digit PIN is active. Use it to quickly re-unlock your vault on this device.`
-                          : "Set a 4 or 6-digit PIN for lightning-fast PBKDF2 + AES-GCM vault re-unlock."}
-                      </div>
-                    </div>
-                    <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
-                      <input
-                        type="checkbox"
-                        checked={pinEnabled}
-                        onChange={(e) => handleTogglePin(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
-
-                  {pinEnabled && (
-                    <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{
-                          height: 26,
-                          padding: "0 10px",
-                          fontSize: 11,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          borderRadius: 6,
-                          color: "#38bdf8",
-                        }}
-                        onClick={handleStartChangePin}
-                      >
-                        Change PIN
-                        <ChevronRight size={12} />
-                      </button>
-                    </div>
-                  )}
-
-                  {pinMsg && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        padding: "6px 8px",
-                        borderRadius: 6,
-                        background: pinMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
-                        border: `1px solid ${pinMsg.ok ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
-                        color: pinMsg.ok ? "#10b981" : "#f87171",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                      }}
-                    >
-                      {pinMsg.ok ? <Check size={12} /> : <Info size={12} />}
-                      <span>{pinMsg.text}</span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Auto-lock timeout Card */}
-                <div className="settings-card" style={{ padding: "10px 14px" }}>
-                  <div className="settings-row" style={{ padding: 0 }}>
-                    <div>
-                      <div className="settings-row-label">Auto-lock timeout</div>
-                      <div className="settings-row-sub">Lock vault automatically after inactivity</div>
+                {/* 2. Vault Auto-Lock Timeout */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    VAULT TIMEOUT
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px" }}>
+                    <div style={{ flex: 1, paddingRight: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Auto-lock timeout</div>
+                      <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, lineHeight: 1.4 }}>
+                        Lock vault automatically after inactivity
+                      </div>
                     </div>
                     <select
                       className="form-select"
@@ -1567,67 +1486,48 @@ export function SettingsScreen({
                   </div>
                 </div>
 
-                {/* Passkeys & Hardware Security */}
-                <div className="settings-card">
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <KeyRound size={14} style={{ color: "#38bdf8" }} />
-                        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--neutral-100)" }}>
-                          Passkeys & WebAuthn
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                        Save and autofill FIDO2/WebAuthn passkeys directly with VaultR
-                      </div>
-                    </div>
-                    <label className="toggle" style={{ flexShrink: 0, marginTop: 2 }}>
-                      <input
-                        type="checkbox"
-                        checked={passkeysEnabled}
-                        onChange={(e) => handleTogglePasskeys(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </label>
+                {/* 3. Credentials & Sessions Navigation */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    SECURITY MANAGEMENT
                   </div>
-                </div>
-
-                {/* Credentials & Sessions Navigation Group */}
-                <div className="mobile-settings-group">
-                  {/* Change Master Password Row */}
-                  <div
-                    className="mobile-settings-row"
-                    onClick={() => navigateToFolder("change_password")}
-                  >
-                    <div className="mobile-settings-icon-wrap" style={{ background: "rgba(251, 191, 36, 0.12)", color: "#fbbf24" }}>
-                      <KeyRound size={17} />
-                    </div>
-                    <div className="mobile-settings-text">
-                      <div className="mobile-settings-title">Change Master Password</div>
-                      <div className="mobile-settings-sub">Update encryption key & master password</div>
-                    </div>
-                    <ChevronRight size={15} style={{ color: "var(--neutral-500)", flexShrink: 0 }} />
-                  </div>
-
-                  <div className="mobile-settings-divider" />
-
-                  {/* Active Sessions Row */}
-                  <div
-                    className="mobile-settings-row"
-                    onClick={() => navigateToFolder("sessions")}
-                  >
-                    <div className="mobile-settings-icon-wrap" style={{ background: "rgba(56, 189, 248, 0.12)", color: "#38bdf8" }}>
-                      <Monitor size={17} />
-                    </div>
-                    <div className="mobile-settings-text">
-                      <div className="mobile-settings-title">Active Sessions</div>
-                      <div className="mobile-settings-sub">
-                        {sessions.length > 0
-                          ? `${sessions.length} active session${sessions.length !== 1 ? "s" : ""} on devices`
-                          : "Review and revoke active sign-ins"}
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 2px",
+                        borderBottom: "1px solid var(--border)",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => navigateToFolder("change_password")}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Change Master Password</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2 }}>Update encryption key & master password</div>
                       </div>
+                      <ChevronRight size={15} style={{ color: "var(--neutral-500)" }} />
                     </div>
-                    <ChevronRight size={15} style={{ color: "var(--neutral-500)", flexShrink: 0 }} />
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 2px",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => navigateToFolder("sessions")}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Active Sessions</div>
+                        <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2 }}>
+                          {sessions.length > 0 ? `${sessions.length} active sessions on devices` : "Review and revoke active sign-ins"}
+                        </div>
+                      </div>
+                      <ChevronRight size={15} style={{ color: "var(--neutral-500)" }} />
+                    </div>
                   </div>
                 </div>
 
@@ -1640,7 +1540,7 @@ export function SettingsScreen({
                   <Lock size={13} style={{ marginRight: 4 }} />
                   Lock Vault Now
                 </button>
-              </>
+              </div>
             )}
 
             {/* ─── FOLDER: THEMES & APPEARANCE ─── */}
@@ -1817,28 +1717,15 @@ export function SettingsScreen({
 
             {/* ─── FOLDER: ABOUT ─── */}
             {activeFolder === "about" && (
-              <>
-                {/* VaultR Wide Logo Branding Hero */}
-                <div
-                  className="settings-card"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    textAlign: "center",
-                    padding: "18px 14px 16px",
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 14,
-                    gap: 8,
-                  }}
-                >
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 440, margin: "0 auto", padding: "4px 2px" }}>
+                {/* 1. VaultR Hero Brand */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 0 10px", gap: 8 }}>
                   <img
                     src={activeTheme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
                     alt="VaultR"
-                    style={{ height: 26, width: "auto", maxWidth: "80%", objectFit: "contain" }}
+                    style={{ height: 26, width: "auto", objectFit: "contain" }}
                   />
-                  <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.35, maxWidth: 260 }}>
+                  <div style={{ fontSize: 11, color: "var(--neutral-400)", maxWidth: 280, lineHeight: 1.4 }}>
                     Zero-Knowledge Password Management & Digital Security
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
@@ -1848,20 +1735,7 @@ export function SettingsScreen({
                         fontWeight: 600,
                         padding: "2px 8px",
                         borderRadius: 6,
-                        background: "rgba(56, 189, 248, 0.12)",
-                        color: "#38bdf8",
-                        border: "1px solid rgba(56, 189, 248, 0.25)",
-                      }}
-                    >
-                      {VAULTR_EDITION}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        padding: "2px 8px",
-                        borderRadius: 6,
-                        background: "var(--surface-2)",
+                        background: "var(--surface)",
                         color: "var(--neutral-300)",
                         border: "1px solid var(--border)",
                         fontFamily: "monospace",
@@ -1875,7 +1749,7 @@ export function SettingsScreen({
                         fontWeight: 600,
                         padding: "2px 8px",
                         borderRadius: 6,
-                        background: "rgba(16, 185, 129, 0.12)",
+                        background: "rgba(16, 185, 129, 0.1)",
                         color: "#10b981",
                         border: "1px solid rgba(16, 185, 129, 0.25)",
                         display: "inline-flex",
@@ -1886,123 +1760,84 @@ export function SettingsScreen({
                       <Check size={10} /> Zero-Knowledge
                     </span>
                   </div>
-                  <div style={{ fontSize: 9.5, color: "var(--neutral-500)", fontFamily: "monospace", marginTop: 2 }}>
+                  <div style={{ fontSize: 9.5, color: "var(--neutral-500)", fontFamily: "monospace" }}>
                     Build {VAULTR_BUILD_NUMBER} · {VAULTR_CRYPTO_SPEC.algorithm}
                   </div>
                 </div>
 
-                {/* Server Connection URL */}
-                <div className="settings-card">
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-100)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                    <Globe size={13} style={{ color: "#38bdf8" }} />
-                    Server Connection
+                {/* 2. Server Connection */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    SERVER CONNECTION
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--neutral-400)", marginBottom: 8 }}>
-                    VaultR sync backend server endpoint
-                  </div>
-                  <form onSubmit={handleSaveUrl}>
-                    <div style={{ display: "flex", gap: 6 }}>
+                  <form onSubmit={handleSaveUrl} style={{ marginTop: 8 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
                       <input
                         type="text"
                         className="form-input"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="https://vaultr.yourdomain.com"
-                        style={{ flex: 1, height: 34, fontSize: 11.5 }}
+                        style={{ flex: 1, height: 36, fontSize: 12, borderRadius: 10 }}
                       />
                       <button
                         type="submit"
                         className={`btn btn-primary${saved ? " btn-success" : ""}`}
-                        style={{ height: 34, padding: "0 12px", fontSize: 11.5 }}
+                        style={{ height: 36, padding: "0 14px", fontSize: 12, borderRadius: 10 }}
                       >
                         {saved ? "Saved" : "Save"}
                       </button>
                     </div>
                   </form>
-
                   <button
                     className="btn btn-ghost"
                     style={{ width: "100%", height: 32, justifyContent: "center", fontSize: 11.5, borderRadius: 8, marginTop: 8 }}
                     onClick={() => openSite()}
                   >
                     <Globe size={12} style={{ marginRight: 4 }} />
-                    Open Vaultr Web App
+                    Open VaultR Web App
                   </button>
                 </div>
 
-                {/* Documentation & Resources Links */}
-                <div className="settings-card">
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: "0.04em", marginBottom: 6, textTransform: "uppercase" }}>
-                    Resources & Support
+                {/* 3. Resources & Support */}
+                <div>
+                  <div className="section-label" style={{ marginBottom: 4, padding: "0 2px" }}>
+                    RESOURCES & SUPPORT
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <button
-                      className="btn btn-ghost"
-                      style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
-                      onClick={() => openSite("/docs")}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <BookOpen size={13} style={{ color: "#38bdf8" }} />
-                        Documentation & Guides
-                      </span>
-                      <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
-                    </button>
-
-                    <button
-                      className="btn btn-ghost"
-                      style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
-                      onClick={() => openSite("/changelog")}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <History size={13} style={{ color: "#fbbf24" }} />
-                        Release Notes & Changelog
-                      </span>
-                      <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
-                    </button>
-
-                    <button
-                      className="btn btn-ghost"
-                      style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
-                      onClick={() => openSite("/security")}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <Shield size={13} style={{ color: "#34d399" }} />
-                        Security Architecture
-                      </span>
-                      <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
-                    </button>
-
-                    <button
-                      className="btn btn-ghost"
-                      style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
-                      onClick={() => openSite("/privacy")}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <FileText size={13} style={{ color: "#a78bfa" }} />
-                        Privacy Policy & Terms
-                      </span>
-                      <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
-                    </button>
-
-                    <button
-                      className="btn btn-ghost"
-                      style={{ width: "100%", height: 32, justifyContent: "space-between", fontSize: 11.5, padding: "0 8px", borderRadius: 8 }}
-                      onClick={() => openSite("/settings/support")}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <LifeBuoy size={13} style={{ color: "#f43f5e" }} />
-                        Help Desk & Support
-                      </span>
-                      <ExternalLink size={11} style={{ color: "var(--neutral-500)" }} />
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {[
+                      { label: "Documentation & Guides", icon: BookOpen, path: "/docs" },
+                      { label: "Release Notes & Changelog", icon: History, path: "/changelog" },
+                      { label: "Security Architecture", icon: Shield, path: "/security" },
+                      { label: "Privacy Policy & Terms", icon: FileText, path: "/privacy" },
+                      { label: "Help Desk & Support", icon: LifeBuoy, path: "/settings/support" },
+                    ].map(({ label, icon: Icon, path }, idx, arr) => (
+                      <div
+                        key={path}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "12px 2px",
+                          borderBottom: idx < arr.length - 1 ? "1px solid var(--border)" : "none",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => openSite(path)}
+                      >
+                        <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--neutral-200)" }}>
+                          {label}
+                        </span>
+                        <ExternalLink size={12} style={{ color: "var(--neutral-500)" }} />
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* End-to-End Encrypted Footer */}
-                <div style={{ textAlign: "center", padding: "4px 0 8px", fontSize: 10, color: "var(--neutral-500)" }}>
+                <div style={{ textAlign: "center", padding: "8px 0 16px", fontSize: 10, color: "var(--neutral-500)", userSelect: "none" }}>
                   VaultR Core · End-to-End Zero-Knowledge Encrypted
                 </div>
-              </>
+              </div>
             )}
 
             {/* ─── FOLDER: CHANGE MASTER PASSWORD ─── */}
@@ -2170,7 +2005,7 @@ export function SettingsScreen({
 
             {/* ─── FOLDER: ACTIVE SESSIONS ─── */}
             {activeFolder === "sessions" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 440, margin: "0 auto", padding: "4px 2px" }}>
                 {/* Intro summary row */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "2px 2px" }}>
                   <div>

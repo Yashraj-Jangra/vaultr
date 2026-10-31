@@ -1,4 +1,27 @@
-## Current Session: Extension Appearance Redesign & Wide Mode Constraints (2026-10-31) · Branch: `dev`
+## Current Session: Universal Div-Less Settings Redesign & Design Spec (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Phase 46: Universal Div-Less Settings Redesign & Design System Specification)
+
+**Files Changed:**
+- `design.md`
+- `extension/src/popup/SettingsScreen.tsx`
+
+**Key Improvements & Resolutions:**
+1. **Design System Specification (`design.md`)**:
+   - Codified the minimal, div-less, and typography-focused design philosophy across the VaultR ecosystem.
+   - Documented theme token references across Obsidian (Dark), Zinc Light, and Midnight (Deep Slate).
+   - Specified component patterns: section labels (`.section-label`), segmented controls, flat hairline rows (`borderBottom: 1px solid var(--border)`), navigation rows, form inputs, and modal dialogs.
+   - Formalized viewport scaling rules and container bounds (`max-width: 440px; margin: 0 auto;`) across normal (380px), wide (460px), wider (540px), and extended (620px) popup modes.
+2. **Div-Less Refactoring Across All Extension Settings Sub-Pages (`SettingsScreen.tsx`)**:
+   - **Autofill & Integration (`activeFolder === "autofill"`)**: Eliminated 5 `.settings-card` wrappers and AI-style colored square icon boxes. Organized into 5 clean semantic sections (`DEFAULT PASSWORD MANAGER`, `AUTOFILL BEHAVIOR`, `CAPTURE & MATCHING`, `PASSKEYS & HARDWARE`, `KEYBOARD SHORTCUTS`) using flat rows with subtle 1px hairlines.
+   - **Account Security (`activeFolder === "security"`)**: Eliminated 4 card boxes. Restructured Biometric Unlock, Quick PIN, and Auto-Lock timeout into flat hairline rows under `UNLOCK METHODS` and `VAULT TIMEOUT`, with direct navigation rows for Change Master Password and Active Sessions.
+   - **About & Resources (`activeFolder === "about"`)**: Removed card containers, simplified the VaultR brand hero section, streamlined Server Connection configuration with direct action, and rendered documentation/support links as clean flat list rows.
+   - **Main Settings Menu & Active Sessions**: Wrapped with `max-width: 440px; margin: 0 auto;` to preserve ergonomic reading widths and reachability across wider window modes.
+3. **Validation & Build Verification**:
+   - `npx tsc --noEmit` verified and passed with 0 errors across root and packages.
+   - Production webpack build (`npm run build` in `extension/`) compiled cleanly with exit code 0.
+
+---
 
 ### ✅ What Was Done (Phase 45: Div-Less Focused Redesign of Extension Themes & Appearance)
 
