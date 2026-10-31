@@ -1,136 +1,29 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   generateRandom,
   generatePassphrase,
   generatePin,
   scorePassword,
   GeneratorMode,
-  RandomOptions,
-  PassphraseOptions,
-  PinOptions,
-  StrengthResult,
 } from "@vaultr/core";
-import { RefreshCw, Copy, Check, Sliders, Shield, Key, FileText, Hash } from "lucide-react";
-import { CipherScrambleText, classifyChar, CHAR_COLOR } from "./CipherScrambleText";
+import { RefreshCw, Copy, Check, Key, FileText, Hash } from "lucide-react";
+import { CipherScrambleText, classifyChar } from "./CipherScrambleText";
 
-// ─── Character Breakdown Pills ───────────────────────────────────────────────
+// ─── Character Counts Helper ──────────────────────────────────────────────────
 
-function CharBreakdown({ value }: { value: string }) {
-  const counts = useMemo(() => {
-    let lower = 0;
-    let upper = 0;
-    let digit = 0;
-    let symbol = 0;
-    for (const c of value) {
-      const cls = classifyChar(c);
-      if (cls === "lower") lower++;
-      if (cls === "upper") upper++;
-      if (cls === "digit") digit++;
-      if (cls === "symbol") symbol++;
-    }
-    return { lower, upper, digit, symbol };
-  }, [value]);
-
-  if (!value) return null;
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-      {counts.upper > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 7px", background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.2)", borderRadius: 6, fontSize: 10, color: "#38bdf8", fontWeight: 600 }}>
-          <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: "#38bdf8" }} />
-          {counts.upper} uppercase
-        </div>
-      )}
-      {counts.lower > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 7px", background: "rgba(228, 228, 231, 0.08)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, fontSize: 10, color: "#e4e4e7", fontWeight: 500 }}>
-          <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: "#a1a1aa" }} />
-          {counts.lower} lowercase
-        </div>
-      )}
-      {counts.digit > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 7px", background: "rgba(251, 191, 36, 0.1)", border: "1px solid rgba(251, 191, 36, 0.2)", borderRadius: 6, fontSize: 10, color: "#fbbf24", fontWeight: 600 }}>
-          <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: "#fbbf24" }} />
-          {counts.digit} digits
-        </div>
-      )}
-      {counts.symbol > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 7px", background: "rgba(251, 113, 133, 0.1)", border: "1px solid rgba(251, 113, 133, 0.2)", borderRadius: 6, fontSize: 10, color: "#fb7185", fontWeight: 600 }}>
-          <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: "#fb7185" }} />
-          {counts.symbol} symbols
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Color Legend ─────────────────────────────────────────────────────────────
-
-function ColorLegend() {
-  const items = [
-    { label: "Lowercase", color: "#e4e4e7", dot: "#a1a1aa", sample: "abc" },
-    { label: "Uppercase", color: "#38bdf8", dot: "#38bdf8", sample: "ABC" },
-    { label: "Digits",    color: "#fbbf24", dot: "#fbbf24", sample: "123" },
-    { label: "Symbols",   color: "#fb7185", dot: "#fb7185", sample: "!@#" },
-  ];
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-      {items.map((it) => (
-        <div
-          key={it.label}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "2px 6px",
-            borderRadius: 6,
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
-          }}
-        >
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: it.dot, flexShrink: 0 }} />
-          <span style={{ fontSize: 9.5, fontWeight: 600, color: it.color }}>{it.label}</span>
-          <span style={{ fontSize: 9, fontFamily: "monospace", color: "var(--neutral-500)", userSelect: "none" }}>{it.sample}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Segmented Strength Bar ───────────────────────────────────────────────────
-
-function StrengthBar({ r }: { r: StrengthResult }) {
-  if (!r.label) return null;
-
-  return (
-    <div style={{ marginTop: 10 }}>
-      {/* 4 Segmented Pill Bars */}
-      <div style={{ display: "flex", gap: 4, height: 4, marginBottom: 7 }}>
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            style={{
-              flex: 1,
-              borderRadius: 9999,
-              background: i <= r.score ? r.color : "rgba(255, 255, 255, 0.08)",
-              transition: "background 0.3s ease",
-            }}
-          />
-        ))}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ fontWeight: 700, color: r.color }}>{r.label}</span>
-          <span style={{ color: "var(--neutral-600)" }}>·</span>
-          <span style={{ color: "var(--neutral-400)", fontSize: 10.5 }}>{r.entropy} bits entropy</span>
-        </div>
-        <span style={{ fontSize: 10, color: "var(--neutral-500)" }}>
-          crack time: <span style={{ color: "var(--neutral-300)", fontWeight: 600 }}>{r.crackTime}</span>
-        </span>
-      </div>
-    </div>
-  );
+function getCharCounts(value: string) {
+  let lower = 0;
+  let upper = 0;
+  let digit = 0;
+  let symbol = 0;
+  for (const c of value) {
+    const cls = classifyChar(c);
+    if (cls === "lower") lower++;
+    if (cls === "upper") upper++;
+    if (cls === "digit") digit++;
+    if (cls === "symbol") symbol++;
+  }
+  return { lower, upper, digit, symbol };
 }
 
 // ─── Main Generator Screen Component ──────────────────────────────────────────
@@ -188,6 +81,7 @@ export function GeneratorScreen() {
   }, [mode, len, upper, lower, nums, syms, avoidAmbiguous, wordCount, separator, capitalize, pinLen, triggerKey]);
 
   const strength = useMemo(() => scorePassword(pw), [pw]);
+  const charCounts = useMemo(() => getCharCounts(pw), [pw]);
 
   const regen = useCallback(() => {
     setTriggerKey((k) => k + 1);
@@ -221,16 +115,26 @@ export function GeneratorScreen() {
   }, [regen]);
 
   return (
-    <div className="screen-body" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480, margin: "0 auto" }}>
-      
+    <div
+      className="screen-body"
+      style={{
+        padding: "14px 16px 36px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        width: "100%",
+        maxWidth: 440,
+        margin: "0 auto",
+      }}
+    >
       {/* Mode Selector Segmented Tabs */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
-          background: "#0d0d0f",
+          background: "var(--surface)",
           border: "1px solid var(--border)",
-          borderRadius: 12,
+          borderRadius: 10,
           padding: 3,
           gap: 3,
         }}
@@ -256,40 +160,40 @@ export function GeneratorScreen() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 5,
+                gap: 6,
                 padding: "6px 8px",
-                borderRadius: 9,
-                fontSize: 11.5,
+                borderRadius: 7,
+                fontSize: 12,
                 fontWeight: active ? 600 : 500,
                 color: active ? "var(--neutral-100)" : "var(--neutral-400)",
-                background: active ? "rgba(255, 255, 255, 0.08)" : "transparent",
-                border: active ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid transparent",
+                background: active ? "var(--neutral-800)" : "transparent",
+                border: "none",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
+                boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "none",
               }}
             >
-              <Icon size={12} style={{ color: active ? "#38bdf8" : "inherit" }} />
-              {label}
+              <Icon size={13} style={{ color: active ? "var(--neutral-100)" : "var(--neutral-500)" }} />
+              <span>{label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Visual Output Card */}
+      {/* Visual Output Card (Hero Area) */}
       <div
         style={{
-          background: "#0a0a0c",
+          background: "var(--surface)",
           border: "1px solid var(--border)",
-          borderRadius: 14,
-          padding: "13px 14px",
+          borderRadius: 12,
+          padding: "14px 14px 12px",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
-          boxShadow: "0 8px 24px -6px rgba(0, 0, 0, 0.6)",
+          gap: 12,
         }}
       >
         {/* Output Text & Actions */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minHeight: 48 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minHeight: 46 }}>
           <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
             <CipherScrambleText
               value={pw}
@@ -300,22 +204,23 @@ export function GeneratorScreen() {
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             {/* Copy Button */}
             <button
               type="button"
               onClick={copy}
               className={copied ? "animate-pop" : ""}
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: 4,
-                padding: "6px 9px",
+                gap: 5,
+                height: 32,
+                padding: "0 10px",
                 borderRadius: 8,
-                background: copied ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                background: copied ? "rgba(16, 185, 129, 0.12)" : "var(--neutral-800)",
                 border: copied ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid var(--border)",
-                color: copied ? "#10b981" : "var(--neutral-300)",
-                fontSize: 11,
+                color: copied ? "#10b981" : "var(--neutral-100)",
+                fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
                 transition: "all 0.15s ease",
@@ -324,29 +229,29 @@ export function GeneratorScreen() {
             >
               {copied ? (
                 <>
-                  <Check size={12} style={{ color: "#10b981" }} />
+                  <Check size={13} style={{ color: "#10b981" }} />
                   <span>Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy size={12} />
+                  <Copy size={13} />
                   <span>Copy</span>
                 </>
               )}
             </button>
 
-            {/* Regenerate Button with Spin Animation */}
+            {/* Regenerate Button */}
             <button
               type="button"
               onClick={regen}
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 28,
-                height: 28,
+                width: 32,
+                height: 32,
                 borderRadius: 8,
-                background: "rgba(255, 255, 255, 0.05)",
+                background: "var(--surface-2)",
                 border: "1px solid var(--border)",
                 color: "var(--neutral-300)",
                 cursor: "pointer",
@@ -355,7 +260,7 @@ export function GeneratorScreen() {
               title="Generate new password (Ctrl+G)"
             >
               <RefreshCw
-                size={12.5}
+                size={13}
                 style={{
                   color: "#38bdf8",
                   transform: isSpinning ? "rotate(360deg)" : "rotate(0deg)",
@@ -366,116 +271,267 @@ export function GeneratorScreen() {
           </div>
         </div>
 
-        {/* Character Breakdown Bar (for Password mode) */}
-        {mode === "random" && <CharBreakdown value={pw} />}
+        {/* Strength Progress Indicator */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+          <div style={{ display: "flex", gap: 3, height: 3.5 }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  borderRadius: 9999,
+                  background: i <= strength.score ? strength.color : "var(--neutral-800)",
+                  transition: "background 0.3s ease",
+                }}
+              />
+            ))}
+          </div>
 
-        {/* Segmented Strength Bar */}
-        <StrengthBar r={strength} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: strength.color }} />
+              <span style={{ fontWeight: 600, color: strength.color }}>{strength.label}</span>
+              <span style={{ color: "var(--neutral-600)" }}>·</span>
+              <span style={{ color: "var(--neutral-400)", fontSize: 10.5 }}>{strength.entropy} bits entropy</span>
+            </div>
+            <span style={{ fontSize: 10.5, color: "var(--neutral-500)" }}>
+              crack time: <span style={{ color: "var(--neutral-300)", fontWeight: 500 }}>{strength.crackTime}</span>
+            </span>
+          </div>
+        </div>
 
-        {/* Color Legend (for Password mode) */}
-        {mode === "random" && <ColorLegend />}
+        {/* Character Breakdown Summary (Random Password Mode) */}
+        {mode === "random" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 8,
+              borderTop: "1px solid var(--border)",
+              fontSize: 10.5,
+              color: "var(--neutral-400)",
+              flexWrap: "wrap",
+              gap: 6,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {charCounts.upper > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#38bdf8" }} />
+                  <span style={{ color: "#38bdf8", fontWeight: 600 }}>{charCounts.upper}</span>
+                  <span style={{ color: "var(--neutral-500)" }}>uppercase</span>
+                </span>
+              )}
+              {charCounts.lower > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--neutral-400)" }} />
+                  <span style={{ color: "var(--neutral-200)", fontWeight: 600 }}>{charCounts.lower}</span>
+                  <span style={{ color: "var(--neutral-500)" }}>lowercase</span>
+                </span>
+              )}
+              {charCounts.digit > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24" }} />
+                  <span style={{ color: "#fbbf24", fontWeight: 600 }}>{charCounts.digit}</span>
+                  <span style={{ color: "var(--neutral-500)" }}>digits</span>
+                </span>
+              )}
+              {charCounts.symbol > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fb7185" }} />
+                  <span style={{ color: "#fb7185", fontWeight: 600 }}>{charCounts.symbol}</span>
+                  <span style={{ color: "var(--neutral-500)" }}>symbols</span>
+                </span>
+              )}
+            </div>
+            <span style={{ fontSize: 9.5, color: "var(--neutral-500)", fontFamily: "monospace" }}>Ctrl+G to renew</span>
+          </div>
+        )}
       </div>
 
-      {/* Mode-Specific Controls */}
+      {/* Length Slider Section */}
+      <div>
+        <div className="section-label">LENGTH</div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            padding: "8px 2px 14px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>
+              {mode === "random" ? "Password Length" : mode === "passphrase" ? "Word Count" : "PIN Length"}
+            </span>
+            <span
+              style={{
+                fontFamily: "ui-monospace, monospace",
+                fontWeight: 600,
+                fontSize: 11.5,
+                color: mode === "pin" ? "#fbbf24" : "#38bdf8",
+                background: mode === "pin" ? "rgba(251, 191, 36, 0.1)" : "rgba(56, 189, 248, 0.1)",
+                padding: "2px 8px",
+                borderRadius: 6,
+              }}
+            >
+              {mode === "random" && `${len} characters`}
+              {mode === "passphrase" && `${wordCount} words`}
+              {mode === "pin" && `${pinLen} digits`}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
+            <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace", width: 14 }}>
+              {mode === "random" ? 8 : mode === "passphrase" ? 3 : 4}
+            </span>
+            <input
+              type="range"
+              min={mode === "random" ? 8 : mode === "passphrase" ? 3 : 4}
+              max={mode === "random" ? 64 : mode === "passphrase" ? 10 : 16}
+              value={mode === "random" ? len : mode === "passphrase" ? wordCount : pinLen}
+              style={{ flex: 1, accentColor: mode === "pin" ? "#fbbf24" : "#38bdf8", cursor: "pointer" }}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (mode === "random") setLen(v);
+                else if (mode === "passphrase") setWordCount(v);
+                else setPinLen(v);
+                setTriggerKey((k) => k + 1);
+              }}
+            />
+            <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace", width: 16, textAlign: "right" }}>
+              {mode === "random" ? 64 : mode === "passphrase" ? 10 : 16}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Mode-Specific Character & Generation Options (Div-Less Flat Rows) */}
       {mode === "random" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Length Slider */}
-          <div className="form-group">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--neutral-400)", marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase" }}>Length</span>
-              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#38bdf8", background: "rgba(56, 189, 248, 0.12)", padding: "1px 7px", borderRadius: 6, fontSize: 11 }}>
-                {len} characters
-              </span>
+        <div>
+          <div className="section-label">CHARACTER OPTIONS</div>
+
+          {/* Uppercase */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px", borderBottom: "1px solid var(--border)" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#38bdf8" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Uppercase Letters</span>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#38bdf8", fontWeight: 600 }}>A–Z</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, paddingLeft: 13 }}>
+                Include capital letters in generated password
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-              <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace" }}>8</span>
+            <label className="toggle" style={{ flexShrink: 0 }}>
               <input
-                type="range"
-                min={8}
-                max={64}
-                value={len}
-                style={{ flex: 1, accentColor: "#38bdf8", cursor: "pointer" }}
+                type="checkbox"
+                checked={upper}
                 onChange={(e) => {
-                  setLen(Number(e.target.value));
+                  const checkedCount = [upper, lower, nums, syms].filter(Boolean).length;
+                  if (!e.target.checked && checkedCount <= 1) return;
+                  setUpper(e.target.checked);
                   setTriggerKey((k) => k + 1);
                 }}
               />
-              <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace" }}>64</span>
-            </div>
+              <span className="toggle-slider" />
+            </label>
           </div>
 
-          {/* Character Toggles */}
-          <div className="form-group" style={{ marginTop: 2 }}>
-            <span className="form-label" style={{ marginBottom: 6, fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: 0.3, textTransform: "uppercase" }}>
-              Character Sets
-            </span>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {(
-                [
-                  { label: "Uppercase (A–Z)", sample: "ABC", color: "#38bdf8", val: upper, set: setUpper },
-                  { label: "Lowercase (a–z)", sample: "abc", color: "#e4e4e7", val: lower, set: setLower },
-                  { label: "Digits (0–9)", sample: "123", color: "#fbbf24", val: nums, set: setNums },
-                  { label: "Symbols (!@#)", sample: "!@#", color: "#fb7185", val: syms, set: setSyms },
-                ] as const
-              ).map(({ label, sample, color, val, set }) => (
-                <label
-                  key={label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 10px",
-                    background: val ? "rgba(255, 255, 255, 0.04)" : "#0d0d0f",
-                    border: val ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border)",
-                    borderRadius: 9,
-                    cursor: "pointer",
-                    userSelect: "none",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
-                    <span style={{ fontSize: 11, color: val ? "var(--neutral-200)" : "var(--neutral-500)", fontWeight: val ? 600 : 400 }}>
-                      {sample}
-                    </span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={val}
-                    onChange={(e) => {
-                      // Prevent unchecking all
-                      const checkedCount = [upper, lower, nums, syms].filter(Boolean).length;
-                      if (!e.target.checked && checkedCount <= 1) return;
-                      set(e.target.checked);
-                      setTriggerKey((k) => k + 1);
-                    }}
-                    style={{ accentColor: "#38bdf8", width: 13, height: 13, cursor: "pointer" }}
-                  />
-                </label>
-              ))}
-            </div>
-
-            {/* Avoid Ambiguous Toggle */}
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "8px 10px",
-                background: avoidAmbiguous ? "rgba(255, 255, 255, 0.04)" : "#0d0d0f",
-                border: avoidAmbiguous ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border)",
-                borderRadius: 9,
-                cursor: "pointer",
-                userSelect: "none",
-                marginTop: 8,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 11, color: avoidAmbiguous ? "var(--neutral-200)" : "var(--neutral-400)", fontWeight: 600 }}>
-                  Avoid Ambiguous Characters
-                </div>
-                <div style={{ fontSize: 9.5, color: "var(--neutral-600)" }}>Excludes l, 1, I, O, 0</div>
+          {/* Lowercase */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px", borderBottom: "1px solid var(--border)" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--neutral-400)" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Lowercase Letters</span>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--neutral-400)", fontWeight: 600 }}>a–z</span>
               </div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, paddingLeft: 13 }}>
+                Include lowercase letters in generated password
+              </div>
+            </div>
+            <label className="toggle" style={{ flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={lower}
+                onChange={(e) => {
+                  const checkedCount = [upper, lower, nums, syms].filter(Boolean).length;
+                  if (!e.target.checked && checkedCount <= 1) return;
+                  setLower(e.target.checked);
+                  setTriggerKey((k) => k + 1);
+                }}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+
+          {/* Numbers */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px", borderBottom: "1px solid var(--border)" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Numbers</span>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#fbbf24", fontWeight: 600 }}>0–9</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, paddingLeft: 13 }}>
+                Include numeric digits (0, 1, 2, 3...)
+              </div>
+            </div>
+            <label className="toggle" style={{ flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={nums}
+                onChange={(e) => {
+                  const checkedCount = [upper, lower, nums, syms].filter(Boolean).length;
+                  if (!e.target.checked && checkedCount <= 1) return;
+                  setNums(e.target.checked);
+                  setTriggerKey((k) => k + 1);
+                }}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+
+          {/* Symbols */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px", borderBottom: "1px solid var(--border)" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fb7185" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Special Symbols</span>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#fb7185", fontWeight: 600 }}>!@#$</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2, paddingLeft: 13 }}>
+                Include punctuation & symbols (!, @, #, $, %, etc.)
+              </div>
+            </div>
+            <label className="toggle" style={{ flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={syms}
+                onChange={(e) => {
+                  const checkedCount = [upper, lower, nums, syms].filter(Boolean).length;
+                  if (!e.target.checked && checkedCount <= 1) return;
+                  setSyms(e.target.checked);
+                  setTriggerKey((k) => k + 1);
+                }}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+
+          {/* Avoid Ambiguous Characters */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>
+                Avoid Ambiguous Characters
+              </div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2 }}>
+                Excludes easily confused characters (l, 1, I, O, 0)
+              </div>
+            </div>
+            <label className="toggle" style={{ flexShrink: 0 }}>
               <input
                 type="checkbox"
                 checked={avoidAmbiguous}
@@ -483,51 +539,41 @@ export function GeneratorScreen() {
                   setAvoidAmbiguous(e.target.checked);
                   setTriggerKey((k) => k + 1);
                 }}
-                style={{ accentColor: "#38bdf8", width: 13, height: 13, cursor: "pointer" }}
               />
+              <span className="toggle-slider" />
             </label>
           </div>
         </div>
       )}
 
-      {/* Passphrase Controls */}
+      {/* Passphrase Options */}
       {mode === "passphrase" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Word Count Slider */}
-          <div className="form-group">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--neutral-400)", marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase" }}>Word Count</span>
-              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#38bdf8", background: "rgba(56, 189, 248, 0.12)", padding: "1px 7px", borderRadius: 6, fontSize: 11 }}>
-                {wordCount} words
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-              <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace" }}>3</span>
-              <input
-                type="range"
-                min={3}
-                max={10}
-                value={wordCount}
-                style={{ flex: 1, accentColor: "#38bdf8", cursor: "pointer" }}
-                onChange={(e) => {
-                  setWordCount(Number(e.target.value));
-                  setTriggerKey((k) => k + 1);
-                }}
-              />
-              <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace" }}>10</span>
-            </div>
-          </div>
+        <div>
+          <div className="section-label">PASSPHRASE OPTIONS</div>
 
-          {/* Separator Selection */}
-          <div className="form-group">
-            <span className="form-label" style={{ marginBottom: 6, fontSize: 11, fontWeight: 600, color: "var(--neutral-400)", letterSpacing: 0.3, textTransform: "uppercase" }}>
-              Separator
-            </span>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+          {/* Separator */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px", borderBottom: "1px solid var(--border)", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Word Separator</div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2 }}>
+                Character placed between words
+              </div>
+            </div>
+            <div
+              style={{
+                display: "inline-flex",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: 2,
+                gap: 2,
+                flexShrink: 0,
+              }}
+            >
               {[
                 { id: "-", label: "Hyphen (-)" },
                 { id: "_", label: "Under (_)" },
-                { id: ".", label: "Period (.)" },
+                { id: ".", label: "Dot (.)" },
                 { id: " ", label: "Space ( )" },
               ].map(({ id, label }) => {
                 const active = separator === id;
@@ -540,15 +586,15 @@ export function GeneratorScreen() {
                       setTriggerKey((k) => k + 1);
                     }}
                     style={{
-                      padding: "6px 8px",
-                      borderRadius: 8,
+                      border: "none",
+                      background: active ? "var(--neutral-800)" : "transparent",
+                      color: active ? "var(--neutral-100)" : "var(--neutral-400)",
+                      fontWeight: active ? 600 : 500,
                       fontSize: 11,
-                      fontWeight: active ? 600 : 400,
-                      color: active ? "#38bdf8" : "var(--neutral-400)",
-                      background: active ? "rgba(56, 189, 248, 0.12)" : "#0d0d0f",
-                      border: active ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid var(--border)",
+                      padding: "4px 8px",
+                      borderRadius: 6,
                       cursor: "pointer",
-                      textAlign: "center",
+                      transition: "all 0.15s ease",
                     }}
                   >
                     {label}
@@ -558,66 +604,73 @@ export function GeneratorScreen() {
             </div>
           </div>
 
-          {/* Capitalize Toggle */}
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 10px",
-              background: capitalize ? "rgba(255, 255, 255, 0.04)" : "#0d0d0f",
-              border: capitalize ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border)",
-              borderRadius: 9,
-              cursor: "pointer",
-              userSelect: "none",
-            }}
-          >
-            <span style={{ fontSize: 11, color: capitalize ? "var(--neutral-200)" : "var(--neutral-400)", fontWeight: 600 }}>
-              Capitalize Each Word
-            </span>
-            <input
-              type="checkbox"
-              checked={capitalize}
-              onChange={(e) => {
-                setCapitalize(e.target.checked);
-                setTriggerKey((k) => k + 1);
-              }}
-              style={{ accentColor: "#38bdf8", width: 13, height: 13, cursor: "pointer" }}
-            />
-          </label>
-        </div>
-      )}
-
-      {/* PIN Controls */}
-      {mode === "pin" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* PIN Length Slider */}
-          <div className="form-group">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--neutral-400)", marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase" }}>PIN Length</span>
-              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fbbf24", background: "rgba(251, 191, 36, 0.12)", padding: "1px 7px", borderRadius: 6, fontSize: 11 }}>
-                {pinLen} digits
-              </span>
+          {/* Capitalize */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Capitalize Words</div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2 }}>
+                Start each word with an uppercase letter
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-              <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace" }}>4</span>
+            <label className="toggle" style={{ flexShrink: 0 }}>
               <input
-                type="range"
-                min={4}
-                max={16}
-                value={pinLen}
-                style={{ flex: 1, accentColor: "#fbbf24", cursor: "pointer" }}
+                type="checkbox"
+                checked={capitalize}
                 onChange={(e) => {
-                  setPinLen(Number(e.target.value));
+                  setCapitalize(e.target.checked);
                   setTriggerKey((k) => k + 1);
                 }}
               />
-              <span style={{ fontSize: 10, color: "var(--neutral-500)", fontFamily: "monospace" }}>16</span>
-            </div>
+              <span className="toggle-slider" />
+            </label>
           </div>
         </div>
       )}
 
+      {/* PIN Options */}
+      {mode === "pin" && (
+        <div>
+          <div className="section-label">PIN OPTIONS</div>
+
+          {/* Presets */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 2px", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-100)" }}>Quick Presets</div>
+              <div style={{ fontSize: 11, color: "var(--neutral-500)", marginTop: 2 }}>
+                Standard bank & device passcode lengths
+              </div>
+            </div>
+            <div style={{ display: "inline-flex", gap: 6, flexShrink: 0 }}>
+              {[4, 6, 8].map((digits) => {
+                const active = pinLen === digits;
+                return (
+                  <button
+                    key={digits}
+                    type="button"
+                    onClick={() => {
+                      setPinLen(digits);
+                      setTriggerKey((k) => k + 1);
+                    }}
+                    style={{
+                      border: active ? "1px solid var(--neutral-500)" : "1px solid var(--border)",
+                      background: active ? "var(--neutral-800)" : "var(--surface)",
+                      color: active ? "var(--neutral-100)" : "var(--neutral-400)",
+                      fontSize: 11,
+                      fontWeight: active ? 600 : 500,
+                      padding: "4px 10px",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {digits} Digits
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

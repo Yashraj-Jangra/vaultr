@@ -11,7 +11,7 @@ export function classifyChar(c: string): CharClass {
 }
 
 export const CHAR_COLOR: Record<CharClass, string> = {
-  lower: "#e4e4e7",   // soft neutral light gray
+  lower: "var(--neutral-100)",   // crisp in dark, light, and midnight themes
   upper: "#38bdf8",   // vibrant sky-400
   digit: "#fbbf24",   // bright warm amber-400
   symbol: "#fb7185",  // rose-400
@@ -209,7 +209,7 @@ export function CipherScrambleText({
               key={i}
               style={{
                 fontWeight: 500,
-                color: item.isLocked ? "#f4f4f5" : "#38bdf8",
+                color: item.isLocked ? "var(--neutral-100)" : "#38bdf8",
                 opacity: item.isLocked ? 1 : 0.8,
                 transition: "opacity 0.15s ease, color 0.15s ease",
               }}
@@ -223,7 +223,7 @@ export function CipherScrambleText({
   }
 
   // Random / Pattern Password Mode
-  const fontSize = size === "sm" ? 12 : size === "lg" ? 16 : 13.5;
+  const fontSize = size === "sm" ? 12 : size === "lg" ? 16 : 14.5;
   return (
     <span
       className={className}
