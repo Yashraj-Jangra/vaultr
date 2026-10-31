@@ -3,7 +3,7 @@
     "name": "Vaultr",
     "slug": "vaultr-mobile",
     "scheme": "vaultr",
-    "version": "0.2.11",
+    "version": "0.2.12",
     "orientation": "portrait",
     "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
@@ -27,11 +27,11 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "versionCode": 11
+      "versionCode": 12
     },
     "ios": {
       "bundleIdentifier": "com.vaultr.mobile",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "supportsTablet": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Allow Vaultr to use Face ID to unlock your secure vault.",

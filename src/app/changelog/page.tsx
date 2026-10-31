@@ -33,11 +33,28 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: "v0.2.12",
+    isLatest: true,
+    codename: "Standalone Pop-out Mode & In-Page Autofill Orchestration",
+    date: "November 1, 2026",
+    tagline: "Standalone Pop-out Extension Window, Locked Autofill Detection & Unlock Prompt, Tab Resolution Parity & UI Modernization",
+    changes: [
+      { type: "extension", text: "Standalone Pop-out Window Mode: Detachable extension window with centered positioning, single-instance reuse, and fluid responsive styling." },
+      { type: "security", text: "Locked Vault In-Page Detection: Intelligent password field detection on active web pages even when vault is locked, with instant 1-tap unlock prompt." },
+      { type: "extension", text: "Reactive Post-Unlock Autofill: Instantaneous form field population via VAULT_UNLOCKED broadcast without requiring page refresh." },
+      { type: "fix", text: "Multi-Tier Web Tab Resolution: 5-tier active browser window and tab discovery engine resolving target pages seamlessly in standalone pop-out mode." },
+      { type: "extension", text: "Obsidian Theme Locked Prompt: Sleek dark obsidian prompt card with radiant silver emblem, status badge, and high-contrast invert action pill." },
+      { type: "feature", text: "Passkey Field Harmonization: Unified passkey credential styling, sizing hierarchy, and section borders across Web App and Browser Extension." },
+      { type: "extension", text: "Password Generator & Settings Redesign: Minimalist div-free layout with colored character distinctions (letters, numbers, symbols) and light/dark theme contrast polish." },
+      { type: "fix", text: "Form Autofill Prioritization: Intelligent field scoring prioritizing login password and username inputs over auxiliary search bars." },
+    ],
+  },
+  {
     version: "v0.2.11",
     codename: "Passkeys, Standalone Release & Quick PIN Ecosystem",
     date: "September 19, 2026",
     tagline: "FIDO2 WebAuthn Passkeys across Web, Android & Extension, Standalone Hermes Release Pipeline, Quick PIN & Extension Redesign",
-    isLatest: true,
+
     changes: [
       { type: "security", text: "FIDO2 WebAuthn Passkeys: End-to-end passkey creation and assertion across Web, Browser Extension, and native Android 14+ Credential Manager." },
       { type: "mobile", text: "Standalone Production Android Build: Offline Hermes bytecode pre-compilation, native C++ architecture linking, and private keystore release signing." },

@@ -1,4 +1,28 @@
-## Current Session: Extension Pop-out Mode & Locked Vault Autofill Prompt (2026-10-31) · Branch: `dev`
+## Current Session: Universal Version Bump to v0.2.12 (2026-11-01) · Branch: `dev`
+
+### ✅ What Was Done (Universal Version Bump to v0.2.12 & Ecosystem Manifest Synchronization)
+- **Source of Truth Synchronized (`packages/core/src/version.ts`)**:
+  - `VAULTR_VERSION = "0.2.12"`, `VAULTR_MOBILE_VERSION = "0.2.12"`, `VAULTR_BUILD_NUMBER = "2026.11.01"`.
+- **Ecosystem Manifests Synchronized**:
+  - `package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `package-lock.json` $\rightarrow$ `"version": "0.2.12"` across root, `packages/core`, `extension`, and `mobile`.
+  - `packages/core/package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `mobile/package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `mobile/app.json` $\rightarrow$ `"version": "0.2.12"`, `versionCode: 12`, `buildNumber: "12"`.
+  - `mobile/android/app/build.gradle` $\rightarrow$ `versionCode 12`, `versionName "0.2.12"`.
+  - `extension/package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `extension/manifest.json` $\rightarrow$ `"version": "0.2.12"`.
+- **Changelog Updated (`src/app/changelog/page.tsx`)**:
+  - Added release notes for `v0.2.12` ("Standalone Pop-out Mode & In-Page Autofill Orchestration") marked as latest (`isLatest: true`).
+  - Categorized release highlights: Standalone pop-out window mode, in-page locked autofill detection & prompt, reactive post-unlock autofill, multi-tier web tab discovery, obsidian theme locked prompt redesign, passkey field harmonization, password generator & settings redesign, and login form autofill prioritization.
+- **Verification & DoD Gate**:
+  - `npm run build --prefix packages/core`: Success.
+  - `npm run build --prefix extension`: Webpack production bundle built cleanly with `dist/manifest.json` updated to `0.2.12`.
+  - `npx tsc --noEmit` (Root & Extension): 0 errors across entire workspace.
+
+---
+
+## Prior Session: Extension Pop-out Mode & Locked Vault Autofill Prompt (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done:
 
