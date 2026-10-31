@@ -380,7 +380,7 @@ export function App() {
           </div>
         )}
         {activeTab === "settings" && (
-          <div key="settings" className="animate-screen-enter" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="settings" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <SettingsScreen
               serverUrl={serverUrl}
               accountInfo={accountInfo}
