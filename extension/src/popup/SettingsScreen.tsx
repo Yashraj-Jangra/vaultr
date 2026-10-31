@@ -1031,77 +1031,19 @@ export function SettingsScreen({
             Lock Vault Now
           </button>
 
-          {/* Full Wide Logo Branding Card */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              textAlign: "center",
-              padding: "18px 14px 14px",
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 14,
-              gap: 8,
-              marginTop: 2,
-            }}
-          >
-            <img
-              src={activeTheme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
-              alt="VaultR"
-              style={{ height: 26, width: "auto", maxWidth: "80%", objectFit: "contain" }}
-            />
-            <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.35, maxWidth: 260 }}>
-              Zero-Knowledge Password Management & Digital Security
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 2 }}>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: "2px 8px",
-                  borderRadius: 6,
-                  background: "rgba(56, 189, 248, 0.12)",
-                  color: "#38bdf8",
-                  border: "1px solid rgba(56, 189, 248, 0.25)",
-                }}
-              >
-                {VAULTR_EDITION}
-              </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: "2px 8px",
-                  borderRadius: 6,
-                  background: "var(--surface-2)",
-                  color: "var(--neutral-300)",
-                  border: "1px solid var(--border)",
-                  fontFamily: "monospace",
-                }}
-              >
-                v{VAULTR_VERSION}
-              </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: "2px 8px",
-                  borderRadius: 6,
-                  background: "rgba(16, 185, 129, 0.12)",
-                  color: "#10b981",
-                  border: "1px solid rgba(16, 185, 129, 0.25)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Check size={10} /> Zero-Knowledge
-              </span>
-            </div>
-            <div style={{ fontSize: 9.5, color: "var(--neutral-500)", fontFamily: "monospace", marginTop: 2 }}>
-              Build {VAULTR_BUILD_NUMBER} · {VAULTR_CRYPTO_SPEC.algorithm}
-            </div>
+          {/* Minimal Card-Free Version Footer */}
+          <div style={{ padding: "16px 0 8px", textAlign: "center", userSelect: "none" }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "var(--neutral-500)",
+                letterSpacing: "0.03em",
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              }}
+            >
+              v{VAULTR_VERSION}
+            </span>
           </div>
         </div>
       ) : (
