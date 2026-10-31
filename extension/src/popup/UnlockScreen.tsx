@@ -221,7 +221,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
         </div>
 
         {/* Hero Illustration & Text */}
-        <div style={{ textAlign: "center", position: "relative", zIndex: 10, width: "100%", margin: "16px 0" }}>
+        <div style={{ textAlign: "center", position: "relative", zIndex: 10, width: "100%", maxWidth: 340, margin: "16px auto" }}>
           <div style={{ position: "relative", width: "100%", height: 160, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
             <div className="lock-halo" style={{ width: 160, height: 160, background: "radial-gradient(circle, rgba(124,106,250,0.2) 0%, transparent 70%)" }} />
             <img
@@ -240,7 +240,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
         </div>
 
         {/* Actions */}
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, zIndex: 10 }}>
+        <div style={{ width: "100%", maxWidth: 340, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10, zIndex: 10 }}>
           <button
             className="btn btn-primary"
             style={{ width: "100%", height: 44, borderRadius: 12, fontSize: 13, fontWeight: 600, justifyContent: "center", gap: 8 }}
@@ -289,7 +289,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       </div>
 
       {/* Header Info */}
-      <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", marginBottom: unlockMode === "pin" ? 8 : 20 }}>
+      <div className="unlock-header" style={{ position: "relative", zIndex: 10, textAlign: "center", width: "100%", maxWidth: 340, margin: unlockMode === "pin" ? "0 auto 8px" : "0 auto 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6, opacity: 0.6 }}>
           <img
             src="brand/vaultr-full-dark-transparent.png"
@@ -313,7 +313,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
 
       {/* Body: PIN Pad or Password Form */}
       {unlockMode === "pin" ? (
-        <div style={{ width: "100%", position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ width: "100%", maxWidth: 340, margin: "0 auto", position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
           <PinPad
             length={pinLength}
             value={pin}
@@ -350,7 +350,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
           </button>
         </div>
       ) : (
-        <div style={{ width: "100%", position: "relative", zIndex: 10 }}>
+        <div style={{ width: "100%", maxWidth: 340, margin: "0 auto", position: "relative", zIndex: 10 }}>
           <div key={shakeKey} className={`unlock-form ${error && shakeKey > 0 ? "animate-shake" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {error && (
               <div className="alert-error animate-auth-form-in">
@@ -479,7 +479,7 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock }: UnlockScreenPro
       )}
 
       {/* Footer Links matching site */}
-      <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: unlockMode === "pin" ? 14 : 24, fontSize: 12, position: "relative", zIndex: 10 }}>
+      <div style={{ width: "100%", maxWidth: 340, margin: unlockMode === "pin" ? "14px auto 0" : "24px auto 0", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, position: "relative", zIndex: 10 }}>
         <button
           onClick={openLoginPage}
           style={{ background: "none", border: "none", color: "var(--neutral-600)", cursor: "pointer", fontSize: 12 }}

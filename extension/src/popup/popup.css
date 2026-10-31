@@ -282,7 +282,8 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
 
 .bottom-nav {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 160px));
+  justify-content: center;
   border-top: 1px solid var(--border);
   background: var(--bg);
   height: 52px;
@@ -1197,6 +1198,8 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
 
 .unlock-form {
   width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1207,6 +1210,7 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  max-width: 340px;
   margin-top: 24px;
   font-size: 12px;
 }
