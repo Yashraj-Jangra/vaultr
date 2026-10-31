@@ -1,6 +1,34 @@
-## Current Session: Extension Light Theme Color Audit & Polish (2026-10-31) · Branch: `dev`
+## Current Session: Passkey Details Harmonization (2026-10-31) · Branch: `dev`
 
-### ✅ What Was Done (Phase 49: Comprehensive Light Theme Audit & Color Correction in Browser Extension)
+### ✅ What Was Done (Phase 50: Passkey Detail View Harmonization across Web App and Browser Extension)
+
+**Files Changed:**
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `src/app/vault/page.tsx`
+- `src/components/vault/NewEntryDialog.tsx`
+
+**Key Improvements & Resolutions:**
+1. **Extension Item Details Harmonization (`VaultScreen.tsx`)**:
+   - Replaced custom bright-blue box (`rgba(56, 189, 248, 0.05)`), neon green ACTIVE badge, and oversized 22px icon with a standard `.detail-section-box`.
+   - Uses standard 32px `.detail-row`s matching Login Credentials, Authenticator, and Website URLs.
+   - Status row displays `passkeyRpId` (or "WebAuthn / FIDO2") alongside a clean, subtle emerald `Configured` badge and formatted creation date.
+   - Credential row displays truncated Key ID with the standard `CopyBtn` in `.detail-actions`.
+2. **Web App Expanded Details Harmonization (`src/app/vault/page.tsx`)**:
+   - Removed nested custom card-in-card container (`bg-[var(--surface-hover)] border border-sky-500/20 p-3.5`) and 24px icon.
+   - Integrated passkey rows directly into `SectionGroup` separated by standard hairline dividers (`divide-neutral-800/50`).
+   - Sizing and padding now match `DetailRow` exactly (`px-3 py-2.5`).
+   - Clean `Configured` badge, right-aligned creation date, and copyable Credential ID row.
+3. **Edit & Add Dialog Parity (`NewEntryDialog.tsx`, `NewEntryForm.tsx`)**:
+   - Replaced jarring dark blue/sky backgrounds with standard theme surface cards (`bg-[var(--surface)] border border-[var(--border)]`).
+   - Standardized typography, alignment, subtle `Configured` badges, and understated Unlink buttons in both split view and modal view in the web app and popup form in the extension.
+4. **Validation & Verification**:
+   - `npx tsc --noEmit`: 0 errors across entire workspace.
+   - Extension bundle `npm run build`: Compiled cleanly in 10.7s with 0 errors (`popup.js` 430 KiB).
+
+---
+
+## Prior Sessions:
 
 **Files Changed:**
 - `extension/src/popup/App.tsx`
