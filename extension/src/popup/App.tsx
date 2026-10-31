@@ -216,19 +216,27 @@ export function App() {
     });
 
   const handlePopOut = () => {
-    chrome.runtime.sendMessage({ type: "OPEN_POPOUT" }, () => {
-      window.close();
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const activeTabId = tabs[0]?.id;
+      chrome.runtime.sendMessage({ type: "OPEN_POPOUT", tabId: activeTabId }, () => {
+        window.close();
+      });
     });
   };
 
-  const handleAutofill = async (cred: { username?: string; password?: string }) => {
+  const handleAutofill = async (cred: { username?: string; password?: string; name?: string }) => {
     const tab = await getActiveWebTab();
     if (tab?.id) {
       chrome.tabs.sendMessage(tab.id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
         void chrome.runtime.lastError;
       });
+      if (isPopout && tab.windowId) {
+        chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+      }
     }
-    window.close();
+    if (!isPopout) {
+      window.close();
+    }
   };
 
   const handleSaveItem = async (

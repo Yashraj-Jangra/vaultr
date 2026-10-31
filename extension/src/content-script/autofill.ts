@@ -1356,14 +1356,16 @@ chrome.runtime.onMessage.addListener((message) => {
     };
     const activeEl = document.activeElement as HTMLInputElement | null;
     const anchor =
-      (activeEl && activeEl.tagName === "INPUT" ? activeEl : null) ||
-      lastFocusedField ||
+      (activeEl && activeEl.tagName === "INPUT" && isLoginField(activeEl) ? activeEl : null) ||
+      (lastFocusedField && document.contains(lastFocusedField) ? lastFocusedField : null) ||
       document.querySelector<HTMLInputElement>('input[type="password"]') ||
-      document.querySelector<HTMLInputElement>('input[type="email"]') ||
-      document.querySelector<HTMLInputElement>('input[type="text"]');
+      document.querySelector<HTMLInputElement>('input[autocomplete="username"], input[autocomplete="email"], input[type="email"], input[name*="user" i], input[name*="login" i], input[id*="user" i], input[id*="login" i]') ||
+      (document.querySelector<HTMLInputElement>('input[type="text"]') && isLoginField(document.querySelector<HTMLInputElement>('input[type="text"]')!) ? document.querySelector<HTMLInputElement>('input[type="text"]') : null);
 
     if (anchor) {
+      anchor.focus();
       fillCredential(anchor, cred);
+      showInPageToast(`Autofilled credentials for <span class="code">${cred.name}</span>`);
     }
   } else if (message.type === "TRIGGER_AUTOFILL" && message.credential) {
     const cred: AutofillCredential = message.credential;
