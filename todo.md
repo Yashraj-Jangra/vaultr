@@ -71,6 +71,22 @@
    - Replaced generic input selection with login-priority field candidates (password -> email/username -> login text fields), avoiding accidental search bar targeting.
    - Focuses field on autofill and triggers in-page toast feedback (`showInPageToast`).
 
+#### Phase 4: Locked Autofill Prompt Obsidian Theme Redesign (`🎨 redesign locked autofill prompt with sleek obsidian theme`)
+**Files Changed:**
+- `extension/src/content-script/autofill.ts`
+
+**Key Improvements & Resolutions:**
+1. **Eliminated All Yellow / Amber Tones**:
+   - Replaced mustard yellow lock SVG (`#f59e0b`) with a radiant silver/zinc lock icon (`#f4f4f5`).
+   - Replaced yellow background and yellow borders on the icon box with an elevated obsidian surface (`#18181b`, `border: rgba(255, 255, 255, 0.10)`).
+   - Replaced yellow `LOCKED` badge with a clean, understated status pill: `● Vault locked` (`#a1a1aa` on `rgba(255, 255, 255, 0.06)`).
+2. **Clear & Punchy Typography**:
+   - Replaced repetitive copy ("Vault is locked" / "Click to unlock vault & view options") with clean, direct messaging:
+     - Title: `Unlock Vault` (13px, bold `#ffffff`)
+     - Subtitle: `Click to unlock and autofill logins` (11.5px, `#94a3b8`)
+3. **Interactive White Invert Action Pill**:
+   - Replaced faint external link arrow with a dedicated `Unlock →` button pill that smoothly transitions to solid white with dark text on hover (`bg-white text-neutral-900 font-semibold`), matching Vaultr's primary action button specifications.
+
 #### Validation & Build Verification:
 - `npx tsc --noEmit`: 0 errors across entire workspace.
 - Production webpack build (`npm run build --prefix extension`): Compiled with exit code 0 (`popup.js` 431 KiB).
