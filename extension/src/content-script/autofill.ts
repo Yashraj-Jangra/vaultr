@@ -312,6 +312,59 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
   }
 }
 
+function createLockSvgIcon(): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "#f59e0b");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("width", "18");
+  rect.setAttribute("height", "11");
+  rect.setAttribute("x", "3");
+  rect.setAttribute("y", "11");
+  rect.setAttribute("rx", "2");
+  rect.setAttribute("ry", "2");
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M7 11V7a5 5 0 0 1 10 0v4");
+
+  svg.appendChild(rect);
+  svg.appendChild(path);
+  return svg;
+}
+
+function createExternalLinkSvgIcon(): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "#71717a");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path1.setAttribute("d", "M15 3h6v6");
+
+  const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path2.setAttribute("d", "M10 14 21 3");
+
+  const path3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path3.setAttribute("d", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6");
+
+  svg.appendChild(path1);
+  svg.appendChild(path2);
+  svg.appendChild(path3);
+  return svg;
+}
+
 function createGlobeIcon(): SVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("width", "18");
@@ -989,6 +1042,246 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
   });
 }
 
+function showLockedDropdown(inputEl: HTMLInputElement) {
+  if (activeInput === inputEl && activeDropdown) return;
+  removeDropdown();
+
+  activeInput = inputEl;
+  const rect = inputEl.getBoundingClientRect();
+
+  const width = Math.max(rect.width, 300);
+  const estimatedHeight = 96;
+  const pos = getDropdownPosition(rect, estimatedHeight, width);
+
+  const host = document.createElement("div");
+  host.id = "vaultr-autofill-host";
+  host.style.cssText = `
+    position: fixed !important;
+    top: ${pos.top}px !important;
+    left: ${pos.left}px !important;
+    width: ${width}px !important;
+    max-height: ${pos.maxHeight}px !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    opacity: 0;
+    transform: translateY(${pos.isAbove ? "6px" : "-6px"});
+    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  `;
+
+  const shadow = host.attachShadow({ mode: "open" });
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    * {
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      line-height: 1.4 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+    }
+    .dropdown-container {
+      background: #09090b !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+      overflow: hidden !important;
+      font-size: 13px !important;
+      color: #f4f4f5 !important;
+      padding: 6px !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .header {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      padding: 7px 10px 9px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      color: #ffffff !important;
+      letter-spacing: 0.04em !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      margin-bottom: 5px !important;
+      flex-shrink: 0 !important;
+    }
+    .brand-logo {
+      height: 18px !important;
+      width: auto !important;
+      max-width: 90px !important;
+      object-fit: contain !important;
+      display: block !important;
+    }
+    .locked-badge {
+      margin-left: auto !important;
+      font-weight: 600 !important;
+      font-size: 10px !important;
+      color: #f59e0b !important;
+      background: rgba(245, 158, 11, 0.12) !important;
+      padding: 2px 8px !important;
+      border-radius: 9999px !important;
+      border: 1px solid rgba(245, 158, 11, 0.25) !important;
+      letter-spacing: 0.05em !important;
+    }
+    .item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      padding: 9px 10px !important;
+      border-radius: 10px !important;
+      cursor: pointer !important;
+      transition: background 0.15s ease, border-color 0.15s ease !important;
+      background: transparent !important;
+      flex-shrink: 0 !important;
+    }
+    .item:hover {
+      background: #18181b !important;
+    }
+    .icon-box {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 8px !important;
+      background: rgba(245, 158, 11, 0.12) !important;
+      border: 1px solid rgba(245, 158, 11, 0.22) !important;
+      flex-shrink: 0 !important;
+    }
+    .meta {
+      min-width: 0 !important;
+      flex: 1 !important;
+    }
+    .name-row {
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+    }
+    .name {
+      font-weight: 600 !important;
+      font-size: 13px !important;
+      color: #ffffff !important;
+    }
+    .sub {
+      font-size: 11.5px !important;
+      color: #94a3b8 !important;
+      margin-top: 2px !important;
+    }
+    .action-hint {
+      margin-left: auto !important;
+      display: flex !important;
+      align-items: center !important;
+      opacity: 0.7 !important;
+      transition: opacity 0.15s ease !important;
+    }
+    .item:hover .action-hint {
+      opacity: 1 !important;
+    }
+  `;
+  shadow.appendChild(styleEl);
+
+  const container = document.createElement("div");
+  container.className = "dropdown-container";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "header";
+
+  const logoUrl = typeof chrome !== "undefined" && chrome.runtime?.getURL
+    ? chrome.runtime.getURL("brand/vaultr-full-dark-transparent.png")
+    : "";
+
+  if (logoUrl) {
+    const brandImg = document.createElement("img");
+    brandImg.src = logoUrl;
+    brandImg.alt = "Vaultr";
+    brandImg.className = "brand-logo";
+    brandImg.onerror = () => {
+      brandImg.remove();
+      if (!header.querySelector(".brand-fallback-title")) {
+        const fallback = document.createElement("span");
+        fallback.className = "brand-fallback-title";
+        fallback.textContent = "VAULTR";
+        fallback.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
+        header.insertBefore(fallback, badge);
+      }
+    };
+    header.appendChild(brandImg);
+  } else {
+    const title = document.createElement("span");
+    title.className = "brand-fallback-title";
+    title.textContent = "VAULTR";
+    title.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
+    header.appendChild(title);
+  }
+
+  const badge = document.createElement("span");
+  badge.className = "locked-badge";
+  badge.textContent = "LOCKED";
+  header.appendChild(badge);
+  container.appendChild(header);
+
+  // Clickable locked row
+  const item = document.createElement("div");
+  item.className = "item";
+
+  const iconBox = document.createElement("div");
+  iconBox.className = "icon-box";
+  iconBox.appendChild(createLockSvgIcon());
+  item.appendChild(iconBox);
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+
+  const nameRow = document.createElement("div");
+  nameRow.className = "name-row";
+  const nameEl = document.createElement("div");
+  nameEl.className = "name";
+  nameEl.textContent = "Vault is locked";
+  nameRow.appendChild(nameEl);
+
+  const subEl = document.createElement("div");
+  subEl.className = "sub";
+  subEl.textContent = "Click to unlock vault & view options";
+
+  meta.appendChild(nameRow);
+  meta.appendChild(subEl);
+  item.appendChild(meta);
+
+  const actionHint = document.createElement("div");
+  actionHint.className = "action-hint";
+  actionHint.appendChild(createExternalLinkSvgIcon());
+  item.appendChild(actionHint);
+
+  item.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chrome.runtime.sendMessage({ type: "OPEN_POPOUT" }, () => {
+      void chrome.runtime.lastError;
+    });
+    removeDropdown();
+  });
+
+  container.appendChild(item);
+  shadow.appendChild(container);
+  (document.body || document.documentElement).appendChild(host);
+  activeDropdown = host;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (activeDropdown) {
+        activeDropdown.style.opacity = "1";
+        activeDropdown.style.transform = "translateY(0)";
+      }
+    });
+  });
+}
+
 document.addEventListener("focusin", (e) => {
   const target = e.target as HTMLInputElement;
   if (!target || target.tagName !== "INPUT") return;
@@ -1011,8 +1304,13 @@ document.addEventListener("focusin", (e) => {
 
       chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
         if (chrome.runtime.lastError) return;
-        // Vault is locked — do not show dropdown (nothing to suggest)
-        if (response?.isLocked) return;
+        // Vault is locked — prompt user to unlock vault
+        if (response?.isLocked) {
+          if (document.activeElement === target) {
+            showLockedDropdown(target);
+          }
+          return;
+        }
         if (response?.logins?.length > 0) {
           if (document.activeElement === target) {
             if (isOtp) {
@@ -1029,7 +1327,28 @@ document.addEventListener("focusin", (e) => {
 
 // Handle autofill, copy TOTP, and password fill messages
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === "AUTOFILL_CREDENTIAL" && message.credential) {
+  if (message.type === "VAULT_UNLOCKED") {
+    const activeEl = document.activeElement as HTMLInputElement | null;
+    const target =
+      (activeEl && activeEl.tagName === "INPUT" && (isLoginField(activeEl) || isOtpField(activeEl)) ? activeEl : null) ||
+      (lastFocusedField && (isLoginField(lastFocusedField) || isOtpField(lastFocusedField)) ? lastFocusedField : null);
+
+    if (target) {
+      const domain = getDomain();
+      if (domain) {
+        chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
+          if (chrome.runtime.lastError) return;
+          if (!response?.isLocked && response?.logins?.length > 0) {
+            if (isOtpField(target)) {
+              showOtpDropdown(target, response.logins);
+            } else {
+              showDropdown(target, response.logins);
+            }
+          }
+        });
+      }
+    }
+  } else if (message.type === "AUTOFILL_CREDENTIAL" && message.credential) {
     const cred: AutofillCredential = {
       id: "popup",
       name: "Vaultr",

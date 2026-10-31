@@ -668,6 +668,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const setting = String(lockRes.autolock_minutes ?? "15");
           await touchAutoLock(setting);
 
+          // Broadcast to active tabs that vault was unlocked
+          try {
+            chrome.tabs.query({}, (tabs) => {
+              if (chrome.runtime.lastError || !tabs) return;
+              for (const tab of tabs) {
+                if (tab.id) {
+                  chrome.tabs.sendMessage(tab.id, { type: "VAULT_UNLOCKED" }).catch(() => {});
+                }
+              }
+            });
+          } catch {}
+
           sendResponse({ success: true, count: items.length });
           break;
         }
