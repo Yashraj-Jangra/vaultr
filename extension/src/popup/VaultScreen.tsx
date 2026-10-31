@@ -23,7 +23,7 @@ interface VaultScreenProps {
   items: VaultItem[];
   folders?: string[];
   onDecryptItem: (encryptedBlob: string, itemId?: string) => Promise<any>;
-  onAutofill: (cred: { username?: string; password?: string }) => void;
+  onAutofill: (cred: { username?: string; password?: string; name?: string }) => void;
   onEditItem: (item: VaultItem, decryptedPayload: any) => void;
   onDeleteItem: (id: string) => Promise<void>;
   onToggleFavorite?: (id: string) => void;
@@ -351,7 +351,7 @@ function PasswordHistorySection({ history }: { history: string[] }) {
 interface ItemRowProps {
   item: VaultItem;
   onDecrypt: (blob: string, itemId?: string) => Promise<any>;
-  onAutofill: (cred: { username?: string; password?: string }) => void;
+  onAutofill: (cred: { username?: string; password?: string; name?: string }) => void;
   onEdit: (item: VaultItem, decryptedPayload: any) => void;
   onDelete: (id: string) => Promise<void>;
   onToggleFavorite?: (id: string) => void;
@@ -398,7 +398,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
           return;
         }
       }
-      onAutofill({ username: cred.username, password: cred.password });
+      onAutofill({ username: cred.username, password: cred.password, name: item.name });
     },
     [decrypted, item.unencryptedPayload, item.encryptedBlob, item.id, onDecrypt, onAutofill]
   );
@@ -870,17 +870,25 @@ export function VaultScreen({
   }, []);
 
   useEffect(() => {
-    getActiveWebTab().then((tab) => {
-      const tabUrl = tab?.url || "";
-      if (tabUrl && isWebPageUrl(tabUrl)) {
-        const host = extractDomainHost(tabUrl);
-        if (host && !isInternalBrowserHost(host)) {
-          setActiveTabDomain(host);
-          return;
+    const updateActiveTab = () => {
+      getActiveWebTab().then((tab) => {
+        const tabUrl = tab?.url || "";
+        if (tabUrl && isWebPageUrl(tabUrl)) {
+          const host = extractDomainHost(tabUrl);
+          if (host && !isInternalBrowserHost(host)) {
+            setActiveTabDomain(host);
+            return;
+          }
         }
-      }
-      setActiveTabDomain("");
-    });
+        setActiveTabDomain("");
+      });
+    };
+
+    updateActiveTab();
+    window.addEventListener("focus", updateActiveTab);
+    return () => {
+      window.removeEventListener("focus", updateActiveTab);
+    };
   }, []);
 
   // Filter out Trash (soft deleted) items

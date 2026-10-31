@@ -498,10 +498,15 @@ function clearAllBadges() {
 // ─── Pop-out Standalone Window Manager ───────────────────────────────────────
 
 let popoutWindowId: number | null = null;
+let lastTargetTabId: number | null = null;
 
-async function openPopoutWindow(): Promise<void> {
+async function openPopoutWindow(originTabId?: number): Promise<void> {
   const width = 400;
   const height = 620;
+
+  if (originTabId) {
+    lastTargetTabId = originTabId;
+  }
 
   if (popoutWindowId !== null) {
     try {
@@ -527,8 +532,9 @@ async function openPopoutWindow(): Promise<void> {
     }
   } catch {}
 
+  const tabQuery = originTabId ? `&tabId=${originTabId}` : "";
   const win = await chrome.windows.create({
-    url: chrome.runtime.getURL("popup.html?mode=popout"),
+    url: chrome.runtime.getURL(`popup.html?mode=popout${tabQuery}`),
     type: "popup",
     width,
     height,
@@ -556,7 +562,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       switch (message.type) {
 
         case "OPEN_POPOUT": {
-          await openPopoutWindow();
+          const originTabId = message.tabId || sender.tab?.id;
+          await openPopoutWindow(originTabId);
           sendResponse({ success: true });
           break;
         }
