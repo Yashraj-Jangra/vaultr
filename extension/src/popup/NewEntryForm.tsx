@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, Key, KeyRound, Star, RefreshCw, Copy, Check
+  Lock, CreditCard, FileText, User, Plus, Minus, X, Wand2, Key, KeyRound, Star, RefreshCw, Copy, Check, ExternalLink
 } from "lucide-react";
 import { VaultItem, detectCardBrand, generateRandom, scorePassword } from "@vaultr/core";
 import { CipherScrambleText } from "./CipherScrambleText";
@@ -136,14 +136,14 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
     <div
       style={{
         padding: "10px 12px",
-        background: "#0d0d0f",
+        background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 12,
         marginBottom: 12,
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        boxShadow: "0 6px 20px -4px rgba(0, 0, 0, 0.5)",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
       }}
     >
       {/* Output Row with Inline Actions */}
@@ -153,8 +153,8 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 6,
-          background: "#070709",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
           borderRadius: 8,
           padding: "7px 10px",
           minHeight: 40,
@@ -228,8 +228,8 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
               padding: "3px 8px",
               fontSize: 10.5,
               fontWeight: 600,
-              background: "#f4f4f5",
-              color: "#09090b",
+              background: "var(--neutral-100)",
+              color: "var(--bg)",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
@@ -321,12 +321,12 @@ function PasswordGen({ onUse }: { onUse: (pw: string) => void }) {
                 fontWeight: 600,
                 cursor: "pointer",
                 transition: "all 0.15s ease",
-                background: val ? "rgba(255, 255, 255, 0.08)" : "#070709",
-                border: val ? "1px solid rgba(255, 255, 255, 0.18)" : "1px solid var(--border)",
-                color: val ? "var(--neutral-200)" : "var(--neutral-600)",
+                background: val ? "var(--surface-2)" : "transparent",
+                border: val ? "1px solid var(--neutral-400)" : "1px solid var(--border)",
+                color: val ? "var(--neutral-100)" : "var(--neutral-500)",
               }}
             >
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: val ? color : "var(--neutral-700)" }} />
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: val ? color : "var(--neutral-400)" }} />
               {label}
             </button>
           ))}
@@ -362,6 +362,24 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
   });
   const [totpSecret, setTotpSecret] = useState(initialData?.payload?.totpSecret || "");
   const [showTotpField, setShowTotpField] = useState(!!initialData?.payload?.totpSecret);
+
+  // Passkey
+  const [passkeyData, setPasskeyData] = useState<any>(() => {
+    if (initialData?.payload?.isPasskey || initialData?.payload?.passkeyCredentialId) {
+      return {
+        isPasskey: true,
+        passkeyRpId: initialData.payload.passkeyRpId,
+        passkeyCredentialId: initialData.payload.passkeyCredentialId,
+        passkeyUserHandle: initialData.payload.passkeyUserHandle,
+        passkeyPrivateKey: initialData.payload.passkeyPrivateKey,
+        passkeySignCount: initialData.payload.passkeySignCount,
+        passkeyTransports: initialData.payload.passkeyTransports,
+        passkeyCreatedAt: initialData.payload.passkeyCreatedAt,
+        passkeyLastUsedAt: initialData.payload.passkeyLastUsedAt,
+      };
+    }
+    return null;
+  });
 
   // Card
   const [cardName, setCardName] = useState(initialData?.payload?.cardName || initialData?.payload?.cardholderName || "");
@@ -443,18 +461,8 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
         passwordHistory: history.length > 0 ? history : undefined,
       });
 
-      if (initialData?.payload?.isPasskey) {
-        Object.assign(payload, {
-          isPasskey: true,
-          passkeyRpId: initialData.payload.passkeyRpId,
-          passkeyCredentialId: initialData.payload.passkeyCredentialId,
-          passkeyUserHandle: initialData.payload.passkeyUserHandle,
-          passkeyPrivateKey: initialData.payload.passkeyPrivateKey,
-          passkeySignCount: initialData.payload.passkeySignCount,
-          passkeyTransports: initialData.payload.passkeyTransports,
-          passkeyCreatedAt: initialData.payload.passkeyCreatedAt,
-          passkeyLastUsedAt: initialData.payload.passkeyLastUsedAt,
-        });
+      if (passkeyData?.isPasskey) {
+        Object.assign(payload, passkeyData);
       }
     }
     if (template === "card") {
@@ -488,9 +496,11 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
     if (template === "profile") Object.assign(payload, { fullName, dob, idNumber, email: profEmail, phone });
     if (template === "note") Object.assign(payload, { note });
 
-    const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
-    if (initialData?.payload?.isPasskey && !parsedTags.includes("passkey")) {
-      parsedTags.push("passkey");
+    let parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
+    if (template === "login" && passkeyData?.isPasskey) {
+      if (!parsedTags.includes("passkey")) parsedTags.push("passkey");
+    } else {
+      parsedTags = parsedTags.filter(t => t.toLowerCase() !== "passkey");
     }
 
     try {
@@ -660,6 +670,27 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
                     onChange={e => setUrls(p => p.map((x, idx) => idx === i ? e.target.value : x))}
                     placeholder="https://…"
                   />
+                  {u.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let target = u.trim();
+                        if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                          target = "https://" + target;
+                        }
+                        if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+                          chrome.tabs.create({ url: target });
+                        } else {
+                          window.open(target, "_blank", "noopener,noreferrer");
+                        }
+                      }}
+                      className="btn btn-ghost"
+                      style={{ padding: "8px 10px" }}
+                      title="Open URL"
+                    >
+                      <ExternalLink size={13} />
+                    </button>
+                  ) : null}
                   {i === urls.length - 1 ? (
                     <button type="button" onClick={() => setUrls(p => [...p, ""])} className="btn btn-ghost" style={{ padding: "8px 10px" }}><Plus size={13} /></button>
                   ) : (
@@ -692,19 +723,57 @@ export function NewEntryForm({ folders, onSave, onCancel, initialData }: NewEntr
               </div>
             )}
 
-            {initialData?.payload?.isPasskey && (
-              <div style={{ marginTop: 6, padding: "10px 12px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 10 }}>
+            {passkeyData?.isPasskey && (
+              <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: 5 }}>
-                    <KeyRound size={12} color="#38bdf8" /> PASSKEY ENROLLED
-                  </span>
-                  <span style={{ fontSize: 10, color: "var(--neutral-400)", fontFamily: "monospace" }}>
-                    {initialData.payload.passkeyRpId || "FIDO2"}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <KeyRound size={13} style={{ color: "var(--neutral-400)" }} />
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--neutral-100)" }}>
+                      {passkeyData.passkeyRpId || "WebAuthn / FIDO2"}
+                    </span>
+                    <span style={{
+                      fontSize: 9.5,
+                      fontWeight: 600,
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      background: "rgba(16, 185, 129, 0.12)",
+                      color: "#10b981",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                    }}>
+                      Configured
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasskeyData(null);
+                      setTags((prev) =>
+                        prev
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                          .join(", ")
+                      );
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 10.5,
+                      color: "var(--danger)",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                    title="Unlink passkey from this login"
+                  >
+                    Unlink
+                  </button>
                 </div>
-                <p style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: 1.4 }}>
-                  This login item has an active passkey credential linked for instant WebAuthn sign-in.
-                </p>
+                {passkeyData.passkeyCredentialId && (
+                  <div style={{ fontSize: 10.5, fontFamily: "monospace", color: "var(--neutral-500)", marginTop: 2 }}>
+                    ID: {passkeyData.passkeyCredentialId.slice(0, 20)}…
+                  </div>
+                )}
               </div>
             )}
           </div>

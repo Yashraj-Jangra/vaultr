@@ -22,19 +22,20 @@
       return true;
     };
 
-    if (typeof window.PublicKeyCredential.isConditionalMediationAvailable === "function") {
-      window.PublicKeyCredential.isConditionalMediationAvailable = async function () {
-        return true;
-      };
-    }
+    // Inform relying parties that conditional mediation UI (autofill) is not active.
+    // This prevents relying parties like Google Accounts from triggering background conditional requests on page load.
+    (window.PublicKeyCredential as any).isConditionalMediationAvailable = async function () {
+      return false;
+    };
 
     if (typeof (window.PublicKeyCredential as any).getClientCapabilities === "function") {
       (window.PublicKeyCredential as any).getClientCapabilities = async function () {
         return {
-          conditionalCreate: true,
-          conditionalGet: true,
+          conditionalCreate: false,
+          conditionalGet: false,
           hybridTransport: true,
           passkeyPlatformAuthenticator: true,
+          userVerifyingPlatformAuthenticator: true,
           userVerificationMethod: true,
         };
       };
@@ -43,29 +44,42 @@
 
   // ─── Encoding Helpers ───────────────────────────────────────────────────────
 
-  function bufferToBase64Url(buf: ArrayBuffer | ArrayBufferView): string {
-    const bytes = buf instanceof Uint8Array
-      ? buf
-      : (ArrayBuffer.isView(buf)
-          ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
-          : new Uint8Array(buf));
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+  function bufferToBase64Url(buf: any): string {
+    if (!buf) return "";
+    if (typeof buf === "string") return buf;
+    try {
+      const bytes = buf instanceof Uint8Array
+        ? buf
+        : (ArrayBuffer.isView(buf)
+            ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+            : new Uint8Array(buf));
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    } catch {
+      return "";
     }
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
-  function base64UrlToBuffer(str: string): ArrayBuffer {
-    if (!str) return new ArrayBuffer(0);
-    let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  function base64UrlToBuffer(val: any): ArrayBuffer {
+    if (!val) return new ArrayBuffer(0);
+    if (val instanceof ArrayBuffer) return val.slice(0);
+    if (ArrayBuffer.isView(val)) {
+      const copy = new Uint8Array(val.byteLength);
+      copy.set(new Uint8Array(val.buffer as any, val.byteOffset, val.byteLength));
+      return copy.buffer;
+    }
+    if (typeof val !== "string") return new ArrayBuffer(0);
+    let base64 = val.replace(/-/g, "+").replace(/_/g, "/");
     while (base64.length % 4 !== 0) base64 += "=";
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-    return bytes.buffer;
+    return bytes.slice().buffer;
   }
 
   // ─── Serializers ───────────────────────────────────────────────────────────
@@ -84,9 +98,9 @@
         name: effectiveRpName,
       },
       user: {
-        id: bufferToBase64Url(pk.user.id),
-        name: pk.user.name || "",
-        displayName: pk.user.displayName || pk.user.name || "",
+        id: pk.user ? bufferToBase64Url(pk.user.id) : "",
+        name: pk.user?.name || "",
+        displayName: pk.user?.displayName || pk.user?.name || "",
       },
       pubKeyCredParams: pk.pubKeyCredParams,
       timeout: pk.timeout,
@@ -121,12 +135,41 @@
 
   // ─── Bridge to Isolated Content Script ─────────────────────────────────────
 
-  function dispatchToExtension(action: "CREATE" | "GET", payload: any, timeoutMs: number = 60000): Promise<any> {
-    return new Promise((resolve) => {
+  function dispatchToExtension(
+    action: "CREATE" | "GET",
+    payload: any,
+    timeoutMs: number = 60000,
+    signal?: AbortSignal | null
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+        return;
+      }
+
       const reqId = "vtr_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
       const safeTimeout = Math.max(10000, Math.min(timeoutMs, 120000));
 
+      const abortHandler = () => {
+        clearTimeout(timeout);
+        window.removeEventListener("message", listener);
+        window.postMessage(
+          {
+            source: "VAULTR_WEBAUTHN_PAGE",
+            action: "ABORT",
+            reqId,
+          },
+          "*"
+        );
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      };
+
+      if (signal) {
+        signal.addEventListener("abort", abortHandler, { once: true });
+      }
+
       const timeout = setTimeout(() => {
+        if (signal) signal.removeEventListener("abort", abortHandler);
         window.removeEventListener("message", listener);
         resolve({ handled: false, timeout: true });
       }, safeTimeout);
@@ -141,6 +184,7 @@
           return;
         }
         clearTimeout(timeout);
+        if (signal) signal.removeEventListener("abort", abortHandler);
         window.removeEventListener("message", listener);
         resolve(event.data);
       };
@@ -165,17 +209,22 @@
       return originalCreate ? originalCreate(options) : null;
     }
 
+    if (options.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
     try {
       const serialized = serializeCreationOptions(options);
       if (!serialized) return originalCreate(options);
 
       const timeoutMs = options.publicKey.timeout || 60000;
-      const res = await dispatchToExtension("CREATE", serialized, timeoutMs);
+      const res = await dispatchToExtension("CREATE", serialized, timeoutMs, options.signal);
 
       if (res?.handled && res?.credential) {
         const c = res.credential;
         const rawId = base64UrlToBuffer(c.credentialId || c.id);
-        const clientDataJSON = new TextEncoder().encode(c.clientDataJSON).buffer;
+        const encodedClientData = new TextEncoder().encode(c.clientDataJSON);
+        const clientDataJSON = new Uint8Array(encodedClientData).slice().buffer as ArrayBuffer;
         const attestationObject = base64UrlToBuffer(c.attestationObject);
         const authenticatorData = c.authenticatorData ? base64UrlToBuffer(c.authenticatorData) : new ArrayBuffer(0);
         const publicKey = c.publicKey ? base64UrlToBuffer(c.publicKey) : null;
@@ -200,14 +249,16 @@
           ? PublicKeyCredential.prototype
           : (typeof Credential !== "undefined" ? (Credential as any).prototype : Object.prototype);
 
+        const attachment = options.publicKey?.authenticatorSelection?.authenticatorAttachment || "platform";
+
         const syntheticCredential = Object.create(credProto);
         Object.defineProperties(syntheticCredential, {
           id: { value: c.credentialId || c.id, enumerable: true, configurable: true },
           rawId: { value: rawId, enumerable: true, configurable: true },
           type: { value: "public-key", enumerable: true, configurable: true },
-          authenticatorAttachment: { value: "platform", enumerable: true, configurable: true },
+          authenticatorAttachment: { value: attachment, enumerable: true, configurable: true },
           response: { value: responseObj, enumerable: true, configurable: true },
-          getClientExtensionResults: { value: () => ({}), enumerable: true, configurable: true },
+          getClientExtensionResults: { value: () => ({ credProps: { rk: true } }), enumerable: true, configurable: true },
           toJSON: {
             value: () => ({
               id: c.credentialId || c.id,
@@ -220,8 +271,8 @@
                 publicKeyAlgorithm: -7,
                 publicKey: c.publicKey,
               },
-              authenticatorAttachment: "platform",
-              clientExtensionResults: {},
+              authenticatorAttachment: attachment,
+              clientExtensionResults: { credProps: { rk: true } },
               type: "public-key",
             }),
             enumerable: true,
@@ -232,28 +283,37 @@
         return syntheticCredential as PublicKeyCredential;
       }
 
-      // If user confirmed creation via VaultR prompt, NEVER fall back to Windows Hello!
+      // User confirmed but VaultR creation failed — do NOT open browser prompt
       if (res?.userConfirmed) {
         throw new DOMException(res.error || "Failed to create passkey in VaultR", "NotAllowedError");
       }
 
-      // If user explicitly chose "Use Browser"
-      if (res?.userCancelled) {
+      // User explicitly clicked "Use Browser" — only legitimate handoff to browser
+      if (res?.useBrowser) {
         return originalCreate(options);
       }
 
-      // If VaultR didn't handle it (vault locked, passkeys disabled)
-      if (!res?.handled) {
-        return originalCreate(options);
+      // Vault is locked — do NOT open browser prompt, surface error
+      if (res?.error === "locked") {
+        throw new DOMException("Vault is locked. Unlock VaultR to create passkey.", "NotAllowedError");
       }
+
+      // Not handled (user dismissed prompt, passkeys disabled, or error) — do NOT open browser prompt
+      throw new DOMException(
+        res?.error || "VaultR passkey creation could not be completed.",
+        "NotAllowedError"
+      );
     } catch (err: any) {
-      if (err instanceof DOMException || err?.name === "NotAllowedError") {
+      if (err instanceof DOMException || err?.name === "NotAllowedError" || err?.name === "AbortError") {
         throw err;
       }
-      console.warn("[VaultR WebAuthn] Create fallback:", err);
+      console.warn("[VaultR WebAuthn] Create error:", err);
+      // Internal VaultR error — do NOT fall back to browser prompt!
+      throw new DOMException("VaultR passkey creation failed. Please try again.", "NotAllowedError");
     }
 
-    return originalCreate(options);
+    // Should not be reached — but if somehow we get here, throw rather than open browser prompt
+    throw new DOMException("VaultR passkey creation failed.", "NotAllowedError");
   }
 
   // ─── Intercept navigator.credentials.get ───────────────────────────────────
@@ -263,17 +323,44 @@
       return originalGet ? originalGet(options) : null;
     }
 
+    // Do NOT delegate conditional mediation to originalGet!
+    // Calling originalGet causes Chrome to display the browser's in-built passkey prompt.
+    // Return a quiet pending Promise that stays dormant and cleanly aborts when the RP cancels.
+    if (options.mediation === "conditional") {
+      if (options.signal?.aborted) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+      return new Promise<Credential | null>((resolve, reject) => {
+        const onAbort = () => {
+          options.signal?.removeEventListener("abort", onAbort);
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        };
+        options.signal?.addEventListener("abort", onAbort, { once: true });
+        const timeoutMs = options.publicKey?.timeout || 60000;
+        setTimeout(() => {
+          options.signal?.removeEventListener("abort", onAbort);
+          resolve(null);
+        }, Math.min(timeoutMs, 120000));
+      });
+    }
+
+    if (options.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
     try {
       const serialized = serializeRequestOptions(options);
-      if (!serialized) return originalGet(options);
+      // Can't serialize — not a public-key request VaultR handles
+      if (!serialized) return originalGet ? originalGet(options) : null;
 
       const timeoutMs = options.publicKey.timeout || 60000;
-      const res = await dispatchToExtension("GET", serialized, timeoutMs);
+      const res = await dispatchToExtension("GET", serialized, timeoutMs, options.signal);
 
       if (res?.handled && res?.credential) {
         const c = res.credential;
         const rawId = base64UrlToBuffer(c.id || c.credentialId);
-        const clientDataJSON = new TextEncoder().encode(c.clientDataJSON).buffer;
+        const encodedClientData = new TextEncoder().encode(c.clientDataJSON);
+        const clientDataJSON = new Uint8Array(encodedClientData).slice().buffer as ArrayBuffer;
         const authenticatorData = base64UrlToBuffer(c.authenticatorData);
         const signature = base64UrlToBuffer(c.signature);
         const userHandle = c.userHandle ? base64UrlToBuffer(c.userHandle) : null;
@@ -326,28 +413,40 @@
         return syntheticCredential as PublicKeyCredential;
       }
 
-      // If user confirmed passkey assertion via VaultR prompt, NEVER fall back to Windows Hello!
+      // User confirmed but VaultR assertion failed — do NOT open browser prompt
       if (res?.userConfirmed) {
         throw new DOMException(res.error || "VaultR passkey assertion failed", "NotAllowedError");
       }
 
-      // If user explicitly chose "Use Browser"
-      if (res?.userCancelled) {
-        return originalGet(options);
+      // User explicitly clicked "Use Browser" — only legitimate handoff to browser
+      if (res?.useBrowser) {
+        return originalGet ? originalGet(options) : null;
       }
 
-      // If VaultR didn't handle it (vault locked, passkeys disabled, or no passkeys found for RP)
+      // Vault is locked — do NOT open browser prompt, surface error
+      if (res?.error === "locked") {
+        throw new DOMException("Vault is locked. Unlock VaultR to sign in with passkey.", "NotAllowedError");
+      }
+
+      // No passkey found in VaultR for this RP — do NOT open browser prompt
+      // The RP registered this passkey with VaultR; handing off to the browser would
+      // show Windows Hello with no key to offer (or worse, offer a stale OS-level passkey).
       if (!res?.handled) {
-        return originalGet(options);
+        throw new DOMException(
+          res?.error || "No VaultR passkey found for this site. Please re-register your passkey.",
+          "NotAllowedError"
+        );
       }
     } catch (err: any) {
-      if (err instanceof DOMException || err?.name === "NotAllowedError") {
+      if (err instanceof DOMException || err?.name === "NotAllowedError" || err?.name === "AbortError") {
         throw err;
       }
-      console.warn("[VaultR WebAuthn] Assertion fallback:", err);
+      // Internal VaultR error — do NOT fall back to browser prompt
+      throw new DOMException("VaultR passkey sign-in failed. Please try again.", "NotAllowedError");
     }
 
-    return originalGet(options);
+    // Should not be reached — but if somehow we get here, throw rather than open browser prompt
+    throw new DOMException("VaultR passkey sign-in failed.", "NotAllowedError");
   }
 
   // ─── Attach Interceptors ───────────────────────────────────────────────────

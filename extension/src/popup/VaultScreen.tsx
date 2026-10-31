@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { getActiveWebTab } from "../services/tabs";
 import { VaultItem } from "@vaultr/core";
 import {
   Search, Copy, Check, Globe, Key, KeyRound, Shield, CreditCard, FileText, User, MapPin,
-  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star
+  Zap, Eye, EyeOff, ChevronDown, ChevronUp, Edit2, Trash2, Plus, Lock, Folder, CornerDownLeft, Star, ExternalLink
 } from "lucide-react";
 import {
   generateTOTP,
@@ -22,7 +23,7 @@ interface VaultScreenProps {
   items: VaultItem[];
   folders?: string[];
   onDecryptItem: (encryptedBlob: string, itemId?: string) => Promise<any>;
-  onAutofill: (cred: { username?: string; password?: string }) => void;
+  onAutofill: (cred: { username?: string; password?: string; name?: string }) => void;
   onEditItem: (item: VaultItem, decryptedPayload: any) => void;
   onDeleteItem: (id: string) => Promise<void>;
   onToggleFavorite?: (id: string) => void;
@@ -175,8 +176,57 @@ function MaskedValue({ value, dots = 12 }: { value: string; dots?: number }) {
   );
 }
 
-function DetailRow({ label, value, masked = false, dots = 12 }: { label: string; value: string; masked?: boolean; dots?: number }) {
+function OpenUrlBtn({ url }: { url: string }) {
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!url || !url.trim()) return;
+    let target = url.trim();
+    if (!target.startsWith("http://") && !target.startsWith("https://")) {
+      target = "https://" + target;
+    }
+    if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+      chrome.tabs.create({ url: target });
+    } else {
+      window.open(target, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      className="detail-action-btn"
+      title="Open URL"
+    >
+      <ExternalLink size={12} />
+    </button>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  masked = false,
+  dots = 12,
+  isUrl,
+}: {
+  label: string;
+  value: string;
+  masked?: boolean;
+  dots?: number;
+  isUrl?: boolean;
+}) {
   if (!value) return null;
+  const isLink = isUrl !== undefined
+    ? isUrl
+    : (
+        label.toLowerCase().includes("website") ||
+        label.toLowerCase().includes("uri") ||
+        label.toLowerCase().includes("url") ||
+        value.startsWith("http://") ||
+        value.startsWith("https://")
+      );
+
   return (
     <div className="detail-row">
       <span className="detail-label">{label}</span>
@@ -187,6 +237,7 @@ function DetailRow({ label, value, masked = false, dots = 12 }: { label: string;
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
             <span className="detail-value">{value}</span>
             <div className="detail-actions">
+              {isLink && <OpenUrlBtn url={value} />}
               <CopyBtn value={value} />
             </div>
           </div>
@@ -300,7 +351,7 @@ function PasswordHistorySection({ history }: { history: string[] }) {
 interface ItemRowProps {
   item: VaultItem;
   onDecrypt: (blob: string, itemId?: string) => Promise<any>;
-  onAutofill: (cred: { username?: string; password?: string }) => void;
+  onAutofill: (cred: { username?: string; password?: string; name?: string }) => void;
   onEdit: (item: VaultItem, decryptedPayload: any) => void;
   onDelete: (id: string) => Promise<void>;
   onToggleFavorite?: (id: string) => void;
@@ -347,7 +398,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
           return;
         }
       }
-      onAutofill({ username: cred.username, password: cred.password });
+      onAutofill({ username: cred.username, password: cred.password, name: item.name });
     },
     [decrypted, item.unencryptedPayload, item.encryptedBlob, item.id, onDecrypt, onAutofill]
   );
@@ -547,59 +598,64 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                   {(decrypted.isPasskey || decrypted.passkeyCredentialId) && (
                     <div className="detail-section-group">
                       <div className="detail-section-title" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <KeyRound size={11} style={{ color: "#38bdf8" }} />
+                        <KeyRound size={11} style={{ color: "var(--neutral-400)" }} />
                         PASSKEY
                       </div>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 12px",
-                        borderRadius: "10px",
-                        backgroundColor: "rgba(56, 189, 248, 0.05)",
-                        border: "1px solid rgba(56, 189, 248, 0.2)",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <KeyRound size={22} color="#38bdf8" style={{ flexShrink: 0 }} />
-                          <div>
-                            <div style={{ fontSize: "12px", fontWeight: "600", color: "#f4f4f5" }}>Passkey Configured</div>
-                            <div style={{ fontSize: "10.5px", color: "#a1a1aa" }}>
-                              {decrypted.passkeyCreatedAt
-                                ? `Configured • ${new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`
-                                : "Configured for passwordless sign-in"}
+                      <div className="detail-section-box">
+                        <div className="detail-row">
+                          <span className="detail-label">Status</span>
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <span className="detail-value" style={{ color: "var(--neutral-100)" }}>
+                                {decrypted.passkeyRpId || "WebAuthn / FIDO2"}
+                              </span>
+                              <span style={{
+                                fontSize: 9.5,
+                                fontWeight: 600,
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                background: "rgba(16, 185, 129, 0.12)",
+                                color: "#10b981",
+                                border: "1px solid rgba(16, 185, 129, 0.25)",
+                                flexShrink: 0,
+                              }}>
+                                Configured
+                              </span>
                             </div>
+                            {decrypted.passkeyCreatedAt && (
+                              <span style={{ fontSize: 10.5, color: "var(--neutral-500)", flexShrink: 0 }}>
+                                {new Date(decrypted.passkeyCreatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          padding: "2px 7px",
-                          borderRadius: "9999px",
-                          backgroundColor: "rgba(16, 185, 129, 0.12)",
-                          border: "1px solid rgba(16, 185, 129, 0.3)",
-                          fontSize: "9px",
-                          fontWeight: "700",
-                          color: "#34d399",
-                          letterSpacing: "0.5px",
-                        }}>
-                          <span style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: "#10b981", display: "inline-block" }} />
-                          ACTIVE
-                        </div>
+                        {decrypted.passkeyCredentialId && (
+                          <div className="detail-row">
+                            <span className="detail-label">Credential</span>
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                              <span className="detail-value" style={{ color: "var(--neutral-400)", fontSize: 11 }} title={decrypted.passkeyCredentialId}>
+                                {decrypted.passkeyCredentialId.slice(0, 16)}…{decrypted.passkeyCredentialId.slice(-8)}
+                              </span>
+                              <div className="detail-actions">
+                                <CopyBtn value={decrypted.passkeyCredentialId} />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {(decrypted.url || (decrypted.urls && decrypted.urls.length > 0)) && (
+                  {(decrypted.url || (decrypted.urls && decrypted.urls.length > 0) || (item.domain && !item.domain.includes("••••"))) && (
                     <div className="detail-section-group">
                       <div className="detail-section-title">WEBSITE URLS</div>
                       <div className="detail-section-box">
                         {decrypted.urls && decrypted.urls.length > 0 ? (
                           decrypted.urls.map((u: string, i: number) => (
-                            <DetailRow key={i} label={i === 0 ? "Website (URI)" : `Website #${i+1}`} value={u} />
+                            <DetailRow key={i} label={i === 0 ? "Website (URI)" : `Website #${i+1}`} value={u} isUrl />
                           ))
                         ) : (
-                          <DetailRow label="Website (URI)" value={decrypted.url} />
+                          <DetailRow label="Website (URI)" value={decrypted.url || item.domain} isUrl />
                         )}
                       </div>
                     </div>
@@ -709,6 +765,7 @@ function ItemRow({ item, onDecrypt, onAutofill, onEdit, onDelete, onToggleFavori
                           value={f.value}
                           masked={f.type === "hidden"}
                           dots={8}
+                          isUrl={f.type === "url"}
                         />
                       ))}
                     </div>
@@ -813,9 +870,9 @@ export function VaultScreen({
   }, []);
 
   useEffect(() => {
-    if (typeof chrome !== "undefined" && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tabUrl = tabs[0]?.url || "";
+    const updateActiveTab = () => {
+      getActiveWebTab().then((tab) => {
+        const tabUrl = tab?.url || "";
         if (tabUrl && isWebPageUrl(tabUrl)) {
           const host = extractDomainHost(tabUrl);
           if (host && !isInternalBrowserHost(host)) {
@@ -825,7 +882,13 @@ export function VaultScreen({
         }
         setActiveTabDomain("");
       });
-    }
+    };
+
+    updateActiveTab();
+    window.addEventListener("focus", updateActiveTab);
+    return () => {
+      window.removeEventListener("focus", updateActiveTab);
+    };
   }, []);
 
   // Filter out Trash (soft deleted) items

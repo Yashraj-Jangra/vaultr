@@ -1,6 +1,6 @@
 {
   "name": "@vaultr/core",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "private": true,
   "main": "src/index.ts",
   "module": "src/index.ts",

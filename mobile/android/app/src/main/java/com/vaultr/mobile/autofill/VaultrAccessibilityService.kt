@@ -4,19 +4,33 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.TextUtils
 import android.util.Log
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
+import com.vaultr.mobile.R
 import java.net.URI
 
 /**
  * VaultrAccessibilityService
  *
- * Provides background tracking and delayed live field injection for Quick Settings autofill.
+ * Provides background tracking, delayed live field injection, and a floating suggestion
+ * overlay for universal autofill in Google sign-in screens, WebViews, and unsupported apps.
  */
 class VaultrAccessibilityService : AccessibilityService() {
 
@@ -70,6 +84,8 @@ class VaultrAccessibilityService : AccessibilityService() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastPackage: String? = null
+    private var overlayView: View? = null
+    private val windowManager by lazy { getSystemService(Context.WINDOW_SERVICE) as WindowManager }
 
     private val BROWSER_PACKAGES = setOf(
         "com.android.chrome",
@@ -92,12 +108,14 @@ class VaultrAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        hideSuggestionOverlay()
         if (instance === this) instance = null
         mainHandler.removeCallbacksAndMessages(null)
     }
 
     override fun onInterrupt() {
         Log.d(TAG, "Accessibility service interrupted")
+        hideSuggestionOverlay()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -107,8 +125,6 @@ class VaultrAccessibilityService : AccessibilityService() {
         if (pkg == this.packageName) return // Ignore Vaultr's own UI events
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED -> {
                 lastPackage = pkg
                 val isBrowser = BROWSER_PACKAGES.contains(pkg)
@@ -125,13 +141,201 @@ class VaultrAccessibilityService : AccessibilityService() {
                     isBrowser = isBrowser
                 )
 
-                // If a fill is pending and we are back in the target app, execute it immediately
+                if (pendingFill != null) {
+                    executeFillSequence()
+                } else {
+                    checkAndShowFieldSuggestion(event, pkg, domain)
+                }
+            }
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                if (pkg != lastPackage) {
+                    hideSuggestionOverlay()
+                }
+                lastPackage = pkg
+                val isBrowser = BROWSER_PACKAGES.contains(pkg)
+
+                val root = rootInActiveWindow
+                var domain: String? = null
+                if (isBrowser && root != null) {
+                    domain = extractBrowserDomain(root)
+                }
+
+                currentContext = AppContext(
+                    packageName = pkg,
+                    webDomain = domain,
+                    isBrowser = isBrowser
+                )
+
+                if (pendingFill != null) {
+                    executeFillSequence()
+                }
+            }
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 if (pendingFill != null) {
                     executeFillSequence()
                 }
             }
         }
     }
+
+    private fun checkAndShowFieldSuggestion(event: AccessibilityEvent, pkg: String, domain: String?) {
+        val source = event.source ?: rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return
+        if (!source.isEditable) return
+
+        val hint = (source.hintText?.toString() ?: "").lowercase()
+        val resId = (source.viewIdResourceName ?: "").lowercase()
+        val text = (source.text?.toString() ?: "").lowercase()
+        val desc = (source.contentDescription?.toString() ?: "").lowercase()
+        val combined = "$hint $resId $text $desc"
+
+        val isExcluded = combined.containsAny(
+            "search", "query", "find", "url", "address", "omnibox",
+            "message", "comment", "composer", "chat", "terminal"
+        )
+        if (isExcluded) {
+            hideSuggestionOverlay()
+            return
+        }
+
+        val isPassword = source.isPassword || combined.containsAny("password", "passcode", "pin", "pass", "secret")
+        val isUsername = combined.containsAny("user", "email", "login", "phone", "account", "id", "uname") || isPassword
+
+        if (!isPassword && !isUsername) {
+            return
+        }
+
+        val target = domain ?: pkg
+        AutofillCredentialStore.initialize(applicationContext)
+        val hasStored = AutofillCredentialStore.hasStoredCredentials(applicationContext)
+        if (!hasStored) return
+
+        val matches = AutofillCredentialStore.findMatches(target).ifEmpty {
+            AutofillCredentialStore.findMatchesInStorage(applicationContext, target)
+        }
+        val match = matches.firstOrNull()
+
+        showSuggestionOverlay(pkg, domain, match)
+    }
+
+    private fun showSuggestionOverlay(pkg: String, domain: String?, match: AutofillItem?) {
+        hideSuggestionOverlay()
+
+        try {
+            val pillLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dpToPx(24).toFloat()
+                    setColor(0xF018181B.toInt()) // Zinc-900 (94% opacity)
+                    setStroke(dpToPx(1), 0xFF3F3F46.toInt()) // Zinc-700 subtle border
+                }
+                background = bg
+                elevation = dpToPx(6).toFloat()
+                setPadding(dpToPx(14), dpToPx(8), dpToPx(10), dpToPx(8))
+            }
+
+            // 1. VaultR Icon
+            val iconView = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(20), dpToPx(20)).apply {
+                    marginEnd = dpToPx(8)
+                }
+                setImageResource(R.drawable.ic_vaultr_lock_small)
+            }
+            pillLayout.addView(iconView)
+
+            // 2. Suggestion Label
+            val labelText = when {
+                match != null -> "Autofill ${match.username.ifBlank { match.name }}"
+                !domain.isNullOrBlank() -> "Autofill with VaultR"
+                else -> "Autofill with VaultR"
+            }
+            val textView = TextView(this).apply {
+                text = labelText
+                setTextColor(0xFFF4F4F5.toInt()) // Zinc-100
+                textSize = 13.5f
+                typeface = Typeface.DEFAULT_BOLD
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = dpToPx(10)
+                }
+            }
+            pillLayout.addView(textView)
+
+            // 3. Dismiss 'x' button
+            val closeBtn = TextView(this).apply {
+                text = "✕"
+                setTextColor(0xFFA1A1AA.toInt()) // Zinc-400
+                textSize = 13f
+                setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
+                setOnClickListener {
+                    hideSuggestionOverlay()
+                }
+            }
+            pillLayout.addView(closeBtn)
+
+            // Tapping the pill body opens AutofillSearchActivity directly over the active app
+            pillLayout.setOnClickListener {
+                val intent = Intent(this@VaultrAccessibilityService, AutofillSearchActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("EXTRA_IS_AUTOFILL_REQUEST", true)
+                    putExtra("EXTRA_WEB_DOMAIN", domain)
+                    putExtra("EXTRA_PACKAGE_NAME", pkg)
+                }
+                startActivity(intent)
+                hideSuggestionOverlay()
+            }
+
+            val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                overlayType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                y = dpToPx(96) // Floats above soft keyboard
+            }
+
+            windowManager.addView(pillLayout, params)
+            overlayView = pillLayout
+            Log.d(TAG, "Displayed floating autofill suggestion overlay for $pkg ($domain)")
+
+            // Auto-hide after 12 seconds
+            mainHandler.postDelayed({
+                if (overlayView === pillLayout) {
+                    hideSuggestionOverlay()
+                }
+            }, 12000)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to show suggestion overlay", e)
+        }
+    }
+
+    private fun hideSuggestionOverlay() {
+        overlayView?.let { view ->
+            try {
+                windowManager.removeView(view)
+            } catch (_: Exception) {}
+            overlayView = null
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density).toInt()
 
     fun scheduleDelayedFills() {
         // Run retry passes at 100ms, 250ms, 450ms, 700ms to catch window transition
@@ -184,6 +388,7 @@ class VaultrAccessibilityService : AccessibilityService() {
 
         if (filledAny) {
             pendingFill = null
+            hideSuggestionOverlay()
             mainHandler.post {
                 Toast.makeText(applicationContext, "✨ Autofilled ${fill.name}", Toast.LENGTH_SHORT).show()
             }

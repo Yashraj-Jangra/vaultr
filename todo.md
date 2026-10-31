@@ -1,3 +1,857 @@
+## Current Session: Universal Version Bump to v0.2.12 (2026-11-01) · Branch: `dev`
+
+### ✅ What Was Done (Universal Version Bump to v0.2.12 & Ecosystem Manifest Synchronization)
+- **Source of Truth Synchronized (`packages/core/src/version.ts`)**:
+  - `VAULTR_VERSION = "0.2.12"`, `VAULTR_MOBILE_VERSION = "0.2.12"`, `VAULTR_BUILD_NUMBER = "2026.11.01"`.
+- **Ecosystem Manifests Synchronized**:
+  - `package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `package-lock.json` $\rightarrow$ `"version": "0.2.12"` across root, `packages/core`, `extension`, and `mobile`.
+  - `packages/core/package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `mobile/package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `mobile/app.json` $\rightarrow$ `"version": "0.2.12"`, `versionCode: 12`, `buildNumber: "12"`.
+  - `mobile/android/app/build.gradle` $\rightarrow$ `versionCode 12`, `versionName "0.2.12"`.
+  - `extension/package.json` $\rightarrow$ `"version": "0.2.12"`.
+  - `extension/manifest.json` $\rightarrow$ `"version": "0.2.12"`.
+- **Changelog Updated (`src/app/changelog/page.tsx`)**:
+  - Added release notes for `v0.2.12` ("Standalone Pop-out Mode & In-Page Autofill Orchestration") marked as latest (`isLatest: true`).
+  - Categorized release highlights: Standalone pop-out window mode, in-page locked autofill detection & prompt, reactive post-unlock autofill, multi-tier web tab discovery, obsidian theme locked prompt redesign, passkey field harmonization, password generator & settings redesign, and login form autofill prioritization.
+- **Verification & DoD Gate**:
+  - `npm run build --prefix packages/core`: Success.
+  - `npm run build --prefix extension`: Webpack production bundle built cleanly with `dist/manifest.json` updated to `0.2.12`.
+  - `npx tsc --noEmit` (Root & Extension): 0 errors across entire workspace.
+
+---
+
+## Prior Session: Extension Pop-out Mode & Locked Vault Autofill Prompt (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done:
+
+#### Phase 1: Standalone Pop-out Window Mode (`✨ add popout standalone window mode to extension header`)
+**Files Changed / Added:**
+- `extension/src/background/service-worker.ts`
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/UnlockScreen.tsx`
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/popup.css`
+- `extension/src/services/tabs.ts` (new)
+
+**Key Improvements & Resolutions:**
+1. **Background Window Manager (`service-worker.ts`)**:
+   - Added tracked `popoutWindowId` with `openPopoutWindow()` helper.
+   - Calculates centered positioning on the user's display based on current window dimensions (400 × 620 px).
+   - If a pop-out window is already open, focuses it via `chrome.windows.update(popoutWindowId, { focused: true })` instead of spawning duplicate windows.
+   - Listens to `chrome.windows.onRemoved` to cleanly reset `popoutWindowId` when closed.
+   - Added message handler for `"OPEN_POPOUT"`.
+2. **Top Header Pop-Out Button (`App.tsx`, `UnlockScreen.tsx`)**:
+   - Detects `isPopout` via URL parameter `?mode=popout`. Sets `data-mode="popout"` on document element.
+   - In `App.tsx` top `.header-actions`: added dedicated pop-out button (`ExternalLink` icon, 14px, tooltip: *"Pop out into new window"*) alongside Sync/Refresh, Lock, and Profile Avatar.
+   - When running in popout window mode, the button is hidden to prevent redundant pop-out attempts.
+   - Added top-right pop-out action in `UnlockScreen.tsx` so users can pop out directly from the master password or PIN screen.
+3. **Active Web Tab Resolution Parity (`tabs.ts`, `VaultScreen.tsx`, `App.tsx`)**:
+   - Created `getActiveWebTab()` to resolve the active webpage from the last-focused normal browser window when running inside a standalone popout window (preventing the classic `currentWindow` failure where popouts query themselves).
+   - Updated `handleAutofill` in `App.tsx` and tab domain matching in `VaultScreen.tsx` to seamlessly target the web page behind the standalone window.
+4. **Fluid Sizing in `popup.css`**:
+   - Added `html[data-mode="popout"], html[data-mode="popout"] body { width: 100% !important; height: 100% !important; min-width: 0 !important; max-width: none !important; }`.
+
+#### Phase 2: Locked Vault Detection & In-Page Autofill Unlock Prompt (`✨ add unlock vault prompt to inline autofill when locked`)
+**Files Changed:**
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+
+**Key Improvements & Resolutions:**
+1. **In-Page Locked Form Prompt (`autofill.ts`)**:
+   - Replaced silent return on `response?.isLocked` with `showLockedDropdown(target)`.
+   - Renders a sleek, isolated Shadow DOM dropdown matching Bitwarden:
+     - Header: Vaultr brand logo + amber `LOCKED` status badge.
+     - Interactive row: Amber lock icon box, title *"Vault is locked"*, subtitle *"Click to unlock vault & view options"*, and subtle `ExternalLink` hint.
+     - On click: Sends `{ type: "OPEN_POPOUT" }` to service worker, instantly focusing or opening the standalone pop-out window, and dismisses the inline dropdown.
+2. **Reactive Auto-Populate on Unlock (`service-worker.ts`, `autofill.ts`)**:
+   - In `service-worker.ts`, upon successful `UNLOCK`, broadcasts `VAULT_UNLOCKED` event to all open tabs.
+   - In `autofill.ts`, listens for `VAULT_UNLOCKED`: if the user is focused on a login/OTP field (or `lastFocusedField` exists), automatically queries `GET_LOGINS_FOR_DOMAIN` and presents matching credentials without requiring a page reload or refocus!
+
+#### Phase 3: Pop-out Mode Autofill Targeting & Resolution Fix (`🐛 fix autofill targeting and tab resolution in popup mode`)
+**Files Changed:**
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/services/tabs.ts`
+
+**Key Improvements & Resolutions:**
+1. **Origin Tab Tracking (`service-worker.ts`)**:
+   - Passed originating `tabId` via URL query parameter (`?mode=popout&tabId=...`) when popping out from either toolbar popup or in-page locked dropdown.
+2. **Multi-Tier Web Tab Resolution (`tabs.ts`)**:
+   - Tier 0: Direct `tabId` lookup from URL search parameters.
+   - Tier 1: Toolbar popup `currentWindow` active tab.
+   - Tier 2: `chrome.windows.getLastFocused({ windowTypes: ["normal"], populate: true })` — explicitly bypassing the popout window (`type: "popup"`) to resolve the user's active browser window.
+   - Tier 3: `chrome.windows.getAll({ windowTypes: ["normal"], populate: true })` active tab scan.
+   - Tier 4: Global active tab fallback.
+3. **Pop-out Window Persistence & Target Focus (`App.tsx`)**:
+   - In `handleAutofill`: only calls `window.close()` when running in standard toolbar popup mode (`!isPopout`), preventing IPC message abortion and keeping the companion window open.
+   - In popout mode, calls `chrome.windows.update(tab.windowId, { focused: true })` to focus the browser window so the user sees the filled credentials immediately.
+4. **Reactive Tab Focus Domain Refresh (`VaultScreen.tsx`)**:
+   - Added `focus` window event listener so switching tabs in the browser updates VaultScreen matching site credentials automatically when clicking back to the popout window.
+5. **Form Field Anchor Selection & In-Page Toast Feedback (`autofill.ts`)**:
+   - Replaced generic input selection with login-priority field candidates (password -> email/username -> login text fields), avoiding accidental search bar targeting.
+   - Focuses field on autofill and triggers in-page toast feedback (`showInPageToast`).
+
+#### Phase 4: Locked Autofill Prompt Obsidian Theme Redesign (`🎨 redesign locked autofill prompt with sleek obsidian theme`)
+**Files Changed:**
+- `extension/src/content-script/autofill.ts`
+
+**Key Improvements & Resolutions:**
+1. **Eliminated All Yellow / Amber Tones**:
+   - Replaced mustard yellow lock SVG (`#f59e0b`) with a radiant silver/zinc lock icon (`#f4f4f5`).
+   - Replaced yellow background and yellow borders on the icon box with an elevated obsidian surface (`#18181b`, `border: rgba(255, 255, 255, 0.10)`).
+   - Replaced yellow `LOCKED` badge with a clean, understated status pill: `● Vault locked` (`#a1a1aa` on `rgba(255, 255, 255, 0.06)`).
+2. **Clear & Punchy Typography**:
+   - Replaced repetitive copy ("Vault is locked" / "Click to unlock vault & view options") with clean, direct messaging:
+     - Title: `Unlock Vault` (13px, bold `#ffffff`)
+     - Subtitle: `Click to unlock and autofill logins` (11.5px, `#94a3b8`)
+3. **Interactive White Invert Action Pill**:
+   - Replaced faint external link arrow with a dedicated `Unlock →` button pill that smoothly transitions to solid white with dark text on hover (`bg-white text-neutral-900 font-semibold`), matching Vaultr's primary action button specifications.
+
+#### Validation & Build Verification:
+- `npx tsc --noEmit`: 0 errors across entire workspace.
+- Production webpack build (`npm run build --prefix extension`): Compiled with exit code 0 (`popup.js` 431 KiB).
+- History verified: Two atomic commits created (`d5df85a` and `a4cbd4b`).
+
+---
+
+## Prior Session: Passkey Details Harmonization (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Phase 50: Passkey Detail View Harmonization across Web App and Browser Extension)
+
+**Files Changed:**
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `src/app/vault/page.tsx`
+- `src/components/vault/NewEntryDialog.tsx`
+
+**Key Improvements & Resolutions:**
+1. **Extension Item Details Harmonization (`VaultScreen.tsx`)**:
+   - Replaced custom bright-blue box (`rgba(56, 189, 248, 0.05)`), neon green ACTIVE badge, and oversized 22px icon with a standard `.detail-section-box`.
+   - Uses standard 32px `.detail-row`s matching Login Credentials, Authenticator, and Website URLs.
+   - Status row displays `passkeyRpId` (or "WebAuthn / FIDO2") alongside a clean, subtle emerald `Configured` badge and formatted creation date.
+   - Credential row displays truncated Key ID with the standard `CopyBtn` in `.detail-actions`.
+2. **Web App Expanded Details Harmonization (`src/app/vault/page.tsx`)**:
+   - Removed nested custom card-in-card container (`bg-[var(--surface-hover)] border border-sky-500/20 p-3.5`) and 24px icon.
+   - Integrated passkey rows directly into `SectionGroup` separated by standard hairline dividers (`divide-neutral-800/50`).
+   - Sizing and padding now match `DetailRow` exactly (`px-3 py-2.5`).
+   - Clean `Configured` badge, right-aligned creation date, and copyable Credential ID row.
+3. **Edit & Add Dialog Parity (`NewEntryDialog.tsx`, `NewEntryForm.tsx`)**:
+   - Replaced jarring dark blue/sky backgrounds with standard theme surface cards (`bg-[var(--surface)] border border-[var(--border)]`).
+   - Standardized typography, alignment, subtle `Configured` badges, and understated Unlink buttons in both split view and modal view in the web app and popup form in the extension.
+4. **Validation & Verification**:
+   - `npx tsc --noEmit`: 0 errors across entire workspace.
+   - Extension bundle `npm run build`: Compiled cleanly in 10.7s with 0 errors (`popup.js` 430 KiB).
+
+---
+
+## Prior Sessions:
+
+**Files Changed:**
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/UnlockScreen.tsx`
+- `extension/src/popup/PinPad.tsx`
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Resolutions:**
+1. **Master Password & Unlock Screen Theme Parity (`UnlockScreen.tsx`, `App.tsx`)**:
+   - Passed `theme` prop to `<UnlockScreen />` with dual detection via DOM fallback (`html[data-theme="light"]`).
+   - Dynamically swapped brand logos: light mode now renders `brand/vaultr-full-light-transparent.png` and `brand/vaultr-lock-light-transparent.svg` with optimal opacity.
+   - Removed hardcoded `#0d0d0d` background and border from master password input; input lock icon updated to readable `var(--neutral-400)`.
+   - Removed hardcoded `#f4f4f5` background and white glow from biometric button, allowing `.btn-primary` theme rules to render high-contrast black button with white text in light theme.
+   - Stripped default button backgrounds, borders, and box shadows from footer links ("Forgot password?" and "Why is this needed?"), ensuring pure text color transitions (`var(--neutral-500)` to `var(--neutral-200)` in dark, and `var(--neutral-500)` to `var(--neutral-100)` in light) with zero background fill.
+   - Replaced hardcoded black lock box with `#ffffff` card, subtle shadow, and light mode radial/grid ambient visuals.
+2. **PIN Pad Color Contrast Restoration (`PinPad.tsx`, `popup.css`)**:
+   - Fixed `.pin-dot-filled` selector typo in `popup.css` (was `.pin-dot.filled`), restoring high-contrast dark dots on light theme.
+   - Updated empty PIN dots to soft translucent borders (`rgba(0, 0, 0, 0.16)`) and backspace icon color to `var(--neutral-100)`.
+   - Restored elevated white keycaps (`#ffffff` with `var(--border)` and subtle shadow) with crisp zinc numerals (`#18181b`) and subtle sub-lettering.
+3. **Buttons, Badges & Interactive States (`popup.css`)**:
+   - Overrode `.btn-primary:hover` in light mode to `#000000` with white text, resolving white-on-white text disappearance.
+   - Standardized `.btn-fill-badge` and `.btn-expanded-primary` across light mode with zinc backgrounds and crisp borders.
+   - Standardized `.btn-expanded-icon` and `.detail-action-btn:hover` to use `var(--surface)` / `var(--surface-2)`.
+4. **Form Inputs, Selects & Overlays (`NewEntryForm.tsx`, `App.tsx`, `popup.css`)**:
+   - Replaced hardcoded `#09090b` slide-up modal overlay in `App.tsx` and `popup.css` with `var(--bg)` (`#fafafa` in light mode).
+   - Replaced hardcoded dark `#0d0d0f` and `#070709` containers in mini generator with `var(--surface)` and `var(--surface-2)`.
+   - Enhanced `.form-input`, `.form-select`, and `.search-input` in light mode with `#ffffff` backgrounds, visible placeholders, and distinct focus rings.
+5. **Info Banners, Alerts & Text Hierarchy (`VaultScreen.tsx`, `SettingsScreen.tsx`, `popup.css`)**:
+   - Fixed passkey banner in `VaultScreen.tsx` by replacing hardcoded white text `#f4f4f5` with `var(--neutral-100)`.
+   - Fixed confirmation alert in `SettingsScreen.tsx` by replacing unreadable light pink `#fca5a5` with `var(--danger)`.
+   - Refined `.alert-error` in light mode to high-contrast red (`#dc2626` on `rgba(239, 68, 68, 0.08)`).
+   - Polished empty states (`.empty-state`, `.empty-state-title`) to clear high-contrast tones.
+6. **Validation & Build Verification**:
+   - `npx tsc --noEmit` verified with 0 errors across entire workspace.
+   - Production extension bundle (`npm run build` in `extension/`) compiled cleanly with 0 errors (`popup.js` 428 KiB).
+
+---
+
+## Prior Sessions:
+
+**Files Changed:**
+- `extension/src/popup/GeneratorScreen.tsx`
+- `extension/src/popup/CipherScrambleText.tsx`
+- `design.md`
+
+**Key Improvements & Resolutions:**
+1. **Div-Less & Card-Free Generator Architecture (`GeneratorScreen.tsx`)**:
+   - Replaced heavy nested card boxes and 8 cluttered badge chip containers (`CharBreakdown` and `ColorLegend`) with a single cohesive hero canvas.
+   - Streamlined hero canvas: 14.5px monospace password display, integrated 1-tap Copy button with emerald feedback, smooth spinning Regenerate button (`RefreshCw`), 4-segment hairline strength bar, and quiet typographic breakdown line (`X uppercase · Y lowercase · Z digits · W symbols`).
+2. **Enhanced Semantic Character Color Coding (`CipherScrambleText.tsx`)**:
+   - Preserved and polished character distinction: Sky for uppercase (`#38bdf8`), Amber for digits (`#fbbf24`), Rose for symbols (`#fb7185`), and theme-adaptive neutral for lowercase (`var(--neutral-100)`), ensuring maximum contrast across Dark, Light, and Midnight themes.
+3. **Div-Less Options & Native Toggle Rhythms**:
+   - Replaced 2x2 checkbox grid and isolated toggle boxes with flat hairline setting rows (`border-bottom: 1px solid var(--border)`) and native `.toggle` switches.
+   - Password mode: Uppercase (A–Z), Lowercase (a–z), Numbers (0–9), Special Symbols (!@#$), and Avoid Ambiguous Characters.
+   - Passphrase mode: Word Count slider, Word Separator mini segmented picker, and Capitalize Words toggle.
+   - PIN mode: Length slider (4–16 digits) and Quick Presets pills (4, 6, 8 digits).
+4. **Ergonomic Viewport Constraints & Design System Docs**:
+   - Constrained layout to `max-width: 440px; margin: 0 auto;` for natural proportions across wide popup modes (`460px`–`620px`).
+   - Documented Section 3.8 (Generator Screen & Password Canvas Pattern) in `design.md`.
+5. **Validation & Build Verification**:
+   - `npx tsc --noEmit` verified and passed with 0 errors across root and packages.
+   - Production webpack build (`npm run build` in `extension/`) compiled cleanly with exit code 0 (`popup.js` 424 KiB).
+
+---
+
+### ✅ What Was Done (Phase 47: Unified Settings Navigation Header & 2nd Header Elimination)
+
+**Files Changed:**
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+- `design.md`
+
+**Key Improvements & Resolutions:**
+1. **Elimination of Stacked Double Header in Settings**:
+   - Completely removed the secondary header bar (`settings-folder-header-bar`) from `SettingsScreen.tsx` across all settings sub-views.
+   - Saves 42px of vertical viewport height, allowing sub-page settings to scroll directly beneath the unified header.
+2. **Dynamic Top Header Sub-Navigation (`App.tsx`)**:
+   - When inside any settings sub-tab (`autofill`, `security`, `themes`, `about`, `change_password`, `sessions`), the top header dynamically replaces the VaultR brand logo with a sleek, div-less back button (`ChevronLeft`) and the sub-page title.
+   - When on the root Settings page or other primary tabs (`vault`, `generator`), the top header displays the standard VaultR brand logo.
+3. **Context-Aware Header Actions & Hierarchy**:
+   - The top header's right actions contextually adapt: Refresh triggers active session reload with spinner when on the Sessions sub-page.
+   - Clicking the user avatar or the active bottom nav Settings button navigates back up the settings hierarchy.
+4. **Design System Specification Updated (`design.md`)**:
+   - Added Section 3.7 formalizing the Unified Top Header & Sub-Navigation pattern across the VaultR ecosystem.
+5. **Validation & Build Verification**:
+   - Root TypeScript check (`npx tsc --noEmit`) verified and passed with 0 errors.
+   - Production webpack build (`npm run build` in `extension/`) compiled cleanly with exit code 0 (`popup.js` 423 KiB).
+
+---
+
+### ✅ What Was Done (Phase 46: Universal Div-Less Settings Redesign & Design System Specification)
+
+**Files Changed:**
+- `design.md`
+- `extension/src/popup/SettingsScreen.tsx`
+
+**Key Improvements & Resolutions:**
+1. **Design System Specification (`design.md`)**:
+   - Codified the minimal, div-less, and typography-focused design philosophy across the VaultR ecosystem.
+   - Documented theme token references across Obsidian (Dark), Zinc Light, and Midnight (Deep Slate).
+   - Specified component patterns: section labels (`.section-label`), segmented controls, flat hairline rows (`borderBottom: 1px solid var(--border)`), navigation rows, form inputs, and modal dialogs.
+   - Formalized viewport scaling rules and container bounds (`max-width: 440px; margin: 0 auto;`) across normal (380px), wide (460px), wider (540px), and extended (620px) popup modes.
+2. **Div-Less Refactoring Across All Extension Settings Sub-Pages (`SettingsScreen.tsx`)**:
+   - **Autofill & Integration (`activeFolder === "autofill"`)**: Eliminated 5 `.settings-card` wrappers and AI-style colored square icon boxes. Organized into 5 clean semantic sections (`DEFAULT PASSWORD MANAGER`, `AUTOFILL BEHAVIOR`, `CAPTURE & MATCHING`, `PASSKEYS & HARDWARE`, `KEYBOARD SHORTCUTS`) using flat rows with subtle 1px hairlines.
+   - **Account Security (`activeFolder === "security"`)**: Eliminated 4 card boxes. Restructured Biometric Unlock, Quick PIN, and Auto-Lock timeout into flat hairline rows under `UNLOCK METHODS` and `VAULT TIMEOUT`, with direct navigation rows for Change Master Password and Active Sessions.
+   - **About & Resources (`activeFolder === "about"`)**: Removed card containers, simplified the VaultR brand hero section, streamlined Server Connection configuration with direct action, and rendered documentation/support links as clean flat list rows.
+   - **Main Settings Menu & Active Sessions**: Wrapped with `max-width: 440px; margin: 0 auto;` to preserve ergonomic reading widths and reachability across wider window modes.
+3. **Validation & Build Verification**:
+   - `npx tsc --noEmit` verified and passed with 0 errors across root and packages.
+   - Production webpack build (`npm run build` in `extension/`) compiled cleanly with exit code 0.
+
+---
+
+### ✅ What Was Done (Phase 45: Div-Less Focused Redesign of Extension Themes & Appearance)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Resolutions:**
+1. **Div-Less & Card-Free Appearance Architecture (`SettingsScreen.tsx`)**:
+   - Replaced heavy nested card boxes (`settings-card`) and borders-on-borders with clean, focused typographic section labels (`THEME`, `WINDOW WIDTH`, `PREFERENCES`).
+   - Eliminated AI-like swatch previews, nested dots, and artificial marketing subtitles ("Obsidian", "Crisp & Clean", "Deep Slate").
+   - Implemented sleek segmented control for Themes: `[ 🌙 Dark | ☀️ Light | ✨ Midnight ]` with direct theme icons and native active contrast.
+   - Implemented matching 4-segment control for Window Sizing: `[ 380px Compact | 460px Wide | 540px Wider | 620px Max ]`.
+   - Rendered preferences (Suggestion Badge, Interface Animations) as flat, borderless rows with clean 1px hairline separation.
+2. **CSS Cleanup (`popup.css`)**:
+   - Removed dead/clunky classes (`.theme-picker-grid`, `.theme-card-option`, `.theme-preview-swatch`, `.theme-preview-dot`).
+3. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors across extension and root.
+   - Production webpack build (`npm run build`) compiled successfully.
+
+---
+
+### ✅ What Was Done (Phase 44: Extension Wide Mode Centered Content Constraints - Option A)
+
+**Files Changed:**
+- `extension/src/popup/UnlockScreen.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/GeneratorScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Resolutions:**
+1. **Unlock Screen Width Containment (`UnlockScreen.tsx`)**:
+   - Master Password form, input, and unlock buttons now have `max-width: 340px; margin: 0 auto; width: 100%`, perfectly maintaining standard 380px compact proportions even when popup is in `wide` (460px), `wider` (540px), or `extended` (620px) mode.
+   - PIN Pad keypad and dots view are centered and constrained to `maxWidth: 340, margin: "0 auto"`.
+   - Unauthorized / Sign-in required view illustration and action buttons are centered and constrained to `maxWidth: 340, margin: "0 auto"`.
+   - Footer links ("Forgot password?", "Why is this needed?") align neatly below the form at `maxWidth: 340, margin: "24px auto 0"`.
+2. **Settings Screen Master Password Update (`SettingsScreen.tsx`)**:
+   - Change Master Password form (`activeFolder === "change_password"`) constrained to `max-width: 380px; margin: 0 auto; width: 100%` so the 3 password inputs and re-encryption action button never stretch into 600px ribbons.
+3. **Generator Screen Sizing (`GeneratorScreen.tsx`)**:
+   - Generator controls and options constrained to `max-width: 480px; margin: 0 auto; width: 100%` so sliders and checkboxes stay comfortably sized in extended widths.
+4. **Bottom Nav Bar Proportions (`popup.css`)**:
+   - `.bottom-nav` updated to `grid-template-columns: repeat(3, minmax(0, 160px)); justify-content: center;` so tabs never stretch into awkward 200px+ blocks in 620px mode while border-top remains full-width.
+5. **Validation**:
+   - Zero-div-clutter design preserved across all affected components.
+   - `npx tsc --noEmit` passed with 0 errors across extension and root.
+   - Production webpack build (`npm run build`) compiled cleanly.
+
+---
+
+## Prior Session: Android Passkey Discovery & In-Sheet Biometric Assertion (2026-09-28) · Branch: `dev`
+
+### ✅ What Was Done (Phase 43: Fix Chrome "No Available Passkey / Other Device" Prompt via Persistent Candidates & In-Sheet Biometric Assertion)
+
+**Files Changed:**
+- `mobile/src/store/vaultStore.ts`
+- `mobile/android/app/src/main/res/xml/credential_provider_config.xml`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/AutofillCredentialStore.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrCredentialProviderService.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
+
+**Root Cause Analysis & Resolutions:**
+1. **Root Cause A: Returning `AuthenticationAction` with ZERO `PublicKeyCredentialEntry`**:
+   - In `VaultrCredentialProviderService.kt`, when `isVaultLocked()` was true, the service returned only an `AuthenticationAction("Unlock VaultR")` and zero `PublicKeyCredentialEntry` candidates.
+   - When Chrome fires a WebAuthn passkey request (`navigator.credentials.get({ publicKey: ... })`), Android Credential Manager evaluates if any registered provider returned a `PublicKeyCredentialEntry`. If no entry is returned by any provider, Chrome displays its fallback sheet: *"No available passkey for this site. Use a passkey from another device"*.
+   - **Resolution**: Removed the early return in `onBeginGetCredentialRequest`. Now queries `findPasskeysInStorage(applicationContext, rpId, allowCredentials)` and **always returns `PublicKeyCredentialEntry` for each matching passkey**, whether locked or unlocked. Chrome displays the VaultR passkey directly in its selector.
+
+2. **Root Cause B: `lock()` in React Native Wiped the Native Store**:
+   - In `mobile/src/store/vaultStore.ts` line 652: `lock()` called `clearAutofillCredentials()`. Whenever the user switched from VaultR to Chrome, VaultR locked, wiping all cached credentials from Android `SharedPreferences`. When Chrome queried VaultR, SharedPreferences had 0 items.
+   - **Resolution**: Removed `clearAutofillCredentials()` from `lock()`. Sensitive keys in JS memory are purged, but the native Android store remains cached in private app storage and auto-locks safely. `clearAutofillCredentials()` is now strictly reserved for account logout and stale biometric invalidation.
+
+3. **Root Cause C: `syncAutofillStore()` Never Called on Fetch / Mutations**:
+   - `syncAutofillStore()` was only triggered once on manual master password unlock. It was never called when items were fetched from the server (`fetchItems`) or when items were created, updated, trashed, or deleted.
+   - **Resolution**: Added `syncAutofillStore()` calls after `fetchItems()` and after item mutations (`createItem`, `updateItem`, `trashItem`, `restoreItem`, `deleteItem`). Broadened the filter so any passkey item (even without `login` template) is indexed with normalized domain/RP IDs.
+
+4. **Root Cause D: Missing `allowCredentials` Matching & Base64URL Normalization**:
+   - WebAuthn relying parties (such as Google Accounts) provide `allowCredentials: [ { id: "..." } ]` containing the specific credential ID for that account.
+   - **Resolution**: Added `normalizeCredentialId(id: String?)` in Kotlin (stripping padding `=`, converting `-` to `+`, `_` to `/`) to harmonize Base64 vs Base64URL differences. Enhanced `findPasskeysInStorage()` to match `allowCredentials` IDs with 100% precision before domain fallback. Added `findPasskeyInStorage()` to retrieve stored passkeys regardless of memory lock state.
+
+5. **Root Cause E: In-Sheet Biometric Authentication on Passkey Selection (`PasskeyAuthActivity.kt`)**:
+   - When the user selects the passkey in Android Credential Manager, `PasskeyAuthActivity` is launched via `PendingIntent`.
+   - If `AutofillCredentialStore.isVaultLocked()` is true, it displays native Android `BiometricPrompt` (*"Sign in with Passkey - Authenticate to use passkey for user@gmail.com"*).
+   - Upon biometric success, it unlocks the vault in memory (`unlockVault`), signs the ECDSA P-256 WebAuthn assertion with `item.passkeyPrivateKey`, and returns `GetCredentialResponse` to Android OS via `PendingIntentHandler`.
+
+6. **Validation & Release Build**:
+   - TypeScript checks passed with 0 errors across root and mobile (`npx tsc --noEmit`).
+   - Android release build compiled cleanly (`assembleRelease` in 10m 52s, 745 tasks).
+   - Generated signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.11-release.apk` (146.7 MB).
+
+---
+
+## Prior Session: Android Passkey Biometric Unlock & Accessibility Autofill Overlay (2026-09-28) · Branch: `dev`
+
+**Fixes & Enhancements:**
+1. **Root Cause 1: Broken Unlock Flow in Android Credential Manager**:
+   - `VaultrCredentialProviderService` previously assigned `AuthenticationAction("Unlock VaultR")` to launch `MainActivity` (the root React Native launcher).
+   - Android Credential Manager expects the target Activity to return an updated `BeginGetCredentialResponse` via `PendingIntentHandler.setBeginGetCredentialResponse(resultIntent, response)` + `setResult(RESULT_OK)` + `finish()`.
+   - By launching `MainActivity`, the Credential Manager ceremony was aborted on every unlock attempt.
+   - **Resolution**: Pointed `AuthenticationAction` to `PasskeyAuthActivity` with `ACTION_CREDENTIAL_UNLOCK` and `FLAG_MUTABLE`.
+
+2. **Root Cause 2: Destructive Auto-Lock Eviction in `AutofillCredentialStore.kt`**:
+   - On auto-lock timeout (5m default), `initialize()` was previously calling `clear(context)`, which removed `KEY_CREDENTIALS` permanently from disk.
+   - Even if the user verified biometrics, 0 credentials remained in native storage.
+   - **Resolution**: Fixed auto-lock so timeout only clears in-memory cache (`cachedItems = emptyList()`, `lastUnlockedAt = 0L`) while preserving `KEY_CREDENTIALS` in local private storage. Added `unlockVault(context)`, `hasStoredCredentials(context)`, `findPasskeysInStorage()`, and `findMatchesInStorage()`.
+
+3. **Bitwarden-Style Native Biometric Unlock & Dynamic Bottom Sheet Update (`PasskeyAuthActivity.kt`)**:
+   - Added `handleCredentialUnlock()` using Android's native `BiometricPrompt` (`BIOMETRIC_STRONG` or `DEVICE_CREDENTIAL`).
+   - On biometric success: unlocks vault into memory, retrieves `BeginGetCredentialRequest` via `PendingIntentHandler`, populates matching passkey entries (`PublicKeyCredentialEntry`) and password entries (`PasswordCredentialEntry`), and delivers back to Credential Manager via `setBeginGetCredentialResponse`.
+   - Android Credential Manager immediately updates its bottom sheet to display the matching passkeys for that site.
+   - User selects the passkey -> `PasskeyAuthActivity` signs ECDSA P-256 WebAuthn assertion -> Web/app logs in seamlessly!
+
+4. **Universal Accessibility Autofill Suggestion Overlay (`VaultrAccessibilityService.kt`)**:
+   - **Research**: WebViews, Google Account sign-in screens in Chrome / embedded tabs, banking apps, and custom canvas views do not trigger standard Android `AutofillService` or `CredentialManager` callbacks. Bitwarden solves this with an `AccessibilityService` overlay.
+   - **Implementation**: Listens to `TYPE_VIEW_FOCUSED` on editable username/email/password inputs. Extracts package and web domain.
+   - Queries `AutofillCredentialStore` for matching accounts.
+   - Displays a sleek floating dark-themed suggestion pill (`WindowManager.addView` with `TYPE_ACCESSIBILITY_OVERLAY`): `[VaultR logo] Autofill user@gmail.com   ✕` positioned comfortably above the keyboard.
+   - 1-tap on the pill opens `AutofillSearchActivity` directly over the current app (e.g. Google Sign-In) to autofill username and password via `AccessibilityNodeInfo` injection and dismiss.
+
+5. **Validation & Release Build**:
+   - Root and mobile TypeScript type checks passed with 0 errors (`npx tsc --noEmit`).
+   - Android release build compiled cleanly (`assembleRelease` in 4m 8s, 745 tasks).
+   - Generated signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.11-release.apk` (146.7 MB).
+
+---
+
+## Current Session: Remove Manual Passkey Linking in Web App (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Passkey Linking Elimination & Read-Only Enrolled Display)
+
+**Files Changed:**
+- `src/components/vault/NewEntryDialog.tsx`
+
+**Key Improvements:**
+1. **Removed Manual Passkey Linking**:
+   - WebAuthn passkeys are client-bound cryptographic credentials that can only be registered through an active ceremony (`navigator.credentials.create()`) via the Extension or Mobile autofill provider.
+   - Removed the remnant `+ Link a passkey` button and its popup dialog in `NewEntryDialog.tsx` that previously generated arbitrary `crypto.randomUUID()` values without private keys.
+2. **Conditional Read-Only Enrolled Display**:
+   - In both Split view (`renderForm`) and Bento view (`renderBentoFields`), the passkey section is now strictly conditional on `isPasskey === true`.
+   - When no passkey is enrolled (e.g. creating a new login or editing a login without a passkey), zero passkey controls or buttons are rendered.
+   - When a passkey is enrolled, the user can inspect the relying party (RP ID), creation date, and truncated Credential ID, or click **Unlink passkey** to clear the credentials.
+3. **Cross-Platform Parity**:
+   - Aligns the Web App with the Extension (`NewEntryForm.tsx`) and Mobile app (`ItemFormScreen.tsx`), which already adhere to this exact behavior.
+
+---
+
+## Prior Session: Transactional Emails Light Theme Redesign & Human Copy (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Clean White/Light Theme & Card-Free Professional Redesign)
+
+**Files Changed:**
+- `src/lib/emailTemplates.ts`
+- `src/app/api/admin/email/broadcast/route.ts`
+- `src/app/api/admin/email/route.ts`
+- `src/app/api/admin/smtp/test/route.ts`
+- `src/app/api/vault/schedule-delete/route.ts`
+
+**Key Improvements:**
+1. **Light & Modern Visual Canvas**:
+   - Replaced heavy cyberpunk dark theme (`#050507`, `#0d0d10`, `#131317` with neon gradient borders) with a clean `#ffffff` email card on a soft `#f6f8fa` neutral backdrop.
+   - Replaced dark mode logo with dark text wordmark on transparent background (`public/brand/vaultr-full-light-transparent.png`).
+   - Removed tacky uppercase pill badges (`END-TO-END ENCRYPTED`, `SECURITY ALERT`) from the header for an elegant, minimal presentation.
+2. **Human, Non-Dev Copy & Tone**:
+   - Replaced robotic AI security jargon ("military-grade cryptography", "purged blobs") with warm, concise, human copy inspired by Apple, Stripe, and Linear.
+   - Refined subject lines (e.g. `842 190 is your Vaultr verification code`).
+3. **Typography & Component Polish**:
+   - Clean slate headings (`#111827`, 20px, 600 weight) and readable body copy (`#4b5563`, 14px, 1.6 line height).
+   - Centered OTP verification code box on `#f9fafb` with subtle `1px solid #e5e7eb` border and spaced digits.
+   - Borderless metadata rows for sign-in details and ticket info with soft `#6b7280` labels.
+   - Sleek solid black action buttons (`#111827`) and clean red security action buttons (`#dc2626`).
+4. **All 9 Default Templates Redesigned**:
+   - `device_verification`, `new_device_alert`, `welcome`, `password_changed`, `account_deleted`, `support_reply`, `new_ticket_alert`, `email_verification`, `password_reset`.
+5. **Admin & System Email Routes Aligned**:
+   - Updated SMTP test route, admin manual email, broadcast email, and vault scheduled deletion email warning to match the clean light design system.
+
+---
+
+## Prior Session: Extension Div-Less Back Button & Minimal Header (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Div-Less Ghost Back Button & Sub-Folder Header Refinement)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements:**
+1. **Div-Less Ghost Back Button**:
+   - Stripped away the boxed card styling (`border: 1px solid var(--border)`, `background: var(--surface)`) from `.settings-folder-back-btn`.
+   - Converted into a sleek, borderless, transparent ghost navigation button with smooth color transition and subtle hover highlight (`rgba(255, 255, 255, 0.08)` / light mode `rgba(0, 0, 0, 0.06)`).
+   - Increased icon size to 18px (`<ChevronLeft size={18} />`) for crisp, modern visibility.
+   - Synchronized with the right-side header spacer (`32px`) to ensure perfect center alignment of the header title.
+2. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run build --workspace=extension` compiled cleanly (0 errors).
+
+---
+
+## Prior Session: Extension Settings Minimal Card-Free Version Footer (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Minimalist Card-Free Version Footer)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+
+**Key Improvements:**
+1. **Eliminated Div Clutter & Boxed Footer Card**:
+   - Removed the heavy boxed card container (`border: 1px solid var(--border)`, `background: var(--surface)`, `padding: 18px 14px 14px`) at the bottom of the main settings screen.
+   - Removed the repetitive branding logo image, marketing tagline, `VAULTR_EDITION` ("VaultR 2026") pill badge, and "Zero-Knowledge" check badge.
+2. **Professional Div-Less Version Footer**:
+   - Replaced with a subtle, minimal centered version label (`v{VAULTR_VERSION}`) in clean monospace typography (`color: var(--neutral-500)`).
+   - Card-free, uncluttered design adhering to VaultR modal & surface design guidelines.
+3. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run build --workspace=extension` compiled cleanly (0 errors).
+
+---
+
+## Prior Session: Extension Autofill & Integration Comprehensive Options & UI Restoration (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Comprehensive Autofill & Integration Options, Grouping & Micro-Icons Restoration)
+
+**Files Changed:**
+- `extension/src/popup/SettingsScreen.tsx`
+
+**Key Improvements & Architecture:**
+1. **Restored Full Semantic Groupings & Options in Autofill & Integration**:
+   - **DEFAULT PASSWORD MANAGER**: Native browser password manager takeover toggle, active status pill (`● Active`), contextual browser explanations, and Edge settings shortcut copy chip.
+   - **AUTOFILL BEHAVIOR**:
+     - *Suggest credentials* with `Sparkles` icon badge and inline dropdown explanation.
+     - *Auto-submit form* with `LogIn` icon badge and automatic submission toggle.
+     - *Auto-copy 2FA code* with `Clock` icon badge and TOTP clipboard copy toggle.
+   - **CAPTURE & MATCHING**:
+     - *Match base domain* with `Globe` icon badge and multi-subdomain matching toggle.
+     - *Prompt to save passwords* with `KeyRound` icon badge and web form detection toggle.
+     - *Prompt to update passwords* with `RefreshCw` icon badge and password change detection toggle.
+   - **BROWSER INTEGRATIONS**:
+     - *Passkeys & WebAuthn* with `Fingerprint` icon badge, letting users control FIDO2/WebAuthn provider autofill directly from this screen in addition to Account Security (synchronized with `vaultr_passkeys_enabled`).
+     - *Badge counter on icon* with `Hash` icon badge, letting users toggle the matching vault credentials count on the extension icon badge (synchronized with `vaultr_show_badge_count`).
+   - **KEYBOARD SHORTCUTS**:
+     - *Autofill credentials* with styled tactile `<kbd>` keycaps (`⌘ Shift L` / `Ctrl Shift L`).
+     - *Copy 2FA TOTP code* with styled tactile `<kbd>` keycaps (`⌘ Shift T` / `Ctrl Shift T`).
+
+2. **Guaranteed Visibility & Smooth Scrolling**:
+   - No animation fill-mode traps or opacity keys. All cards render with immediate 100% visibility.
+   - Set `.screen-body` bottom padding to `84px` for generous scroll clearance well above the bottom navigation bar.
+
+3. **Typecheck & Production Build Verification**:
+   - `npx tsc --noEmit` passed with 0 errors across all workspaces.
+   - `npm run build --workspace=extension` compiled successfully with webpack 5 (0 errors).
+
+---
+
+## Prior Session: Extension Dedicated Security Sub-Screens (Change Password & Active Sessions) (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Dedicated Sub-Screens & Sleek Navigation for Password & Sessions)
+
+**Files Changed:**
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Key Improvements & Architecture:**
+1. **Dedicated Settings Sections in Main Menu & Account Security**:
+   - Added **Change Master Password** and **Active Sessions** directly to the main Settings folders list (View A) as first-class settings sections, each with a full clickable area (`.mobile-settings-row`), icon badge (`KeyRound` in amber, `Monitor` in sky blue), title, descriptive subtext, and a sleek `ChevronRight` arrow.
+   - Kept both navigation rows inside **Account Security** as well, so users can access them seamlessly from either the main menu or within Account Security.
+   - Expanded `SettingsTab` to `"autofill" | "security" | "themes" | "about" | "change_password" | "sessions"`.
+   - Added `prevFolder` tracking so the back button on either sub-screen returns to wherever the user came from (Main Settings or Account Security).
+
+2. **Eliminated All CSS Animation Ghosting & Opacity Traps**:
+   - Removed `animate-screen-enter` and `animate-slide-left` from `.screen-body` and tab containers which caused Chromium extension popups to composite at `opacity: 0` or clip content.
+   - Removed `animate-list-item` and `--i` delays from all settings cards and rows, ensuring 100% immediate and permanent visibility.
+   - Adjusted `.animate-list-item` `animation-fill-mode` from `both` to `forwards` as a defensive measure across the popup stylesheet.
+
+3. **Compact Change Master Password Screen**:
+   - Minimal layout without nested div clutter.
+   - Live 4-tier password strength bar (Too short, Weak, Fair, Good, Strong) with character count counter.
+   - Real-time mismatch detection with inline warning pill.
+   - Prominent primary action button ("Update Master Password") and zero-knowledge disclaimer.
+
+4. **Dedicated Active Sessions Screen**:
+   - Clear overview of all connected devices and browsers with "THIS EXTENSION" highlighted badge.
+   - Individual session revocation and bulk "Revoke Others" with safe confirmation dialog.
+   - Direct refresh button in the header bar and pre-loading on mount so badge counts are instantly accurate.
+
+5. **Typecheck & Production Build Verification**:
+   - `npx tsc --noEmit` passed with 0 errors across root and workspaces.
+   - `npx tsc --noEmit --project extension/tsconfig.json` passed with 0 errors.
+   - `npm run build --workspace=extension` compiled successfully with webpack 5 (0 errors).
+
+---
+
+## Prior Session: Extension Autofill & Integration Page Scrolling Fix & UI Polish (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Extension Autofill & Integration Page Fix & UI Modernization)
+
+**Files Changed:**
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+
+**Fixes & Enhancements:**
+1. **Full Scrolling & Viewport Chain Fix**:
+   - Fixed `minHeight: 0` on `App.tsx`'s main tab containers and tab routes to ensure flex containment from root to subfolder.
+   - Removed keyframe slide/enter animations from `.screen-body` to avoid persistent CSS transforms that interfere with mousewheel and touchpad scrolling in Chromium popups.
+   - Increased bottom clearance on `.screen-body` to `padding: 12px 14px 80px` (matching VaultScreen) for comfortable clearance above the bottom nav.
+   - Boosted scrollbar thumb contrast (`rgba(255, 255, 255, 0.25)` on hover `0.45`) for easy visual tracking and dragging.
+
+2. **Clean Autofill Options Card & Full Visibility**:
+   - Restored all 6 options (Suggest credentials, Auto-submit form, Auto-copy 2FA, Match base domain, Prompt save, Prompt update) into a clean, cohesive `.settings-card` matching standard VaultR styling.
+   - Compacted Default Password Manager card with active pill badge and Edge copy chip.
+   - Kept keycaps on shortcuts card with clean contrast.
+
+2. **Eliminated Button & Logo Hover Size Changes / Jitter**:
+   - Back button (`.settings-folder-back-btn`): Removed `transform: translateX(-2px)` on hover and `scale(0.94)` on active, maintaining smooth color and surface brightness transitions without positional jumping.
+   - Folder icon boxes (`.mobile-settings-icon-wrap`): Removed `transform: scale(1.05)` on hover and `scale(0.985)` row squish, keeping 36×36px icon wrappers pixel-stable.
+   - General buttons (`.btn:active`, `.btn-fill-badge:hover`, `.btn-expanded-primary:hover`, `.btn-expanded-icon:hover`): Removed `translateY(-0.5px)` and `scale(0.98)` distortions across the popup.
+
+3. **Modernized Autofill & Integration Page Layout**:
+   - Refactored Default Password Manager card with a sleek active status pill (`Active` with checkmark) and replaced the raw Edge settings URL button with an inline chip box (`edge://...`) and 1-click copy action.
+   - Semantically grouped options with uppercase category labels:
+     - **Autofill Behavior**: Suggest credentials (`Sparkles`), Auto-submit form (`LogIn`), Auto-copy 2FA code (`Clock`).
+     - **Capture & Matching**: Match base domain (`Globe`), Prompt to save passwords (`KeyRound`), Prompt to update passwords (`RefreshCw`).
+   - Integrated 28×28px tinted micro-icon badges for each setting row to dramatically enhance visual scannability.
+   - Styled keyboard shortcuts with tactile `<kbd>` keycaps (`⌘ Shift L`, `⌘ Shift T` / `Ctrl Shift L`, `Ctrl Shift T`).
+
+4. **Validation & Packaging**:
+   - Webpack production build compiled cleanly with zero errors (`npm run build --workspace=extension`).
+
+---
+
+## Prior Session: Custom VaultR AAGUID & Branded Passkey UI (2026-09-27) · Branch: `dev`
+
+### ✅ What Was Done (Phase 41: Custom VaultR AAGUID, Elimination of "iCloud Keychain" RP Label & Bitwarden-Style UI)
+
+**Files Changed:**
+- `packages/core/src/webauthn.ts`
+- `packages/core/src/types.ts`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+- `docs/passkeys/aaguid-metadata.json` (New)
+- `docs/passkeys/README.md` (New)
+
+**Fixes & Enhancements:**
+1. **Root Cause Analysis: Why Google Accounts Labeled Passkeys as "iCloud Keychain"**:
+   - In `packages/core/src/webauthn.ts` and `PasskeyAuthActivity.kt`, the authenticator data (`authData`) embedded an all-zero AAGUID (`00000000-0000-0000-0000-000000000000`).
+   - In Google Accounts' internal authenticator directory, all-zero AAGUID is mapped to Apple's legacy anonymous platform authenticator ("iCloud Keychain"), causing Google to display "iCloud Keychain" for newly registered passkeys.
+
+2. **Official VaultR AAGUID Defined & Standardized Across Core, Extension & Android**:
+   - RFC 4122 v4 UUID: `"7661756c-7472-4a11-8517-5e839e55720c"`.
+   - Hex bytes: `[0x76, 0x61, 0x75, 0x6c, 0x74, 0x72, 0x4a, 0x11, 0x85, 0x17, 0x5e, 0x83, 0x9e, 0x55, 0x72, 0x0c]`.
+   - The first 6 bytes in ASCII hex spell `"vaultr"`.
+   - Replaced all-zero AAGUID in `@vaultr/core` (`createPasskeyCredential`) and Android Native Credential Manager (`PasskeyAuthActivity.kt`).
+   - Added `passkeyAaguid?: string` to `DecryptedLoginPayload` in `@vaultr/core` and persisted in service worker storage.
+
+3. **Bitwarden-Style Branded Passkey Prompt UI (`autofill.ts`)**:
+   - **VaultR Brand Mark**: Embedded official VaultR vector shield/keyhole logo in a high-contrast dark badge.
+   - **Typography & Chips**: "VaultR" bold brand header with sky-blue "PASSKEY" chip and smooth dismissal `✕`.
+   - **Account Card**: Elevated contextual card with dynamic relying party favicon (`google.com/s2/favicons`), RP domain, and username/account indicator.
+   - **Security Guarantee**: Added subtle footnote with green shield check: *"End-to-end encrypted in your vault"*.
+   - **Bitwarden Action Hierarchy**: Elevated high-contrast primary button with key icon ("Save Passkey" / "Sign In") and secondary "Use Browser".
+   - **Unified Brand System**: Applied consistent VaultR logo badge and typography to password save/update prompts as well.
+
+4. **Community AAGUID Registry Entry (`docs/passkeys/`)**:
+   - Created `docs/passkeys/aaguid-metadata.json` formatted for `passkeydeveloper/passkey-authenticator-aaguids` with base64 data URIs of light and dark SVG brand marks.
+   - Created `docs/passkeys/README.md` documenting AAGUID architecture and RP compatibility.
+
+5. **Build & Type Check Validation**:
+   - `@vaultr/core` compiled cleanly (`npm run build`).
+   - Extension bundle compiled cleanly (`npm run build` in `extension/`).
+   - `npx tsc --noEmit` verified 0 errors across the entire codebase.
+
+6. **Android Release Build (`assembleRelease`)**:
+   - Successfully generated signed release APK: `mobile/android/app/build/outputs/apk/release/vaultr-v0.2.11-release.apk` (146.7 MB).
+   - Bundled React Native & Expo JavaScript/assets with Hermes bytecode optimization (`App.tsx`, 3231 modules in 143s).
+   - Compiled and linked native C++ modules (`worklets`, `quick-crypto`, CMake) across 4 target ABIs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+   - Built with updated VaultR AAGUID (`7661756c-7472-4a11-8517-5e839e55720c`) in `PasskeyAuthActivity.kt`.
+   - Signed with production keystore `vaultr-release.keystore` (alias: `vaultr`).
+
+---
+
+## Current Session: Passkey Creation & Browser Prompt Elimination (2026-09-27) · Branch: `dev`
+
+### ✅ What Was Done (Phase 40: Block Browser Passkey Popup During Creation, Iframe Interception & Spec Alignment)
+
+**Files Changed:**
+- `extension/src/content-script/webauthn-page.ts`
+- `extension/src/content-script/autofill.ts`
+- `extension/src/background/service-worker.ts`
+- `extension/manifest.json`
+
+**Fixes & Enhancements:**
+1. **Blocked All Fallbacks to Browser Passkeys in `interceptedCreate` (`webauthn-page.ts`)**:
+   - Eliminated silent fallback calls to `originalCreate(options)` whenever VaultR is locked, passkeys are disabled, creation fails, or the ceremony is unhandled.
+   - All failure cases now throw standard WebAuthn `DOMException(..., "NotAllowedError")`, preventing Chrome/Windows Hello from displaying its native passkey prompt.
+   - `originalCreate(options)` is now strictly called ONLY if the user explicitly clicked "Use Browser" (`res?.useBrowser === true`).
+
+2. **Differentiated "Use Browser" from Prompt Dismissal (`autofill.ts`, `webauthn-page.ts`)**:
+   - Closing the VaultR in-page prompt via `✕` (dismiss) now cleanly cancels the ceremony and throws `NotAllowedError` without triggering the browser's native passkeys.
+   - Clicking "Use Browser" explicitly sets `useBrowser: true` to permit the only legitimate delegation to native platform credentials.
+
+3. **In-Page Toast & Error Handling on Locked Vault for Creation (`autofill.ts`)**:
+   - Added user feedback toast (`Unlock VaultR to save your passkey`) when passkey creation is attempted while the vault is locked.
+   - Sends `error: "locked"` so the interceptor can reject with a descriptive message rather than falling through to Windows Hello.
+
+4. **Multi-Frame & Iframe Interception (`manifest.json`)**:
+   - Added `"all_frames": true` to both `webauthn-page.js` and `autofill.js` so passkey creation and authentication inside embedded iframes (e.g. Google Accounts / GSI / identity frames) are properly intercepted instead of bypassing the extension.
+   - Set `autofill.js` to `"run_at": "document_start"` with safe `(document.body || document.documentElement)` DOM attachment guards so the message listener is ready immediately when early WebAuthn ceremonies fire.
+
+5. **WebAuthn Level 3 Spec Capability Fix (`webauthn-page.ts`)**:
+   - Added `userVerifyingPlatformAuthenticator: true` to `PublicKeyCredential.getClientCapabilities()`. Google specifically verifies this capability to detect whether a platform authenticator with user verification is present.
+   - Added defensive optional chaining to `pk.user?.id` serialization in `serializeCreationOptions`.
+
+6. **Service Worker Cleanup (`service-worker.ts`)**:
+   - Cleanly extracted `normalizeCredentialId` to the top-level helper section outside of the `onMessage` switch statement.
+
+---
+
+## Current Session: Passkey Sign-In & Creation Deep Fix Across Extension & Android (2026-09-27) · Branch: `dev`
+
+### ✅ What Was Done (Phase 39: Passkey Creation, Assertion & Cross-Platform Alignment)
+
+**Files Changed:**
+- `packages/core/src/webauthn.ts`
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/webauthn-page.ts`
+- `extension/src/content-script/autofill.ts`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/AutofillCredentialStore.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/PasskeyAuthActivity.kt`
+- `mobile/android/app/src/main/java/com/vaultr/mobile/autofill/VaultrCredentialProviderService.kt`
+
+**Fixes & Enhancements:**
+1. **Root Cause Analysis: Unpacked Extension Build Gap**:
+   - Discovered `extension/dist/webauthn-page.js` was stale (dating back to Sep 14) and `background.js` lacked recent `@vaultr/core` passkey fixes because `npm run build` had not been executed into `extension/dist`.
+   - Rebuilt `extension/dist` with Webpack production mode, producing fresh, verified bundles.
+
+2. **WebAuthn Level 3 Spec Compliance (`webauthn.ts`, `service-worker.ts`, `PasskeyAuthActivity.kt`)**:
+   - **`clientDataJSON` crossOrigin**: Added `"crossOrigin": false` to both `createPasskeyCredential` and `signPasskeyAssertion` client data payloads per Chromium top-level navigation standards and Google Accounts server-side validators.
+   - **Multi-Device Passkey Flags**: Set Backup Eligibility (`BE`, `0x08`) and Backup State (`BS`, `0x10`) flags across creation (`0x5d` = `UP | UV | BE | BS | AT`) and assertion (`0x1d` = `UP | UV | BE | BS`). Strict RPs (e.g. Google Accounts) verify these flags to distinguish syncable passkeys from single-device hardware keys.
+   - **Signature Counter (`signCount`)**: Enforced constant `signCount = 0` for syncable passkeys per WebAuthn L3 Section 5.1.4 and FIDO2 specification to prevent clone-detection rejections.
+
+3. **Buffer Allocation & Pooling Safety (`webauthn-page.ts`)**:
+   - Sliced `clientDataJSON` directly via `new Uint8Array(encodedClientData).buffer as ArrayBuffer` on both `interceptedCreate` and `interceptedGet` to eliminate V8/Chromium buffer-pooling memory offsets.
+   - Hardened `base64UrlToBuffer` and `bufferToBase64Url` with defensive ArrayBuffer/ArrayBufferView copies and type guards.
+
+4. **Android Credential Manager Alignment (`PasskeyAuthActivity.kt`)**:
+   - Added `crossOrigin: false` to `clientDataJsonObj` on both registration and assertion.
+   - Aligned authenticator flags to `0x5d` (create) and `0x1d` (get) with `signCount = 0`.
+   - Handled `callingAppInfo.origin`, package signing certificate hashes (`android:apk-key-hash:...`), and fallback web origins.
+
+5. **Conditional Mediation Silencing & Browser Prompt Takeover Prevention (`webauthn-page.ts`, `autofill.ts`)**:
+   - Fixed browser in-built passkey prompt takeover on Google Accounts: overridden `window.PublicKeyCredential.isConditionalMediationAvailable = async () => false;` and return a silent, abort-aware pending Promise when `options.mediation === "conditional"` rather than calling `originalGet(options)` (which was triggering Chrome's native Windows Hello / password manager passkey dialog).
+   - Added `credProps: { rk: true }` in `getClientExtensionResults()` and `clientExtensionResults` during passkey creation to explicitly inform relying parties that the credential is a resident key / syncable passkey.
+   - Sliced all typed array extractions (`rawId`, `signature`, `clientDataJSON`, `authenticatorData`) via `.slice().buffer` to eliminate V8 small-buffer memory pooling artifacts.
+   - Added prompt deduplication guard in `autofill.ts` (`removePasskeyPrompt(true)` on `showPasskeyPrompt` and on `action === "ABORT"`) to prevent ghost or overlapping card instances in the DOM during fast abort/retry authentication cycles.
+
+---
+
+## Current Session: Portaled FolderSelect Floating Dropdown (2026-09-26) · Branch: `dev`
+
+### ✅ What Was Done (Phase 38: Web FolderSelect Floating Popover with createPortal)
+
+**Files Changed:**
+- `src/components/vault/FolderSelect.tsx`
+
+**Fixes & Enhancements:**
+1. **Teleported Dropdown to `document.body`**:
+   - Replaced trapped `absolute` positioning inside scrollable ancestor divs with `createPortal(..., document.body)`.
+   - Used `position: fixed` with dynamic `getBoundingClientRect()` measurement on trigger button.
+   - Dropdown now pops out over dialog modals, eliminating clipping and preventing parent scroll container expansion.
+
+2. **Smart Viewport-Aware Placement**:
+   - Automatically detects available vertical viewport space (`window.innerHeight - rect.bottom`) and flips above the trigger (`bottom: window.innerHeight - rect.top + 6`) if space below is constrained.
+
+3. **Scroll Bleed Prevention**:
+   - Added `overscroll-contain` to the folder options list (`max-h-56 overflow-y-auto overscroll-contain`) so scrolling inside the folder list does not bubble up to scroll the parent dialog panel.
+   - Added captured window scroll and resize listeners to smoothly reposition the dropdown.
+
+4. **Click-Outside & Escape Dismissal**:
+   - Updated `handleClickOutside` with `dropdownRef` to distinguish clicks inside the portaled menu from outside clicks.
+   - Added `Escape` keyboard shortcut listener to dismiss the open menu cleanly.
+   - Clamped horizontal coordinates to prevent overflowing off either edge of the viewport.
+   - Auto-dismisses dropdown if parent scroll moves the trigger button out of view.
+
+---
+
+## Current Session: Unified Passkey Unlinking Across All Clients (2026-09-25) · Branch: `dev`
+
+### ✅ What Was Done (Phase 37: Unified Passkey Unlinking Across Web, Mobile, and Extension)
+
+**Files Changed:**
+- `mobile/src/screens/ItemFormScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `src/components/vault/NewEntryDialog.tsx`
+
+**Fixes & Enhancements:**
+1. **Mobile App (`ItemFormScreen.tsx`)**:
+   - Pruned `"passkey"` from `tagsStr` in state immediately when "Unlink Passkey" is tapped.
+   - Filtered `"passkey"` from `tagsList` on save when unlinked (`!passkeyData?.isPasskey`), preventing ghost passkey tags from persisting in the database.
+   - Guarded `passkeyData` initialization on edit to check for actual credentials (`p.isPasskey || p.passkeyCredentialId`) rather than resurrecting state solely from stale tags.
+
+2. **Browser Extension (`NewEntryForm.tsx`)**:
+   - Added `passkeyData` state management to track linked credentials in edit mode.
+   - Added an **"Unlink passkey"** red action link to the `PASSKEY ENROLLED` card header.
+   - Stripped `"passkey"` from `tags` state on unlink click.
+   - Conditionally attached passkey properties to the encrypted payload on save only when `passkeyData?.isPasskey` is true.
+   - Filtered `"passkey"` from `parsedTags` on save when unlinked.
+
+3. **Web App (`NewEntryDialog.tsx`)**:
+   - Synchronized immediate removal of `"passkey"` from the dialog's `tags` input state upon tapping "Unlink passkey" in both primary and simplified views.
+
+---
+
+## Current Session: Extension URL Open/Launch Button (2026-09-24) · Branch: `dev`
+
+### ✅ What Was Done (Phase 36: Extension URL Open/Launch Button Parity)
+
+**Files Changed:**
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/NewEntryForm.tsx`
+- `extension/src/popup/popup.css`
+
+**Features & Improvements:**
+1. **Open URL button in DetailRow (`VaultScreen.tsx`)**:
+   - Added `OpenUrlBtn` component using `ExternalLink` icon from `lucide-react`.
+   - Uses `className="detail-action-btn"` matching dimensions (20x20), border-radius (5px), and neutral color tokens identical to `CopyBtn` and `MaskedValue` (`Eye`/`EyeOff`).
+   - Opens URL safely in a new browser tab via `chrome.tabs.create({ url: target })` with fallback to `window.open(target, "_blank", "noopener,noreferrer")`.
+   - Normalizes protocol (`https://` prefix added if missing, matching mobile `handleLaunchUrl`).
+   - Placed directly adjacent to `CopyBtn` in `.detail-actions`, mirroring mobile `FieldRow` launch behavior.
+   - Automatically detects website/URL/URI fields or explicit `isUrl` prop (including custom fields of type `"url"` and item domain fallback).
+
+2. **Open URL button in NewEntryForm (`NewEntryForm.tsx`)**:
+   - Added `ExternalLink` launch button to URL input rows when a URL is present (`u.trim()`), styled with `.btn.btn-ghost` matching form controls.
+
+3. **Smooth styling transitions (`popup.css`)**:
+   - Added `transition: color 0.15s ease, background 0.15s ease;` to `.detail-action-btn`.
+
+---
+
+## Current Session: Extension Autosave Edge Case Fixes (2026-09-23) · Branch: `dev`
+
+### ✅ What Was Done (Phase 35: Extension Autosave Hardening)
+
+**Files Changed:**
+- `extension/src/content-script/autofill.ts`
+- `extension/src/background/service-worker.ts`
+
+**Bugs Fixed:**
+
+1. **Locked-vault save prompt** — `GET_LOGINS_FOR_DOMAIN` returned `[]` when the vault was locked → `checkAndShowSavePrompt` saw an empty logins list and assumed it was a new credential, showing a "Save password?" prompt the user couldn't actually act on. Fixed by adding `isLocked: boolean` to the service-worker response. Both the `focusin` dropdown handler and `checkAndShowSavePrompt` now bail immediately when `isLocked === true`.
+
+2. **Split-page login flows (username first, password second)** — Sites like Google, Microsoft, Amazon use a two-step flow where the username is typed on page 1, then the page navigates to show the password field. On the password page `findUsernameField()` found nothing because the username field was gone. Fixed via a `sessionStorage`-backed cross-page username memory (`vaultr_xpage_*`) with a 5-minute TTL and domain validation. The username is saved on `focusout` of any username-like field; `checkAndShowSavePrompt` falls back to it when the in-page search returns empty. The stored value is cleared after use.
+
+3. **Auto-submit on page 1 of split flow** — `fillCredential()` auto-submitted the form even on the username-only first page, causing a page navigation before the password was ever entered. Fixed by checking that the form actually contains a visible password field before calling `requestSubmit()`.
+
+4. **Overly permissive submit-button detection** — The click interceptor matched ANY `button:not([type])`, including navigation, dismiss, and clear buttons. Extracted into `isSaveExcludedButton()` with an expanded exclusion regex that also catches `dismiss`, `forget`, `clear`, `reset`, `navigation`, and `nav-` class patterns.
+
+5. **Password length threshold** — Raised minimum captured password length from 4 to 6 characters to avoid false positives on short PINs and OTP inputs.
+
+6. **Vault locked — autofill dropdown** — The suggestion dropdown now silently skips rendering when the vault is locked (previously it would just show nothing, but still performed the async message round-trip and the response check was missing).
+
+---
+
+## Current Session: PR #18 Security Audit Merge & Remediation Patch (2026-09-20) · Branch: `dev`
+
+### ✅ What Was Done (Phase 34: PR #18 Security Remediation Integration & Unlink Fix)
+- **Fetched and Audited PR #18 Commits (`pull/18/head`)**:
+  - Merged PR #18 addressing critical-to-medium security findings:
+    - Replaced mobile auth loopback `fetch` in `mobile-login` and `mobile-register` with direct `auth.api.signInEmail` / `signUpEmail`, eliminating SSRF and Host-header credential leakage.
+    - Added atomic row-level conditional `UPDATE` inside `db.transaction` for attachment quotas (`storage_used_bytes + size <= storage_quota_bytes`) with automatic S3 rollback on failure.
+    - Fixed SQL folder wildcard injection in `src/app/api/vault/folders/route.ts` using PostgreSQL native literal prefix function `starts_with`.
+    - Patched runtime dependencies: `next@16.3.5`, `better-auth@1.7.5`, `nodemailer@10.0.10`, `copy-webpack-plugin@14.0.0`, `expo@57.0.24`, `react-native@0.86.3`.
+- **Patched Account Unlinking Bug (`src/app/settings/account/page.tsx`)**:
+  - Identified Better Auth 1.7.5 schema mismatch where `/unlink-account` matches against internal `account.id` rather than provider `account.accountId`.
+  - Updated `handleUnlink` and UI button invocation to pass `p.id` with `p.providerId` fallback, ensuring 100% interoperability across Better Auth 1.6 and 1.7.
+- **Resolved EAS Config in `mobile/app.json`**:
+  - Maintained both `expo-secure-store` in plugins and `extra.eas.projectId` configuration.
+- **Pre-Commit Type Gate & Verification**:
+  - Root `npx tsc --noEmit`: Passed (0 errors).
+  - Mobile `npx tsc --noEmit`: Passed (0 errors).
+  - Core build (`@vaultr/core`): Passed.
+  - Extension build (`@vaultr/extension`): Passed.
+
+### 📋 What's Planned Next
+- Merge `dev` into `main` and sync remote repository.
+- Rebuild Portainer production stack.
+
+---
+
 ## Current Session: Database Migration 0008 & Mobile Google Auth Guard (2026-09-19) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 33: Drizzle Migration 0008 & Mobile Google Route Hardening)

@@ -22,6 +22,7 @@ import {
   calculateDomainMatchScore,
   isIpAddress,
   extractItemCandidateUrls,
+  VAULTR_AAGUID,
 } from "@vaultr/core";
 
 const DEFAULT_SERVER_URL = "https://vaultr.cvweb.qzz.io";
@@ -31,6 +32,11 @@ function normalizeServerUrl(url?: string | null): string {
   const trimmed = url.trim();
   if (!trimmed) return DEFAULT_SERVER_URL;
   return trimmed.replace(/\/+$/, "");
+}
+
+function normalizeCredentialId(id: string | undefined | null): string {
+  if (!id) return "";
+  return id.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
 }
 
 function getServerBaseUrl(): string {
@@ -489,12 +495,78 @@ function clearAllBadges() {
   } catch {}
 }
 
+// ─── Pop-out Standalone Window Manager ───────────────────────────────────────
+
+let popoutWindowId: number | null = null;
+let lastTargetTabId: number | null = null;
+
+async function openPopoutWindow(originTabId?: number): Promise<void> {
+  const width = 400;
+  const height = 620;
+
+  if (originTabId) {
+    lastTargetTabId = originTabId;
+  }
+
+  if (popoutWindowId !== null) {
+    try {
+      const existing = await chrome.windows.get(popoutWindowId);
+      if (existing) {
+        await chrome.windows.update(popoutWindowId, { focused: true });
+        return;
+      }
+    } catch {
+      popoutWindowId = null;
+    }
+  }
+
+  let left: number | undefined;
+  let top: number | undefined;
+  try {
+    const currentWin = await chrome.windows.getCurrent();
+    if (currentWin?.left !== undefined && currentWin?.width !== undefined) {
+      left = Math.round(currentWin.left + (currentWin.width - width) / 2);
+    }
+    if (currentWin?.top !== undefined && currentWin?.height !== undefined) {
+      top = Math.round(currentWin.top + (currentWin.height - height) / 2);
+    }
+  } catch {}
+
+  const tabQuery = originTabId ? `&tabId=${originTabId}` : "";
+  const win = await chrome.windows.create({
+    url: chrome.runtime.getURL(`popup.html?mode=popout${tabQuery}`),
+    type: "popup",
+    width,
+    height,
+    left: left !== undefined && left > 0 ? left : undefined,
+    top: top !== undefined && top > 0 ? top : undefined,
+    focused: true,
+  });
+
+  if (win?.id) {
+    popoutWindowId = win.id;
+  }
+}
+
+chrome.windows?.onRemoved?.addListener((windowId) => {
+  if (windowId === popoutWindowId) {
+    popoutWindowId = null;
+  }
+});
+
 // ─── Message Handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
       switch (message.type) {
+
+        case "OPEN_POPOUT": {
+          const originTabId = message.tabId || sender.tab?.id;
+          await openPopoutWindow(originTabId);
+          sendResponse({ success: true });
+          break;
+        }
 
         case "GET_STATUS": {
           await tryRestoreSession();
@@ -602,6 +674,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const lockRes = await chrome.storage.local.get("autolock_minutes");
           const setting = String(lockRes.autolock_minutes ?? "15");
           await touchAutoLock(setting);
+
+          // Broadcast to active tabs that vault was unlocked
+          try {
+            chrome.tabs.query({}, (tabs) => {
+              if (chrome.runtime.lastError || !tabs) return;
+              for (const tab of tabs) {
+                if (tab.id) {
+                  chrome.tabs.sendMessage(tab.id, { type: "VAULT_UNLOCKED" }).catch(() => {});
+                }
+              }
+            });
+          } catch {}
 
           sendResponse({ success: true, count: items.length });
           break;
@@ -767,11 +851,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "GET_LOGINS_FOR_DOMAIN": {
-          const matches = await getLoginsForDomain(message.domain);
+          await tryRestoreSession();
+          const vaultLocked = !state.isUnlocked || !state.masterPassword;
+          const matches = vaultLocked ? [] : await getLoginsForDomain(message.domain);
           if (sender.tab?.id) {
             updateTabBadge(sender.tab.id, sender.tab.url || message.domain);
           }
           sendResponse({
+            isLocked: vaultLocked,
             logins: matches.map(({ id, name, domain, url, username, password, totp, hasTotp, matchedDomain }) => ({
               id,
               name,
@@ -1179,11 +1266,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         }
 
-function normalizeCredentialId(id: string | undefined | null): string {
-  if (!id) return "";
-  return id.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
-}
-
         case "CHECK_PASSKEY_AVAILABLE": {
           await tryRestoreSession();
           const { vaultr_passkeys_enabled } = await chrome.storage.local.get("vaultr_passkeys_enabled");
@@ -1241,30 +1323,6 @@ function normalizeCredentialId(id: string | undefined | null): string {
               username: p.username,
               credentialId: p.passkeyCredentialId,
             });
-          }
-
-          // Fallback: If allowCredentials was specified but filtered out all candidates,
-          // include passkeys for this RP anyway so discoverable/resident credentials work
-          if (matched.length === 0 && allowCredentials.length > 0) {
-            for (const item of state.items) {
-              if (item.deletedAt) continue;
-              const tmpl = item.template || "login";
-              if (tmpl !== "login") continue;
-
-              const p = state.decryptedItemsCache[item.id];
-              if (!p || !p.passkeyPrivateKey) continue;
-
-              const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
-              const rpMatches = !rpId || itemRp === rpId || itemRp.includes(rpId) || rpId.includes(itemRp);
-              if (!rpMatches) continue;
-
-              matched.push({
-                id: item.id,
-                name: item.name,
-                username: p.username,
-                credentialId: p.passkeyCredentialId,
-              });
-            }
           }
 
           sendResponse({ passkeys: matched });
@@ -1369,6 +1427,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
                 passkeyPrivateKey: credResult.passkeyPrivateKey,
                 passkeySignCount: 0,
                 passkeyTransports: ["internal", "hybrid"],
+                passkeyAaguid: credResult.aaguid || VAULTR_AAGUID,
                 passkeyCreatedAt: new Date().toISOString(),
                 passkeyLastUsedAt: new Date().toISOString(),
               };
@@ -1396,6 +1455,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
                   attestationObject: toBase64Url(credResult.attestationObject),
                   authenticatorData: toBase64Url(credResult.authenticatorData),
                   publicKey: toBase64Url(credResult.publicKeySpki),
+                  aaguid: credResult.aaguid || VAULTR_AAGUID,
                 },
               });
             } else {
@@ -1410,6 +1470,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
                 passkeyPrivateKey: credResult.passkeyPrivateKey,
                 passkeySignCount: 0,
                 passkeyTransports: ["internal", "hybrid"],
+                passkeyAaguid: credResult.aaguid || VAULTR_AAGUID,
                 passkeyCreatedAt: new Date().toISOString(),
                 passkeyLastUsedAt: new Date().toISOString(),
               };
@@ -1436,6 +1497,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
                   attestationObject: toBase64Url(credResult.attestationObject),
                   authenticatorData: toBase64Url(credResult.authenticatorData),
                   publicKey: toBase64Url(credResult.publicKeySpki),
+                  aaguid: credResult.aaguid || VAULTR_AAGUID,
                 },
               });
             }
@@ -1457,6 +1519,7 @@ function normalizeCredentialId(id: string | undefined | null): string {
           const rpId = payload.rpId || "";
           const allowCredentials = payload.allowCredentials || [];
           const selectedItemId = payload.selectedItemId;
+          const selectedCredentialId = payload.selectedCredentialId;
           const cleanRp = rpId.toLowerCase();
 
           try {
@@ -1479,6 +1542,33 @@ function normalizeCredentialId(id: string | undefined | null): string {
                 if (p && (p.isPasskey || p.passkeyPrivateKey)) {
                   matchedItem = item;
                   matchedPayload = p;
+                }
+              }
+            }
+
+            // 1b. If user confirmed a passkey with selectedCredentialId, match by credential ID
+            if (!matchedItem && selectedCredentialId) {
+              const targetNormId = normalizeCredentialId(selectedCredentialId);
+              for (const item of state.items) {
+                if (item.deletedAt) continue;
+                let p = state.decryptedItemsCache[item.id];
+                if (!p) {
+                  try {
+                    const raw = await decrypt(key, item.encryptedBlob);
+                    p = JSON.parse(raw);
+                    state.decryptedItemsCache[item.id] = p;
+                  } catch {
+                    continue;
+                  }
+                }
+                if (
+                  p &&
+                  (p.isPasskey || p.passkeyPrivateKey) &&
+                  normalizeCredentialId(p.passkeyCredentialId) === targetNormId
+                ) {
+                  matchedItem = item;
+                  matchedPayload = p;
+                  break;
                 }
               }
             }
@@ -1520,43 +1610,13 @@ function normalizeCredentialId(id: string | undefined | null): string {
               }
             }
 
-            // 3. Fallback: If allowCredentials didn't match any but we have candidates for this RP
-            if (!matchedItem && allowCredentials.length > 0) {
-              for (const item of state.items) {
-                if (item.deletedAt) continue;
-                const tmpl = item.template || "login";
-                if (tmpl !== "login") continue;
-
-                let p = state.decryptedItemsCache[item.id];
-                if (!p) {
-                  try {
-                    const raw = await decrypt(key, item.encryptedBlob);
-                    p = JSON.parse(raw);
-                    state.decryptedItemsCache[item.id] = p;
-                  } catch {
-                    continue;
-                  }
-                }
-
-                if (!p.isPasskey && !p.passkeyPrivateKey) continue;
-
-                const itemRp = (p.passkeyRpId || item.domain || "").toLowerCase();
-                const rpMatches = !cleanRp || itemRp === cleanRp || itemRp.includes(cleanRp) || cleanRp.includes(itemRp);
-                if (!rpMatches) continue;
-
-                matchedItem = item;
-                matchedPayload = p;
-                break;
-              }
-            }
-
             if (!matchedItem || !matchedPayload || !matchedPayload.passkeyPrivateKey) {
               sendResponse({ handled: false, error: "No matching passkey found" });
               return;
             }
 
-            const currentCount = matchedPayload.passkeySignCount || 0;
-            const signCount = currentCount + 1;
+            // Multi-device syncable passkeys maintain signCount = 0 per W3C WebAuthn Level 3 spec
+            const signCount = 0;
             const effectiveRp = payload.rpId || matchedPayload.passkeyRpId || rpId;
 
             const assertionResult = await signPasskeyAssertion({
@@ -1567,7 +1627,6 @@ function normalizeCredentialId(id: string | undefined | null): string {
               signCount,
             });
 
-            matchedPayload.passkeySignCount = signCount;
             matchedPayload.passkeyLastUsedAt = new Date().toISOString();
             state.decryptedItemsCache[matchedItem.id] = matchedPayload;
 

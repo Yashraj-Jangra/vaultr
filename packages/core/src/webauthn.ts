@@ -45,6 +45,19 @@ async function sha256Bytes(data: Uint8Array | string): Promise<Uint8Array> {
   return new Uint8Array(hash);
 }
 
+// ─── VaultR Authenticator Attestation GUID (AAGUID) ───────────────────────────
+
+/**
+ * Official VaultR Authenticator Attestation Globally Unique Identifier (AAGUID).
+ * Format: RFC 4122 v4 UUID.
+ * Hex prefix: 0x76 61 75 6c 74 72 = "vaultr" in ASCII.
+ * Prevents relying parties (Google, Apple, etc.) from defaulting to "iCloud Keychain" (00000000-0000-0000-0000-000000000000).
+ */
+export const VAULTR_AAGUID = "7661756c-7472-4a11-8517-5e839e55720c";
+export const VAULTR_AAGUID_BYTES = new Uint8Array([
+  0x76, 0x61, 0x75, 0x6c, 0x74, 0x72, 0x4a, 0x11, 0x85, 0x17, 0x5e, 0x83, 0x9e, 0x55, 0x72, 0x0c,
+]);
+
 // ─── Lightweight CBOR & COSE Key Serialization ──────────────────────────────
 
 /**
@@ -189,6 +202,7 @@ export interface CreatedPasskeyResult {
   attestationObject: Uint8Array;
   authenticatorData: Uint8Array;
   publicKeySpki: Uint8Array;
+  aaguid?: string;
 }
 
 export async function createPasskeyCredential(params: CreatePasskeyParams): Promise<CreatedPasskeyResult> {
@@ -228,9 +242,10 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
 
   // 5. Build Authenticator Data with Attested Credential Data
   const rpIdHash = await sha256Bytes(effectiveRpId);
-  const flags = 0x01 | 0x04 | 0x40; // UP (0x01) | UV (0x04) | AT (0x40)
+  const flags = 0x01 | 0x04 | 0x08 | 0x10 | 0x40; // UP (0x01) | UV (0x04) | BE (0x08) | BS (0x10) | AT (0x40) = 0x5d
   const signCount = 0;
-  const aaguid = new Uint8Array(16); // 16 zeroes for platform / software passkey
+  // Official VaultR Authenticator Attestation Globally Unique Identifier
+  const aaguid = new Uint8Array(VAULTR_AAGUID_BYTES);
 
   const credIdLenBytes = new Uint8Array([
     (credIdBytes.length >> 8) & 0xff,
@@ -253,7 +268,7 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
   // 6. Build Attestation Object (fmt: "none" + attStmt: {})
   const attestationObject = encodeAttestationObjectNone(authData);
 
-  // 7. Build clientDataJSON
+  // 7. Build clientDataJSON (Chromium top-level standard with crossOrigin: false)
   const clientData = {
     type: "webauthn.create",
     challenge,
@@ -274,6 +289,7 @@ export async function createPasskeyCredential(params: CreatePasskeyParams): Prom
     attestationObject,
     authenticatorData: authData,
     publicKeySpki: spki,
+    aaguid: VAULTR_AAGUID,
   };
 }
 
@@ -308,15 +324,15 @@ export async function signPasskeyAssertion(params: SignPasskeyAssertionParams): 
 
   // 2. Build Authenticator Data (37 bytes: rpIdHash[32] + flags[1] + counter[4])
   const rpIdHash = await sha256Bytes(rpId);
-  const flags = 0x01 | 0x04; // User Present (UP) + User Verified (UV)
+  const flags = 0x01 | 0x04 | 0x08 | 0x10; // UP (0x01) | UV (0x04) | BE (0x08) | BS (0x10) = 0x1d
 
   const authData = new Uint8Array(37);
   authData.set(rpIdHash, 0);
   authData[32] = flags;
   const view = new DataView(authData.buffer);
-  view.setUint32(33, signCount, false); // big-endian counter
+  view.setUint32(33, signCount, false); // big-endian counter (0 for multi-device passkeys)
 
-  // 3. Build clientDataJSON
+  // 3. Build clientDataJSON (Chromium top-level standard with crossOrigin: false)
   const clientData = {
     type: "webauthn.get",
     challenge,

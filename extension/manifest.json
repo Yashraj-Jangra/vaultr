@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "VaultR — Zero-Knowledge Password Vault",
   "short_name": "Vaultr",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "description": "VaultR 2026 — Zero-knowledge, client-side encrypted password manager.",
   "icons": {
     "16": "icons/vaultr-lock-dark-transparent-16.png",
@@ -33,7 +33,8 @@
         "webauthn-page.js"
       ],
       "run_at": "document_start",
-      "world": "MAIN"
+      "world": "MAIN",
+      "all_frames": true
     },
     {
       "matches": [
@@ -42,7 +43,8 @@
       "js": [
         "autofill.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "permissions": [

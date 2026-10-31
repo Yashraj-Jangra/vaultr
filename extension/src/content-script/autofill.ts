@@ -27,6 +27,45 @@ let activeInput: HTMLInputElement | null = null;
 let lastFocusedField: HTMLInputElement | null = null;
 let activeToastTimeout: any = null;
 
+// ─── Cross-Page Username Memory ───────────────────────────────────────────────
+// Remembers the username typed on page 1 of split login flows (username → next
+// page → password) so that when the password page appears we can still report
+// the correct username for save/update prompts.
+
+const CROSS_PAGE_USERNAME_KEY = "vaultr_xpage_username";
+const CROSS_PAGE_DOMAIN_KEY   = "vaultr_xpage_domain";
+const CROSS_PAGE_TTL_KEY      = "vaultr_xpage_ts";
+const CROSS_PAGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function saveUsernameForNextPage(username: string, domain: string) {
+  try {
+    sessionStorage.setItem(CROSS_PAGE_USERNAME_KEY, username);
+    sessionStorage.setItem(CROSS_PAGE_DOMAIN_KEY,   domain);
+    sessionStorage.setItem(CROSS_PAGE_TTL_KEY,       String(Date.now()));
+  } catch {}
+}
+
+function getCrossPageUsername(currentDomain: string): string {
+  try {
+    const ts = Number(sessionStorage.getItem(CROSS_PAGE_TTL_KEY) || "0");
+    if (Date.now() - ts > CROSS_PAGE_TTL_MS) return "";
+    const savedDomain = sessionStorage.getItem(CROSS_PAGE_DOMAIN_KEY) || "";
+    // Accept if domain matches (same site, different path is fine)
+    if (savedDomain && !currentDomain.includes(savedDomain) && !savedDomain.includes(currentDomain)) return "";
+    return sessionStorage.getItem(CROSS_PAGE_USERNAME_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearCrossPageUsername() {
+  try {
+    sessionStorage.removeItem(CROSS_PAGE_USERNAME_KEY);
+    sessionStorage.removeItem(CROSS_PAGE_DOMAIN_KEY);
+    sessionStorage.removeItem(CROSS_PAGE_TTL_KEY);
+  } catch {}
+}
+
 // ─── Toast UI (Shadow DOM Isolated) ──────────────────────────────────────────
 
 function showInPageToast(messageHtml: string, durationMs = 3500) {
@@ -96,7 +135,10 @@ function showInPageToast(messageHtml: string, durationMs = 3500) {
   `;
   shadow.appendChild(toast);
 
-  document.body.appendChild(host);
+  const targetParent = document.body || document.documentElement;
+  if (targetParent) {
+    targetParent.appendChild(host);
+  }
 
   requestAnimationFrame(() => {
     host.style.opacity = "1";
@@ -134,6 +176,23 @@ try {
     }
   }
 } catch {}
+
+// Watch username/email fields — persist their value when they blur so a
+// subsequent page navigation (Next → password page) can retrieve it.
+document.addEventListener("focusout", (e) => {
+  const el = e.target as HTMLInputElement;
+  if (!el || el.tagName !== "INPUT") return;
+  if (!isWebPageUrl(window.location.href)) return;
+  if (el.type === "password") return;
+  // Only persist if the field looks like a username/email field
+  const hint = [el.name, el.id, el.autocomplete, el.placeholder].join(" ").toLowerCase();
+  const isUsernameField = /user|email|login|account|identifier/.test(hint) || el.type === "email";
+  if (!isUsernameField) return;
+  const value = el.value.trim();
+  if (value.length < 2) return;
+  const domain = getDomain();
+  if (domain) saveUsernameForNextPage(value, domain);
+}, true);
 
 /** Dispatch React-compatible input events so frameworks (React/Vue/Angular) pick up changes */
 function nativeInputValueSetter(input: HTMLInputElement, value: string) {
@@ -226,25 +285,84 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
         }
       }
 
-      // Auto-submit login form if enabled and credentials were typed into a form
+      // Auto-submit login form only when BOTH username and password were filled.
+      // Skip if the form has no password field visible — that means we are on page
+      // 1 of a split login (username only) and auto-submitting here would navigate
+      // away before the password page loads, breaking the flow.
       if (res?.autofill_submit !== false && cred.password) {
         const form = focusedField.closest("form");
         if (form) {
-          setTimeout(() => {
-            try {
-              if (typeof form.requestSubmit === "function") {
-                form.requestSubmit();
-              } else {
-                form.submit();
+          const hasPasswordField = !!form.querySelector('input[type="password"]');
+          if (hasPasswordField) {
+            setTimeout(() => {
+              try {
+                if (typeof form.requestSubmit === "function") {
+                  form.requestSubmit();
+                } else {
+                  form.submit();
+                }
+              } catch {
+                // Ignore submission block if form validation fails
               }
-            } catch {
-              // Ignore submission block if form validation fails
-            }
-          }, 150);
+            }, 150);
+          }
         }
       }
     });
   }
+}
+
+function createLockSvgIcon(): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "15");
+  svg.setAttribute("height", "15");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "#f4f4f5");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("width", "18");
+  rect.setAttribute("height", "11");
+  rect.setAttribute("x", "3");
+  rect.setAttribute("y", "11");
+  rect.setAttribute("rx", "2");
+  rect.setAttribute("ry", "2");
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M7 11V7a5 5 0 0 1 10 0v4");
+
+  svg.appendChild(rect);
+  svg.appendChild(path);
+  return svg;
+}
+
+function createExternalLinkSvgIcon(): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "#71717a");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path1.setAttribute("d", "M15 3h6v6");
+
+  const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path2.setAttribute("d", "M10 14 21 3");
+
+  const path3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path3.setAttribute("d", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6");
+
+  svg.appendChild(path1);
+  svg.appendChild(path2);
+  svg.appendChild(path3);
+  return svg;
 }
 
 function createGlobeIcon(): SVGElement {
@@ -672,7 +790,7 @@ function showDropdown(inputEl: HTMLInputElement, credentials: AutofillCredential
 
   container.appendChild(itemsList);
   shadow.appendChild(container);
-  document.body.appendChild(host);
+  (document.body || document.documentElement).appendChild(host);
   activeDropdown = host;
 
   // Animate in
@@ -911,7 +1029,282 @@ function showOtpDropdown(inputEl: HTMLInputElement, credentials: AutofillCredent
 
   container.appendChild(itemsList);
   shadow.appendChild(container);
-  document.body.appendChild(host);
+  (document.body || document.documentElement).appendChild(host);
+  activeDropdown = host;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (activeDropdown) {
+        activeDropdown.style.opacity = "1";
+        activeDropdown.style.transform = "translateY(0)";
+      }
+    });
+  });
+}
+
+function showLockedDropdown(inputEl: HTMLInputElement) {
+  if (activeInput === inputEl && activeDropdown) return;
+  removeDropdown();
+
+  activeInput = inputEl;
+  const rect = inputEl.getBoundingClientRect();
+
+  const width = Math.max(rect.width, 300);
+  const estimatedHeight = 92;
+  const pos = getDropdownPosition(rect, estimatedHeight, width);
+
+  const host = document.createElement("div");
+  host.id = "vaultr-autofill-host";
+  host.style.cssText = `
+    position: fixed !important;
+    top: ${pos.top}px !important;
+    left: ${pos.left}px !important;
+    width: ${width}px !important;
+    max-height: ${pos.maxHeight}px !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    opacity: 0;
+    transform: translateY(${pos.isAbove ? "6px" : "-6px"});
+    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  `;
+
+  const shadow = host.attachShadow({ mode: "open" });
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    * {
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      line-height: 1.4 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+    }
+    .dropdown-container {
+      background: #09090b !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+      overflow: hidden !important;
+      font-size: 13px !important;
+      color: #f4f4f5 !important;
+      padding: 6px !important;
+      backdrop-filter: blur(20px) !important;
+      -webkit-backdrop-filter: blur(20px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .header {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      padding: 6px 8px 8px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      color: #ffffff !important;
+      letter-spacing: 0.04em !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      margin-bottom: 4px !important;
+      flex-shrink: 0 !important;
+    }
+    .brand-logo {
+      height: 17px !important;
+      width: auto !important;
+      max-width: 90px !important;
+      object-fit: contain !important;
+      display: block !important;
+    }
+    .locked-badge {
+      margin-left: auto !important;
+      font-weight: 500 !important;
+      font-size: 10px !important;
+      color: #a1a1aa !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      padding: 2px 7px !important;
+      border-radius: 9999px !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      letter-spacing: 0.03em !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+    }
+    .locked-dot {
+      width: 5px !important;
+      height: 5px !important;
+      border-radius: 50% !important;
+      background: #71717a !important;
+      display: inline-block !important;
+    }
+    .item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      padding: 8px 10px !important;
+      border-radius: 10px !important;
+      cursor: pointer !important;
+      transition: background 0.15s ease, border-color 0.15s ease !important;
+      background: transparent !important;
+      flex-shrink: 0 !important;
+    }
+    .item:hover {
+      background: #18181b !important;
+    }
+    .icon-box {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 9px !important;
+      background: #18181b !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+      flex-shrink: 0 !important;
+      transition: border-color 0.15s ease, background 0.15s ease !important;
+    }
+    .item:hover .icon-box {
+      background: #222226 !important;
+      border-color: rgba(255, 255, 255, 0.22) !important;
+    }
+    .meta {
+      min-width: 0 !important;
+      flex: 1 !important;
+    }
+    .name-row {
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+    }
+    .name {
+      font-weight: 600 !important;
+      font-size: 13px !important;
+      color: #ffffff !important;
+      letter-spacing: -0.01em !important;
+    }
+    .sub {
+      font-size: 11.5px !important;
+      color: #94a3b8 !important;
+      margin-top: 1px !important;
+      letter-spacing: -0.005em !important;
+    }
+    .unlock-btn-pill {
+      margin-left: auto !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      padding: 4px 9px !important;
+      border-radius: 6px !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      color: #f4f4f5 !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.01em !important;
+      transition: all 0.15s ease !important;
+      flex-shrink: 0 !important;
+    }
+    .item:hover .unlock-btn-pill {
+      background: #ffffff !important;
+      border-color: #ffffff !important;
+      color: #09090b !important;
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15) !important;
+    }
+  `;
+  shadow.appendChild(styleEl);
+
+  const container = document.createElement("div");
+  container.className = "dropdown-container";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "header";
+
+  const logoUrl = typeof chrome !== "undefined" && chrome.runtime?.getURL
+    ? chrome.runtime.getURL("brand/vaultr-full-dark-transparent.png")
+    : "";
+
+  if (logoUrl) {
+    const brandImg = document.createElement("img");
+    brandImg.src = logoUrl;
+    brandImg.alt = "Vaultr";
+    brandImg.className = "brand-logo";
+    brandImg.onerror = () => {
+      brandImg.remove();
+      if (!header.querySelector(".brand-fallback-title")) {
+        const fallback = document.createElement("span");
+        fallback.className = "brand-fallback-title";
+        fallback.textContent = "VAULTR";
+        fallback.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
+        header.insertBefore(fallback, badge);
+      }
+    };
+    header.appendChild(brandImg);
+  } else {
+    const title = document.createElement("span");
+    title.className = "brand-fallback-title";
+    title.textContent = "VAULTR";
+    title.style.cssText = "font-weight: 700; color: #ffffff; font-size: 12px; letter-spacing: 0.06em;";
+    header.appendChild(title);
+  }
+
+  const badge = document.createElement("span");
+  badge.className = "locked-badge";
+  const dot = document.createElement("span");
+  dot.className = "locked-dot";
+  badge.appendChild(dot);
+  const badgeText = document.createElement("span");
+  badgeText.textContent = "Vault locked";
+  badge.appendChild(badgeText);
+  header.appendChild(badge);
+  container.appendChild(header);
+
+  // Clickable locked row
+  const item = document.createElement("div");
+  item.className = "item";
+
+  const iconBox = document.createElement("div");
+  iconBox.className = "icon-box";
+  iconBox.appendChild(createLockSvgIcon());
+  item.appendChild(iconBox);
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+
+  const nameRow = document.createElement("div");
+  nameRow.className = "name-row";
+  const nameEl = document.createElement("div");
+  nameEl.className = "name";
+  nameEl.textContent = "Unlock Vault";
+  nameRow.appendChild(nameEl);
+
+  const subEl = document.createElement("div");
+  subEl.className = "sub";
+  subEl.textContent = "Click to unlock and autofill logins";
+
+  meta.appendChild(nameRow);
+  meta.appendChild(subEl);
+  item.appendChild(meta);
+
+  const pill = document.createElement("div");
+  pill.className = "unlock-btn-pill";
+  pill.innerHTML = `<span>Unlock</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>`;
+  item.appendChild(pill);
+
+  item.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chrome.runtime.sendMessage({ type: "OPEN_POPOUT" }, () => {
+      void chrome.runtime.lastError;
+    });
+    removeDropdown();
+  });
+
+  container.appendChild(item);
+  shadow.appendChild(container);
+  (document.body || document.documentElement).appendChild(host);
   activeDropdown = host;
 
   requestAnimationFrame(() => {
@@ -946,6 +1339,13 @@ document.addEventListener("focusin", (e) => {
 
       chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
         if (chrome.runtime.lastError) return;
+        // Vault is locked — prompt user to unlock vault
+        if (response?.isLocked) {
+          if (document.activeElement === target) {
+            showLockedDropdown(target);
+          }
+          return;
+        }
         if (response?.logins?.length > 0) {
           if (document.activeElement === target) {
             if (isOtp) {
@@ -962,7 +1362,28 @@ document.addEventListener("focusin", (e) => {
 
 // Handle autofill, copy TOTP, and password fill messages
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === "AUTOFILL_CREDENTIAL" && message.credential) {
+  if (message.type === "VAULT_UNLOCKED") {
+    const activeEl = document.activeElement as HTMLInputElement | null;
+    const target =
+      (activeEl && activeEl.tagName === "INPUT" && (isLoginField(activeEl) || isOtpField(activeEl)) ? activeEl : null) ||
+      (lastFocusedField && (isLoginField(lastFocusedField) || isOtpField(lastFocusedField)) ? lastFocusedField : null);
+
+    if (target) {
+      const domain = getDomain();
+      if (domain) {
+        chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (response) => {
+          if (chrome.runtime.lastError) return;
+          if (!response?.isLocked && response?.logins?.length > 0) {
+            if (isOtpField(target)) {
+              showOtpDropdown(target, response.logins);
+            } else {
+              showDropdown(target, response.logins);
+            }
+          }
+        });
+      }
+    }
+  } else if (message.type === "AUTOFILL_CREDENTIAL" && message.credential) {
     const cred: AutofillCredential = {
       id: "popup",
       name: "Vaultr",
@@ -970,14 +1391,16 @@ chrome.runtime.onMessage.addListener((message) => {
     };
     const activeEl = document.activeElement as HTMLInputElement | null;
     const anchor =
-      (activeEl && activeEl.tagName === "INPUT" ? activeEl : null) ||
-      lastFocusedField ||
+      (activeEl && activeEl.tagName === "INPUT" && isLoginField(activeEl) ? activeEl : null) ||
+      (lastFocusedField && document.contains(lastFocusedField) ? lastFocusedField : null) ||
       document.querySelector<HTMLInputElement>('input[type="password"]') ||
-      document.querySelector<HTMLInputElement>('input[type="email"]') ||
-      document.querySelector<HTMLInputElement>('input[type="text"]');
+      document.querySelector<HTMLInputElement>('input[autocomplete="username"], input[autocomplete="email"], input[type="email"], input[name*="user" i], input[name*="login" i], input[id*="user" i], input[id*="login" i]') ||
+      (document.querySelector<HTMLInputElement>('input[type="text"]') && isLoginField(document.querySelector<HTMLInputElement>('input[type="text"]')!) ? document.querySelector<HTMLInputElement>('input[type="text"]') : null);
 
     if (anchor) {
+      anchor.focus();
       fillCredential(anchor, cred);
+      showInPageToast(`Autofilled credentials for <span class="code">${cred.name}</span>`);
     }
   } else if (message.type === "TRIGGER_AUTOFILL" && message.credential) {
     const cred: AutofillCredential = message.credential;
@@ -1033,6 +1456,14 @@ function removeSavePrompt() {
   }
 }
 
+const VAULTR_SHIELD_ICON_SVG = `
+<svg width="15" height="15" viewBox="0 0 1000 1000" fill="none" style="display:block;flex-shrink:0;">
+  <path fill="#ffffff" d="M 61 148 L 500.5 976.6 L 779.8 589.8 L 779.8 351.1 L 725.1 310.5 L 291.5 311 L 394 462.9 L 339.8 447.3 L 539.6 782.7 L 507.3 827.6 L 275.4 403.3 L 326.2 419.4 Z"/>
+  <path fill="#09090b" d="M 500 433 C 472 433 449 456 449 484 C 449 504 460 521 477 530 L 469 604 L 531 604 L 523 530 C 540 521 551 504 551 484 C 551 456 528 433 500 433 Z"/>
+  <path fill="#ffffff" d="M 305 285 L 305 78 L 360 21 L 640 21 L 700 78 L 700 285 L 625 285 L 625 106 L 605 88 L 395 88 L 380 106 L 380 285 Z"/>
+</svg>
+`;
+
 function showSaveOrUpdatePrompt(opts: {
   mode: "save" | "update";
   domain: string;
@@ -1052,7 +1483,7 @@ function showSaveOrUpdatePrompt(opts: {
     position: fixed !important;
     top: 16px !important;
     right: 16px !important;
-    width: 320px !important;
+    width: 340px !important;
     z-index: 2147483647 !important;
     pointer-events: auto !important;
     opacity: 0;
@@ -1068,7 +1499,7 @@ function showSaveOrUpdatePrompt(opts: {
       background: #09090b;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
       padding: 14px 16px;
       color: #f4f4f5;
     }
@@ -1076,28 +1507,57 @@ function showSaveOrUpdatePrompt(opts: {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
-    .badge {
+    .brand {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
+      gap: 8px;
+    }
+    .logo-box {
+      width: 24px;
+      height: 24px;
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+    }
+    .chip {
+      font-size: 9px;
       font-weight: 700;
       color: #38bdf8;
-      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 1.5px 5px;
+      border-radius: 4px;
       letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
     .close-btn {
+      width: 24px;
+      height: 24px;
       background: none;
       border: none;
+      border-radius: 6px;
       color: #71717a;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
     }
-    .close-btn:hover { color: #f4f4f5; }
+    .close-btn:hover { background: rgba(255, 255, 255, 0.08); color: #f4f4f5; }
     .title {
       font-size: 14px;
       font-weight: 600;
@@ -1117,28 +1577,35 @@ function showSaveOrUpdatePrompt(opts: {
     }
     .btn-primary {
       flex: 1;
-      height: 34px;
+      height: 36px;
       background: #f4f4f5;
       color: #09090b;
       border: none;
       border-radius: 9px;
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s, transform 0.05s;
     }
     .btn-primary:hover { background: #ffffff; }
+    .btn-primary:active { transform: scale(0.99); }
     .btn-ghost {
-      height: 34px;
+      height: 36px;
       padding: 0 12px;
       background: #18181b;
       color: #a1a1aa;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 9px;
       font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.2); }
+    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255, 255, 255, 0.22); background: #202024; }
   `;
   shadow.appendChild(styleEl);
 
@@ -1148,11 +1615,14 @@ function showSaveOrUpdatePrompt(opts: {
   const isSave = opts.mode === "save";
   card.innerHTML = `
     <div class="header">
-      <div class="badge">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>VaultR Password Manager</span>
+      <div class="brand">
+        <div class="logo-box">
+          ${VAULTR_SHIELD_ICON_SVG}
+        </div>
+        <span class="brand-title">VaultR</span>
+        <span class="chip">Password</span>
       </div>
-      <button class="close-btn" title="Dismiss">✕</button>
+      <button class="close-btn" title="Dismiss" aria-label="Dismiss">✕</button>
     </div>
     <div class="title">${isSave ? "Save password to VaultR?" : "Update password in VaultR?"}</div>
     <div class="sub">
@@ -1221,22 +1691,35 @@ function showSaveOrUpdatePrompt(opts: {
 
 function checkAndShowSavePrompt(username: string, password: string, domain: string) {
   if (!password || !domain) return;
+  // Minimum sensible password length — avoids triggering on PIN-only or OTP fields
+  if (password.length < 6) return;
   if (lastSubmittedUsername === username && lastSubmittedPassword === password && lastSubmittedDomain === domain) {
     return;
   }
+
+  // If no username found in the form, check if one was persisted from a previous page
+  const effectiveUsername = username || getCrossPageUsername(domain);
 
   if (typeof chrome !== "undefined" && chrome.storage?.local) {
     chrome.storage.local.get(["vaultr_prompt_save", "vaultr_prompt_update"], (prefs) => {
       chrome.runtime.sendMessage({ type: "GET_LOGINS_FOR_DOMAIN", domain }, (res) => {
         if (chrome.runtime.lastError) return;
+
+        // ── Locked vault guard ──────────────────────────────────────────────────
+        // When the vault is locked we cannot save or update anything, so do not
+        // show a prompt that misleads the user into thinking it worked.
+        if (res?.isLocked) return;
+
         const logins: AutofillCredential[] = res?.logins || [];
 
         const matchingUser = logins.find(
-          (l) => l.username && username && l.username.toLowerCase() === username.toLowerCase()
+          (l) => l.username && effectiveUsername && l.username.toLowerCase() === effectiveUsername.toLowerCase()
         );
 
         if (matchingUser) {
           if (matchingUser.password && matchingUser.password === password) {
+            // Password unchanged — clear cross-page state and bail
+            clearCrossPageUsername();
             return;
           }
           if (prefs?.vaultr_prompt_update === false) return;
@@ -1244,7 +1727,7 @@ function checkAndShowSavePrompt(username: string, password: string, domain: stri
           showSaveOrUpdatePrompt({
             mode: "update",
             domain,
-            username: matchingUser.username || username,
+            username: matchingUser.username || effectiveUsername,
             password,
             itemId: matchingUser.id,
             itemName: matchingUser.name,
@@ -1255,10 +1738,13 @@ function checkAndShowSavePrompt(username: string, password: string, domain: stri
           showSaveOrUpdatePrompt({
             mode: "save",
             domain,
-            username,
+            username: effectiveUsername,
             password,
           });
         }
+
+        // Clear the cross-page username after it has been used
+        clearCrossPageUsername();
       });
     });
   }
@@ -1288,18 +1774,31 @@ function findTargetPasswordField(container: Element): HTMLInputElement | null {
   return pwds[0];
 }
 
+/**
+ * Returns true for buttons that should NOT trigger a save prompt — e.g.
+ * password-reveal toggles, cancel/close/back buttons, or navigation-only
+ * buttons like "Next" on page-1 of a split username→password login flow
+ * (that page has no password field to capture).
+ */
+function isSaveExcludedButton(btn: Element): boolean {
+  const btnText = (btn.textContent || "").trim().toLowerCase();
+  const btnAria = (btn.getAttribute("aria-label") || "").toLowerCase();
+  const btnClass = (btn.className || "").toString().toLowerCase();
+  const btnId   = (btn.id || "").toLowerCase();
+  const combined = `${btnText} ${btnAria} ${btnClass} ${btnId}`;
+  return /eye|reveal|show|toggle|hide|cancel|close|back|dismiss|forget|clear|reset|navigation|nav-/.test(combined);
+}
+
 function setupFormSubmitInterceptor() {
   document.addEventListener("submit", (e) => {
     const form = e.target as HTMLFormElement;
     if (!form || form.tagName !== "FORM") return;
     const pwdInput = findTargetPasswordField(form);
-    if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
+    if (!pwdInput || !pwdInput.value || pwdInput.value.length < 6) return;
     const userInput = findUsernameField(pwdInput);
-    const username = userInput?.value || "";
-    const password = pwdInput.value;
     const domain = getDomain();
     if (!domain) return;
-    checkAndShowSavePrompt(username, password, domain);
+    checkAndShowSavePrompt(userInput?.value || "", pwdInput.value, domain);
   }, true);
 
   document.addEventListener("click", (e) => {
@@ -1310,29 +1809,22 @@ function setupFormSubmitInterceptor() {
 
     const btn = targetEl.closest('button[type="submit"], input[type="submit"], button:not([type])');
     if (!btn) return;
-
-    // Filter out eye / password reveal toggle buttons and cancel / close buttons
-    const btnText = (btn.textContent || "").toLowerCase();
-    const btnAria = (btn.getAttribute("aria-label") || "").toLowerCase();
-    const btnClass = (btn.className || "").toString().toLowerCase();
-    if (/eye|reveal|show|toggle|hide|cancel|close|back/.test(`${btnText} ${btnAria} ${btnClass}`)) {
-      return;
-    }
+    if (isSaveExcludedButton(btn)) return;
 
     const form = btn.closest("form");
     if (form) {
       const pwdInput = findTargetPasswordField(form);
-      if (!pwdInput || !pwdInput.value || pwdInput.value.length < 4) return;
+      // No password field in this form — it may be the username-only step of a
+      // split login flow. Do NOT show save prompt here; wait for the password page.
+      if (!pwdInput || !pwdInput.value || pwdInput.value.length < 6) return;
       const userInput = findUsernameField(pwdInput);
-      const username = userInput?.value || "";
-      const password = pwdInput.value;
       const domain = getDomain();
       if (!domain) return;
-      checkAndShowSavePrompt(username, password, domain);
+      checkAndShowSavePrompt(userInput?.value || "", pwdInput.value, domain);
     } else {
       const container = btn.closest("div, section, main, [role='dialog'], [role='form']");
       const pwd = container ? findTargetPasswordField(container) : null;
-      if (pwd && pwd.value.trim().length >= 4) {
+      if (pwd && pwd.value.trim().length >= 6) {
         const usr = findUsernameField(pwd);
         checkAndShowSavePrompt(usr?.value || "", pwd.value, getDomain());
       }
@@ -1347,14 +1839,21 @@ setupFormSubmitInterceptor();
 
 let activePasskeyPrompt: HTMLElement | null = null;
 
-function removePasskeyPrompt() {
-  if (activePasskeyPrompt) {
-    const el = activePasskeyPrompt;
-    activePasskeyPrompt = null;
-    el.style.opacity = "0";
-    el.style.transform = "translateY(-8px)";
-    setTimeout(() => el.remove(), 200);
+function removePasskeyPrompt(immediate = false) {
+  const existing = document.getElementById("vaultr-passkey-prompt-host");
+  if (existing) {
+    if (immediate) {
+      existing.remove();
+    } else {
+      existing.style.opacity = "0";
+      existing.style.transform = "translateY(-8px)";
+      setTimeout(() => existing.remove(), 200);
+    }
   }
+  if (activePasskeyPrompt && activePasskeyPrompt !== existing) {
+    try { activePasskeyPrompt.remove(); } catch {}
+  }
+  activePasskeyPrompt = null;
 }
 
 function showPasskeyPrompt(opts: {
@@ -1363,8 +1862,9 @@ function showPasskeyPrompt(opts: {
   username?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  onUseBrowser?: () => void;
 }) {
-  removePasskeyPrompt();
+  removePasskeyPrompt(true);
 
   const host = document.createElement("div");
   host.id = "vaultr-passkey-prompt-host";
@@ -1372,7 +1872,7 @@ function showPasskeyPrompt(opts: {
     position: fixed !important;
     top: 16px !important;
     right: 16px !important;
-    width: 320px !important;
+    width: 350px !important;
     z-index: 2147483647 !important;
     pointer-events: auto !important;
     opacity: 0;
@@ -1388,7 +1888,7 @@ function showPasskeyPrompt(opts: {
       background: #09090b;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
       padding: 14px 16px;
       color: #f4f4f5;
     }
@@ -1396,39 +1896,120 @@ function showPasskeyPrompt(opts: {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
-    .badge {
+    .brand {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
+      gap: 8px;
+    }
+    .logo-box {
+      width: 24px;
+      height: 24px;
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+    }
+    .chip {
+      font-size: 9px;
       font-weight: 700;
       color: #38bdf8;
-      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 1.5px 5px;
+      border-radius: 4px;
       letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
     .close-btn {
+      width: 24px;
+      height: 24px;
       background: none;
       border: none;
+      border-radius: 6px;
       color: #71717a;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
     }
-    .close-btn:hover { color: #f4f4f5; }
+    .close-btn:hover { background: rgba(255, 255, 255, 0.08); color: #f4f4f5; }
     .title {
       font-size: 14px;
       font-weight: 600;
       color: #ffffff;
-      margin-bottom: 4px;
+      margin-bottom: 10px;
     }
-    .sub {
+    .account-card {
+      background: #141417;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .account-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #1c1c21;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .account-icon img {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+    }
+    .account-meta {
+      min-width: 0;
+      flex: 1;
+    }
+    .account-rp {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f4f4f5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-user {
       font-size: 12px;
       color: #a1a1aa;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+    .security-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #71717a;
       margin-bottom: 14px;
-      line-height: 1.4;
+    }
+    .security-note svg {
+      flex-shrink: 0;
     }
     .actions {
       display: flex;
@@ -1436,28 +2017,35 @@ function showPasskeyPrompt(opts: {
     }
     .btn-primary {
       flex: 1;
-      height: 34px;
+      height: 36px;
       background: #f4f4f5;
       color: #09090b;
       border: none;
       border-radius: 9px;
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s, transform 0.05s;
     }
     .btn-primary:hover { background: #ffffff; }
+    .btn-primary:active { transform: scale(0.99); }
     .btn-ghost {
-      height: 34px;
-      padding: 0 10px;
+      height: 36px;
+      padding: 0 12px;
       background: #18181b;
       color: #a1a1aa;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 9px;
       font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.2); }
+    .btn-ghost:hover { color: #f4f4f5; border-color: rgba(255, 255, 255, 0.22); background: #202024; }
   `;
 
   shadow.appendChild(styleEl);
@@ -1466,24 +2054,42 @@ function showPasskeyPrompt(opts: {
   card.className = "card";
 
   const isCreate = opts.mode === "create";
+  const userDisplay = opts.username || (isCreate ? "New Passkey" : "Saved Passkey");
+
   card.innerHTML = `
     <div class="header">
-      <div class="badge">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m21 2-2 2m-1.5 1.5L10 13a5 5 0 1 0 4 4l7.5-7.5M15.5 7.5l3 3"/></svg>
-        <span>VaultR Passkey</span>
+      <div class="brand">
+        <div class="logo-box">
+          ${VAULTR_SHIELD_ICON_SVG}
+        </div>
+        <span class="brand-title">VaultR</span>
+        <span class="chip">Passkey</span>
       </div>
-      <button class="close-btn" title="Dismiss">✕</button>
+      <button class="close-btn" title="Dismiss" aria-label="Dismiss">✕</button>
     </div>
     <div class="title">${isCreate ? "Save Passkey to VaultR" : "Sign In with Passkey"}</div>
-    <div class="sub">
-      ${
-        isCreate
-          ? `Save passkey for <strong>${opts.rpId}</strong>${opts.username ? ` (${opts.username})` : ""}`
-          : `Use passkey stored in VaultR for <strong>${opts.rpId}</strong>${opts.username ? ` (${opts.username})` : ""}`
-      }
+    <div class="account-card">
+      <div class="account-icon">
+        <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(opts.rpId)}&sz=64" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      </div>
+      <div class="account-meta">
+        <div class="account-rp">${opts.rpId}</div>
+        <div class="account-user">${userDisplay}</div>
+      </div>
+    </div>
+    <div class="security-note">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+      <span>End-to-end encrypted in your vault</span>
     </div>
     <div class="actions">
-      <button class="btn-primary">${isCreate ? "Save Passkey" : "Sign In"}</button>
+      <button class="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-1.5 1.5L10 13a5 5 0 1 0 4 4l7.5-7.5M15.5 7.5l3 3"/></svg>
+        <span>${isCreate ? "Save Passkey" : "Sign In"}</span>
+      </button>
       <button class="btn-ghost">Use Browser</button>
     </div>
   `;
@@ -1498,7 +2104,16 @@ function showPasskeyPrompt(opts: {
     opts.onCancel();
   };
 
-  card.querySelector(".btn-ghost")?.addEventListener("click", handleDismiss);
+  const handleUseBrowser = () => {
+    removePasskeyPrompt();
+    if (opts.onUseBrowser) {
+      opts.onUseBrowser();
+    } else {
+      opts.onCancel();
+    }
+  };
+
+  card.querySelector(".btn-ghost")?.addEventListener("click", handleUseBrowser);
   card.querySelector(".close-btn")?.addEventListener("click", handleDismiss);
 
   shadow.appendChild(card);
@@ -1521,6 +2136,11 @@ window.addEventListener("message", (event) => {
 
   const { action, reqId, payload } = event.data;
 
+  if (action === "ABORT") {
+    removePasskeyPrompt(true);
+    return;
+  }
+
   chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (status) => {
     if (chrome.runtime.lastError || !status?.enabled) {
       window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
@@ -1528,7 +2148,19 @@ window.addEventListener("message", (event) => {
     }
 
     if (!status.isUnlocked) {
-      // Vault is locked; delegate to browser native
+      // Vault is locked — tell the interceptor so it can throw NotAllowedError
+      // Show toast so user knows to unlock VaultR
+      if (action === "GET") {
+        showInPageToast(
+          `<span style="color:#f59e0b;font-weight:700">&#128274;</span> <span>Unlock VaultR to sign in with your passkey.</span>`,
+          6000
+        );
+      } else if (action === "CREATE") {
+        showInPageToast(
+          `<span style="color:#f59e0b;font-weight:700">&#128274;</span> <span>Unlock VaultR to save your passkey.</span>`,
+          6000
+        );
+      }
       window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "locked" }, "*");
       return;
     }
@@ -1542,35 +2174,59 @@ window.addEventListener("message", (event) => {
         rpId,
         username,
         onConfirm: () => {
-          chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
-            if (chrome.runtime.lastError || !res) {
+          // Pre-flight check to wake service worker and ensure vault session is unlocked
+          chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (checkRes) => {
+            if (chrome.runtime.lastError || !checkRes?.isUnlocked) {
+              showInPageToast(
+                `<span style="color:#ef4444;font-weight:700">✕</span> <span>Vault is locked. Unlock VaultR to create passkey.</span>`,
+                6000
+              );
               window.postMessage(
                 {
                   source: "VAULTR_WEBAUTHN_CONTENT",
                   reqId,
                   handled: false,
-                  userConfirmed: true,
-                  error: chrome.runtime.lastError?.message || "Failed to create passkey in VaultR",
+                  userConfirmed: false,
+                  error: "Vault is locked",
                 },
                 "*"
               );
               return;
             }
-            window.postMessage(
-              {
-                source: "VAULTR_WEBAUTHN_CONTENT",
-                reqId,
-                handled: res.handled ?? true,
-                userConfirmed: true,
-                credential: res.credential,
-                error: res.error,
-              },
-              "*"
-            );
+
+            chrome.runtime.sendMessage({ type: "WEBAUTHN_CREATE", payload }, (res) => {
+              if (chrome.runtime.lastError || !res) {
+                window.postMessage(
+                  {
+                    source: "VAULTR_WEBAUTHN_CONTENT",
+                    reqId,
+                    handled: false,
+                    userConfirmed: true,
+                    error: chrome.runtime.lastError?.message || "Failed to create passkey in VaultR",
+                  },
+                  "*"
+                );
+                return;
+              }
+              window.postMessage(
+                {
+                  source: "VAULTR_WEBAUTHN_CONTENT",
+                  reqId,
+                  handled: res.handled ?? true,
+                  userConfirmed: true,
+                  credential: res.credential,
+                  error: res.error,
+                },
+                "*"
+              );
+            });
           });
         },
+        onUseBrowser: () => {
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, useBrowser: true }, "*");
+        },
         onCancel: () => {
-          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");
+          window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "Passkey creation cancelled by user" }, "*");
         },
       });
     } else if (action === "GET") {
@@ -1580,8 +2236,13 @@ window.addEventListener("message", (event) => {
         { type: "GET_PASSKEYS_FOR_RP", rpId, allowCredentials: payload.allowCredentials },
         (res) => {
           if (chrome.runtime.lastError || !res?.passkeys || res.passkeys.length === 0) {
-            // No passkeys in vault for this RP; let browser handle natively
-            window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false }, "*");
+            // No passkeys in VaultR vault for this RP — inform user instead of silently
+            // falling back to browser native (which would trigger Windows Hello popup).
+            showInPageToast(
+              `<span style="color:#f59e0b;font-weight:700">&#128275;</span> <span>No VaultR passkey found for <strong>${rpId}</strong>. Please register a passkey first.</span>`,
+              7000
+            );
+            window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "No passkey found" }, "*");
             return;
           }
 
@@ -1591,49 +2252,73 @@ window.addEventListener("message", (event) => {
             rpId,
             username: passkey.username,
             onConfirm: () => {
-              chrome.runtime.sendMessage(
-                {
-                  type: "WEBAUTHN_GET",
-                  payload: {
-                    ...payload,
-                    selectedItemId: passkey.id,
-                    selectedCredentialId: passkey.credentialId,
-                  },
-                },
-                (getRes) => {
-                  if (chrome.runtime.lastError || !getRes || !getRes.handled || !getRes.credential) {
-                    const errMsg = getRes?.error || chrome.runtime.lastError?.message || "Passkey sign-in failed";
-                    showInPageToast(
-                      `<span style="color:#ef4444;font-weight:700">✕</span> <span>${errMsg}</span>`,
-                      6000
-                    );
-                    window.postMessage(
-                      {
-                        source: "VAULTR_WEBAUTHN_CONTENT",
-                        reqId,
-                        handled: false,
-                        userConfirmed: true,
-                        error: errMsg,
-                      },
-                      "*"
-                    );
-                    return;
-                  }
+              // Pre-flight check to wake service worker and ensure vault session is unlocked
+              chrome.runtime.sendMessage({ type: "CHECK_PASSKEY_AVAILABLE" }, (checkRes) => {
+                if (chrome.runtime.lastError || !checkRes?.isUnlocked) {
+                  showInPageToast(
+                    `<span style="color:#ef4444;font-weight:700">✕</span> <span>Vault is locked. Unlock VaultR to sign in with passkey.</span>`,
+                    6000
+                  );
                   window.postMessage(
                     {
                       source: "VAULTR_WEBAUTHN_CONTENT",
                       reqId,
-                      handled: true,
-                      userConfirmed: true,
-                      credential: getRes.credential,
+                      handled: false,
+                      userConfirmed: false,
+                      error: "Vault is locked",
                     },
                     "*"
                   );
+                  return;
                 }
-              );
+
+                chrome.runtime.sendMessage(
+                  {
+                    type: "WEBAUTHN_GET",
+                    payload: {
+                      ...payload,
+                      selectedItemId: passkey.id,
+                      selectedCredentialId: passkey.credentialId,
+                    },
+                  },
+                  (getRes) => {
+                    if (chrome.runtime.lastError || !getRes || !getRes.handled || !getRes.credential) {
+                      const errMsg = getRes?.error || chrome.runtime.lastError?.message || "Passkey sign-in failed";
+                      showInPageToast(
+                        `<span style="color:#ef4444;font-weight:700">✕</span> <span>${errMsg}</span>`,
+                        6000
+                      );
+                      window.postMessage(
+                        {
+                          source: "VAULTR_WEBAUTHN_CONTENT",
+                          reqId,
+                          handled: false,
+                          userConfirmed: true,
+                          error: errMsg,
+                        },
+                        "*"
+                      );
+                      return;
+                    }
+                    window.postMessage(
+                      {
+                        source: "VAULTR_WEBAUTHN_CONTENT",
+                        reqId,
+                        handled: true,
+                        userConfirmed: true,
+                        credential: getRes.credential,
+                      },
+                      "*"
+                    );
+                  }
+                );
+              });
+            },
+            onUseBrowser: () => {
+              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, useBrowser: true }, "*");
             },
             onCancel: () => {
-              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, userCancelled: true }, "*");
+              window.postMessage({ source: "VAULTR_WEBAUTHN_CONTENT", reqId, handled: false, error: "Passkey sign-in cancelled by user" }, "*");
             },
           });
         }

@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
       to,
       subject,
       html:    WRAPPER(`
-        <h2 style="margin:0 0 10px;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:-0.02em;">${subject}</h2>
-        <div style="background-color:#131317;background:#131317;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:22px 24px;margin-bottom:16px;">
-          <p style="margin:0;font-size:14px;color:#f4f4f5;line-height:1.6;white-space:pre-wrap;">${message}</p>
-        </div>`, "SYSTEM MESSAGE"),
+        <h2 style="margin:0 0 10px;font-size:20px;color:#111827;font-weight:600;letter-spacing:-0.015em;">${subject}</h2>
+        <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin-bottom:16px;">
+          <p style="margin:0;font-size:14px;color:#1f2937;line-height:1.6;white-space:pre-wrap;">${message}</p>
+        </div>`),
       text:    message,
       attachments: getBrandLogoAttachment(),
     });

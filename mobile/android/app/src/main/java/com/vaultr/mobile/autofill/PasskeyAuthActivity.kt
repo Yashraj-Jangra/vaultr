@@ -1,37 +1,68 @@
 package com.vaultr.mobile.autofill
 
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.Intent
+import android.graphics.drawable.Icon
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
 import android.util.Base64
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.credentials.CreatePasswordResponse
+import androidx.credentials.CreatePublicKeyCredentialRequest
+import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.GetPublicKeyCredentialOption
 import androidx.credentials.PasswordCredential
 import androidx.credentials.PublicKeyCredential
+import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.exceptions.GetCredentialUnknownException
+import androidx.credentials.provider.BeginGetCredentialResponse
+import androidx.credentials.provider.BeginGetPasswordOption
+import androidx.credentials.provider.BeginGetPublicKeyCredentialOption
+import androidx.credentials.provider.PasswordCredentialEntry
 import androidx.credentials.provider.PendingIntentHandler
+import androidx.credentials.provider.ProviderCreateCredentialRequest
+import androidx.credentials.provider.PublicKeyCredentialEntry
+import com.vaultr.mobile.R
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.security.KeyFactory
+import java.security.KeyPairGenerator
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.security.Signature
+import java.security.interfaces.ECPublicKey
+import java.security.spec.ECGenParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 
 /**
- * PasskeyAuthActivity — System Credential Manager Assertion Bridge.
+ * PasskeyAuthActivity — System Credential Manager Assertion & Registration Bridge.
  *
- * Transparent activity triggered when the user selects a VaultR passkey or password candidate
- * in the Android Credential Manager bottom sheet. Performs standard ECDSA P-256 assertion signing
- * and returns the authenticated credentials directly to Android OS via PendingIntentHandler.
+ * Transparent activity triggered when the user selects a VaultR passkey/password candidate
+ * or creates a new passkey/password in the Android Credential Manager bottom sheet.
+ * Performs standard ECDSA P-256 assertion signing and key generation, returning the
+ * credentials directly to Android OS via PendingIntentHandler.
  */
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 class PasskeyAuthActivity : Activity() {
 
     companion object {
         private const val TAG = "VaultrPasskeyAuth"
+
+        // Official VaultR Authenticator Attestation Globally Unique Identifier (AAGUID)
+        // Format: RFC 4122 v4 UUID, hex prefix: 0x76 61 75 6c 74 72 = "vaultr" in ASCII
+        const val VAULTR_AAGUID = "7661756c-7472-4a11-8517-5e839e55720c"
+        val VAULTR_AAGUID_BYTES = byteArrayOf(
+            0x76.toByte(), 0x61.toByte(), 0x75.toByte(), 0x6c.toByte(),
+            0x74.toByte(), 0x72.toByte(), 0x4a.toByte(), 0x11.toByte(),
+            0x85.toByte(), 0x17.toByte(), 0x5e.toByte(), 0x83.toByte(),
+            0x9e.toByte(), 0x55.toByte(), 0x72.toByte(), 0x0c.toByte()
+        )
 
         // Fixed ASN.1 PKCS#8 prefix for SECP256R1 (ECDSA P-256) private key wrapping
         private val PKCS8_P256_PREFIX = byteArrayOf(
@@ -69,6 +100,98 @@ class PasskeyAuthActivity : Activity() {
                 keyBytes
             }
         }
+
+        fun getRawCoords(bigInt: java.math.BigInteger): ByteArray {
+            val raw = bigInt.toByteArray()
+            if (raw.size == 32) return raw
+            val out = ByteArray(32)
+            if (raw.size > 32) {
+                System.arraycopy(raw, raw.size - 32, out, 0, 32)
+            } else {
+                System.arraycopy(raw, 0, out, 32 - raw.size, raw.size)
+            }
+            return out
+        }
+
+        fun encodeCosePublicKey(xCoord: ByteArray, yCoord: ByteArray): ByteArray {
+            // Map of 5 items: 0xa5
+            // 1 => 2:        0x01, 0x02
+            // 3 => -7:       0x03, 0x26 (-7 is encoded as 0x20 + 6 = 0x26)
+            // -1 => 1:       0x20, 0x01 (-1 is encoded as 0x20)
+            // -2 => bstr(32): 0x21, 0x58, 0x20, [32 bytes x]
+            // -3 => bstr(32): 0x22, 0x58, 0x20, [32 bytes y]
+            val header = byteArrayOf(
+                0xa5.toByte(),
+                0x01.toByte(), 0x02.toByte(),
+                0x03.toByte(), 0x26.toByte(),
+                0x20.toByte(), 0x01.toByte(),
+                0x21.toByte(), 0x58.toByte(), 0x20.toByte()
+            )
+            val mid = byteArrayOf(0x22.toByte(), 0x58.toByte(), 0x20.toByte())
+            val out = ByteArray(header.size + xCoord.size + mid.size + yCoord.size)
+            var offset = 0
+            System.arraycopy(header, 0, out, offset, header.size); offset += header.size
+            System.arraycopy(xCoord, 0, out, offset, xCoord.size); offset += xCoord.size
+            System.arraycopy(mid, 0, out, offset, mid.size); offset += mid.size
+            System.arraycopy(yCoord, 0, out, offset, yCoord.size)
+            return out
+        }
+
+        fun encodeAttestationObjectNone(authData: ByteArray): ByteArray {
+            val keysAndFmt = byteArrayOf(
+                // "fmt": "none"
+                0x63.toByte(), 0x66.toByte(), 0x6d.toByte(), 0x74.toByte(),
+                0x64.toByte(), 0x6e.toByte(), 0x6f.toByte(), 0x6e.toByte(), 0x65.toByte(),
+                // "attStmt": {}
+                0x67.toByte(), 0x61.toByte(), 0x74.toByte(), 0x74.toByte(), 0x53.toByte(), 0x74.toByte(), 0x6d.toByte(), 0x74.toByte(),
+                0xa0.toByte(),
+                // "authData" key
+                0x68.toByte(), 0x61.toByte(), 0x75.toByte(), 0x74.toByte(), 0x68.toByte(), 0x44.toByte(), 0x61.toByte(), 0x74.toByte(), 0x61.toByte()
+            )
+            val len = authData.size
+            val lenHeader = when {
+                len < 24 -> byteArrayOf((0x40 + len).toByte())
+                len <= 0xff -> byteArrayOf(0x58.toByte(), len.toByte())
+                len <= 0xffff -> byteArrayOf(0x59.toByte(), ((len shr 8) and 0xff).toByte(), (len and 0xff).toByte())
+                else -> byteArrayOf(
+                    0x5a.toByte(),
+                    ((len shr 24) and 0xff).toByte(),
+                    ((len shr 16) and 0xff).toByte(),
+                    ((len shr 8) and 0xff).toByte(),
+                    (len and 0xff).toByte()
+                )
+            }
+            val out = ByteArray(1 + keysAndFmt.size + lenHeader.size + authData.size)
+            out[0] = 0xa3.toByte()
+            var offset = 1
+            System.arraycopy(keysAndFmt, 0, out, offset, keysAndFmt.size); offset += keysAndFmt.size
+            System.arraycopy(lenHeader, 0, out, offset, lenHeader.size); offset += lenHeader.size
+            System.arraycopy(authData, 0, out, offset, authData.size)
+            return out
+        }
+
+        fun getApkKeyHash(pm: android.content.pm.PackageManager, packageName: String): String? {
+            try {
+                val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val signingInfo = pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES).signingInfo
+                    if (signingInfo != null) {
+                        if (signingInfo.hasMultipleSigners()) {
+                            signingInfo.apkContentsSigners
+                        } else {
+                            signingInfo.signingCertificateHistory
+                        }
+                    } else null
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures
+                }
+                val cert = signatures?.firstOrNull()?.toByteArray() ?: return null
+                val digest = MessageDigest.getInstance("SHA-256").digest(cert)
+                return encodeBase64Url(digest)
+            } catch (e: Exception) {
+                return null
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,6 +206,9 @@ class PasskeyAuthActivity : Activity() {
             when (action) {
                 VaultrCredentialProviderService.ACTION_PASSKEY_AUTH -> handlePasskeyAuth()
                 VaultrCredentialProviderService.ACTION_PASSWORD_AUTH -> handlePasswordAuth()
+                VaultrCredentialProviderService.ACTION_PASSKEY_CREATE -> handlePasskeyCreate()
+                VaultrCredentialProviderService.ACTION_PASSWORD_CREATE -> handlePasswordCreate()
+                VaultrCredentialProviderService.ACTION_CREDENTIAL_UNLOCK -> handleCredentialUnlock()
                 else -> {
                     Log.w(TAG, "Unknown action: $action")
                     finishWithFailure("Unknown credential action: $action")
@@ -90,8 +216,183 @@ class PasskeyAuthActivity : Activity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Fatal error in PasskeyAuthActivity", e)
-            finishWithFailure(e.message ?: "Authentication error")
+            val action = intent.action
+            if (action == VaultrCredentialProviderService.ACTION_PASSKEY_CREATE || action == VaultrCredentialProviderService.ACTION_PASSWORD_CREATE) {
+                finishWithCreateFailure(e.message ?: "Creation error")
+            } else {
+                finishWithFailure(e.message ?: "Authentication error")
+            }
         }
+    }
+
+    private fun handleCredentialUnlock() {
+        val rpId = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_RP_ID) ?: ""
+        val requestJson = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_REQUEST_JSON) ?: ""
+        val callingPkg = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE) ?: ""
+
+        val promptBuilder = BiometricPrompt.Builder(this)
+            .setTitle("Unlock VaultR")
+            .setSubtitle(if (rpId.isNotBlank()) "Authenticate to sign in to $rpId" else "Authenticate to access your passkeys")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            promptBuilder.setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            promptBuilder.setDeviceCredentialAllowed(true)
+        }
+
+        val prompt = promptBuilder.build()
+        val cancellationSignal = CancellationSignal()
+
+        prompt.authenticate(
+            cancellationSignal,
+            mainExecutor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                    Log.d(TAG, "Biometric authentication succeeded in PasskeyAuthActivity")
+                    onCredentialUnlockSucceeded(rpId, requestJson, callingPkg)
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                    Log.w(TAG, "Biometric authentication canceled/error: $errorCode ($errString)")
+                    finishWithFailure(errString?.toString() ?: "Authentication canceled")
+                }
+
+                override fun onAuthenticationFailed() {
+                    Log.w(TAG, "Biometric authentication failed (unrecognized)")
+                }
+            }
+        )
+    }
+
+    private fun onCredentialUnlockSucceeded(passedRpId: String, passedRequestJson: String, passedCallingPkg: String) {
+        // 1. Unlock the local vault in memory
+        AutofillCredentialStore.unlockVault(applicationContext)
+
+        val resultIntent = Intent()
+        val responseBuilder = BeginGetCredentialResponse.Builder()
+
+        // 2. Retrieve original system BeginGetCredentialRequest if present
+        val beginRequest = PendingIntentHandler.retrieveBeginGetCredentialRequest(intent)
+        val callingAppInfo = beginRequest?.callingAppInfo
+        val callingPackage = callingAppInfo?.packageName ?: passedCallingPkg
+        val origin = callingAppInfo?.origin ?: ""
+
+        val options = beginRequest?.beginGetCredentialOptions ?: emptyList()
+
+        for (option in options) {
+            if (option is BeginGetPublicKeyCredentialOption) {
+                val requestJson = option.requestJson.ifBlank { passedRequestJson }
+                var rpId = ""
+                val allowCredentials = mutableListOf<String>()
+                if (requestJson.isNotBlank()) {
+                    try {
+                        val json = JSONObject(requestJson)
+                        rpId = json.optString("rpId")
+                        if (rpId.isBlank()) {
+                            rpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
+                        }
+                        val credsArr = json.optJSONArray("allowCredentials")
+                            ?: json.optJSONObject("publicKey")?.optJSONArray("allowCredentials")
+                        if (credsArr != null) {
+                            for (i in 0 until credsArr.length()) {
+                                val credObj = credsArr.optJSONObject(i)
+                                val id = credObj?.optString("id", "") ?: ""
+                                if (id.isNotBlank()) {
+                                    allowCredentials.add(id)
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (rpId.isBlank() && origin.isNotBlank()) {
+                    rpId = AutofillCredentialStore.normalizeDomain(origin)
+                }
+                if (rpId.isBlank()) {
+                    rpId = passedRpId.ifBlank { callingPackage }
+                }
+
+                val passkeys = AutofillCredentialStore.findPasskeysInStorage(applicationContext, rpId, allowCredentials)
+                Log.d(TAG, "Post-unlock: found ${passkeys.size} passkeys for rpId '$rpId'")
+
+                for (passkey in passkeys) {
+                    val authIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                        action = VaultrCredentialProviderService.ACTION_PASSKEY_AUTH
+                        putExtra(VaultrCredentialProviderService.EXTRA_CREDENTIAL_ID, passkey.id)
+                        putExtra(VaultrCredentialProviderService.EXTRA_PASSKEY_ID, passkey.passkeyCredentialId)
+                        putExtra(VaultrCredentialProviderService.EXTRA_RP_ID, if (rpId.isNotBlank()) rpId else (passkey.passkeyRpId ?: passkey.domain ?: ""))
+                        putExtra(VaultrCredentialProviderService.EXTRA_REQUEST_JSON, requestJson)
+                        putExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE, callingPackage)
+                    }
+
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        (passkey.passkeyCredentialId ?: passkey.id).hashCode(),
+                        authIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+
+                    val entry = PublicKeyCredentialEntry.Builder(
+                        this,
+                        passkey.username.ifBlank { passkey.name },
+                        pendingIntent,
+                        option
+                    ).apply {
+                        setDisplayName(passkey.name.ifBlank { passkey.username })
+                        setIcon(Icon.createWithResource(this@PasskeyAuthActivity, R.drawable.ic_vaultr_lock_small))
+                        setAutoSelectAllowed(false)
+                    }.build()
+
+                    responseBuilder.addCredentialEntry(entry)
+                    Log.d(TAG, "Added post-unlock passkey entry for ${passkey.username} on $rpId")
+                }
+            } else if (option is BeginGetPasswordOption) {
+                val target = if (origin.isNotBlank()) origin else callingPackage
+                val matches = AutofillCredentialStore.findMatchesInStorage(applicationContext, target)
+                Log.d(TAG, "Post-unlock: found ${matches.size} password matches for target '$target'")
+
+                for (login in matches) {
+                    if (login.password.isBlank()) continue
+
+                    val authIntent = Intent(this, PasskeyAuthActivity::class.java).apply {
+                        action = VaultrCredentialProviderService.ACTION_PASSWORD_AUTH
+                        putExtra(VaultrCredentialProviderService.EXTRA_CREDENTIAL_ID, login.id)
+                        putExtra(VaultrCredentialProviderService.EXTRA_USERNAME, login.username)
+                        putExtra(VaultrCredentialProviderService.EXTRA_PASSWORD, login.password)
+                    }
+
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        login.id.hashCode(),
+                        authIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+
+                    val entry = PasswordCredentialEntry.Builder(
+                        this,
+                        login.username,
+                        pendingIntent,
+                        option
+                    ).apply {
+                        setDisplayName(login.name.ifBlank { login.username })
+                        setIcon(Icon.createWithResource(this@PasskeyAuthActivity, R.drawable.ic_vaultr_lock_small))
+                        setAutoSelectAllowed(false)
+                    }.build()
+
+                    responseBuilder.addCredentialEntry(entry)
+                    Log.d(TAG, "Added post-unlock password entry for ${login.username} on $target")
+                }
+            }
+        }
+
+        val unlockedResponse = responseBuilder.build()
+        PendingIntentHandler.setBeginGetCredentialResponse(resultIntent, unlockedResponse)
+        setResult(Activity.RESULT_OK, resultIntent)
+        Log.d(TAG, "Delivered unlocked BeginGetCredentialResponse with entries to Credential Manager")
+        finish()
     }
 
     private fun handlePasskeyAuth() {
@@ -108,14 +409,8 @@ class PasskeyAuthActivity : Activity() {
             ?: intent.getStringExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE)
             ?: ""
 
-        // 2. Find matching passkey item in store
-        var item: AutofillItem? = null
-        if (passkeyId.isNotBlank()) {
-            item = AutofillCredentialStore.findPasskeyByCredentialId(passkeyId)
-        }
-        if (item == null && credentialId.isNotBlank()) {
-            item = AutofillCredentialStore.getAll().find { it.id == credentialId || it.passkeyCredentialId == credentialId }
-        }
+        // 2. Find matching passkey item in store (searches storage even if memory cache is locked!)
+        val item = AutofillCredentialStore.findPasskeyInStorage(applicationContext, passkeyId.ifBlank { credentialId })
 
         if (item == null || item.passkeyPrivateKey.isNullOrBlank()) {
             Log.e(TAG, "Passkey item not found or missing private key for credentialId: $credentialId / passkeyId: $passkeyId")
@@ -133,6 +428,59 @@ class PasskeyAuthActivity : Activity() {
             ?: ""
         val clientDataHashFromOption = publicKeyOption?.clientDataHash
 
+        if (AutofillCredentialStore.isVaultLocked()) {
+            Log.d(TAG, "Vault locked for passkey auth — presenting BiometricPrompt")
+            val promptBuilder = BiometricPrompt.Builder(this)
+                .setTitle("Sign in with Passkey")
+                .setSubtitle("Authenticate to use passkey for ${item.username.ifBlank { item.name }}")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                promptBuilder.setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                promptBuilder.setDeviceCredentialAllowed(true)
+            }
+
+            val prompt = promptBuilder.build()
+            val cancellationSignal = CancellationSignal()
+            prompt.authenticate(
+                cancellationSignal,
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                        Log.d(TAG, "Biometric authentication succeeded for passkey auth")
+                        AutofillCredentialStore.unlockVault(applicationContext)
+                        performPasskeyAssertion(item, credentialId, rpId, callingPkg, requestJson, clientDataHashFromOption, getRequest, resultIntent)
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                        Log.w(TAG, "Biometric authentication error/canceled: $errorCode ($errString)")
+                        finishWithFailure(errString?.toString() ?: "Authentication canceled")
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        Log.w(TAG, "Biometric authentication failed")
+                    }
+                }
+            )
+        } else {
+            performPasskeyAssertion(item, credentialId, rpId, callingPkg, requestJson, clientDataHashFromOption, getRequest, resultIntent)
+        }
+    }
+
+    private fun performPasskeyAssertion(
+        item: AutofillItem,
+        credentialId: String,
+        rpId: String,
+        callingPkg: String,
+        requestJson: String,
+        clientDataHashFromOption: ByteArray?,
+        getRequest: androidx.credentials.provider.ProviderGetCredentialRequest?,
+        resultIntent: Intent
+    ) {
         var challengeStr = ""
         if (requestJson.isNotBlank()) {
             try {
@@ -148,13 +496,21 @@ class PasskeyAuthActivity : Activity() {
         }
 
         val callingAppInfo = getRequest?.callingAppInfo
-        val origin = callingAppInfo?.origin ?: "https://$rpId"
+        val origin = when {
+            !callingAppInfo?.origin.isNullOrBlank() -> callingAppInfo!!.origin
+            callingPkg.isNotBlank() -> {
+                val apkHash = getApkKeyHash(packageManager, callingPkg)
+                if (apkHash != null) "android:apk-key-hash:$apkHash" else "https://$rpId"
+            }
+            else -> "https://$rpId"
+        }
 
-        // Build clientDataJSON
+        // Build clientDataJSON (W3C WebAuthn L3 standard with crossOrigin: false)
         val clientDataJsonObj = JSONObject().apply {
             put("type", "webauthn.get")
             put("challenge", challengeStr)
             put("origin", origin)
+            put("crossOrigin", false)
             if (callingPkg.isNotBlank()) {
                 put("androidPackageName", callingPkg)
             }
@@ -166,11 +522,11 @@ class PasskeyAuthActivity : Activity() {
             ?: MessageDigest.getInstance("SHA-256").digest(clientDataJsonBytes)
 
         // 4. Build Authenticator Data (37 bytes)
-        // 32 bytes rpIdHash + 1 byte flags (UP=0x01, UV=0x04, BE=0x08, BS=0x10) + 4 bytes signCount
+        // 32 bytes rpIdHash + 1 byte flags (UP=0x01, UV=0x04, BE=0x08, BS=0x10 = 0x1d) + 4 bytes signCount (0)
         val rpIdHash = MessageDigest.getInstance("SHA-256").digest(rpId.toByteArray(Charsets.UTF_8))
         val flags = (0x01 or 0x04 or 0x08 or 0x10).toByte()
-        val nextSignCount = item.passkeySignCount + 1
-        val signCountBytes = ByteBuffer.allocate(4).putInt(nextSignCount.toInt()).array()
+        val nextSignCount = 0L
+        val signCountBytes = ByteBuffer.allocate(4).putInt(0).array()
 
         val authData = ByteArray(37)
         System.arraycopy(rpIdHash, 0, authData, 0, 32)
@@ -233,6 +589,154 @@ class PasskeyAuthActivity : Activity() {
         finish()
     }
 
+    private fun handlePasskeyCreate() {
+        val resultIntent = Intent()
+
+        val createRequest = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
+        val callingRequest = createRequest?.callingRequest as? CreatePublicKeyCredentialRequest
+        val requestJson = callingRequest?.requestJson
+            ?: intent.getStringExtra(VaultrCredentialProviderService.EXTRA_REQUEST_JSON)
+            ?: ""
+        val callingAppInfo = createRequest?.callingAppInfo
+        val callingPkg = callingAppInfo?.packageName
+            ?: intent.getStringExtra(VaultrCredentialProviderService.EXTRA_CALLING_PACKAGE)
+            ?: ""
+
+        var rpId = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_RP_ID) ?: ""
+        var challengeStr = ""
+        var userHandleStr = ""
+        var username = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_USERNAME) ?: ""
+
+        if (requestJson.isNotBlank()) {
+            try {
+                val root = JSONObject(requestJson)
+                val rp = root.optJSONObject("rp")
+                if (rp != null && rp.optString("id").isNotBlank()) {
+                    rpId = rp.optString("id")
+                }
+                val user = root.optJSONObject("user")
+                if (user != null) {
+                    if (username.isBlank()) {
+                        username = user.optString("name", "")
+                    }
+                    userHandleStr = user.optString("id", "")
+                }
+                challengeStr = root.optString("challenge", "")
+            } catch (_: Exception) {}
+        }
+
+        if (rpId.isBlank()) {
+            rpId = callingPkg
+        }
+        if (challengeStr.isBlank()) {
+            challengeStr = encodeBase64Url(ByteArray(32))
+        }
+
+        // 1. Generate EC P-256 KeyPair
+        val kpg = KeyPairGenerator.getInstance("EC")
+        kpg.initialize(ECGenParameterSpec("secp256r1"))
+        val keyPair = kpg.generateKeyPair()
+        val privKey = keyPair.private
+        val pubKey = keyPair.public as ECPublicKey
+
+        val privKeyBytes = privKey.encoded // PKCS#8 format
+        val privKeyB64Url = encodeBase64Url(privKeyBytes)
+
+        val xBytes = getRawCoords(pubKey.w.affineX)
+        val yBytes = getRawCoords(pubKey.w.affineY)
+        val coseKey = encodeCosePublicKey(xBytes, yBytes)
+
+        // 2. Random 32-byte credentialId
+        val credIdBytes = ByteArray(32)
+        SecureRandom().nextBytes(credIdBytes)
+        val credIdB64Url = encodeBase64Url(credIdBytes)
+
+        // 3. Authenticator Data for registration (fmt: "none", flags: UP | UV | AT)
+        val rpIdHash = MessageDigest.getInstance("SHA-256").digest(rpId.toByteArray(Charsets.UTF_8))
+        val authDataLen = 32 + 1 + 4 + 16 + 2 + credIdBytes.size + coseKey.size
+        val authData = ByteArray(authDataLen)
+        var offset = 0
+        System.arraycopy(rpIdHash, 0, authData, offset, 32); offset += 32
+        authData[offset] = (0x01 or 0x04 or 0x08 or 0x10 or 0x40).toByte(); offset += 1 // UP | UV | BE | BS | AT (0x5d)
+        val signCountBytes = ByteBuffer.allocate(4).putInt(0).array()
+        System.arraycopy(signCountBytes, 0, authData, offset, 4); offset += 4
+        val aaguid = VAULTR_AAGUID_BYTES.clone()
+        System.arraycopy(aaguid, 0, authData, offset, 16); offset += 16
+        val credIdLenBytes = byteArrayOf(((credIdBytes.size shr 8) and 0xff).toByte(), (credIdBytes.size and 0xff).toByte())
+        System.arraycopy(credIdLenBytes, 0, authData, offset, 2); offset += 2
+        System.arraycopy(credIdBytes, 0, authData, offset, credIdBytes.size); offset += credIdBytes.size
+        System.arraycopy(coseKey, 0, authData, offset, coseKey.size)
+
+        val attestationObject = encodeAttestationObjectNone(authData)
+        val attestationObjectB64Url = encodeBase64Url(attestationObject)
+
+        // 4. Build clientDataJSON
+        val origin = when {
+            !callingAppInfo?.origin.isNullOrBlank() -> callingAppInfo!!.origin
+            callingPkg.isNotBlank() -> {
+                val apkHash = getApkKeyHash(packageManager, callingPkg)
+                if (apkHash != null) "android:apk-key-hash:$apkHash" else "https://$rpId"
+            }
+            else -> "https://$rpId"
+        }
+
+        val clientDataJsonObj = JSONObject().apply {
+            put("type", "webauthn.create")
+            put("challenge", challengeStr)
+            put("origin", origin)
+            put("crossOrigin", false)
+            if (callingPkg.isNotBlank()) {
+                put("androidPackageName", callingPkg)
+            }
+        }
+        val clientDataJsonBytes = clientDataJsonObj.toString().toByteArray(Charsets.UTF_8)
+        val clientDataJsonB64Url = encodeBase64Url(clientDataJsonBytes)
+
+        // 5. Build W3C FIDO2 registration response JSON
+        val responseObj = JSONObject().apply {
+            put("id", credIdB64Url)
+            put("rawId", credIdB64Url)
+            put("type", "public-key")
+            put("authenticatorAttachment", "platform")
+            val responseInner = JSONObject().apply {
+                put("clientDataJSON", clientDataJsonB64Url)
+                put("attestationObject", attestationObjectB64Url)
+                put("transports", org.json.JSONArray().apply {
+                    put("internal")
+                    put("hybrid")
+                })
+            }
+            put("response", responseInner)
+            put("clientExtensionResults", JSONObject())
+        }
+
+        // 6. Deliver CreatePublicKeyCredentialResponse to Android OS
+        val createResponse = CreatePublicKeyCredentialResponse(responseObj.toString())
+        PendingIntentHandler.setCreateCredentialResponse(resultIntent, createResponse)
+
+        // 7. Save passkey to AutofillCredentialStore
+        val newPasskeyItem = AutofillItem(
+            id = "passkey_" + System.currentTimeMillis() + "_" + credIdB64Url.take(8),
+            name = if (username.isNotBlank()) "$username ($rpId)" else rpId,
+            domain = rpId,
+            username = username,
+            password = "",
+            urls = listOf("https://$rpId"),
+            isPasskey = true,
+            passkeyRpId = rpId,
+            passkeyCredentialId = credIdB64Url,
+            passkeyUserHandle = userHandleStr.ifBlank { encodeBase64Url(username.toByteArray(Charsets.UTF_8)) },
+            passkeyPrivateKey = privKeyB64Url,
+            passkeySignCount = 0L,
+            passkeyTransports = listOf("internal", "hybrid")
+        )
+        AutofillCredentialStore.addOrUpdatePasskey(newPasskeyItem, applicationContext)
+        Log.d(TAG, "Successfully created and saved new passkey for $username on $rpId")
+
+        setResult(Activity.RESULT_OK, resultIntent)
+        finish()
+    }
+
     private fun handlePasswordAuth() {
         val resultIntent = Intent()
         val username = intent.getStringExtra(VaultrCredentialProviderService.EXTRA_USERNAME) ?: ""
@@ -243,11 +747,59 @@ class PasskeyAuthActivity : Activity() {
             return
         }
 
+        if (AutofillCredentialStore.isVaultLocked()) {
+            val promptBuilder = BiometricPrompt.Builder(this)
+                .setTitle("Unlock VaultR")
+                .setSubtitle("Authenticate to autofill credentials for $username")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                promptBuilder.setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                promptBuilder.setDeviceCredentialAllowed(true)
+            }
+
+            val prompt = promptBuilder.build()
+            val cancellationSignal = CancellationSignal()
+            prompt.authenticate(
+                cancellationSignal,
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                        AutofillCredentialStore.unlockVault(applicationContext)
+                        deliverPasswordResponse(username, password, resultIntent)
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                        finishWithFailure(errString?.toString() ?: "Authentication canceled")
+                    }
+
+                    override fun onAuthenticationFailed() {}
+                }
+            )
+        } else {
+            deliverPasswordResponse(username, password, resultIntent)
+        }
+    }
+
+    private fun deliverPasswordResponse(username: String, password: String, resultIntent: Intent) {
         val passwordCredential = PasswordCredential(username, password)
         val getCredentialResponse = GetCredentialResponse(passwordCredential)
         PendingIntentHandler.setGetCredentialResponse(resultIntent, getCredentialResponse)
 
         Log.d(TAG, "Successfully returned password credential for $username")
+        setResult(Activity.RESULT_OK, resultIntent)
+        finish()
+    }
+
+    private fun handlePasswordCreate() {
+        val resultIntent = Intent()
+        val createResponse = CreatePasswordResponse()
+        PendingIntentHandler.setCreateCredentialResponse(resultIntent, createResponse)
+        Log.d(TAG, "Successfully handled password create")
         setResult(Activity.RESULT_OK, resultIntent)
         finish()
     }
@@ -261,4 +813,15 @@ class PasskeyAuthActivity : Activity() {
         setResult(Activity.RESULT_CANCELED, resultIntent)
         finish()
     }
+
+    private fun finishWithCreateFailure(message: String) {
+        val resultIntent = Intent()
+        PendingIntentHandler.setCreateCredentialException(
+            resultIntent,
+            CreateCredentialUnknownException(message)
+        )
+        setResult(Activity.RESULT_CANCELED, resultIntent)
+        finish()
+    }
 }
+

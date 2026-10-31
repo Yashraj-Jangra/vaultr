@@ -3,9 +3,10 @@ import { VaultItem, isWebPageUrl } from "@vaultr/core";
 import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
-import { SettingsScreen, applyPopupWidth } from "./SettingsScreen";
+import { SettingsScreen, applyPopupWidth, SettingsSubNav } from "./SettingsScreen";
 import { NewEntryForm } from "./NewEntryForm";
-import { Shield, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
+import { Shield, Wand2, Settings, Lock, RefreshCw, ChevronLeft, ExternalLink } from "lucide-react";
+import { getActiveWebTab } from "../services/tabs";
 import "./popup.css";
 
 export function resolveAvatarUrl(url?: string, serverUrl?: string) {
@@ -43,11 +44,13 @@ export interface AccountInfo {
 }
 
 export function App() {
+  const isPopout = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "popout";
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [serverUrl, setServerUrl] = useState("https://vaultr.cvweb.qzz.io");
   const [items, setItems] = useState<VaultItem[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("vault");
+  const [settingsSubNav, setSettingsSubNav] = useState<SettingsSubNav | null>(null);
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<AccountInfo>({});
   const [theme, setTheme] = useState<"dark" | "light" | "midnight">("dark");
@@ -73,6 +76,9 @@ export function App() {
   }, [folders, items]);
 
   useEffect(() => {
+    if (isPopout) {
+      document.documentElement.setAttribute("data-mode", "popout");
+    }
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       chrome.storage.local.get(["vaultr_popup_width", "vaultr_theme", "vaultr_show_animations"], (res) => {
         if (res?.vaultr_popup_width) {
@@ -209,16 +215,28 @@ export function App() {
       });
     });
 
-  const handleAutofill = (cred: { username?: string; password?: string }) => {
+  const handlePopOut = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) return;
-      if (!tabs[0]?.id || !tabs[0]?.url) return;
-      if (!isWebPageUrl(tabs[0].url)) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
-        void chrome.runtime.lastError;
+      const activeTabId = tabs[0]?.id;
+      chrome.runtime.sendMessage({ type: "OPEN_POPOUT", tabId: activeTabId }, () => {
+        window.close();
       });
     });
-    window.close();
+  };
+
+  const handleAutofill = async (cred: { username?: string; password?: string; name?: string }) => {
+    const tab = await getActiveWebTab();
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: "AUTOFILL_CREDENTIAL", credential: cred }, () => {
+        void chrome.runtime.lastError;
+      });
+      if (isPopout && tab.windowId) {
+        chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+      }
+    }
+    if (!isPopout) {
+      window.close();
+    }
   };
 
   const handleSaveItem = async (
@@ -303,6 +321,9 @@ export function App() {
         serverUrl={serverUrl}
         userEmail={accountInfo.email}
         onUnlock={handleUnlock}
+        theme={theme}
+        isPopout={isPopout}
+        onPopOut={handlePopOut}
       />
     );
   }
@@ -320,22 +341,53 @@ export function App() {
   };
 
   const avatarUri = resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl);
+  const isSettingsSubpage = activeTab === "settings" && settingsSubNav !== null && !!settingsSubNav.title;
 
   return (
     <div className="screen">
       {/* Header */}
       <div className="header">
-        <div className="header-brand">
-          <img
-            src={theme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
-            alt="Vaultr"
-            style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
-          />
-        </div>
+        {isSettingsSubpage && settingsSubNav ? (
+          <div className="header-subpage-nav">
+            <button
+              type="button"
+              className="settings-folder-back-btn"
+              onClick={settingsSubNav.onBack}
+              title={settingsSubNav.backTooltip || "Back"}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="header-subpage-title">
+              {settingsSubNav.title}
+            </span>
+          </div>
+        ) : (
+          <div className="header-brand">
+            <img
+              src={theme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
+              alt="Vaultr"
+              style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
+            />
+          </div>
+        )}
         <div className="header-actions">
+          {!isPopout && (
+            <button
+              className="detail-action-btn"
+              onClick={handlePopOut}
+              title="Pop out into new window"
+            >
+              <ExternalLink size={14} />
+            </button>
+          )}
           {/* Refresh */}
-          <button className="detail-action-btn" onClick={handleRefresh} title="Sync Vault">
-            <RefreshCw size={14} />
+          <button
+            className="detail-action-btn"
+            onClick={isSettingsSubpage && settingsSubNav?.onRefresh ? settingsSubNav.onRefresh : handleRefresh}
+            disabled={isSettingsSubpage && settingsSubNav?.isRefreshing}
+            title={isSettingsSubpage && settingsSubNav?.folder === "sessions" ? "Refresh Sessions" : "Sync Vault"}
+          >
+            <RefreshCw size={14} className={isSettingsSubpage && settingsSubNav?.isRefreshing ? "animate-spin" : ""} />
           </button>
           {/* Lock */}
           <button className="detail-action-btn" onClick={handleLock} title="Lock Vault">
@@ -344,8 +396,14 @@ export function App() {
           {/* Avatar Linking to Settings Tab */}
           <button
             style={{ background: "none", border: "none", cursor: "pointer", marginLeft: 4 }}
-            onClick={() => setActiveTab("settings")}
-            title="Account Settings"
+            onClick={() => {
+              if (activeTab === "settings" && settingsSubNav) {
+                settingsSubNav.onBack();
+              } else {
+                setActiveTab("settings");
+              }
+            }}
+            title={isSettingsSubpage ? "Back to Settings" : "Account Settings"}
           >
             {avatarUri ? (
               <div className="avatar-circle">
@@ -359,9 +417,9 @@ export function App() {
       </div>
 
       {/* Main Tabs Container */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
         {activeTab === "vault" && (
-          <div key="vault" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="vault" className="animate-screen-enter" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <VaultScreen
               items={items}
               folders={folders}
@@ -375,12 +433,12 @@ export function App() {
           </div>
         )}
         {activeTab === "generator" && (
-          <div key="generator" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="generator" className="animate-screen-enter" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <GeneratorScreen />
           </div>
         )}
         {activeTab === "settings" && (
-          <div key="settings" className="animate-screen-enter" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key="settings" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <SettingsScreen
               serverUrl={serverUrl}
               accountInfo={accountInfo}
@@ -388,6 +446,7 @@ export function App() {
               onLock={handleLock}
               currentTheme={theme}
               onThemeChange={handleThemeChange}
+              onSubNavChange={setSettingsSubNav}
             />
           </div>
         )}
@@ -396,7 +455,7 @@ export function App() {
         {(isNewEntryOpen || editingItem) && (
           <div
             className="animate-slide-up"
-            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#09090b", display: "flex", flexDirection: "column", overflow: "hidden" }}
+            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--bg)", display: "flex", flexDirection: "column", overflow: "hidden" }}
           >
             <ErrorBoundary>
               <NewEntryForm
@@ -431,7 +490,13 @@ export function App() {
         </button>
         <button
           className={`nav-btn${activeTab === "settings" ? " active" : ""}`}
-          onClick={() => setActiveTab("settings")}
+          onClick={() => {
+            if (activeTab === "settings" && settingsSubNav) {
+              settingsSubNav.onBack();
+            } else {
+              setActiveTab("settings");
+            }
+          }}
         >
           <Settings size={16} />
           <span>Settings</span>

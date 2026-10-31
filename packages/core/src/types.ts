@@ -73,6 +73,7 @@ export interface DecryptedLoginPayload {
   passkeyTransports?: string[];
   passkeyCreatedAt?: string;
   passkeyLastUsedAt?: string;
+  passkeyAaguid?: string;
 }
 
 export interface DecryptedCardPayload {

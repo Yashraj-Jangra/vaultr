@@ -3,7 +3,7 @@
     "name": "Vaultr",
     "slug": "vaultr-mobile",
     "scheme": "vaultr",
-    "version": "0.2.11",
+    "version": "0.2.12",
     "orientation": "portrait",
     "icon": "./assets/vaultr-lock-dark-solid.png",
     "userInterfaceStyle": "dark",
@@ -21,18 +21,23 @@
       "permissions": [
         "USE_BIOMETRIC",
         "USE_FINGERPRINT",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
-      "versionCode": 10
+      "versionCode": 12
     },
     "ios": {
       "bundleIdentifier": "com.vaultr.mobile",
-      "buildNumber": "10",
+      "buildNumber": "12",
       "supportsTablet": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Allow Vaultr to use Face ID to unlock your secure vault.",
         "NSCameraUsageDescription": "Allow Vaultr to access camera to scan 2FA QR codes.",
-        "NSPhotoLibraryUsageDescription": "Allow Vaultr to access your photo library for vault attachments."
+        "NSPhotoLibraryUsageDescription": "Allow Vaultr to access your photo library for vault attachments.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "plugins": [
@@ -53,6 +58,11 @@
       "expo-web-browser",
       "expo-sharing",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b0aea119-3227-44cb-91f3-b0fc1715b3db"
+      }
+    }
   }
 }

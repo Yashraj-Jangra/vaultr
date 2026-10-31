@@ -917,7 +917,6 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
   const [passkeyTransports,   setPasskeyTransports]   = useState<string[] | undefined>(initialData?.payload?.passkeyTransports);
   const [passkeyCreatedAt,    setPasskeyCreatedAt]    = useState<string | undefined>(initialData?.payload?.passkeyCreatedAt);
   const [passkeyLastUsedAt,   setPasskeyLastUsedAt]   = useState<string | undefined>(initialData?.payload?.passkeyLastUsedAt);
-  const [showLinkPasskeyDialog, setShowLinkPasskeyDialog] = useState(false);
 
   const { config } = useSiteConfig();
   const eggs = useMemo(() => {
@@ -1015,7 +1014,6 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
       setPasskeyTransports(p.passkeyTransports);
       setPasskeyCreatedAt(p.passkeyCreatedAt);
       setPasskeyLastUsedAt(p.passkeyLastUsedAt);
-      setShowLinkPasskeyDialog(false);
     } else {
       setFolder(defaultFolder || currentNavFolder || "");
       setTemplate(defaultTemplate || "login");
@@ -1029,7 +1027,6 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
       setPasskeyTransports(undefined);
       setPasskeyCreatedAt(undefined);
       setPasskeyLastUsedAt(undefined);
-      setShowLinkPasskeyDialog(false);
     }
   }, [open, initialData, defaultTemplate, defaultFolder, currentNavFolder, eggs]);
 
@@ -1311,14 +1308,14 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
               onAdd={addCustomField}
             />
 
-            {/* Passkey Section in Split View */}
-            <div className="pt-4 border-t border-[var(--border)] space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-sky-400" />
-                  Passkey Credential
-                </span>
-                {isPasskey && (
+            {/* Passkey Section in Split View (Only shown when enrolled) */}
+            {isPasskey && (
+              <div className="pt-4 border-t border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                    Passkey Credential
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1328,111 +1325,43 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                       setPasskeyUserHandle("");
                       setPasskeyPrivateKey("");
                       setPasskeySignCount(undefined);
+                      setTags((prev) =>
+                        prev
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                          .join(", ")
+                      );
                     }}
                     className="text-[10px] text-red-400 hover:underline cursor-pointer"
                   >
                     Unlink passkey
                   </button>
-                )}
-              </div>
-
-              {isPasskey ? (
-                <div className="p-3.5 rounded-xl border border-sky-900/40 bg-sky-950/20 space-y-2">
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-sky-300">
-                    <KeyRound className="w-4 h-4 text-sky-400" />
-                    <span>Linked FIDO2 Passkey</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-neutral-300 pt-1">
-                    <div>
-                      <span className="text-neutral-500">RP ID: </span>
-                      {passkeyRpId || "WebAuthn"}
-                    </div>
-                    {passkeySignCount !== undefined && (
-                      <div>
-                        <span className="text-neutral-500">Sign Count: </span>
-                        {passkeySignCount}
-                      </div>
-                    )}
-                    {passkeyCredentialId && (
-                      <div className="col-span-2 truncate">
-                        <span className="text-neutral-500">Credential ID: </span>
-                        {passkeyCredentialId.slice(0, 24)}…
-                      </div>
-                    )}
-                    {passkeyCreatedAt && (
-                      <div className="col-span-2 text-neutral-400">
-                        <span className="text-neutral-500">Created: </span>
-                        {new Date(passkeyCreatedAt).toLocaleDateString()}
-                      </div>
-                    )}
-                  </div>
                 </div>
-              ) : (
-                <div>
-                  {!showLinkPasskeyDialog ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowLinkPasskeyDialog(true)}
-                      className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)] hover:text-amber-400 transition-colors cursor-pointer py-1"
-                    >
-                      <Plus className="w-3 h-3" /> Link a passkey
-                    </button>
-                  ) : (
-                    <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-medium text-neutral-200">Link Passkey to this Login</span>
-                        <button
-                          type="button"
-                          onClick={() => setShowLinkPasskeyDialog(false)}
-                          className="text-neutral-500 hover:text-neutral-300"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-neutral-400">
-                        Passkeys attach directly to this login. Specify the Relying Party ID (domain):
-                      </p>
-                      <Input
-                        value={passkeyRpId}
-                        onChange={e => setPasskeyRpId(e.target.value)}
-                        placeholder="e.g. github.com"
-                        className="text-[12px]"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="text-xs py-1 px-2.5"
-                          onClick={() => setShowLinkPasskeyDialog(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="primary"
-                          className="text-xs py-1 px-2.5"
-                          onClick={() => {
-                            setIsPasskey(true);
-                            if (!passkeyRpId.trim() && urls[0]) {
-                              try {
-                                setPasskeyRpId(new URL(urls[0].startsWith("http") ? urls[0] : `https://${urls[0]}`).hostname);
-                              } catch {}
-                            }
-                            if (!passkeyCredentialId) {
-                              setPasskeyCredentialId(crypto.randomUUID());
-                            }
-                            setPasskeyCreatedAt(new Date().toISOString());
-                            setShowLinkPasskeyDialog(false);
-                          }}
-                        >
-                          Link Passkey
-                        </Button>
-                      </div>
+
+                <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[12px] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-medium text-[var(--fg)]">
+                      <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>{passkeyRpId || "WebAuthn / FIDO2"}</span>
+                      <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                        Configured
+                      </span>
+                    </div>
+                    {passkeyCreatedAt && (
+                      <span className="text-[11px] text-[var(--fg-muted)]">
+                        {new Date(passkeyCreatedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  {passkeyCredentialId && (
+                    <div className="text-[11px] font-mono text-[var(--fg-muted)] truncate pt-0.5">
+                      <span className="text-neutral-500">ID: </span>{passkeyCredentialId.slice(0, 24)}…
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -1725,14 +1654,14 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
             </div>
           )}
 
-          {/* Passkey Section */}
-          <div className="col-span-1 md:col-span-2 pt-2 border-t border-[var(--border)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-sky-400" />
-                Passkey Credential
-              </span>
-              {isPasskey && (
+          {/* Passkey Section (Only shown when enrolled) */}
+          {isPasskey && (
+            <div className="col-span-1 md:col-span-2 pt-2 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                  Passkey Credential
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -1741,122 +1670,43 @@ export function NewEntryDialog({ open, folders, onSave, onClose, initialData, de
                     setPasskeyCredentialId("");
                     setPasskeyUserHandle("");
                     setPasskeyPrivateKey("");
+                    setTags((prev) =>
+                      prev
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter((t) => t.toLowerCase() !== "passkey" && Boolean(t))
+                        .join(", ")
+                    );
                   }}
                   className="text-[10px] text-red-400 hover:underline cursor-pointer"
                 >
                   Unlink
                 </button>
-              )}
-            </div>
-
-            {isPasskey ? (
-              <div className="p-3 rounded-xl border border-sky-900/40 bg-sky-950/20 text-[11px] font-mono text-neutral-300 space-y-1">
-                <div className="text-sky-300 font-sans font-medium flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-sky-400" /> Linked FIDO2 Passkey
-                </div>
-                <div><span className="text-neutral-500">RP ID: </span>{passkeyRpId || "WebAuthn"}</div>
-                {passkeyCredentialId && <div className="truncate"><span className="text-neutral-500">Credential ID: </span>{passkeyCredentialId.slice(0, 24)}…</div>}
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowLinkPasskeyDialog(true)}
-                className="text-[10px] text-[var(--accent)] hover:underline cursor-pointer flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Link a Passkey
-              </button>
-            )}
-          </div>
-        </div>
-      );
-    }
 
-    if (template === "card") {
-      const binBrands = Array.from(new Set((config?.cardBins || []).map((b: any) => b.brand)));
-      const allBrands = new Set(["Visa", "Mastercard", "AMEX", "Discover", "RuPay"]);
-      binBrands.forEach((b: any) => allBrands.add(b as string));
-      const networkOptions = [{ value: "", label: "Auto-detect" }, ...Array.from(allBrands).map(b => ({ value: b, label: b })), { value: "Other", label: "Other" }];
-
-      return (
-        <div className="space-y-4 text-left">
-          <div className="grid grid-cols-5 gap-4">
-            <div className="col-span-2"><FieldLabel>Cardholder Name</FieldLabel><Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Name on card" /></div>
-            <div className="col-span-1">
-              <FieldLabel>Network</FieldLabel>
-              <Select
-                value={cardBrand}
-                onChange={(v) => {
-                  setCardBrand(v);
-                  setIsManualBrand(!!v);
-                  if (v === "Other") {
-                    setFallbackIndex((prev) => getRandomEggIndex(prev, eggs.length));
-                  }
-                }}
-                options={networkOptions}
-                placeholder="Network"
-              />
+              <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[12px] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-medium text-[var(--fg)]">
+                    <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>{passkeyRpId || "WebAuthn / FIDO2"}</span>
+                    <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                      Configured
+                    </span>
+                  </div>
+                  {passkeyCreatedAt && (
+                    <span className="text-[11px] text-[var(--fg-muted)]">
+                      {new Date(passkeyCreatedAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                {passkeyCredentialId && (
+                  <div className="text-[11px] font-mono text-[var(--fg-muted)] truncate pt-0.5">
+                    <span className="text-neutral-500">ID: </span>{passkeyCredentialId.slice(0, 24)}…
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="col-span-2">
-              <FieldLabel>Card Number</FieldLabel>
-              <Input 
-                value={displayCardNumber} 
-                onChange={e => setCardNumber(e.target.value.replace(/\D/g, ""))} 
-                onCopy={e => { e.clipboardData.setData('text/plain', cardNumber); e.preventDefault(); }}
-                placeholder="•••• •••• •••• ••••" className="font-mono" 
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <FieldLabel>Exp Month</FieldLabel>
-              <Input
-                value={expiryMonth}
-                onChange={e => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 2);
-                  setExpiryMonth(v);
-                  setExpiryMonthError(false);
-                }}
-                onBlur={() => {
-                  if (!expiryMonth) { setExpiryMonthError(false); return; }
-                  const n = parseInt(expiryMonth, 10);
-                  if (isNaN(n) || n < 1 || n > 12) {
-                    setExpiryMonthError(true);
-                  } else {
-                    setExpiryMonth(String(n).padStart(2, "0"));
-                    setExpiryMonthError(false);
-                  }
-                }}
-                placeholder="MM"
-                className={expiryMonthError ? "border-red-500" : ""}
-              />
-              {expiryMonthError && <p className="text-red-400 text-[10px] mt-1">Must be 01 – 12</p>}
-            </div>
-            <div>
-              <FieldLabel>Exp Year</FieldLabel>
-              <Input
-                value={expiryYear}
-                onChange={e => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                  setExpiryYear(v);
-                  setExpiryYearError(false);
-                }}
-                onBlur={() => {
-                  if (!expiryYear) { setExpiryYearError(false); return; }
-                  const len = expiryYear.length;
-                  if (len !== 2 && len !== 4) {
-                    setExpiryYearError(true);
-                  } else {
-                    setExpiryYearError(false);
-                  }
-                }}
-                placeholder="YY or YYYY"
-                className={expiryYearError ? "border-red-500" : ""}
-              />
-              {expiryYearError && <p className="text-red-400 text-[10px] mt-1">Enter YY or YYYY</p>}
-            </div>
-            <div><FieldLabel>CVV</FieldLabel><SecretInput value={cvv} onChange={e => setCvv(e.target.value)} placeholder="•••" /></div>
-            <div><FieldLabel>PIN</FieldLabel><SecretInput value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" /></div>
-          </div>
+          )}
         </div>
       );
     }

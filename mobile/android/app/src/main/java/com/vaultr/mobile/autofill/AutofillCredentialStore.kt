@@ -75,9 +75,9 @@ object AutofillCredentialStore {
             lastUnlockedAt = prefs.getLong(KEY_UNLOCKED_AT, 0L)
             autoLockTimeoutMs = prefs.getLong(KEY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
 
-            // If never unlocked or auto-lock timeout has expired, wipe immediately
+            // If never unlocked or auto-lock timeout has expired, mark memory cache locked (do not wipe stored credentials)
             if (lastUnlockedAt == 0L) {
-                clear(context)
+                cachedItems = emptyList()
                 return
             }
 
@@ -85,7 +85,8 @@ object AutofillCredentialStore {
                 val elapsed = System.currentTimeMillis() - lastUnlockedAt
                 if (elapsed >= autoLockTimeoutMs) {
                     Log.d(TAG, "Auto-lock timeout expired ($elapsed >= $autoLockTimeoutMs ms). Vault is locked.")
-                    clear(context)
+                    cachedItems = emptyList()
+                    lastUnlockedAt = 0L
                     return
                 }
             }
@@ -117,7 +118,39 @@ object AutofillCredentialStore {
                 return true
             }
         }
-        return cachedItems.isEmpty()
+        return false
+    }
+
+    fun unlockVault(context: Context): Boolean {
+        try {
+            val prefs = getPrefs(context)
+            val raw = prefs.getString(KEY_CREDENTIALS, null)
+            if (!raw.isNullOrBlank()) {
+                cachedItems = parseJson(raw)
+                lastUnlockedAt = System.currentTimeMillis()
+                prefs.edit().putLong(KEY_UNLOCKED_AT, lastUnlockedAt).apply()
+                Log.d(TAG, "Unlocked vault with ${cachedItems.size} credentials via native unlock")
+                return true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unlock vault natively", e)
+        }
+        return false
+    }
+
+    fun hasStoredCredentials(context: Context): Boolean {
+        val prefs = getPrefs(context)
+        return !prefs.getString(KEY_CREDENTIALS, null).isNullOrBlank()
+    }
+
+    fun getStoredItems(context: Context): List<AutofillItem> {
+        if (cachedItems.isNotEmpty()) return cachedItems
+        return try {
+            val raw = getPrefs(context).getString(KEY_CREDENTIALS, null)
+            if (!raw.isNullOrBlank()) parseJson(raw) else emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     fun syncCredentials(context: Context, jsonString: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS) {
@@ -291,28 +324,173 @@ object AutofillCredentialStore {
         }
     }
 
+    fun normalizeCredentialId(id: String?): String {
+        if (id.isNullOrBlank()) return ""
+        return id.trim().replace(Regex("=+$"), "").replace('-', '+').replace('_', '/')
+    }
+
+    /**
+     * Searches passkeys from local secure storage even if vault memory cache is currently locked.
+     * Essential for Credential Manager discovery to provide passkey entries directly.
+     */
+    fun findPasskeysInStorage(
+        context: Context,
+        rpId: String?,
+        allowCredentials: List<String> = emptyList()
+    ): List<AutofillItem> {
+        val items = getStoredItems(context)
+        val passkeyItems = items.filter { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+        if (passkeyItems.isEmpty()) return emptyList()
+
+        // 1. If explicit allowCredentials IDs are provided by the relying party, match them first
+        val allowedNormalized = allowCredentials.map { normalizeCredentialId(it) }.filter { it.isNotBlank() }.toSet()
+        if (allowedNormalized.isNotEmpty()) {
+            val idMatches = passkeyItems.filter { item ->
+                allowedNormalized.contains(normalizeCredentialId(item.passkeyCredentialId))
+            }
+            if (idMatches.isNotEmpty()) {
+                return idMatches
+            }
+        }
+
+        if (rpId.isNullOrBlank()) return emptyList()
+
+        val cleanRp = normalizeDomain(rpId)
+        val mappedDomain = PACKAGE_DOMAIN_MAP[cleanRp.lowercase()]
+
+        return passkeyItems.filter { item ->
+            val itemRp = item.passkeyRpId?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
+            val itemDomain = item.domain?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
+
+            if (itemRp == cleanRp || itemDomain == cleanRp) return@filter true
+            if (mappedDomain != null && (itemRp == mappedDomain || itemDomain == mappedDomain)) return@filter true
+            if (itemRp != null && (cleanRp.endsWith(".$itemRp") || itemRp.endsWith(".$cleanRp"))) return@filter true
+            if (itemDomain != null && (cleanRp.endsWith(".$itemDomain") || itemDomain.endsWith(".$cleanRp"))) return@filter true
+
+            for (u in item.urls) {
+                val uDomain = normalizeDomain(u)
+                if (uDomain == cleanRp || (mappedDomain != null && uDomain == mappedDomain)) return@filter true
+                if (cleanRp.endsWith(".$uDomain") || uDomain.endsWith(".$cleanRp")) return@filter true
+            }
+            false
+        }
+    }
+
+    /**
+     * Searches logins from local secure storage even if vault memory cache is currently locked.
+     */
+    fun findMatchesInStorage(context: Context, target: String?): List<AutofillItem> {
+        if (target.isNullOrBlank()) return emptyList()
+        val items = getStoredItems(context)
+        val cleanTarget = normalizeDomain(target)
+        val mappedDomain = PACKAGE_DOMAIN_MAP[target.trim().lowercase()]
+
+        val matches = mutableListOf<AutofillItem>()
+        for (item in items) {
+            if (!item.domain.isNullOrBlank()) {
+                val itemDomain = normalizeDomain(item.domain)
+                if (itemDomain == cleanTarget || (mappedDomain != null && itemDomain == mappedDomain)) {
+                    matches.add(item)
+                    continue
+                }
+                if (cleanTarget.endsWith(".$itemDomain") || itemDomain.endsWith(".$cleanTarget")) {
+                    matches.add(item)
+                    continue
+                }
+            }
+
+            var urlMatched = false
+            for (u in item.urls) {
+                val uDomain = normalizeDomain(u)
+                if (uDomain == cleanTarget || (mappedDomain != null && uDomain == mappedDomain)) {
+                    matches.add(item)
+                    urlMatched = true
+                    break
+                }
+            }
+            if (urlMatched) continue
+
+            if (item.domain?.startsWith("androidapp:") == true) {
+                val pkg = item.domain.removePrefix("androidapp:").trim()
+                if (pkg.equals(target, ignoreCase = true)) {
+                    matches.add(item)
+                    continue
+                }
+            }
+
+            val cleanName = item.name.trim().lowercase().replace(Regex("[^a-z0-9]"), "")
+            val cleanTargetKey = cleanTarget.replace(Regex("[^a-z0-9]"), "")
+            if (cleanName.length >= 3 && cleanTargetKey.contains(cleanName)) {
+                matches.add(item)
+            }
+        }
+        return matches.distinctBy { it.id }
+    }
+
     fun findPasskeyByCredentialId(credentialId: String): AutofillItem? {
-        if (isVaultLocked()) return null
-        return cachedItems.firstOrNull { it.isPasskey && (it.passkeyCredentialId == credentialId || it.id == credentialId) }
+        val targetNorm = normalizeCredentialId(credentialId)
+        return cachedItems.firstOrNull {
+            it.isPasskey && (
+                it.id == credentialId ||
+                (!it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == targetNorm)
+            )
+        }
+    }
+
+    fun findPasskeyInStorage(context: Context, credentialId: String): AutofillItem? {
+        if (credentialId.isBlank()) return null
+        val targetNorm = normalizeCredentialId(credentialId)
+        val items = getStoredItems(context)
+        return items.firstOrNull { item ->
+            item.isPasskey && (
+                item.id == credentialId ||
+                (!item.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(item.passkeyCredentialId) == targetNorm)
+            )
+        }
     }
 
     fun updatePasskeySignCount(credentialId: String, newCount: Long, context: Context? = null) {
-        val index = cachedItems.indexOfFirst { it.passkeyCredentialId == credentialId || it.id == credentialId }
+        val currentItems = if (context != null) getStoredItems(context).toMutableList() else cachedItems.toMutableList()
+        val targetNorm = normalizeCredentialId(credentialId)
+        val index = currentItems.indexOfFirst {
+            it.id == credentialId || (!it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == targetNorm)
+        }
         if (index != -1) {
-            val item = cachedItems[index]
+            val item = currentItems[index]
             val updated = item.copy(passkeySignCount = newCount)
-            val newList = cachedItems.toMutableList()
-            newList[index] = updated
-            cachedItems = newList
+            currentItems[index] = updated
+            cachedItems = currentItems
 
             if (context != null) {
                 try {
-                    val raw = serializeToJson(cachedItems)
+                    val raw = serializeToJson(currentItems)
                     getPrefs(context).edit().putString(KEY_CREDENTIALS, raw).apply()
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to persist updated signCount", e)
                 }
             }
+        }
+    }
+
+    fun addOrUpdatePasskey(newItem: AutofillItem, context: Context) {
+        val currentItems = getStoredItems(context).toMutableList()
+        val newNorm = normalizeCredentialId(newItem.passkeyCredentialId)
+        val index = currentItems.indexOfFirst {
+            it.id == newItem.id ||
+            (!newItem.passkeyCredentialId.isNullOrBlank() && !it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == newNorm)
+        }
+        if (index != -1) {
+            currentItems[index] = newItem
+        } else {
+            currentItems.add(newItem)
+        }
+        cachedItems = currentItems
+        try {
+            val raw = serializeToJson(currentItems)
+            getPrefs(context).edit().putString(KEY_CREDENTIALS, raw).apply()
+            Log.d(TAG, "Successfully added/updated passkey in AutofillCredentialStore for ${newItem.username} on ${newItem.passkeyRpId}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to persist new passkey", e)
         }
     }
 
