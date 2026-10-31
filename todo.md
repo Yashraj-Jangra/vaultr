@@ -1,4 +1,58 @@
-## Current Session: Passkey Details Harmonization (2026-10-31) · Branch: `dev`
+## Current Session: Extension Pop-out Mode & Locked Vault Autofill Prompt (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done:
+
+#### Phase 1: Standalone Pop-out Window Mode (`✨ add popout standalone window mode to extension header`)
+**Files Changed / Added:**
+- `extension/src/background/service-worker.ts`
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/UnlockScreen.tsx`
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/popup/popup.css`
+- `extension/src/services/tabs.ts` (new)
+
+**Key Improvements & Resolutions:**
+1. **Background Window Manager (`service-worker.ts`)**:
+   - Added tracked `popoutWindowId` with `openPopoutWindow()` helper.
+   - Calculates centered positioning on the user's display based on current window dimensions (400 × 620 px).
+   - If a pop-out window is already open, focuses it via `chrome.windows.update(popoutWindowId, { focused: true })` instead of spawning duplicate windows.
+   - Listens to `chrome.windows.onRemoved` to cleanly reset `popoutWindowId` when closed.
+   - Added message handler for `"OPEN_POPOUT"`.
+2. **Top Header Pop-Out Button (`App.tsx`, `UnlockScreen.tsx`)**:
+   - Detects `isPopout` via URL parameter `?mode=popout`. Sets `data-mode="popout"` on document element.
+   - In `App.tsx` top `.header-actions`: added dedicated pop-out button (`ExternalLink` icon, 14px, tooltip: *"Pop out into new window"*) alongside Sync/Refresh, Lock, and Profile Avatar.
+   - When running in popout window mode, the button is hidden to prevent redundant pop-out attempts.
+   - Added top-right pop-out action in `UnlockScreen.tsx` so users can pop out directly from the master password or PIN screen.
+3. **Active Web Tab Resolution Parity (`tabs.ts`, `VaultScreen.tsx`, `App.tsx`)**:
+   - Created `getActiveWebTab()` to resolve the active webpage from the last-focused normal browser window when running inside a standalone popout window (preventing the classic `currentWindow` failure where popouts query themselves).
+   - Updated `handleAutofill` in `App.tsx` and tab domain matching in `VaultScreen.tsx` to seamlessly target the web page behind the standalone window.
+4. **Fluid Sizing in `popup.css`**:
+   - Added `html[data-mode="popout"], html[data-mode="popout"] body { width: 100% !important; height: 100% !important; min-width: 0 !important; max-width: none !important; }`.
+
+#### Phase 2: Locked Vault Detection & In-Page Autofill Unlock Prompt (`✨ add unlock vault prompt to inline autofill when locked`)
+**Files Changed:**
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+
+**Key Improvements & Resolutions:**
+1. **In-Page Locked Form Prompt (`autofill.ts`)**:
+   - Replaced silent return on `response?.isLocked` with `showLockedDropdown(target)`.
+   - Renders a sleek, isolated Shadow DOM dropdown matching Bitwarden:
+     - Header: Vaultr brand logo + amber `LOCKED` status badge.
+     - Interactive row: Amber lock icon box, title *"Vault is locked"*, subtitle *"Click to unlock vault & view options"*, and subtle `ExternalLink` hint.
+     - On click: Sends `{ type: "OPEN_POPOUT" }` to service worker, instantly focusing or opening the standalone pop-out window, and dismisses the inline dropdown.
+2. **Reactive Auto-Populate on Unlock (`service-worker.ts`, `autofill.ts`)**:
+   - In `service-worker.ts`, upon successful `UNLOCK`, broadcasts `VAULT_UNLOCKED` event to all open tabs.
+   - In `autofill.ts`, listens for `VAULT_UNLOCKED`: if the user is focused on a login/OTP field (or `lastFocusedField` exists), automatically queries `GET_LOGINS_FOR_DOMAIN` and presents matching credentials without requiring a page reload or refocus!
+
+#### Validation & Build Verification:
+- `npx tsc --noEmit`: 0 errors across entire workspace.
+- Production webpack build (`npm run build --prefix extension`): Compiled with exit code 0 (`popup.js` 431 KiB).
+- History verified: Two atomic commits created (`d5df85a` and `a4cbd4b`).
+
+---
+
+## Prior Session: Passkey Details Harmonization (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Phase 50: Passkey Detail View Harmonization across Web App and Browser Extension)
 
