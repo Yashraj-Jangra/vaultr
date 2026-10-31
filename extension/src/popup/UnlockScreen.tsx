@@ -15,9 +15,11 @@ interface UnlockScreenProps {
   userEmail?: string;
   onUnlock: (password: string) => Promise<void>;
   theme?: "dark" | "light" | "midnight";
+  isPopout?: boolean;
+  onPopOut?: () => void;
 }
 
-export function UnlockScreen({ serverUrl, userEmail, onUnlock, theme }: UnlockScreenProps) {
+export function UnlockScreen({ serverUrl, userEmail, onUnlock, theme, isPopout, onPopOut }: UnlockScreenProps) {
   const isLight = theme === "light" || (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "light");
   const brandLogo = isLight ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png";
   const lockSvg = isLight ? "brand/vaultr-lock-light-transparent.svg" : "brand/vaultr-lock-dark-transparent.svg";
@@ -266,7 +268,19 @@ export function UnlockScreen({ serverUrl, userEmail, onUnlock, theme }: UnlockSc
   }
 
   return (
-    <div className="unlock-wrap animate-screen-enter" style={{ padding: unlockMode === "pin" ? "20px 24px 16px" : "32px 24px" }}>
+    <div className="unlock-wrap animate-screen-enter" style={{ padding: unlockMode === "pin" ? "20px 24px 16px" : "32px 24px", position: "relative" }}>
+      {!isPopout && onPopOut && (
+        <div style={{ position: "absolute", top: 12, right: 12, zIndex: 30 }}>
+          <button
+            className="detail-action-btn"
+            onClick={onPopOut}
+            title="Pop out into new window"
+            type="button"
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
+      )}
       {/* Decorative Grid & Glow matching site */}
       <div className="unlock-bg-grid" />
       <div className="unlock-bg-radial" />

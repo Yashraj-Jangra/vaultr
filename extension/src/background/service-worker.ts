@@ -495,12 +495,71 @@ function clearAllBadges() {
   } catch {}
 }
 
+// ─── Pop-out Standalone Window Manager ───────────────────────────────────────
+
+let popoutWindowId: number | null = null;
+
+async function openPopoutWindow(): Promise<void> {
+  const width = 400;
+  const height = 620;
+
+  if (popoutWindowId !== null) {
+    try {
+      const existing = await chrome.windows.get(popoutWindowId);
+      if (existing) {
+        await chrome.windows.update(popoutWindowId, { focused: true });
+        return;
+      }
+    } catch {
+      popoutWindowId = null;
+    }
+  }
+
+  let left: number | undefined;
+  let top: number | undefined;
+  try {
+    const currentWin = await chrome.windows.getCurrent();
+    if (currentWin?.left !== undefined && currentWin?.width !== undefined) {
+      left = Math.round(currentWin.left + (currentWin.width - width) / 2);
+    }
+    if (currentWin?.top !== undefined && currentWin?.height !== undefined) {
+      top = Math.round(currentWin.top + (currentWin.height - height) / 2);
+    }
+  } catch {}
+
+  const win = await chrome.windows.create({
+    url: chrome.runtime.getURL("popup.html?mode=popout"),
+    type: "popup",
+    width,
+    height,
+    left: left !== undefined && left > 0 ? left : undefined,
+    top: top !== undefined && top > 0 ? top : undefined,
+    focused: true,
+  });
+
+  if (win?.id) {
+    popoutWindowId = win.id;
+  }
+}
+
+chrome.windows?.onRemoved?.addListener((windowId) => {
+  if (windowId === popoutWindowId) {
+    popoutWindowId = null;
+  }
+});
+
 // ─── Message Handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
       switch (message.type) {
+
+        case "OPEN_POPOUT": {
+          await openPopoutWindow();
+          sendResponse({ success: true });
+          break;
+        }
 
         case "GET_STATUS": {
           await tryRestoreSession();

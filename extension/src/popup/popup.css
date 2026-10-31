@@ -336,6 +336,13 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
   width: 620px;
   height: 600px;
 }
+html[data-mode="popout"], html[data-mode="popout"] body {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  overflow: hidden !important;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
