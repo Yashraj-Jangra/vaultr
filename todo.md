@@ -45,6 +45,32 @@
    - In `service-worker.ts`, upon successful `UNLOCK`, broadcasts `VAULT_UNLOCKED` event to all open tabs.
    - In `autofill.ts`, listens for `VAULT_UNLOCKED`: if the user is focused on a login/OTP field (or `lastFocusedField` exists), automatically queries `GET_LOGINS_FOR_DOMAIN` and presents matching credentials without requiring a page reload or refocus!
 
+#### Phase 3: Pop-out Mode Autofill Targeting & Resolution Fix (`🐛 fix autofill targeting and tab resolution in popup mode`)
+**Files Changed:**
+- `extension/src/background/service-worker.ts`
+- `extension/src/content-script/autofill.ts`
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/VaultScreen.tsx`
+- `extension/src/services/tabs.ts`
+
+**Key Improvements & Resolutions:**
+1. **Origin Tab Tracking (`service-worker.ts`)**:
+   - Passed originating `tabId` via URL query parameter (`?mode=popout&tabId=...`) when popping out from either toolbar popup or in-page locked dropdown.
+2. **Multi-Tier Web Tab Resolution (`tabs.ts`)**:
+   - Tier 0: Direct `tabId` lookup from URL search parameters.
+   - Tier 1: Toolbar popup `currentWindow` active tab.
+   - Tier 2: `chrome.windows.getLastFocused({ windowTypes: ["normal"], populate: true })` — explicitly bypassing the popout window (`type: "popup"`) to resolve the user's active browser window.
+   - Tier 3: `chrome.windows.getAll({ windowTypes: ["normal"], populate: true })` active tab scan.
+   - Tier 4: Global active tab fallback.
+3. **Pop-out Window Persistence & Target Focus (`App.tsx`)**:
+   - In `handleAutofill`: only calls `window.close()` when running in standard toolbar popup mode (`!isPopout`), preventing IPC message abortion and keeping the companion window open.
+   - In popout mode, calls `chrome.windows.update(tab.windowId, { focused: true })` to focus the browser window so the user sees the filled credentials immediately.
+4. **Reactive Tab Focus Domain Refresh (`VaultScreen.tsx`)**:
+   - Added `focus` window event listener so switching tabs in the browser updates VaultScreen matching site credentials automatically when clicking back to the popout window.
+5. **Form Field Anchor Selection & In-Page Toast Feedback (`autofill.ts`)**:
+   - Replaced generic input selection with login-priority field candidates (password -> email/username -> login text fields), avoiding accidental search bar targeting.
+   - Focuses field on autofill and triggers in-page toast feedback (`showInPageToast`).
+
 #### Validation & Build Verification:
 - `npx tsc --noEmit`: 0 errors across entire workspace.
 - Production webpack build (`npm run build --prefix extension`): Compiled with exit code 0 (`popup.js` 431 KiB).
