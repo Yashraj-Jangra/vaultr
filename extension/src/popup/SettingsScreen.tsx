@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Lock,
   Info,
@@ -30,7 +30,6 @@ import {
   Hash,
   Palette,
   Sparkles,
-  ChevronLeft,
   Moon,
   Sun,
 } from "lucide-react";
@@ -82,6 +81,24 @@ export function applyPopupWidth(width: PopupWidth | string) {
   }
 }
 
+export interface SettingsSubNav {
+  folder: SettingsTab;
+  title: string;
+  onBack: () => void;
+  backTooltip?: string;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}
+
+export const SETTINGS_FOLDER_TITLES: Record<SettingsTab, string> = {
+  autofill: "Autofill & Integration",
+  security: "Account Security",
+  themes: "Themes & Appearance",
+  about: "About VaultR",
+  change_password: "Change Master Password",
+  sessions: "Active Sessions",
+};
+
 interface SettingsScreenProps {
   serverUrl: string;
   accountInfo: AccountInfo;
@@ -89,6 +106,7 @@ interface SettingsScreenProps {
   onLock: () => void;
   currentTheme?: "dark" | "light" | "midnight";
   onThemeChange?: (theme: "dark" | "light" | "midnight") => void;
+  onSubNavChange?: (nav: SettingsSubNav | null) => void;
 }
 
 interface SessionData {
@@ -219,11 +237,17 @@ export function SettingsScreen({
   onLock,
   currentTheme = "dark",
   onThemeChange,
+  onSubNavChange,
 }: SettingsScreenProps) {
   // Folder state: null means root mobile folder list; otherwise the active folder view
   const [activeFolder, setActiveFolder] = useState<SettingsTab | null>(null);
   const [prevFolder, setPrevFolder] = useState<SettingsTab | null>(null);
   const [animKey, setAnimKey] = useState(0);
+
+  const activeFolderRef = useRef<SettingsTab | null>(activeFolder);
+  activeFolderRef.current = activeFolder;
+  const prevFolderRef = useRef<SettingsTab | null>(prevFolder);
+  prevFolderRef.current = prevFolder;
 
   const navigateToFolder = (folder: SettingsTab) => {
     setPrevFolder(activeFolder);
@@ -234,14 +258,16 @@ export function SettingsScreen({
     }
   };
 
-  const navigateBack = () => {
+  const navigateBack = useCallback(() => {
     setAnimKey((k) => k + 1);
-    if (activeFolder === "change_password" || activeFolder === "sessions") {
-      setActiveFolder(prevFolder === "security" ? "security" : null);
+    const curr = activeFolderRef.current;
+    const prev = prevFolderRef.current;
+    if (curr === "change_password" || curr === "sessions") {
+      setActiveFolder(prev === "security" ? "security" : null);
     } else {
       setActiveFolder(null);
     }
-  };
+  }, []);
 
   // Autofill section state (all default ON)
   const [autofillEnabled, setAutofillEnabled] = useState(true);
@@ -691,6 +717,35 @@ export function SettingsScreen({
     });
   }
 
+  useEffect(() => {
+    if (!onSubNavChange) return;
+
+    if (!activeFolder) {
+      onSubNavChange(null);
+    } else {
+      const title = SETTINGS_FOLDER_TITLES[activeFolder] || "Settings";
+      const backTooltip =
+        (activeFolder === "change_password" || activeFolder === "sessions") && prevFolder === "security"
+          ? "Back to Account Security"
+          : "Back to Settings";
+
+      onSubNavChange({
+        folder: activeFolder,
+        title,
+        onBack: navigateBack,
+        backTooltip,
+        onRefresh: activeFolder === "sessions" ? loadSessions : undefined,
+        isRefreshing: activeFolder === "sessions" ? sessionsLoading : false,
+      });
+    }
+  }, [activeFolder, prevFolder, sessionsLoading, onSubNavChange, navigateBack]);
+
+  useEffect(() => {
+    return () => {
+      onSubNavChange?.(null);
+    };
+  }, [onSubNavChange]);
+
   const handleChangeMasterPassword = () => {
     if (!oldPw || !newPw || !confirmPw) return;
     if (newPw !== confirmPw) {
@@ -1053,43 +1108,6 @@ export function SettingsScreen({
             VIEW B: INDIVIDUAL FOLDER SETTINGS SCREEN (Full width, no side-rail)
            ════════════════════════════════════════════════════════════════════ */
         <div style={{ display: "flex", flexDirection: "column", height: "100%", flex: 1, minHeight: 0, overflow: "hidden" }}>
-          {/* Sub-Folder Top Bar with Div-Less Back Button */}
-          <div className="settings-folder-header-bar">
-            <button
-              type="button"
-              className="settings-folder-back-btn"
-              onClick={navigateBack}
-              title={
-                (activeFolder === "change_password" || activeFolder === "sessions") && prevFolder === "security"
-                  ? "Back to Account Security"
-                  : "Back to Settings"
-              }
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="settings-folder-header-title">
-              {activeFolder === "autofill" && "Autofill & Integration"}
-              {activeFolder === "security" && "Account Security"}
-              {activeFolder === "themes" && "Themes & Appearance"}
-              {activeFolder === "about" && "About VaultR"}
-              {activeFolder === "change_password" && "Change Master Password"}
-              {activeFolder === "sessions" && "Active Sessions"}
-            </div>
-            {activeFolder === "sessions" ? (
-              <button
-                type="button"
-                className="settings-folder-back-btn"
-                onClick={loadSessions}
-                disabled={sessionsLoading}
-                title="Refresh sessions"
-              >
-                <RefreshCw size={14} className={sessionsLoading ? "animate-spin" : ""} />
-              </button>
-            ) : (
-              <div style={{ width: 32, height: 32, flexShrink: 0 }} />
-            )}
-          </div>
-
           {/* Full-width scrollable folder contents */}
           <div
             key={`folder-${activeFolder}-${animKey}`}

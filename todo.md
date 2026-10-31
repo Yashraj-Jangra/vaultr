@@ -1,4 +1,30 @@
-## Current Session: Universal Div-Less Settings Redesign & Design Spec (2026-10-31) · Branch: `dev`
+## Current Session: Unified Settings Header & 2nd Header Elimination (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Phase 47: Unified Settings Navigation Header & 2nd Header Elimination)
+
+**Files Changed:**
+- `extension/src/popup/App.tsx`
+- `extension/src/popup/SettingsScreen.tsx`
+- `extension/src/popup/popup.css`
+- `design.md`
+
+**Key Improvements & Resolutions:**
+1. **Elimination of Stacked Double Header in Settings**:
+   - Completely removed the secondary header bar (`settings-folder-header-bar`) from `SettingsScreen.tsx` across all settings sub-views.
+   - Saves 42px of vertical viewport height, allowing sub-page settings to scroll directly beneath the unified header.
+2. **Dynamic Top Header Sub-Navigation (`App.tsx`)**:
+   - When inside any settings sub-tab (`autofill`, `security`, `themes`, `about`, `change_password`, `sessions`), the top header dynamically replaces the VaultR brand logo with a sleek, div-less back button (`ChevronLeft`) and the sub-page title.
+   - When on the root Settings page or other primary tabs (`vault`, `generator`), the top header displays the standard VaultR brand logo.
+3. **Context-Aware Header Actions & Hierarchy**:
+   - The top header's right actions contextually adapt: Refresh triggers active session reload with spinner when on the Sessions sub-page.
+   - Clicking the user avatar or the active bottom nav Settings button navigates back up the settings hierarchy.
+4. **Design System Specification Updated (`design.md`)**:
+   - Added Section 3.7 formalizing the Unified Top Header & Sub-Navigation pattern across the VaultR ecosystem.
+5. **Validation & Build Verification**:
+   - Root TypeScript check (`npx tsc --noEmit`) verified and passed with 0 errors.
+   - Production webpack build (`npm run build` in `extension/`) compiled cleanly with exit code 0 (`popup.js` 423 KiB).
+
+---
 
 ### ✅ What Was Done (Phase 46: Universal Div-Less Settings Redesign & Design System Specification)
 

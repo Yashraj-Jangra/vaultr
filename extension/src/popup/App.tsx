@@ -3,9 +3,9 @@ import { VaultItem, isWebPageUrl } from "@vaultr/core";
 import { UnlockScreen } from "./UnlockScreen";
 import { VaultScreen } from "./VaultScreen";
 import { GeneratorScreen } from "./GeneratorScreen";
-import { SettingsScreen, applyPopupWidth } from "./SettingsScreen";
+import { SettingsScreen, applyPopupWidth, SettingsSubNav } from "./SettingsScreen";
 import { NewEntryForm } from "./NewEntryForm";
-import { Shield, Wand2, Settings, Lock, RefreshCw } from "lucide-react";
+import { Shield, Wand2, Settings, Lock, RefreshCw, ChevronLeft } from "lucide-react";
 import "./popup.css";
 
 export function resolveAvatarUrl(url?: string, serverUrl?: string) {
@@ -48,6 +48,7 @@ export function App() {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("vault");
+  const [settingsSubNav, setSettingsSubNav] = useState<SettingsSubNav | null>(null);
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<AccountInfo>({});
   const [theme, setTheme] = useState<"dark" | "light" | "midnight">("dark");
@@ -320,22 +321,44 @@ export function App() {
   };
 
   const avatarUri = resolveAvatarUrl(accountInfo.image || (accountInfo as any).avatarUrl, serverUrl);
+  const isSettingsSubpage = activeTab === "settings" && settingsSubNav !== null && !!settingsSubNav.title;
 
   return (
     <div className="screen">
       {/* Header */}
       <div className="header">
-        <div className="header-brand">
-          <img
-            src={theme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
-            alt="Vaultr"
-            style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
-          />
-        </div>
+        {isSettingsSubpage && settingsSubNav ? (
+          <div className="header-subpage-nav">
+            <button
+              type="button"
+              className="settings-folder-back-btn"
+              onClick={settingsSubNav.onBack}
+              title={settingsSubNav.backTooltip || "Back"}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="header-subpage-title">
+              {settingsSubNav.title}
+            </span>
+          </div>
+        ) : (
+          <div className="header-brand">
+            <img
+              src={theme === "light" ? "brand/vaultr-full-light-transparent.png" : "brand/vaultr-full-dark-transparent.png"}
+              alt="Vaultr"
+              style={{ height: 20, width: "auto", objectFit: "contain", opacity: 0.9 }}
+            />
+          </div>
+        )}
         <div className="header-actions">
           {/* Refresh */}
-          <button className="detail-action-btn" onClick={handleRefresh} title="Sync Vault">
-            <RefreshCw size={14} />
+          <button
+            className="detail-action-btn"
+            onClick={isSettingsSubpage && settingsSubNav?.onRefresh ? settingsSubNav.onRefresh : handleRefresh}
+            disabled={isSettingsSubpage && settingsSubNav?.isRefreshing}
+            title={isSettingsSubpage && settingsSubNav?.folder === "sessions" ? "Refresh Sessions" : "Sync Vault"}
+          >
+            <RefreshCw size={14} className={isSettingsSubpage && settingsSubNav?.isRefreshing ? "animate-spin" : ""} />
           </button>
           {/* Lock */}
           <button className="detail-action-btn" onClick={handleLock} title="Lock Vault">
@@ -344,8 +367,14 @@ export function App() {
           {/* Avatar Linking to Settings Tab */}
           <button
             style={{ background: "none", border: "none", cursor: "pointer", marginLeft: 4 }}
-            onClick={() => setActiveTab("settings")}
-            title="Account Settings"
+            onClick={() => {
+              if (activeTab === "settings" && settingsSubNav) {
+                settingsSubNav.onBack();
+              } else {
+                setActiveTab("settings");
+              }
+            }}
+            title={isSettingsSubpage ? "Back to Settings" : "Account Settings"}
           >
             {avatarUri ? (
               <div className="avatar-circle">
@@ -388,6 +417,7 @@ export function App() {
               onLock={handleLock}
               currentTheme={theme}
               onThemeChange={handleThemeChange}
+              onSubNavChange={setSettingsSubNav}
             />
           </div>
         )}
@@ -431,7 +461,13 @@ export function App() {
         </button>
         <button
           className={`nav-btn${activeTab === "settings" ? " active" : ""}`}
-          onClick={() => setActiveTab("settings")}
+          onClick={() => {
+            if (activeTab === "settings" && settingsSubNav) {
+              settingsSubNav.onBack();
+            } else {
+              setActiveTab("settings");
+            }
+          }}
         >
           <Settings size={16} />
           <span>Settings</span>
