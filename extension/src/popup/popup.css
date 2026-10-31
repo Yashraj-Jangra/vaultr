@@ -109,10 +109,14 @@ html[data-theme="light"] .unlock-bg-radial {
   background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0, 0, 0, 0.02) 0%, transparent 70%);
 }
 html[data-theme="light"] .unlock-footer-link {
-  color: var(--neutral-500);
+  color: var(--neutral-500) !important;
+  background: none !important;
+  background-color: transparent !important;
 }
 html[data-theme="light"] .unlock-footer-link:hover {
-  color: var(--neutral-100);
+  color: var(--neutral-100) !important;
+  background: none !important;
+  background-color: transparent !important;
 }
 
 /* PIN Pad */
@@ -1399,13 +1403,34 @@ html[data-popup-width="extended"], html[data-popup-width="extended"] body {
 }
 
 .unlock-footer-link {
-  color: var(--neutral-600);
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0;
+  margin: 0;
+  color: var(--neutral-500);
   text-decoration: none;
   cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: inherit;
+  display: inline-flex;
+  align-items: center;
+  outline: none;
+  box-shadow: none !important;
+  transition: color 0.15s ease;
 }
 
 .unlock-footer-link:hover {
-  color: var(--neutral-300);
+  background: none !important;
+  background-color: transparent !important;
+  color: var(--neutral-200);
+}
+
+.unlock-footer-link:focus,
+.unlock-footer-link:active {
+  background: none !important;
+  background-color: transparent !important;
 }
 
 /* ─── Slide Up Form Dialog Panel ──────────────────────────────────────────── */
