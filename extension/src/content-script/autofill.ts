@@ -314,11 +314,11 @@ function fillCredential(focusedField: HTMLInputElement, cred: AutofillCredential
 
 function createLockSvgIcon(): SVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", "16");
-  svg.setAttribute("height", "16");
+  svg.setAttribute("width", "15");
+  svg.setAttribute("height", "15");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "#f59e0b");
+  svg.setAttribute("stroke", "#f4f4f5");
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
@@ -1050,7 +1050,7 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
   const rect = inputEl.getBoundingClientRect();
 
   const width = Math.max(rect.width, 300);
-  const estimatedHeight = 96;
+  const estimatedHeight = 92;
   const pos = getDropdownPosition(rect, estimatedHeight, width);
 
   const host = document.createElement("div");
@@ -1083,15 +1083,15 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
     }
     .dropdown-container {
       background: #09090b !important;
-      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
       border-radius: 14px !important;
       box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
       overflow: hidden !important;
       font-size: 13px !important;
       color: #f4f4f5 !important;
       padding: 6px !important;
-      backdrop-filter: blur(16px) !important;
-      -webkit-backdrop-filter: blur(16px) !important;
+      backdrop-filter: blur(20px) !important;
+      -webkit-backdrop-filter: blur(20px) !important;
       display: flex !important;
       flex-direction: column !important;
     }
@@ -1099,17 +1099,17 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
       display: flex !important;
       align-items: center !important;
       gap: 8px !important;
-      padding: 7px 10px 9px !important;
+      padding: 6px 8px 8px !important;
       font-size: 11px !important;
       font-weight: 700 !important;
       color: #ffffff !important;
       letter-spacing: 0.04em !important;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-      margin-bottom: 5px !important;
+      margin-bottom: 4px !important;
       flex-shrink: 0 !important;
     }
     .brand-logo {
-      height: 18px !important;
+      height: 17px !important;
       width: auto !important;
       max-width: 90px !important;
       object-fit: contain !important;
@@ -1117,20 +1117,30 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
     }
     .locked-badge {
       margin-left: auto !important;
-      font-weight: 600 !important;
+      font-weight: 500 !important;
       font-size: 10px !important;
-      color: #f59e0b !important;
-      background: rgba(245, 158, 11, 0.12) !important;
-      padding: 2px 8px !important;
+      color: #a1a1aa !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      padding: 2px 7px !important;
       border-radius: 9999px !important;
-      border: 1px solid rgba(245, 158, 11, 0.25) !important;
-      letter-spacing: 0.05em !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      letter-spacing: 0.03em !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+    }
+    .locked-dot {
+      width: 5px !important;
+      height: 5px !important;
+      border-radius: 50% !important;
+      background: #71717a !important;
+      display: inline-block !important;
     }
     .item {
       display: flex !important;
       align-items: center !important;
       gap: 12px !important;
-      padding: 9px 10px !important;
+      padding: 8px 10px !important;
       border-radius: 10px !important;
       cursor: pointer !important;
       transition: background 0.15s ease, border-color 0.15s ease !important;
@@ -1148,10 +1158,16 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      border-radius: 8px !important;
-      background: rgba(245, 158, 11, 0.12) !important;
-      border: 1px solid rgba(245, 158, 11, 0.22) !important;
+      border-radius: 9px !important;
+      background: #18181b !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
       flex-shrink: 0 !important;
+      transition: border-color 0.15s ease, background 0.15s ease !important;
+    }
+    .item:hover .icon-box {
+      background: #222226 !important;
+      border-color: rgba(255, 255, 255, 0.22) !important;
     }
     .meta {
       min-width: 0 !important;
@@ -1166,21 +1182,35 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
       font-weight: 600 !important;
       font-size: 13px !important;
       color: #ffffff !important;
+      letter-spacing: -0.01em !important;
     }
     .sub {
       font-size: 11.5px !important;
       color: #94a3b8 !important;
-      margin-top: 2px !important;
+      margin-top: 1px !important;
+      letter-spacing: -0.005em !important;
     }
-    .action-hint {
+    .unlock-btn-pill {
       margin-left: auto !important;
       display: flex !important;
       align-items: center !important;
-      opacity: 0.7 !important;
-      transition: opacity 0.15s ease !important;
+      gap: 4px !important;
+      padding: 4px 9px !important;
+      border-radius: 6px !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      color: #f4f4f5 !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.01em !important;
+      transition: all 0.15s ease !important;
+      flex-shrink: 0 !important;
     }
-    .item:hover .action-hint {
-      opacity: 1 !important;
+    .item:hover .unlock-btn-pill {
+      background: #ffffff !important;
+      border-color: #ffffff !important;
+      color: #09090b !important;
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15) !important;
     }
   `;
   shadow.appendChild(styleEl);
@@ -1222,7 +1252,12 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
 
   const badge = document.createElement("span");
   badge.className = "locked-badge";
-  badge.textContent = "LOCKED";
+  const dot = document.createElement("span");
+  dot.className = "locked-dot";
+  badge.appendChild(dot);
+  const badgeText = document.createElement("span");
+  badgeText.textContent = "Vault locked";
+  badge.appendChild(badgeText);
   header.appendChild(badge);
   container.appendChild(header);
 
@@ -1242,21 +1277,21 @@ function showLockedDropdown(inputEl: HTMLInputElement) {
   nameRow.className = "name-row";
   const nameEl = document.createElement("div");
   nameEl.className = "name";
-  nameEl.textContent = "Vault is locked";
+  nameEl.textContent = "Unlock Vault";
   nameRow.appendChild(nameEl);
 
   const subEl = document.createElement("div");
   subEl.className = "sub";
-  subEl.textContent = "Click to unlock vault & view options";
+  subEl.textContent = "Click to unlock and autofill logins";
 
   meta.appendChild(nameRow);
   meta.appendChild(subEl);
   item.appendChild(meta);
 
-  const actionHint = document.createElement("div");
-  actionHint.className = "action-hint";
-  actionHint.appendChild(createExternalLinkSvgIcon());
-  item.appendChild(actionHint);
+  const pill = document.createElement("div");
+  pill.className = "unlock-btn-pill";
+  pill.innerHTML = `<span>Unlock</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>`;
+  item.appendChild(pill);
 
   item.addEventListener("mousedown", (e) => {
     e.preventDefault();
