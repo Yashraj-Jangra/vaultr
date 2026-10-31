@@ -73,7 +73,38 @@
 
 ---
 
-## Current Session: Extension Div-Less Back Button & Minimal Header (2026-10-31) · Branch: `dev`
+## Current Session: Transactional Emails Light Theme Redesign & Human Copy (2026-10-31) · Branch: `dev`
+
+### ✅ What Was Done (Clean White/Light Theme & Card-Free Professional Redesign)
+
+**Files Changed:**
+- `src/lib/emailTemplates.ts`
+- `src/app/api/admin/email/broadcast/route.ts`
+- `src/app/api/admin/email/route.ts`
+- `src/app/api/admin/smtp/test/route.ts`
+- `src/app/api/vault/schedule-delete/route.ts`
+
+**Key Improvements:**
+1. **Light & Modern Visual Canvas**:
+   - Replaced heavy cyberpunk dark theme (`#050507`, `#0d0d10`, `#131317` with neon gradient borders) with a clean `#ffffff` email card on a soft `#f6f8fa` neutral backdrop.
+   - Replaced dark mode logo with dark text wordmark on transparent background (`public/brand/vaultr-full-light-transparent.png`).
+   - Removed tacky uppercase pill badges (`END-TO-END ENCRYPTED`, `SECURITY ALERT`) from the header for an elegant, minimal presentation.
+2. **Human, Non-Dev Copy & Tone**:
+   - Replaced robotic AI security jargon ("military-grade cryptography", "purged blobs") with warm, concise, human copy inspired by Apple, Stripe, and Linear.
+   - Refined subject lines (e.g. `842 190 is your Vaultr verification code`).
+3. **Typography & Component Polish**:
+   - Clean slate headings (`#111827`, 20px, 600 weight) and readable body copy (`#4b5563`, 14px, 1.6 line height).
+   - Centered OTP verification code box on `#f9fafb` with subtle `1px solid #e5e7eb` border and spaced digits.
+   - Borderless metadata rows for sign-in details and ticket info with soft `#6b7280` labels.
+   - Sleek solid black action buttons (`#111827`) and clean red security action buttons (`#dc2626`).
+4. **All 9 Default Templates Redesigned**:
+   - `device_verification`, `new_device_alert`, `welcome`, `password_changed`, `account_deleted`, `support_reply`, `new_ticket_alert`, `email_verification`, `password_reset`.
+5. **Admin & System Email Routes Aligned**:
+   - Updated SMTP test route, admin manual email, broadcast email, and vault scheduled deletion email warning to match the clean light design system.
+
+---
+
+## Prior Session: Extension Div-Less Back Button & Minimal Header (2026-10-31) · Branch: `dev`
 
 ### ✅ What Was Done (Div-Less Ghost Back Button & Sub-Folder Header Refinement)
 
