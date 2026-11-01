@@ -14,6 +14,8 @@
   - Built multi-column responsive showcase sections for Web & Desktop, Browser Extension (Manifest V3), and Native Android App.
 - **Documentation & Repository Hygiene**:
   - Cleaned `docs/` directory by archiving LinkedIn Launch Kit to conversation artifacts and removing legacy remediated audit (`bug-audit-2026-09-19.md`).
+- **MinIO Registry Fix (`docker-compose.yml`)**:
+  - Replaced `quay.io/minio/minio:latest` (which fails with 401 Unauthorized in Portainer/Docker due to upstream anonymous pull restrictions) with `pgsty/silo:latest` (100% drop-in compatible S3 storage image).
 - **Verification Gate**:
   - `npx tsc --noEmit`: 0 errors.
 
