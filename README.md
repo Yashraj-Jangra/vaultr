@@ -12,8 +12,10 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com"><img src="https://img.shields.io/badge/version-v0.2.7-f59e0b.svg?style=for-the-badge&logo=git&logoColor=white" alt="Version" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3b82f6.svg?style=for-the-badge" alt="License" /></a>
+    <a href="https://github.com/Yashraj-Jangra/vaultr"><img src="https://img.shields.io/badge/version-v0.2.12-f59e0b.svg?style=for-the-badge&logo=git&logoColor=white" alt="Version" /></a>
+    <a href="https://vaultr.cvweb.tech"><img src="https://img.shields.io/badge/Live_App-vaultr.cvweb.tech-10b981.svg?style=for-the-badge&logo=vercel&logoColor=white" alt="Live App" /></a>
+    <a href="https://github.com/Yashraj-Jangra/vaultr/releases"><img src="https://img.shields.io/badge/Android_APK-Latest_Release-3b82f6.svg?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-64748b.svg?style=for-the-badge" alt="License" /></a>
     <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js_15-000000.svg?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 15" /></a>
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React_19-20232a.svg?style=for-the-badge&logo=react&logoColor=61dafb" alt="React 19" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript_5-3178c6.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript 5" /></a>
@@ -28,6 +30,10 @@
     <a href="#-cross-platform-ecosystem">Ecosystem</a> •
     <a href="#-self-hosting--quickstart">Quickstart</a> •
     <a href="#-local-development">Development</a>
+  </p>
+
+  <p align="center">
+    <img src="public/showcase/vaultr-preview.gif" alt="VaultR 2026 Ecosystem Preview" width="100%" />
   </p>
 
 </div>
@@ -123,6 +129,33 @@ Most password managers force a compromise between **convenience** and **sovereig
 | **Browser Extension** | TypeScript, Webpack 5, Manifest V3 | ![Active](https://img.shields.io/badge/Ready-10b981?style=flat-square) | Contextual autofill, quick generator, popup search |
 | **Core Library** | `@vaultr/core` (Universal TypeScript) | ![Active](https://img.shields.io/badge/Ready-10b981?style=flat-square) | Shared crypto routines, schema validators, version constants |
 
+### 🖥️ Web & Desktop Experience
+<p align="center">
+  <img src="public/screenshots/web-dashboard-vault-list.png" width="100%" alt="VaultR Web Command Canvas & Vault Tree" />
+</p>
+<p align="center">
+  <img src="public/screenshots/web-item-detail-totp-authenticator.png" width="49%" alt="VaultR Web 2FA Authenticator & Health Analysis" />
+  <img src="public/screenshots/web-card-editor-canvas.png" width="49%" alt="VaultR Interactive 3D Card Studio (Debit, Credit & Virtual Cards)" />
+</p>
+
+### 🧩 Browser Extension (Manifest V3)
+<p align="center">
+  <img src="public/screenshots/extension-popup-domain-match.png" width="44%" alt="VaultR Extension Toolbar Popup with Domain Match" />
+  &nbsp;&nbsp;
+  <img src="public/screenshots/extension-inpage-autofill-dropdown.png" width="52%" alt="VaultR Extension In-Page Autofill Prompt on GitHub" />
+</p>
+
+### 📱 Native Android Mobile App
+<p align="center">
+  <img src="public/screenshots/mobile-vault-home-dashboard.jpg" width="23%" alt="VaultR Mobile Vault Home" />
+  &nbsp;
+  <img src="public/screenshots/mobile-quick-pin-biometric-unlock.jpg" width="23%" alt="VaultR Mobile Quick PIN & Biometric Unlock" />
+  &nbsp;
+  <img src="public/screenshots/mobile-card-3d-canvas-detail.jpg" width="23%" alt="VaultR Mobile 3D Payment Card" />
+  &nbsp;
+  <img src="public/screenshots/mobile-password-generator-syntax.jpg" width="23%" alt="VaultR Mobile Password Generator" />
+</p>
+
 ---
 
 ## 🚀 Self-Hosting & Quickstart
@@ -135,7 +168,7 @@ Deploy your private VaultR instance with Docker in under 2 minutes:
 
 ### 2. Clone & Configure
 ```bash
-git clone https://github.com/your-username/vaultr.git
+git clone https://github.com/Yashraj-Jangra/vaultr.git
 cd vaultr
 
 # Copy environment template
@@ -245,6 +278,12 @@ _vaultr/
 ├── docker-compose.yml        # Multi-container self-hosting specification
 └── Dockerfile                # Multi-stage production container build
 ```
+
+---
+
+<p align="center">
+  <img src="public/screenshots/web-landing-noir-cta.png" width="100%" alt="Take Back Your Digital Privacy — VaultR" />
+</p>
 
 ---
 
