@@ -42,7 +42,8 @@ export const session = pgTable("session", {
   updatedAt: timestamp("updatedAt").notNull(),
   ipAddress: text("ipAddress"),
   userAgent: text("userAgent"),
-  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' })
+  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' }),
+  impersonatedBy: text("impersonatedBy"),
 });
 
 export const account = pgTable("account", {
@@ -74,7 +75,10 @@ export const twoFactor = pgTable("twoFactor", {
   id: text("id").primaryKey(),
   secret: text("secret").notNull(),
   backupCodes: text("backupCodes").notNull(),
-  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' })
+  userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' }),
+  verified: boolean("verified").default(false),
+  failedVerificationCount: integer("failedVerificationCount").default(0),
+  lockedUntil: timestamp("lockedUntil"),
 });
 
 // ─── Vault Items ──────────────────────────────────────────────────────────────

@@ -16,6 +16,9 @@
   - Cleaned `docs/` directory by archiving LinkedIn Launch Kit to conversation artifacts and removing legacy remediated audit (`bug-audit-2026-09-19.md`).
 - **MinIO Registry Fix (`docker-compose.yml`)**:
   - Replaced `quay.io/minio/minio:latest` (which fails with 401 Unauthorized in Portainer/Docker due to upstream anonymous pull restrictions) with `pgsty/silo:latest` (100% drop-in compatible S3 storage image).
+- **Better Auth Drizzle Schema Parity (`src/db/schema.ts`, `0009_colossal_rattler.sql`)**:
+  - Resolved `BetterAuthError: SCHEMA_MISMATCH` by adding missing plugin columns: `impersonatedBy` to `session` table, and `verified`, `failedVerificationCount`, `lockedUntil` to `twoFactor` table.
+  - Generated Drizzle migration `0009_colossal_rattler.sql` to automatically apply column additions in Postgres upon container start via `migrate-production.js`.
 - **Verification Gate**:
   - `npx tsc --noEmit`: 0 errors.
 

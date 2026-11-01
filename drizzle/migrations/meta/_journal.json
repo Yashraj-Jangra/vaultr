@@ -64,6 +64,13 @@
       "when": 1789823281472,
       "tag": "0008_thin_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793542826626,
+      "tag": "0009_colossal_rattler",
+      "breakpoints": true
     }
   ]
 }
