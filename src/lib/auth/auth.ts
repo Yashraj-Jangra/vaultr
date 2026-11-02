@@ -13,6 +13,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import { admin, twoFactor, bearer } from "better-auth/plugins";
+import * as schema from "@/db/schema";
 import { user as userTable, configSystem } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import * as os from "os";
@@ -51,6 +52,9 @@ const trustedOriginsArray = getTrustedOrigins();
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
+    schema: {
+      ...schema,
+    },
   }),
 
   plugins: [
