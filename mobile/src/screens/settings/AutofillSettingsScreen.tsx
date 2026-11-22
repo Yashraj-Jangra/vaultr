@@ -209,14 +209,46 @@ export function AutofillSettingsScreen({ navigation }: any) {
             <View style={styles.featureContent}>
               <View style={styles.featureTitleRow}>
                 <Text style={styles.featureTitle}>Passkeys & Credential Manager</Text>
-                <View style={[styles.miniPill, (status.passkeyCount ?? 0) > 0 ? { backgroundColor: "rgba(56, 189, 248, 0.15)", borderColor: "rgba(56, 189, 248, 0.35)", borderWidth: 1 } : null]}>
-                  <Text style={[styles.miniPillText, (status.passkeyCount ?? 0) > 0 ? { color: "#38bdf8", fontWeight: "700" } : null]}>
-                    {(status.passkeyCount ?? 0) > 0 ? `${status.passkeyCount} Enrolled` : "Android 14+"}
+                <View
+                  style={[
+                    styles.miniPill,
+                    status.isCredentialManagerEnabled && (status.passkeyCount ?? 0) > 0
+                      ? { backgroundColor: "rgba(56, 189, 248, 0.15)", borderColor: "rgba(56, 189, 248, 0.35)", borderWidth: 1 }
+                      : status.isCredentialManagerEnabled
+                      ? { backgroundColor: "rgba(52, 211, 153, 0.15)", borderColor: "rgba(52, 211, 153, 0.35)", borderWidth: 1 }
+                      : status.isCredentialManagerSupported
+                      ? { backgroundColor: "rgba(245, 158, 11, 0.15)", borderColor: "rgba(245, 158, 11, 0.35)", borderWidth: 1 }
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.miniPillText,
+                      status.isCredentialManagerEnabled && (status.passkeyCount ?? 0) > 0
+                        ? { color: "#38bdf8", fontWeight: "700" }
+                        : status.isCredentialManagerEnabled
+                        ? { color: "#34d399", fontWeight: "700" }
+                        : status.isCredentialManagerSupported
+                        ? { color: "#fbbf24", fontWeight: "700" }
+                        : null,
+                    ]}
+                  >
+                    {status.isCredentialManagerEnabled
+                      ? (status.passkeyCount ?? 0) > 0
+                        ? `${status.passkeyCount} Enrolled`
+                        : "Active"
+                      : status.isCredentialManagerSupported
+                      ? "Tap to Enable"
+                      : "Android 14+"}
                   </Text>
                 </View>
               </View>
               <Text style={styles.featureDesc}>
-                Hardware-backed Credential Manager support for passwordless FIDO2 WebAuthn passkeys. Tap to configure system provider.
+                {status.isCredentialManagerEnabled
+                  ? "Hardware-backed Credential Manager active. Ready for passwordless FIDO2 WebAuthn passkeys."
+                  : status.isCredentialManagerSupported
+                  ? "Tap to enable Vaultr under Android Settings > Passwords, passkeys & autofill."
+                  : "Hardware-backed Credential Manager support for passwordless FIDO2 WebAuthn passkeys (requires Android 14+)."}
               </Text>
             </View>
             <ExternalLink size={14} color="#71717a" style={{ marginLeft: 8 }} />

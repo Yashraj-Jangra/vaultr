@@ -87,6 +87,12 @@ class VaultrCredentialProviderService : CredentialProviderService() {
                             if (rpId.isBlank()) {
                                 rpId = json.optJSONObject("publicKey")?.optString("rpId") ?: ""
                             }
+                            if (rpId.isBlank()) {
+                                rpId = json.optJSONObject("rp")?.optString("id") ?: ""
+                            }
+                            if (rpId.isBlank()) {
+                                rpId = json.optJSONObject("publicKey")?.optJSONObject("rp")?.optString("id") ?: ""
+                            }
                             val credsArr = json.optJSONArray("allowCredentials")
                                 ?: json.optJSONObject("publicKey")?.optJSONArray("allowCredentials")
                             if (credsArr != null) {
@@ -229,6 +235,11 @@ class VaultrCredentialProviderService : CredentialProviderService() {
                         val json = JSONObject(requestJson)
                         val rp = json.optJSONObject("rp")
                         rpId = rp?.optString("id") ?: json.optString("rpId")
+                        if (rpId.isBlank()) {
+                            rpId = json.optJSONObject("publicKey")?.optJSONObject("rp")?.optString("id")
+                                ?: json.optJSONObject("publicKey")?.optString("rpId")
+                                ?: ""
+                        }
                         val user = json.optJSONObject("user")
                         username = user?.optString("name") ?: ""
                         displayName = user?.optString("displayName") ?: username

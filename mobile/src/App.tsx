@@ -29,6 +29,14 @@ try {
       });
     });
   }
+  if (QuickCrypto?.webcrypto?.subtle && typeof globalThis !== "undefined") {
+    if (!globalThis.crypto) {
+      (globalThis as any).crypto = {};
+    }
+    if (!(globalThis.crypto as any).subtle) {
+      (globalThis.crypto as any).subtle = QuickCrypto.webcrypto.subtle;
+    }
+  }
 } catch (e) {
   console.log("[Crypto] Native crypto not available in Expo Go. Falling back to JS PBKDF2Async.");
 }

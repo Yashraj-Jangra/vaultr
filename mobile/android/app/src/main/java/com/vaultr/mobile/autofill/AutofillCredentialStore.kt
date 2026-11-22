@@ -27,6 +27,7 @@ object AutofillCredentialStore {
     private const val TAG = "VaultrAutofillStore"
     private const val PREFS_NAME = "vaultr_autofill_secure_cache"
     private const val KEY_CREDENTIALS = "cached_credentials_json"
+    private const val KEY_PENDING_PASSKEYS = "vaultr_pending_passkeys_json"
     private const val KEY_UNLOCKED_AT = "vaultr_autofill_unlocked_at"
     private const val KEY_TIMEOUT_MS = "vaultr_autofill_timeout_ms"
     private const val DEFAULT_TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes default
@@ -155,18 +156,35 @@ object AutofillCredentialStore {
 
     fun syncCredentials(context: Context, jsonString: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS) {
         try {
-            val items = parseJson(jsonString)
-            cachedItems = items
+            val incomingItems = parseJson(jsonString).toMutableList()
+
+            // Merge and preserve any pending passkeys that have not been ingested into the incoming datasets yet
+            val pending = getPendingPasskeys(context)
+            if (pending.isNotEmpty()) {
+                for (p in pending) {
+                    val pNorm = normalizeCredentialId(p.passkeyCredentialId)
+                    val alreadyExists = incomingItems.any {
+                        it.id == p.id || (!it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == pNorm)
+                    }
+                    if (!alreadyExists) {
+                        incomingItems.add(p)
+                        Log.d(TAG, "Preserved pending passkey in sync: ${p.username} on ${p.passkeyRpId}")
+                    }
+                }
+            }
+
+            cachedItems = incomingItems
             lastUnlockedAt = System.currentTimeMillis()
             autoLockTimeoutMs = if (timeoutMs > 0) timeoutMs else DEFAULT_TIMEOUT_MS
 
+            val mergedJson = serializeToJson(incomingItems)
             val prefs = getPrefs(context)
             prefs.edit()
-                .putString(KEY_CREDENTIALS, jsonString)
+                .putString(KEY_CREDENTIALS, mergedJson)
                 .putLong(KEY_UNLOCKED_AT, lastUnlockedAt)
                 .putLong(KEY_TIMEOUT_MS, autoLockTimeoutMs)
                 .apply()
-            Log.d(TAG, "Successfully synced ${items.size} credentials. Timeout: ${autoLockTimeoutMs}ms")
+            Log.d(TAG, "Successfully synced ${incomingItems.size} credentials (including ${pending.size} pending). Timeout: ${autoLockTimeoutMs}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync credentials", e)
         }
@@ -290,9 +308,16 @@ object AutofillCredentialStore {
         return clean
     }
 
-    fun getPasskeyCount(): Int {
-        if (isVaultLocked()) return 0
-        return cachedItems.count { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+    fun getPasskeyCount(context: Context? = null): Int {
+        if (context != null) {
+            val stored = getStoredItems(context)
+            val pending = getPendingPasskeys(context)
+            return (stored + pending).distinctBy { it.id }.count { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+        }
+        if (cachedItems.isNotEmpty()) {
+            return cachedItems.count { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+        }
+        return 0
     }
 
     fun findPasskeys(rpId: String?): List<AutofillItem> {
@@ -332,33 +357,24 @@ object AutofillCredentialStore {
     /**
      * Searches passkeys from local secure storage even if vault memory cache is currently locked.
      * Essential for Credential Manager discovery to provide passkey entries directly.
+     * Strictly scopes passkeys to the requested relying party domain to prevent cross-origin leaks.
      */
     fun findPasskeysInStorage(
         context: Context,
         rpId: String?,
         allowCredentials: List<String> = emptyList()
     ): List<AutofillItem> {
-        val items = getStoredItems(context)
-        val passkeyItems = items.filter { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
-        if (passkeyItems.isEmpty()) return emptyList()
-
-        // 1. If explicit allowCredentials IDs are provided by the relying party, match them first
-        val allowedNormalized = allowCredentials.map { normalizeCredentialId(it) }.filter { it.isNotBlank() }.toSet()
-        if (allowedNormalized.isNotEmpty()) {
-            val idMatches = passkeyItems.filter { item ->
-                allowedNormalized.contains(normalizeCredentialId(item.passkeyCredentialId))
-            }
-            if (idMatches.isNotEmpty()) {
-                return idMatches
-            }
-        }
-
-        if (rpId.isNullOrBlank()) return emptyList()
+        val stored = getStoredItems(context)
+        val pending = getPendingPasskeys(context)
+        val allItems = (stored + pending).distinctBy { it.id }
+        val passkeyItems = allItems.filter { it.isPasskey && !it.passkeyCredentialId.isNullOrBlank() }
+        if (passkeyItems.isEmpty() || rpId.isNullOrBlank()) return emptyList()
 
         val cleanRp = normalizeDomain(rpId)
         val mappedDomain = PACKAGE_DOMAIN_MAP[cleanRp.lowercase()]
 
-        return passkeyItems.filter { item ->
+        // 1. Strictly scope passkeys to the requesting Relying Party domain
+        val rpMatchingItems = passkeyItems.filter { item ->
             val itemRp = item.passkeyRpId?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
             val itemDomain = item.domain?.takeIf { it.isNotBlank() }?.let { normalizeDomain(it) }
 
@@ -374,6 +390,20 @@ object AutofillCredentialStore {
             }
             false
         }
+
+        // 2. If relying party provided explicit allowCredentials IDs, match within RP-scoped passkeys
+        val allowedNormalized = allowCredentials.map { normalizeCredentialId(it) }.filter { it.isNotBlank() }.toSet()
+        if (allowedNormalized.isNotEmpty()) {
+            val idMatches = rpMatchingItems.filter { item ->
+                allowedNormalized.contains(normalizeCredentialId(item.passkeyCredentialId))
+            }
+            if (idMatches.isNotEmpty()) {
+                return idMatches
+            }
+        }
+
+        // 3. Otherwise return all discoverable passkeys for this RP (e.g. conditional UI / autofill)
+        return rpMatchingItems
     }
 
     /**
@@ -491,6 +521,58 @@ object AutofillCredentialStore {
             Log.d(TAG, "Successfully added/updated passkey in AutofillCredentialStore for ${newItem.username} on ${newItem.passkeyRpId}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist new passkey", e)
+        }
+
+        // Also queue into pending passkeys store so React Native sync engine can ingest & encrypt it
+        savePendingPasskey(newItem, context)
+    }
+
+    fun savePendingPasskey(item: AutofillItem, context: Context) {
+        try {
+            val prefs = getPrefs(context)
+            val raw = prefs.getString(KEY_PENDING_PASSKEYS, null)
+            val pending = (if (!raw.isNullOrBlank()) parseJson(raw) else emptyList()).toMutableList()
+            val targetNorm = normalizeCredentialId(item.passkeyCredentialId)
+            val idx = pending.indexOfFirst {
+                it.id == item.id || (!it.passkeyCredentialId.isNullOrBlank() && normalizeCredentialId(it.passkeyCredentialId) == targetNorm)
+            }
+            if (idx != -1) {
+                pending[idx] = item
+            } else {
+                pending.add(item)
+            }
+            prefs.edit().putString(KEY_PENDING_PASSKEYS, serializeToJson(pending)).apply()
+            Log.d(TAG, "Queued pending passkey for sync: ${item.username} (${item.passkeyRpId})")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue pending passkey", e)
+        }
+    }
+
+    fun getPendingPasskeys(context: Context): List<AutofillItem> {
+        return try {
+            val raw = getPrefs(context).getString(KEY_PENDING_PASSKEYS, null)
+            if (!raw.isNullOrBlank()) parseJson(raw) else emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get pending passkeys", e)
+            emptyList()
+        }
+    }
+
+    fun acknowledgePendingPasskeys(ids: List<String>, context: Context) {
+        try {
+            val prefs = getPrefs(context)
+            val raw = prefs.getString(KEY_PENDING_PASSKEYS, null) ?: return
+            val pending = parseJson(raw).toMutableList()
+            val idSet = ids.toSet()
+            val remaining = pending.filterNot { idSet.contains(it.id) || idSet.contains(it.passkeyCredentialId) }
+            if (remaining.isEmpty()) {
+                prefs.edit().remove(KEY_PENDING_PASSKEYS).apply()
+            } else {
+                prefs.edit().putString(KEY_PENDING_PASSKEYS, serializeToJson(remaining)).apply()
+            }
+            Log.d(TAG, "Acknowledged ${ids.size} pending passkey(s), ${remaining.size} remaining")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acknowledge pending passkeys", e)
         }
     }
 

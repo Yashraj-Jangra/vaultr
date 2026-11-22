@@ -157,6 +157,39 @@ export async function isAutofillUnlockPending(): Promise<boolean> {
   }
 }
 
+/** Fetch passkeys created via Android Credential Manager that are awaiting vault encryption & cloud sync. */
+export async function getPendingPasskeys(): Promise<AutofillDataset[]> {
+  if (Platform.OS !== "android" || !VaultrAutofillModule?.getPendingPasskeys) return [];
+  try {
+    return await VaultrAutofillModule.getPendingPasskeys();
+  } catch (err) {
+    console.warn("[Autofill] Failed to get pending passkeys:", err);
+    return [];
+  }
+}
+
+/** Acknowledge that pending passkeys have been successfully encrypted and saved to the vault. */
+export async function acknowledgePendingPasskeys(ids: string[]): Promise<boolean> {
+  if (Platform.OS !== "android" || !VaultrAutofillModule?.acknowledgePendingPasskeys || ids.length === 0) return true;
+  try {
+    return await VaultrAutofillModule.acknowledgePendingPasskeys(ids);
+  } catch (err) {
+    console.warn("[Autofill] Failed to acknowledge pending passkeys:", err);
+    return false;
+  }
+}
+
+/** Generate a FIDO2 P-256 passkey keypair natively on Android. */
+export async function generateNativePasskey(rpId: string, userName: string): Promise<any> {
+  if (Platform.OS !== "android" || !VaultrAutofillModule?.generatePasskey) return null;
+  try {
+    return await VaultrAutofillModule.generatePasskey(rpId, userName);
+  } catch (err) {
+    console.warn("[Autofill] Failed to generate native passkey:", err);
+    return null;
+  }
+}
+
 /** Finish the autofill unlock sequence, return to the autofill search sheet, and minimize Vaultr. */
 export async function finishAutofillUnlock(): Promise<void> {
   if (Platform.OS !== "android" || !VaultrAutofillModule?.finishAutofillUnlock) return;

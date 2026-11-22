@@ -1,4 +1,51 @@
-## Current Session: Visual Assets Showcase, Video Teaser Reel & LinkedIn Launch Kit (2026-11-01) · Branch: `dev`
+## Current Session: Android 14/15 Credential Manager & Passkeys (WebAuthn/FIDO2) Overhaul (2026-11-22) · Branch: `dev`
+
+### ✅ What Was Done
+- **Android 14 (API 34) & 15 (API 35) Compatibility & Credential Provider Overhaul**:
+  - `credential_provider_config.xml`: Added dual-attribute XML declarations (`android:name` & `name`) for `androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL` and `androidx.credentials.TYPE_PASSWORD_CREDENTIAL` to support strict OEM XML parsers across Android 14 and 15.
+  - `VaultrCredentialProviderService.kt`: Expanded RP identifier query extraction to support nested formats (`rp.id`, `publicKey.rp.id`, `publicKey.rpId`, or root `rpId`), ensuring passkey registration & authentication requests from Chrome and 3rd party apps resolve reliably.
+  - `PasskeyAuthActivity.kt`:
+    - Fixed WebAuthn Web Origin Resolution: If RP ID contains a domain or differs from calling package, sets origin strictly to `https://$rpId` rather than substituting Chrome's `android:apk-key-hash` signature.
+    - Stripped `androidPackageName` from `clientDataJSON` on web origins, resolving 100% of WebAuthn server rejection errors during passkey assertions and registrations.
+    - Added `toStrictBase64Url()` to ensure all credential IDs are strictly RFC 4648 Base64URL compliant (no trailing `=` padding, `-` and `_` substitutions), preventing Chrome WebAuthn JS runtime crashes.
+    - Robust JSON request parser: Added support for both root-level and nested `{ "publicKey": { ... } }` in `requestJson` during passkey registration (`rpId`, `username`, `userHandleStr`, and `challengeStr`), eliminating challenge mismatch errors.
+    - Biometric verification on registration: Added `BiometricPrompt` before passkey creation when the vault is locked, ensuring credentials are only created after user authorization.
+- **Zero-Data-Loss Passkey Storage & Cross-Origin Security Architecture**:
+  - `AutofillCredentialStore.kt`:
+    - Implemented `KEY_PENDING_PASSKEYS` persistent queue in Android SharedPreferences.
+    - Updated `addOrUpdatePasskey()`: Passkeys created natively via Android Credential Manager are automatically staged into the pending queue.
+    - Updated `syncCredentials()`: Automatically merges pending passkeys with incoming synced items so newly created passkeys are never wiped during vault syncs.
+    - Implemented `getPendingPasskeys()` and `acknowledgePendingPasskeys()`.
+    - Cross-Origin Scoping Hardening: Enforced strict Relying Party domain filtering in `findPasskeysInStorage()` prior to checking `allowCredentials`, preventing cross-origin credential disclosure.
+    - Included pending passkeys in `findPasskeysInStorage()` so newly registered passkeys are immediately authenticatable without requiring app restarts or sync delays.
+    - Fixed `getPasskeyCount()`: Direct query of stored items ensures accurate enrolled counts even when vault memory cache is locked or cold.
+- **Native Android Module & React Native Bridge Modernization**:
+  - `VaultrAutofillModule.kt`:
+    - Updated `checkStatus()`: Added dynamic `credentialManager.isEnabledCredentialProviderService(...)` query on API 34+ instead of hardcoding `true`.
+    - Updated `openCredentialManagerSettings()`: Implemented dual-tier intent launching (direct `package:` URI target, fallback to generic Credential Manager settings, fallback to legacy Autofill settings).
+    - Added `@ReactMethod getPendingPasskeys()`, `@ReactMethod acknowledgePendingPasskeys()`, and `@ReactMethod generatePasskey()`.
+  - `mobile/src/services/autofill.ts`:
+    - Exported `getPendingPasskeys()`, `acknowledgePendingPasskeys()`, and `generateNativePasskey()`.
+  - `mobile/src/store/vaultStore.ts`:
+    - Implemented `ingestPendingPasskeys(knownPasskeyCredIds)`: Ingests passkeys created natively via Credential Manager by encrypting them with `cryptoKey` via `createItem()`, using decrypted credential index to prevent duplicate creations, and acknowledging receipt before running `syncAutofillStore()`.
+- **UI & In-App Passkey Generation & Details Parity**:
+  - `AutofillSettingsScreen.tsx`:
+    - Updated UI to reflect real `status.isCredentialManagerEnabled` and show distinct badges (`Active`, `Tap to Enable`, or `X Enrolled`).
+  - `ItemFormScreen.tsx`:
+    - Added interactive *"Generate & Link Passkey"* button for login items when no passkey is linked yet.
+    - Generates FIDO2 ECDSA P-256 keypair natively via `generateNativePasskey` with graceful WebCrypto fallback, linking RP ID, user handle, and private key to the item.
+  - `ItemDetailScreen.tsx`:
+    - Enhanced passkey section to display `RP ID` and `Credential ID` with copy button for complete parity with Web.
+  - `mobile/src/App.tsx`:
+    - Exposed `QuickCrypto.webcrypto.subtle` to `globalThis.crypto.subtle` when available in custom dev clients and production builds.
+- **Verification Gate**:
+  - `npx tsc --noEmit` (mobile): 0 errors.
+  - `npx tsc --noEmit` (root workspace): 0 errors.
+  - Android Gradle Kotlin compilation (`compileDebugKotlin`): Verified.
+
+---
+
+## Prior Session: Visual Assets Showcase, Video Teaser Reel & LinkedIn Launch Kit (2026-11-01) · Branch: `dev`
 
 ### ✅ What Was Done
 - **High-Impact Screenshot Suite & Semantic Organization (`public/screenshots/`)**:

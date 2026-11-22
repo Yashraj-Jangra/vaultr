@@ -402,6 +402,26 @@ export function ItemDetailScreen({ route, navigation }: Props) {
                           })}`
                         : "Configured for passwordless sign-in"}
                     </Text>
+                    {payload.passkeyRpId ? (
+                      <Text style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>
+                        RP ID: <Text style={{ color: "#e4e4e7", fontFamily: Platform.OS === "ios" ? "Courier" : "monospace" }}>{payload.passkeyRpId}</Text>
+                      </Text>
+                    ) : null}
+                    {payload.passkeyCredentialId ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                        <Text style={{ fontSize: 11, color: "#a1a1aa" }}>
+                          ID: <Text style={{ color: "#e4e4e7", fontFamily: Platform.OS === "ios" ? "Courier" : "monospace" }}>
+                            {payload.passkeyCredentialId.slice(0, 16)}…{payload.passkeyCredentialId.slice(-6)}
+                          </Text>
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => copyToClipboard("passkeyCredentialId", payload.passkeyCredentialId)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Copy size={12} color={copiedField === "passkeyCredentialId" ? "#34d399" : "#71717a"} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
                 <View style={styles.passkeyStatusBadge}>
