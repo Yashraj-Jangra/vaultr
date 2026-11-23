@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { vaultAlert } from "../../store/alertStore";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -445,7 +447,16 @@ export function AccountSettingsScreen({ navigation }: any) {
         <Text style={styles.navTitle}>Account Settings</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: 160 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+        >
         {/* ── Section 1: Primary Profile ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -791,8 +802,9 @@ export function AccountSettingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
-  );
+    </KeyboardAvoidingView>
+  </SafeAreaView>
+);
 }
 
 const styles = StyleSheet.create({

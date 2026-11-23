@@ -18,7 +18,8 @@ import { FolderSelectModal } from "../components/FolderSelectModal";
 import { StackScreenProps } from "@react-navigation/stack";
 import { RootStackParamList } from "../navigation/types";
 import { useVaultStore } from "../store/vaultStore";
-import { Template, DEFAULT_CARD_EASTER_EGGS, getRandomEggIndex } from "@vaultr/core";
+import { Template, DEFAULT_CARD_EASTER_EGGS, getRandomEggIndex, createPasskeyCredential, resolveDomain } from "@vaultr/core";
+import { generateNativePasskey } from "../services/autofill";
 import { colors } from "../theme/colors";
 import { ItemPreviewCard, detectCardBrand } from "../components/ItemPreviewCard";
 import { PredictiveBackWrapper } from "../components/PredictiveBackWrapper";
@@ -83,6 +84,7 @@ export function ItemFormScreen({ route, navigation }: Props) {
   const [totpSecret, setTotpSecret] = useState(initialTotpSecret || "");
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [passkeyData, setPasskeyData] = useState<any>(null);
+  const [isGeneratingPasskey, setIsGeneratingPasskey] = useState(false);
 
   // Card fields
   const [cardholderName, setCardholderName] = useState("");
@@ -396,6 +398,72 @@ export function ItemFormScreen({ route, navigation }: Props) {
     const sub = BackHandler.addEventListener("hardwareBackPress", backAction);
     return () => sub.remove();
   }, [isEdit, item, name, username, password, note, cardNumber, email, entryNotes, initialPassword]);
+
+  const handleGeneratePasskey = async () => {
+    const effectiveRpId = resolveDomain(url) || (name.trim() ? name.trim().toLowerCase().replace(/[^a-z0-9.-]/g, "") : "");
+    if (!effectiveRpId) {
+      vaultAlert.alert(
+        "Missing Website or Service",
+        "Please enter a Website URL or Item Name first so the passkey can be linked to the correct Relying Party domain.",
+        undefined,
+        { illustration: "cancel_k4w9" }
+      );
+      return;
+    }
+
+    setIsGeneratingPasskey(true);
+    try {
+      // 1. Try native Android key generation first
+      let passkeyObj = await generateNativePasskey(effectiveRpId, username || name || "VaultR User");
+
+      // 2. Fallback to @vaultr/core createPasskeyCredential if native module unavailable
+      if (!passkeyObj) {
+        const cred = await createPasskeyCredential({
+          rpId: effectiveRpId,
+          rpName: name || effectiveRpId,
+          userName: username || name || "VaultR User",
+          userDisplayName: name || username || effectiveRpId,
+          challenge: "vaultr-passkey-init-" + Date.now(),
+          origin: "https://" + effectiveRpId,
+        });
+
+        passkeyObj = {
+          isPasskey: true,
+          passkeyRpId: effectiveRpId,
+          passkeyCredentialId: cred.credentialId,
+          passkeyUserHandle: cred.passkeyUserHandle,
+          passkeyPrivateKey: cred.passkeyPrivateKey,
+          passkeySignCount: 0,
+          passkeyTransports: ["internal", "hybrid"],
+          passkeyCreatedAt: new Date().toISOString(),
+        };
+      }
+
+      setPasskeyData(passkeyObj);
+      setTagsStr((prev) => {
+        const tags = prev.split(",").map((t) => t.trim()).filter(Boolean);
+        if (!tags.includes("passkey")) tags.push("passkey");
+        return tags.join(", ");
+      });
+
+      vaultAlert.alert(
+        "Passkey Generated",
+        `FIDO2 ECDSA P-256 passkey created for ${effectiveRpId}. Save the item to persist it in your encrypted vault.`,
+        undefined,
+        { illustration: "new-entries_xw4m" }
+      );
+    } catch (err: any) {
+      console.error("[Passkey Generation Error]", err);
+      vaultAlert.alert(
+        "Passkey Generation Failed",
+        err?.message || "Could not generate cryptographic passkey keypair.",
+        undefined,
+        { illustration: "cancel_k4w9" }
+      );
+    } finally {
+      setIsGeneratingPasskey(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!isOnline) {
@@ -825,8 +893,8 @@ export function ItemFormScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            {/* Passkey Credential (Read-only / Unlink) */}
-            {passkeyData?.isPasskey && (
+            {/* Passkey Credential (Read-only / Unlink / Generate) */}
+            {passkeyData?.isPasskey ? (
               <View style={styles.formGroup}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                   <Text style={styles.label}>PASSKEY CREDENTIAL</Text>
@@ -858,6 +926,27 @@ export function ItemFormScreen({ route, navigation }: Props) {
                     </Text>
                   ) : null}
                 </View>
+              </View>
+            ) : (
+              <View style={styles.formGroup}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={styles.label}>PASSKEY CREDENTIAL</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.generatePasskeyBtn}
+                  onPress={handleGeneratePasskey}
+                  disabled={isGeneratingPasskey}
+                  activeOpacity={0.7}
+                >
+                  {isGeneratingPasskey ? (
+                    <ActivityIndicator size="small" color="#38bdf8" />
+                  ) : (
+                    <>
+                      <KeyRound size={15} color="#38bdf8" />
+                      <Text style={styles.generatePasskeyBtnText}>Generate & Link Passkey</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
             )}
 
@@ -1456,13 +1545,15 @@ export function ItemFormScreen({ route, navigation }: Props) {
         </View>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
           {isSplitView ? (
             <ScrollView
-              contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
+              contentContainerStyle={[styles.splitContent, { paddingBottom: 240 }]}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="interactive"
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.splitLeftCol}>
@@ -1474,8 +1565,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
             </ScrollView>
           ) : (
             <ScrollView
-              contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+              contentContainerStyle={[styles.content, { paddingBottom: 240 }]}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="interactive"
               showsVerticalScrollIndicator={false}
             >
               {renderLeftPane()}
@@ -1903,5 +1996,23 @@ const styles = StyleSheet.create({
     color: "#d4d4d8",
     fontSize: 11,
     fontFamily: "monospace",
+  },
+  generatePasskeyBtn: {
+    backgroundColor: "rgba(56, 189, 248, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.25)",
+    borderStyle: "dashed",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  generatePasskeyBtnText: {
+    color: "#38bdf8",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

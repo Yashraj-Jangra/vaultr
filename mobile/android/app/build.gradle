@@ -100,8 +100,8 @@ android {
         applicationId 'com.vaultr.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "0.2.12"
+        versionCode 13
+        versionName "0.2.13"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }

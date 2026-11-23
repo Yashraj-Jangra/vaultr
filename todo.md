@@ -1,4 +1,90 @@
-## Current Session: Visual Assets Showcase, Video Teaser Reel & LinkedIn Launch Kit (2026-11-01) · Branch: `dev`
+## Current Session: Rate Limiting Middleware Hardening & Mobile Keyboard Input Occlusion Fix (2026-11-23) · Branch: `dev`
+
+### ✅ What Was Done
+- **Root-Cause Diagnostic & Remediation of 429 "Too Many Requests" Error on Vault Unlock**:
+  - `src/proxy.ts`:
+    - Resolved critical multi-bucket increment bug where `for (const rule of matchingRules)` evaluated and double/triple-counted every matching rule instead of picking the single longest-prefix rule.
+    - Updated rule resolution to strictly pick the single most-specific rule (`matchingRules[0]`), isolating `vault-read` (/api/vault/items), `stream` (/api/vault/stream), and `auth` (/api/auth/sign-in) from exhausting the general `api` bucket.
+    - Exempted cached image proxy routes (`/api/favicon` and `/api/avatars`) from the API rate limiter, completely preventing the "Post-Login Favicon Storm" (40-100 parallel icon fetches) from consuming the rate limit.
+    - Increased rate limit bucket capacities to resilient production thresholds: `vault-read` to 120 req/min, `stream` to 60 req/min, and general `api` to 180 req/min.
+  - `src/lib/getClientIp.ts`:
+    - Added comprehensive fallbacks for `cf-connecting-ip`, `x-client-ip`, Next.js direct socket IP, and local host loopback (`127.0.0.1`).
+    - Eliminated fallback collapse to static `"unknown"` sentinel during local development, port-forwarding, or direct Docker access.
+  - `extension/src/background/service-worker.ts` & `extension/src/popup/App.tsx`:
+    - Optimized `UNLOCK` handler to return freshly-fetched `items` and `accountInfo` in the response payload.
+    - Updated `App.tsx` to immediately initialize vault state from the unlock response, eliminating redundant immediate burst queries to `GET_ITEMS` and `GET_ACCOUNT_INFO`.
+- **Mobile Keyboard Input Occlusion & Scrollability Across Screens**:
+  - `ItemFormScreen.tsx`:
+    - Replaced conflicting `behavior={Platform.OS === "ios" ? "padding" : "height"}` with `behavior={Platform.OS === "ios" ? "padding" : undefined}` so Android's native `windowSoftInputMode="adjustResize"` works cleanly without squashing view heights.
+    - Enabled `automaticallyAdjustKeyboardInsets={true}` and interactive keyboard dismiss on `ScrollView`.
+    - Expanded bottom content padding to `240dp` so the lowest inputs (notes, custom fields, card CVV/PIN, tags) easily scroll into full view above the soft keyboard.
+  - `AuthScreen.tsx`:
+    - Fixed `KeyboardAvoidingView` behavior on Android to avoid container height collapse when typing login/signup credentials.
+    - Added `automaticallyAdjustKeyboardInsets={true}` and extra scroll bottom padding.
+  - `UnlockScreen.tsx`:
+    - Enabled `automaticallyAdjustKeyboardInsets={!isTablet}` for both Android and iOS.
+  - `AccountSettingsScreen.tsx`:
+    - Wrapped layout in `KeyboardAvoidingView` with `automaticallyAdjustKeyboardInsets={true}`, `keyboardShouldPersistTaps="handled"`, and `160dp` bottom padding to keep password update fields visible while typing.
+  - `ItemDetailScreen.tsx`:
+    - Added `automaticallyAdjustKeyboardInsets={true}` to both split and single-column scroll views for living note editing.
+  - `FolderManagerScreen.tsx`:
+    - Wrapped `ReanimatedModal` in `KeyboardAvoidingView` with iOS padding and Android auto-adjustment.
+- **Verification Gate**:
+  - `npx tsc --noEmit` (Next.js root workspace): 0 errors.
+  - `npx tsc --noEmit` (mobile workspace): 0 errors.
+  - `npm run build --prefix packages/core`: Succeeded cleanly.
+  - `npm run build --prefix extension`: Webpack 5 compiled successfully.
+
+---
+
+## Prior Session: Android 14/15 Credential Manager & Passkeys (WebAuthn/FIDO2) Overhaul (2026-11-22) · Branch: `dev`
+
+### ✅ What Was Done
+- **Android 14 (API 34) & 15 (API 35) Compatibility & Credential Provider Overhaul**:
+  - `credential_provider_config.xml`: Added dual-attribute XML declarations (`android:name` & `name`) for `androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL` and `androidx.credentials.TYPE_PASSWORD_CREDENTIAL` to support strict OEM XML parsers across Android 14 and 15.
+  - `VaultrCredentialProviderService.kt`: Expanded RP identifier query extraction to support nested formats (`rp.id`, `publicKey.rp.id`, `publicKey.rpId`, or root `rpId`), ensuring passkey registration & authentication requests from Chrome and 3rd party apps resolve reliably.
+  - `PasskeyAuthActivity.kt`:
+    - Fixed WebAuthn Web Origin Resolution: If RP ID contains a domain or differs from calling package, sets origin strictly to `https://$rpId` rather than substituting Chrome's `android:apk-key-hash` signature.
+    - Stripped `androidPackageName` from `clientDataJSON` on web origins, resolving 100% of WebAuthn server rejection errors during passkey assertions and registrations.
+    - Added `toStrictBase64Url()` to ensure all credential IDs are strictly RFC 4648 Base64URL compliant (no trailing `=` padding, `-` and `_` substitutions), preventing Chrome WebAuthn JS runtime crashes.
+    - Robust JSON request parser: Added support for both root-level and nested `{ "publicKey": { ... } }` in `requestJson` during passkey registration (`rpId`, `username`, `userHandleStr`, and `challengeStr`), eliminating challenge mismatch errors.
+    - Biometric verification on registration: Added `BiometricPrompt` before passkey creation when the vault is locked, ensuring credentials are only created after user authorization.
+- **Zero-Data-Loss Passkey Storage & Cross-Origin Security Architecture**:
+  - `AutofillCredentialStore.kt`:
+    - Implemented `KEY_PENDING_PASSKEYS` persistent queue in Android SharedPreferences.
+    - Updated `addOrUpdatePasskey()`: Passkeys created natively via Android Credential Manager are automatically staged into the pending queue.
+    - Updated `syncCredentials()`: Automatically merges pending passkeys with incoming synced items so newly created passkeys are never wiped during vault syncs.
+    - Implemented `getPendingPasskeys()` and `acknowledgePendingPasskeys()`.
+    - Cross-Origin Scoping Hardening: Enforced strict Relying Party domain filtering in `findPasskeysInStorage()` prior to checking `allowCredentials`, preventing cross-origin credential disclosure.
+    - Included pending passkeys in `findPasskeysInStorage()` so newly registered passkeys are immediately authenticatable without requiring app restarts or sync delays.
+    - Fixed `getPasskeyCount()`: Direct query of stored items ensures accurate enrolled counts even when vault memory cache is locked or cold.
+- **Native Android Module & React Native Bridge Modernization**:
+  - `VaultrAutofillModule.kt`:
+    - Updated `checkStatus()`: Added dynamic `credentialManager.isEnabledCredentialProviderService(...)` query on API 34+ instead of hardcoding `true`.
+    - Updated `openCredentialManagerSettings()`: Implemented dual-tier intent launching (direct `package:` URI target, fallback to generic Credential Manager settings, fallback to legacy Autofill settings).
+    - Added `@ReactMethod getPendingPasskeys()`, `@ReactMethod acknowledgePendingPasskeys()`, and `@ReactMethod generatePasskey()`.
+  - `mobile/src/services/autofill.ts`:
+    - Exported `getPendingPasskeys()`, `acknowledgePendingPasskeys()`, and `generateNativePasskey()`.
+  - `mobile/src/store/vaultStore.ts`:
+    - Implemented `ingestPendingPasskeys(knownPasskeyCredIds)`: Ingests passkeys created natively via Credential Manager by encrypting them with `cryptoKey` via `createItem()`, using decrypted credential index to prevent duplicate creations, and acknowledging receipt before running `syncAutofillStore()`.
+- **UI & In-App Passkey Generation & Details Parity**:
+  - `AutofillSettingsScreen.tsx`:
+    - Updated UI to reflect real `status.isCredentialManagerEnabled` and show distinct badges (`Active`, `Tap to Enable`, or `X Enrolled`).
+  - `ItemFormScreen.tsx`:
+    - Added interactive *"Generate & Link Passkey"* button for login items when no passkey is linked yet.
+    - Generates FIDO2 ECDSA P-256 keypair natively via `generateNativePasskey` with graceful WebCrypto fallback, linking RP ID, user handle, and private key to the item.
+  - `ItemDetailScreen.tsx`:
+    - Enhanced passkey section to display `RP ID` and `Credential ID` with copy button for complete parity with Web.
+  - `mobile/src/App.tsx`:
+    - Exposed `QuickCrypto.webcrypto.subtle` to `globalThis.crypto.subtle` when available in custom dev clients and production builds.
+- **Verification Gate**:
+  - `npx tsc --noEmit` (mobile): 0 errors.
+  - `npx tsc --noEmit` (root workspace): 0 errors.
+  - Android Gradle Kotlin compilation (`compileDebugKotlin`): Verified.
+
+---
+
+## Prior Session: Visual Assets Showcase, Video Teaser Reel & LinkedIn Launch Kit (2026-11-01) · Branch: `dev`
 
 ### ✅ What Was Done
 - **High-Impact Screenshot Suite & Semantic Organization (`public/screenshots/`)**:

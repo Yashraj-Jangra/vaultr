@@ -66,6 +66,29 @@ export function getClientIp(req: NextRequest): string | undefined {
   const realIp = req.headers.get("x-real-ip")?.trim();
   if (realIp && isValidIp(realIp)) return realIp;
 
-  // ── 3. No usable IP found ─────────────────────────────────────────────────
+  // ── 3. Cloudflare / CDN headers ──────────────────────────────────────────
+  const cfIp = req.headers.get("cf-connecting-ip")?.trim();
+  if (cfIp && isValidIp(cfIp)) return cfIp;
+
+  // ── 4. Next.js socket / direct IP (if available) ──────────────────────────
+  const directIp = (req as any).ip || (req as any).socket?.remoteAddress;
+  if (directIp && typeof directIp === "string") {
+    const cleaned = directIp.replace(/^::ffff:/, "").trim();
+    if (isValidIp(cleaned)) return cleaned;
+  }
+
+  // ── 5. Localhost / Loopback fallback ─────────────────────────────────────
+  const host = req.headers.get("host") || "";
+  if (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("[::1]") ||
+    host.includes(":3000") ||
+    host.includes(":8081")
+  ) {
+    return "127.0.0.1";
+  }
+
+  // ── 6. No usable IP found ─────────────────────────────────────────────────
   return undefined;
 }

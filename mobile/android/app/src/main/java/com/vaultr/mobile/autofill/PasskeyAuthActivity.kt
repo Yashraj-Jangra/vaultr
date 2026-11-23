@@ -86,6 +86,10 @@ class PasskeyAuthActivity : Activity() {
             return Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING).trim()
         }
 
+        fun toStrictBase64Url(input: String): String {
+            return input.trim().replace('+', '-').replace('/', '_').replace(Regex("=+$"), "")
+        }
+
         fun decodePrivateKey(rawKey: String): ByteArray {
             var cleaned = rawKey.trim()
             if (cleaned.contains("-----BEGIN")) {
@@ -496,8 +500,10 @@ class PasskeyAuthActivity : Activity() {
         }
 
         val callingAppInfo = getRequest?.callingAppInfo
+        val rawOrigin = callingAppInfo?.origin
         val origin = when {
-            !callingAppInfo?.origin.isNullOrBlank() -> callingAppInfo!!.origin
+            !rawOrigin.isNullOrBlank() -> rawOrigin
+            rpId.isNotBlank() && (rpId.contains(".") || !callingPkg.equals(rpId, ignoreCase = true)) -> "https://$rpId"
             callingPkg.isNotBlank() -> {
                 val apkHash = getApkKeyHash(packageManager, callingPkg)
                 if (apkHash != null) "android:apk-key-hash:$apkHash" else "https://$rpId"
@@ -505,13 +511,14 @@ class PasskeyAuthActivity : Activity() {
             else -> "https://$rpId"
         }
 
+        val isWebOrigin = origin.startsWith("https://") || origin.startsWith("http://")
         // Build clientDataJSON (W3C WebAuthn L3 standard with crossOrigin: false)
         val clientDataJsonObj = JSONObject().apply {
             put("type", "webauthn.get")
             put("challenge", challengeStr)
             put("origin", origin)
             put("crossOrigin", false)
-            if (callingPkg.isNotBlank()) {
+            if (!isWebOrigin && callingPkg.isNotBlank()) {
                 put("androidPackageName", callingPkg)
             }
         }
@@ -549,7 +556,7 @@ class PasskeyAuthActivity : Activity() {
 
         val authDataB64Url = encodeBase64Url(authData)
         val sigB64Url = encodeBase64Url(derSignature)
-        val rawCredIdB64Url = item.passkeyCredentialId ?: credentialId
+        val rawCredIdB64Url = toStrictBase64Url(item.passkeyCredentialId ?: credentialId)
 
         // 6. Build W3C FIDO2 assertion response JSON
         val responseObj = JSONObject().apply {
@@ -610,18 +617,29 @@ class PasskeyAuthActivity : Activity() {
         if (requestJson.isNotBlank()) {
             try {
                 val root = JSONObject(requestJson)
-                val rp = root.optJSONObject("rp")
+                val pkObj = root.optJSONObject("publicKey") ?: root
+
+                val rp = pkObj.optJSONObject("rp") ?: root.optJSONObject("rp")
                 if (rp != null && rp.optString("id").isNotBlank()) {
                     rpId = rp.optString("id")
+                } else if (pkObj.optString("rpId").isNotBlank()) {
+                    rpId = pkObj.optString("rpId")
+                } else if (root.optString("rpId").isNotBlank()) {
+                    rpId = root.optString("rpId")
                 }
-                val user = root.optJSONObject("user")
+
+                val user = pkObj.optJSONObject("user") ?: root.optJSONObject("user")
                 if (user != null) {
                     if (username.isBlank()) {
                         username = user.optString("name", "")
+                        if (username.isBlank()) {
+                            username = user.optString("displayName", "")
+                        }
                     }
                     userHandleStr = user.optString("id", "")
                 }
-                challengeStr = root.optString("challenge", "")
+
+                challengeStr = pkObj.optString("challenge").ifBlank { root.optString("challenge", "") }
             } catch (_: Exception) {}
         }
 
@@ -632,6 +650,60 @@ class PasskeyAuthActivity : Activity() {
             challengeStr = encodeBase64Url(ByteArray(32))
         }
 
+        val sanitizedUserHandle = if (userHandleStr.isNotBlank()) toStrictBase64Url(userHandleStr) else ""
+
+        if (AutofillCredentialStore.isVaultLocked()) {
+            Log.d(TAG, "Vault locked for passkey registration — presenting BiometricPrompt")
+            val promptBuilder = BiometricPrompt.Builder(this)
+                .setTitle("Save Passkey to VaultR")
+                .setSubtitle(if (username.isNotBlank()) "Authenticate to register passkey for $username" else "Authenticate to register passkey on $rpId")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                promptBuilder.setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                promptBuilder.setDeviceCredentialAllowed(true)
+            }
+
+            val prompt = promptBuilder.build()
+            val cancellationSignal = CancellationSignal()
+            prompt.authenticate(
+                cancellationSignal,
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                        Log.d(TAG, "Biometric authentication succeeded for passkey creation")
+                        AutofillCredentialStore.unlockVault(applicationContext)
+                        performPasskeyCreate(rpId, username, sanitizedUserHandle, challengeStr, callingPkg, callingAppInfo, resultIntent)
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                        Log.w(TAG, "Biometric authentication canceled/error for create: $errorCode ($errString)")
+                        finishWithCreateFailure(errString?.toString() ?: "Registration canceled")
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        Log.w(TAG, "Biometric authentication failed for create")
+                    }
+                }
+            )
+        } else {
+            performPasskeyCreate(rpId, username, sanitizedUserHandle, challengeStr, callingPkg, callingAppInfo, resultIntent)
+        }
+    }
+
+    private fun performPasskeyCreate(
+        rpId: String,
+        username: String,
+        userHandleStr: String,
+        challengeStr: String,
+        callingPkg: String,
+        callingAppInfo: androidx.credentials.provider.CallingAppInfo?,
+        resultIntent: Intent
+    ) {
         // 1. Generate EC P-256 KeyPair
         val kpg = KeyPairGenerator.getInstance("EC")
         kpg.initialize(ECGenParameterSpec("secp256r1"))
@@ -671,8 +743,10 @@ class PasskeyAuthActivity : Activity() {
         val attestationObjectB64Url = encodeBase64Url(attestationObject)
 
         // 4. Build clientDataJSON
+        val rawOrigin = callingAppInfo?.origin
         val origin = when {
-            !callingAppInfo?.origin.isNullOrBlank() -> callingAppInfo!!.origin
+            !rawOrigin.isNullOrBlank() -> rawOrigin
+            rpId.isNotBlank() && (rpId.contains(".") || !callingPkg.equals(rpId, ignoreCase = true)) -> "https://$rpId"
             callingPkg.isNotBlank() -> {
                 val apkHash = getApkKeyHash(packageManager, callingPkg)
                 if (apkHash != null) "android:apk-key-hash:$apkHash" else "https://$rpId"
@@ -680,12 +754,13 @@ class PasskeyAuthActivity : Activity() {
             else -> "https://$rpId"
         }
 
+        val isWebOrigin = origin.startsWith("https://") || origin.startsWith("http://")
         val clientDataJsonObj = JSONObject().apply {
             put("type", "webauthn.create")
             put("challenge", challengeStr)
             put("origin", origin)
             put("crossOrigin", false)
-            if (callingPkg.isNotBlank()) {
+            if (!isWebOrigin && callingPkg.isNotBlank()) {
                 put("androidPackageName", callingPkg)
             }
         }

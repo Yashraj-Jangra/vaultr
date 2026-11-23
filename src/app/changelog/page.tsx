@@ -33,8 +33,23 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
-    version: "v0.2.12",
+    version: "v0.2.13",
     isLatest: true,
+    codename: "Android 15 Passkeys & Rate Limit Hardening",
+    date: "November 23, 2026",
+    tagline: "Native Android 14/15 FIDO2 Passkeys, Credential Manager Auto-Ingestion, Zero-Loop API Rate Limiting & Mobile Keyboard Inset Parity",
+    changes: [
+      { type: "security", text: "Android 14/15 Credential Manager: Native WebAuthn passkey registration & authentication support with RFC 4648 Base64URL compliance and origin resolution." },
+      { type: "mobile", text: "Staged Passkey Persistence: Zero-data-loss pending passkey queue in SharedPreferences, auto-ingesting native passkeys into encrypted vault entries upon unlock." },
+      { type: "feature", text: "In-App Passkey Generation: Instant FIDO2 ECDSA P-256 keypair generation natively via Android bridge and WebCrypto fallback with full RP ID / Credential ID inspection parity." },
+      { type: "security", text: "Zero-Loop API Rate Limiting: Fixed multi-bucket evaluation bug in proxy middleware, isolated /api/vault/items from general API exhaustion, and exempted cached image proxies (/api/favicon, /api/avatars)." },
+      { type: "mobile", text: "Mobile Keyboard Avoidance: Switched KeyboardAvoidingView to native resize mode on Android and enabled automaticallyAdjustKeyboardInsets so form fields stay fully visible above the keyboard." },
+      { type: "performance", text: "Robust Client IP Resolution: Multi-tier proxy header fallbacks preventing IP collapse to 'unknown' across dev environments and Docker containers." },
+      { type: "extension", text: "Extension Unlock Optimization: Single-turn payload delivery on vault unlock, eliminating redundant post-unlock network queries." },
+    ],
+  },
+  {
+    version: "v0.2.12",
     codename: "Standalone Pop-out Mode & In-Page Autofill Orchestration",
     date: "November 1, 2026",
     tagline: "Standalone Pop-out Extension Window, Locked Autofill Detection & Unlock Prompt, Tab Resolution Parity & UI Modernization",

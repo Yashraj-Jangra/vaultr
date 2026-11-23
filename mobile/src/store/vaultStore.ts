@@ -3,7 +3,7 @@ import { VaultItem, VaultrApiClient, deriveKey, decrypt, encrypt, encryptBinary,
 import { cacheVaultItems, getCachedVaultItems, clearCachedVaultItems } from "../services/sync";
 import { unlockWithBiometrics, clearBiometricPassword, getStoredPasswordChangedAt, setStoredPasswordChangedAt, clearStoredPasswordChangedAt } from "../services/biometrics";
 import { saveAccountSession, getSavedAccountSession, clearAccountSession, AccountUser } from "../services/auth";
-import { syncAutofillCredentials, clearAutofillCredentials } from "../services/autofill";
+import { syncAutofillCredentials, clearAutofillCredentials, getPendingPasskeys, acknowledgePendingPasskeys } from "../services/autofill";
 import { probeServerConnection, startConnectivityMonitor } from "../services/connectivity";
 import { Platform, NativeModules } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -1256,10 +1256,77 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 }));
 
+/** Ingests any passkeys created externally via Android Credential Manager, encrypts them, and saves to vault. */
+async function ingestPendingPasskeys(knownCredIds?: Set<string>) {
+  const { cryptoKey, isOnline } = useVaultStore.getState();
+  if (!cryptoKey || !isOnline) return;
+
+  try {
+    const pending = await getPendingPasskeys();
+    if (!pending || pending.length === 0) return;
+
+    const acknowledgedIds: string[] = [];
+
+    for (const p of pending) {
+      if (!p.passkeyCredentialId) continue;
+      const targetIdNorm = p.passkeyCredentialId.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+      const alreadyInVault = knownCredIds?.has(targetIdNorm);
+
+      if (!alreadyInVault) {
+        console.log(`[VaultStore] Ingesting pending passkey for ${p.username} on ${p.passkeyRpId}`);
+        const name = p.name || (p.username ? `${p.username} (${p.passkeyRpId || "Passkey"})` : (p.passkeyRpId || "Passkey"));
+        const payload = {
+          name,
+          template: "login" as Template,
+          username: p.username || "",
+          password: "",
+          url: p.passkeyRpId ? `https://${p.passkeyRpId}` : "",
+          isPasskey: true,
+          passkeyRpId: p.passkeyRpId || "",
+          passkeyCredentialId: p.passkeyCredentialId,
+          passkeyUserHandle: p.passkeyUserHandle || "",
+          passkeyPrivateKey: p.passkeyPrivateKey || "",
+          passkeySignCount: p.passkeySignCount || 0,
+          passkeyTransports: p.passkeyTransports || ["internal"],
+          passkeyCreatedAt: new Date().toISOString(),
+        };
+
+        try {
+          const created = await useVaultStore.getState().createItem({
+            name,
+            template: "login",
+            domain: p.passkeyRpId || undefined,
+            tags: ["passkey"],
+            unencryptedPayload: payload,
+          });
+          if (created && created.id) {
+            acknowledgedIds.push(p.id);
+            if (p.passkeyCredentialId) acknowledgedIds.push(p.passkeyCredentialId);
+            knownCredIds?.add(targetIdNorm);
+          }
+        } catch (createErr) {
+          console.warn("[VaultStore] Failed to auto-create vault item for pending passkey:", createErr);
+        }
+      } else {
+        // Already in vault, simply acknowledge
+        acknowledgedIds.push(p.id);
+        if (p.passkeyCredentialId) acknowledgedIds.push(p.passkeyCredentialId);
+      }
+    }
+
+    if (acknowledgedIds.length > 0) {
+      await acknowledgePendingPasskeys(acknowledgedIds);
+    }
+  } catch (err) {
+    console.warn("[VaultStore] Failed to ingest pending passkeys:", err);
+  }
+}
+
 /** Decrypts active login entries in background and syncs credentials to native AutofillCredentialStore. */
 async function syncAutofillStore() {
   const { items, cryptoKey } = useVaultStore.getState();
   if (!cryptoKey) return;
+
   const timeoutStr = await AsyncStorage.getItem("vaultr_auto_lock_timeout");
   const timeoutMinutes = parseInt(timeoutStr || "5", 10) || 5;
 
@@ -1269,11 +1336,17 @@ async function syncAutofillStore() {
     return tmpl === "login" || (i as any).isPasskey || i.tags?.includes("passkey");
   });
   const datasets: any[] = [];
+  const knownPasskeyCredIds = new Set<string>();
+
   for (const item of loginItems) {
     try {
       const raw = await decrypt(cryptoKey, item.encryptedBlob);
       const p = JSON.parse(raw);
       const isPasskey = Boolean(p.isPasskey || p.passkeyCredentialId || (item as any).isPasskey || item.tags?.includes("passkey"));
+      if (p.passkeyCredentialId) {
+        knownPasskeyCredIds.add(p.passkeyCredentialId.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/"));
+      }
+
       if (p.username || p.password || isPasskey) {
         const rawUrls: string[] = [];
         if (p.url && typeof p.url === "string") rawUrls.push(p.url);
@@ -1316,6 +1389,10 @@ async function syncAutofillStore() {
       }
     } catch {}
   }
+
+  // Ingest any passkeys created via Android Credential Manager while app was idle
+  await ingestPendingPasskeys(knownPasskeyCredIds);
+
   await syncAutofillCredentials(datasets, timeoutMinutes);
 }
 
