@@ -12,7 +12,7 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com/Yashraj-Jangra/vaultr"><img src="https://img.shields.io/badge/version-v0.2.12-f59e0b.svg?style=for-the-badge&logo=git&logoColor=white" alt="Version" /></a>
+    <a href="https://github.com/Yashraj-Jangra/vaultr"><img src="https://img.shields.io/badge/version-v0.2.13-f59e0b.svg?style=for-the-badge&logo=git&logoColor=white" alt="Version" /></a>
     <a href="https://vaultr.cvweb.tech"><img src="https://img.shields.io/badge/Live_App-vaultr.cvweb.tech-10b981.svg?style=for-the-badge&logo=vercel&logoColor=white" alt="Live App" /></a>
     <a href="https://github.com/Yashraj-Jangra/vaultr/releases"><img src="https://img.shields.io/badge/Android_APK-Latest_Release-3b82f6.svg?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-64748b.svg?style=for-the-badge" alt="License" /></a>
