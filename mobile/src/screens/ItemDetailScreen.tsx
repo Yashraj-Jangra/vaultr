@@ -1017,7 +1017,12 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             <Text style={styles.loadingText}>Decrypting payload...</Text>
           </View>
         ) : isSplitView && !isNoteTemplate ? (
-          <ScrollView contentContainerStyle={styles.splitContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={styles.splitContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+          >
             <View style={styles.splitLeftCol}>
               {renderVisualPreviewAndHeader()}
             </View>
@@ -1026,7 +1031,12 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             </View>
           </ScrollView>
         ) : (
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+          >
             {renderVisualPreviewAndHeader()}
             {renderDetailSections()}
           </ScrollView>

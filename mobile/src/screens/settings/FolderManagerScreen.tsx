@@ -9,6 +9,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -615,12 +617,17 @@ function ReanimatedModal({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleDismiss}>
-      <Animated.View style={[styles.modalOverlay, backdropStyle]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleDismiss} />
-        <Animated.View style={[{ width: "100%", maxWidth: 380, alignItems: "center" }, surfaceStyle]}>
-          {children}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <Animated.View style={[styles.modalOverlay, backdropStyle]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleDismiss} />
+          <Animated.View style={[{ width: "100%", maxWidth: 380, alignItems: "center" }, surfaceStyle]}>
+            {children}
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -61,22 +61,22 @@ const RULES: RateLimitRule[] = [
   {
     bucket: "stream",
     prefix: "/api/vault/stream",
-    max: 30,
-    windowMs: 60 * 1000, // 30 connections per min
+    max: 60,
+    windowMs: 60 * 1000, // 60 connections per min
   },
   // Vault item reads: dedicated bucket so item fetches are isolated
   {
     bucket: "vault-read",
     prefix: "/api/vault/items",
-    max: 60,
-    windowMs: 60 * 1000, // 60 req/min
+    max: 120,
+    windowMs: 60 * 1000, // 120 req/min
   },
   // General API: generous but bounded
   {
     bucket: "api",
     prefix: "/api/",
-    max: 120,
-    windowMs: 60 * 1000, // 120 req/min
+    max: 180,
+    windowMs: 60 * 1000, // 180 req/min
   },
 ];
 
@@ -144,18 +144,23 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Exempt cached image proxy endpoints from API rate limiting
+  if (pathname.startsWith("/api/favicon") || pathname.startsWith("/api/avatars")) {
+    return NextResponse.next();
+  }
+
   maybePrune();
 
   // Resolve client IP — fall back to a fixed key if unknown (avoids undefined bypass)
   const ip = getClientIp(req) ?? "unknown";
 
-  // Find the most-specific matching rule (longest prefix wins)
-  const matchingRules = RULES.filter((r) => pathname.startsWith(r.prefix)).sort(
+  // Find the single most-specific matching rule (longest prefix wins)
+  const matchingRule = RULES.filter((r) => pathname.startsWith(r.prefix)).sort(
     (a, b) => b.prefix.length - a.prefix.length
-  );
+  )[0];
 
-  for (const rule of matchingRules) {
-    const { allowed, remaining, resetAt } = checkRateLimit(ip, rule);
+  if (matchingRule) {
+    const { allowed, remaining, resetAt } = checkRateLimit(ip, matchingRule);
 
     if (!allowed) {
       const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
@@ -169,7 +174,7 @@ export function proxy(req: NextRequest) {
           headers: {
             "Content-Type": "application/json",
             "Retry-After": String(retryAfter),
-            "X-RateLimit-Limit": String(rule.max),
+            "X-RateLimit-Limit": String(matchingRule.max),
             "X-RateLimit-Remaining": String(remaining),
             "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
           },

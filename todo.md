@@ -1,4 +1,43 @@
-## Current Session: Android 14/15 Credential Manager & Passkeys (WebAuthn/FIDO2) Overhaul (2026-11-22) · Branch: `dev`
+## Current Session: Rate Limiting Middleware Hardening & Mobile Keyboard Input Occlusion Fix (2026-11-23) · Branch: `dev`
+
+### ✅ What Was Done
+- **Root-Cause Diagnostic & Remediation of 429 "Too Many Requests" Error on Vault Unlock**:
+  - `src/proxy.ts`:
+    - Resolved critical multi-bucket increment bug where `for (const rule of matchingRules)` evaluated and double/triple-counted every matching rule instead of picking the single longest-prefix rule.
+    - Updated rule resolution to strictly pick the single most-specific rule (`matchingRules[0]`), isolating `vault-read` (/api/vault/items), `stream` (/api/vault/stream), and `auth` (/api/auth/sign-in) from exhausting the general `api` bucket.
+    - Exempted cached image proxy routes (`/api/favicon` and `/api/avatars`) from the API rate limiter, completely preventing the "Post-Login Favicon Storm" (40-100 parallel icon fetches) from consuming the rate limit.
+    - Increased rate limit bucket capacities to resilient production thresholds: `vault-read` to 120 req/min, `stream` to 60 req/min, and general `api` to 180 req/min.
+  - `src/lib/getClientIp.ts`:
+    - Added comprehensive fallbacks for `cf-connecting-ip`, `x-client-ip`, Next.js direct socket IP, and local host loopback (`127.0.0.1`).
+    - Eliminated fallback collapse to static `"unknown"` sentinel during local development, port-forwarding, or direct Docker access.
+  - `extension/src/background/service-worker.ts` & `extension/src/popup/App.tsx`:
+    - Optimized `UNLOCK` handler to return freshly-fetched `items` and `accountInfo` in the response payload.
+    - Updated `App.tsx` to immediately initialize vault state from the unlock response, eliminating redundant immediate burst queries to `GET_ITEMS` and `GET_ACCOUNT_INFO`.
+- **Mobile Keyboard Input Occlusion & Scrollability Across Screens**:
+  - `ItemFormScreen.tsx`:
+    - Replaced conflicting `behavior={Platform.OS === "ios" ? "padding" : "height"}` with `behavior={Platform.OS === "ios" ? "padding" : undefined}` so Android's native `windowSoftInputMode="adjustResize"` works cleanly without squashing view heights.
+    - Enabled `automaticallyAdjustKeyboardInsets={true}` and interactive keyboard dismiss on `ScrollView`.
+    - Expanded bottom content padding to `240dp` so the lowest inputs (notes, custom fields, card CVV/PIN, tags) easily scroll into full view above the soft keyboard.
+  - `AuthScreen.tsx`:
+    - Fixed `KeyboardAvoidingView` behavior on Android to avoid container height collapse when typing login/signup credentials.
+    - Added `automaticallyAdjustKeyboardInsets={true}` and extra scroll bottom padding.
+  - `UnlockScreen.tsx`:
+    - Enabled `automaticallyAdjustKeyboardInsets={!isTablet}` for both Android and iOS.
+  - `AccountSettingsScreen.tsx`:
+    - Wrapped layout in `KeyboardAvoidingView` with `automaticallyAdjustKeyboardInsets={true}`, `keyboardShouldPersistTaps="handled"`, and `160dp` bottom padding to keep password update fields visible while typing.
+  - `ItemDetailScreen.tsx`:
+    - Added `automaticallyAdjustKeyboardInsets={true}` to both split and single-column scroll views for living note editing.
+  - `FolderManagerScreen.tsx`:
+    - Wrapped `ReanimatedModal` in `KeyboardAvoidingView` with iOS padding and Android auto-adjustment.
+- **Verification Gate**:
+  - `npx tsc --noEmit` (Next.js root workspace): 0 errors.
+  - `npx tsc --noEmit` (mobile workspace): 0 errors.
+  - `npm run build --prefix packages/core`: Succeeded cleanly.
+  - `npm run build --prefix extension`: Webpack 5 compiled successfully.
+
+---
+
+## Prior Session: Android 14/15 Credential Manager & Passkeys (WebAuthn/FIDO2) Overhaul (2026-11-22) · Branch: `dev`
 
 ### ✅ What Was Done
 - **Android 14 (API 34) & 15 (API 35) Compatibility & Credential Provider Overhaul**:

@@ -1545,13 +1545,15 @@ export function ItemFormScreen({ route, navigation }: Props) {
         </View>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
           {isSplitView ? (
             <ScrollView
-              contentContainerStyle={[styles.splitContent, { paddingBottom: 150 }]}
+              contentContainerStyle={[styles.splitContent, { paddingBottom: 240 }]}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="interactive"
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.splitLeftCol}>
@@ -1563,8 +1565,10 @@ export function ItemFormScreen({ route, navigation }: Props) {
             </ScrollView>
           ) : (
             <ScrollView
-              contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+              contentContainerStyle={[styles.content, { paddingBottom: 240 }]}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="interactive"
               showsVerticalScrollIndicator={false}
             >
               {renderLeftPane()}

@@ -184,12 +184,13 @@ export function AuthScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#09090b" />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[styles.card, { opacity: fadeAnim }]}>

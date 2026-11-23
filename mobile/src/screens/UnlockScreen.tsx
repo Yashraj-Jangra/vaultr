@@ -676,7 +676,7 @@ export function UnlockScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          automaticallyAdjustKeyboardInsets={!isTablet && Platform.OS === "ios"}
+          automaticallyAdjustKeyboardInsets={!isTablet}
         >
           <View style={[styles.card, shouldCompactForKeyboard && styles.cardKeyboard]}>
             {currentView === "main" && renderMain()}

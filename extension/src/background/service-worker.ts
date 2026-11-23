@@ -687,7 +687,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
           } catch {}
 
-          sendResponse({ success: true, count: items.length });
+          sendResponse({
+            success: true,
+            count: items.length,
+            account: state.accountInfo,
+            items: state.items,
+          });
           break;
         }
 

@@ -146,6 +146,12 @@ export function App() {
         }
         if (res?.success) {
           setIsUnlocked(true);
+          if (res.items && Array.isArray(res.items)) {
+            setItems(res.items);
+          }
+          if (res.account && typeof res.account === "object") {
+            setAccountInfo(res.account);
+          }
           fetchItems();
           fetchAccountInfo();
           resolve();
